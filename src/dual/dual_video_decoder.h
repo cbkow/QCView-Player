@@ -218,6 +218,7 @@ private:
     int              m_swsSrcW   = 0;
     int              m_swsSrcH   = 0;
     int              m_swsSrcFmt = -1;
+    int              m_swsDstFmt = -1;   // Phase J.1: RGBA (8) or RGBA64LE (16)
 
     // ---- Ring buffer ----
     mutable std::mutex                   m_bufferMutex;

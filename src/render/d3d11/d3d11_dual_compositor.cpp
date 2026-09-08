@@ -289,6 +289,7 @@ DXGI_FORMAT formatFor(DualFramePayload::Kind k)
     switch (k) {
     case DualFramePayload::Kind::CpuRgba8:     return DXGI_FORMAT_R8G8B8A8_UNORM;
     case DualFramePayload::Kind::CpuRgba16F:   return DXGI_FORMAT_R16G16B16A16_FLOAT;
+    case DualFramePayload::Kind::CpuRgba16:    return DXGI_FORMAT_R16G16B16A16_UNORM;
     case DualFramePayload::Kind::VulkanShared: return DXGI_FORMAT_UNKNOWN;  // bridge picks
     case DualFramePayload::Kind::Empty:        return DXGI_FORMAT_UNKNOWN;
     }

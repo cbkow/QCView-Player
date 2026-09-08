@@ -35,6 +35,8 @@ struct DualFramePayload {
         Empty,         // no frame (past-end, decoder not ready, etc.)
         CpuRgba8,      // QImage::Format_RGBA8888 — SDR sources
         CpuRgba16F,    // QImage::Format_RGBA16FPx4 — EXR sources
+        CpuRgba16,     // QImage::Format_RGBA64 — >8-bit video, Phase J.1
+                       // (4 × uint16 → R16G16B16A16_UNORM)
         VulkanShared,  // FFmpeg Vulkan hwaccel — AVVkFrame in AVFrame->data[0]
     };
 

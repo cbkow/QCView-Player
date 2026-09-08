@@ -20,9 +20,11 @@ DualFramePayload payloadFromDualFrame(
     case qcv::dual::DualFrame::Kind::Cpu: {
         const QImage *img = frame->rgba.get();
         if (!img || img->isNull()) return out;
-        const bool isFp16 = (img->format() == QImage::Format_RGBA16FPx4);
-        out.kind = isFp16 ? DualFramePayload::Kind::CpuRgba16F
-                          : DualFramePayload::Kind::CpuRgba8;
+        switch (img->format()) {
+        case QImage::Format_RGBA16FPx4: out.kind = DualFramePayload::Kind::CpuRgba16F; break;
+        case QImage::Format_RGBA64:     out.kind = DualFramePayload::Kind::CpuRgba16;  break;  // Phase J.1
+        default:                        out.kind = DualFramePayload::Kind::CpuRgba8;   break;
+        }
         out.width     = img->width();
         out.height    = img->height();
         out.cpuBits   = img->constBits();

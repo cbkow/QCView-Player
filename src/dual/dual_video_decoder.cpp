@@ -641,10 +641,20 @@ void DualVideoDecoder::teardownFFmpeg()
 
 bool DualVideoDecoder::initSwsContext(AVFrame *frame)
 {
+    // Phase J.1 — depth-aware destination (rgb_range.h), Windows for
+    // now: the D3D11 dual compositor uploads RGBA64 as UNORM16; the
+    // Metal dual path has not adopted RGBA64 yet, so macOS keeps RGBA8
+    // until its own pass.
+#if defined(Q_OS_WIN)
+    const AVPixelFormat dstFmt = cpuPublishPixelFormat(frame->format);
+#else
+    const AVPixelFormat dstFmt = AV_PIX_FMT_RGBA;
+#endif
     const bool fresh = !(m_sws
         && m_swsSrcW   == frame->width
         && m_swsSrcH   == frame->height
-        && m_swsSrcFmt == frame->format);
+        && m_swsSrcFmt == frame->format
+        && m_swsDstFmt == dstFmt);
 
     if (fresh) {
         if (m_sws) {
@@ -655,7 +665,7 @@ bool DualVideoDecoder::initSwsContext(AVFrame *frame)
             frame->width, frame->height,
             static_cast<AVPixelFormat>(frame->format),
             frame->width, frame->height,
-            AV_PIX_FMT_RGBA,
+            dstFmt,
             SWS_BILINEAR, nullptr, nullptr, nullptr);
         if (!m_sws) {
             qWarning("DualVideoDecoder: sws_getContext failed");
@@ -664,6 +674,7 @@ bool DualVideoDecoder::initSwsContext(AVFrame *frame)
         m_swsSrcW   = frame->width;
         m_swsSrcH   = frame->height;
         m_swsSrcFmt = frame->format;
+        m_swsDstFmt = dstFmt;
     }
 
     int srcCsp;
@@ -691,6 +702,11 @@ bool DualVideoDecoder::initSwsContext(AVFrame *frame)
     int srcFullRange = detectedFullRange;
     if (ov == 1) srcFullRange = 1;
     else if (ov == 2) srcFullRange = 0;
+    // RGB sources: the legal→full expansion is convertFrameToRgba's
+    // helper (rgb_range.h). swscale's 16-bit RGB→RGBA64 path honours
+    // these flags (the 8-bit one never did), so declare no range change
+    // here or the frame expands twice. Same fix as VideoDecoder.
+    if (isRgbPixelFormat(frame->format)) srcFullRange = 1;
 
     sws_setColorspaceDetails(
         m_sws,
@@ -892,8 +908,10 @@ DualVideoDecoder::convertFrameToRgba(AVFrame *frame, int frameNumber)
     out->width       = src->width;
     out->height      = src->height;
     out->kind        = DualFrame::Kind::Cpu;
+    const bool sixteen = (m_swsDstFmt == AV_PIX_FMT_RGBA64LE);   // Phase J.1
     out->rgba        = std::make_shared<QImage>(src->width, src->height,
-                                                  QImage::Format_RGBA8888);
+                                                  sixteen ? QImage::Format_RGBA64
+                                                          : QImage::Format_RGBA8888);
 
     uint8_t *dst[4] = { out->rgba->bits(), nullptr, nullptr, nullptr };
     int dstStride[4] = { static_cast<int>(out->rgba->bytesPerLine()), 0, 0, 0 };
@@ -905,8 +923,14 @@ DualVideoDecoder::convertFrameToRgba(AVFrame *frame, int frameNumber)
     // expansion under the same rule as playback / scrub (rgb_range.h).
     if (rgbFrameNeedsLegalExpansion(
             src, m_rangeOverride.load(std::memory_order_acquire))) {
-        expandRgba8LegalToFull(out->rgba->bits(), src->width, src->height,
-                               static_cast<int>(out->rgba->bytesPerLine()));
+        if (sixteen) {
+            expandRgba16LegalToFull(reinterpret_cast<uint16_t *>(out->rgba->bits()),
+                                    src->width, src->height,
+                                    static_cast<int>(out->rgba->bytesPerLine()));
+        } else {
+            expandRgba8LegalToFull(out->rgba->bits(), src->width, src->height,
+                                   static_cast<int>(out->rgba->bytesPerLine()));
+        }
     }
 
     return out;
