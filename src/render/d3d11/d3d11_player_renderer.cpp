@@ -214,6 +214,9 @@ struct D3D11PlayerRenderer::Impl {
         int       width  = 0;
         int       height = 0;
         SlotOwner owner  = SlotOwner::None;
+        // Phase J.1 — CPU frames arrive as RGBA8888 or RGBA64 (16-bit
+        // unsigned, see rgb_range.h); the slot texture must match.
+        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
     };
     VideoSlot videoA;
 
@@ -870,8 +873,15 @@ bool D3D11PlayerRenderer::consumeLatestVideoFrame()
     const QImage img = h.cpuImage();
     if (img.isNull()) return false;
 
+    // Phase J.1 — 16-bit CPU frames (QImage::Format_RGBA64, 4 × uint16)
+    // upload verbatim as R16G16B16A16_UNORM; everything else becomes
+    // RGBA8888 → R8G8B8A8_UNORM. Both sample as 0..1 floats, so the
+    // video pixel shader and OCIO need no change.
     QImage frame = img;
-    if (frame.format() != QImage::Format_RGBA8888) {
+    DXGI_FORMAT wantFmt = DXGI_FORMAT_R8G8B8A8_UNORM;
+    if (frame.format() == QImage::Format_RGBA64) {
+        wantFmt = DXGI_FORMAT_R16G16B16A16_UNORM;
+    } else if (frame.format() != QImage::Format_RGBA8888) {
         frame = frame.convertToFormat(QImage::Format_RGBA8888);
     }
     const int w = frame.width();
@@ -885,8 +895,9 @@ bool D3D11PlayerRenderer::consumeLatestVideoFrame()
     if (!device || !ctx) return false;
 
     auto &slot = m_impl->videoA;
-    if (slot.width != w || slot.height != h2 || !slot.texture) {
-        // Recreate slot at new dimensions.
+    if (slot.width != w || slot.height != h2 || !slot.texture
+        || slot.format != wantFmt) {
+        // Recreate slot at new dimensions / format.
         slot.srv.Reset();
         slot.texture.Reset();
 
@@ -895,7 +906,7 @@ bool D3D11PlayerRenderer::consumeLatestVideoFrame()
         td.Height = static_cast<UINT>(h2);
         td.MipLevels = 1;
         td.ArraySize = 1;
-        td.Format    = DXGI_FORMAT_R8G8B8A8_UNORM;
+        td.Format    = wantFmt;
         td.SampleDesc.Count = 1;
         td.Usage     = D3D11_USAGE_DEFAULT;
         td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
@@ -917,8 +928,9 @@ bool D3D11PlayerRenderer::consumeLatestVideoFrame()
         slot.width  = w;
         slot.height = h2;
         slot.owner  = Impl::SlotOwner::Cpu;
+        slot.format = wantFmt;
     } else {
-        // In-place upload — frame dims unchanged.
+        // In-place upload — frame dims + format unchanged.
         ctx->UpdateSubresource(slot.texture.Get(), 0, nullptr,
                                  frame.constBits(),
                                  static_cast<UINT>(frame.bytesPerLine()), 0);

@@ -310,6 +310,7 @@ private:
     int              m_swsSrcWidth = 0;
     int              m_swsSrcHeight = 0;
     int              m_swsSrcFormat = -1;
+    int              m_swsDstFormat = -1;   // Phase J.1: RGBA (8) or RGBA64LE (16)
 
     // Latest-wins publish slot. Decoder writes a FrameHandle (either
     // a CPU QImage from the software path or a retained CVPixelBuffer

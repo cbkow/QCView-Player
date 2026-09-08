@@ -49,6 +49,31 @@ inline bool rgbFrameNeedsLegalExpansion(const AVFrame *frame, int rangeOverride)
     return frame->color_range == AVCOL_RANGE_MPEG;
 }
 
+// Phase J.1 (2026-09-08) — CPU publish depth. Sources deeper than 8
+// bits (10/12-bit YUV, 16-bit RGB, 16-bit Bayer from ProRes RAW) are
+// converted to RGBA64 (16-bit unsigned) and uploaded as UNORM16, so
+// OCIO sees the full source precision instead of an 8-bit truncation.
+// Integer, not half: video is 0..1 with no super-whites and UNORM16
+// keeps every bit; half float has 11 significant bits and would lose
+// precision near white. RGBA16F stays with EXR.
+inline bool sourceNeeds16BitPublish(int avPixFmt)
+{
+    const AVPixFmtDescriptor *desc =
+        av_pix_fmt_desc_get(static_cast<AVPixelFormat>(avPixFmt));
+    if (!desc) return false;
+    if (desc->flags & AV_PIX_FMT_FLAG_BAYER) return true;
+    for (int i = 0; i < desc->nb_components; ++i) {
+        if (desc->comp[i].depth > 8) return true;
+    }
+    return false;
+}
+
+inline AVPixelFormat cpuPublishPixelFormat(int avPixFmt)
+{
+    return sourceNeeds16BitPublish(avPixFmt) ? AV_PIX_FMT_RGBA64LE
+                                             : AV_PIX_FMT_RGBA;
+}
+
 // In-place 16–235 → 0–255 on packed RGBA8888 rows; alpha untouched.
 inline void expandRgba8LegalToFull(uint8_t *data, int width, int height, int stride)
 {
@@ -67,6 +92,29 @@ inline void expandRgba8LegalToFull(uint8_t *data, int width, int height, int str
             row[0] = kLut[row[0]];
             row[1] = kLut[row[1]];
             row[2] = kLut[row[2]];
+        }
+    }
+}
+
+// 16-bit sibling: in-place 4096–60160 (16–235 << 8) → 0–65535 on packed
+// RGBA64 rows (uint16 per channel); alpha untouched. `stride` in bytes.
+inline void expandRgba16LegalToFull(uint16_t *data, int width, int height, int stride)
+{
+    if (!data || width <= 0 || height <= 0) return;
+    constexpr int64_t kLo = 16 << 8, kHi = 235 << 8, kSpan = kHi - kLo;
+    // 64-bit: (v - lo) * 65535 overflows int32 above v ≈ 36 800, which
+    // showed up as bright regions wrapping to black / magenta.
+    auto expand = [](uint16_t v) -> uint16_t {
+        const int64_t e = ((static_cast<int64_t>(v) - kLo) * 65535 + kSpan / 2) / kSpan;
+        return static_cast<uint16_t>(std::clamp<int64_t>(e, 0, 65535));
+    };
+    for (int y = 0; y < height; ++y) {
+        uint16_t *row = reinterpret_cast<uint16_t *>(
+            reinterpret_cast<uint8_t *>(data) + static_cast<std::ptrdiff_t>(y) * stride);
+        for (int x = 0; x < width; ++x, row += 4) {
+            row[0] = expand(row[0]);
+            row[1] = expand(row[1]);
+            row[2] = expand(row[2]);
         }
     }
 }

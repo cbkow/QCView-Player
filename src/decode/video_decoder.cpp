@@ -969,11 +969,15 @@ void VideoDecoder::releaseCachedHwDevice()
 
 bool VideoDecoder::initSwsContext(AVFrame *frame)
 {
+    // Phase J.1 — destination depth follows the source: >8-bit or Bayer
+    // → RGBA64LE (uploaded as UNORM16), else RGBA8. See rgb_range.h.
+    const AVPixelFormat dstFmt = cpuPublishPixelFormat(frame->format);
     // Re-create if first init or any source params changed.
     if (m_sws &&
         m_swsSrcWidth  == frame->width &&
         m_swsSrcHeight == frame->height &&
-        m_swsSrcFormat == frame->format) {
+        m_swsSrcFormat == frame->format &&
+        m_swsDstFormat == dstFmt) {
         return true;
     }
     if (m_sws) {
@@ -984,8 +988,9 @@ bool VideoDecoder::initSwsContext(AVFrame *frame)
         frame->width, frame->height,
         static_cast<AVPixelFormat>(frame->format),
         frame->width, frame->height,
-        AV_PIX_FMT_RGBA,
+        dstFmt,
         SWS_BILINEAR, nullptr, nullptr, nullptr);
+    m_swsDstFormat = dstFmt;
     if (!m_sws) {
         setError(tr("sws_getContext failed"));
         return false;
@@ -1021,6 +1026,14 @@ bool VideoDecoder::initSwsContext(AVFrame *frame)
     const int rangeOv = m_rangeOverride.load(std::memory_order_acquire);
     if (rangeOv == 1) srcFullRange = 1;        // Full
     else if (rangeOv == 2) srcFullRange = 0;   // Limited
+    // RGB sources: range expansion is done by publishCpuFrame's helper
+    // (rgb_range.h, one rule shared with scrub / dual / thumbs). The
+    // 8-bit RGB→RGBA path in swscale ignores these range flags, but the
+    // 16-bit RGB→RGBA64 path (swscale 10) honours them — leaving
+    // limited→full here made the Avid DNxHR 444 clip expand TWICE
+    // (crushed blacks, clipped highlights). Declare no range change so
+    // the helper stays the single source of truth on both depths.
+    if (isRgbPixelFormat(frame->format)) srcFullRange = 1;
 
     sws_setColorspaceDetails(
         m_sws,
@@ -1051,16 +1064,22 @@ void VideoDecoder::publishCpuFrame(AVFrame *frame)
     // One-shot diag — fires the first time we publish a CPU frame
     // for this source so we can see the format we're round-tripping
     // through swscale.
+    const bool sixteen = (m_swsDstFormat == AV_PIX_FMT_RGBA64LE);
     if (!m_loggedCpuFormat) {
         const char *name = av_get_pix_fmt_name(static_cast<AVPixelFormat>(frame->format));
-        qInfo("VideoDecoder[%s]: CPU publish path — pix_fmt=%s (%dx%d)",
+        qInfo("VideoDecoder[%s]: CPU publish path — pix_fmt=%s (%dx%d) → %s",
               qPrintable(QFileInfo(m_sourcePath).fileName()),
               name ? name : "<unknown>",
-              frame->width, frame->height);
+              frame->width, frame->height,
+              sixteen ? "RGBA64 (16-bit)" : "RGBA8");
         m_loggedCpuFormat = true;
     }
 
-    QImage rgba(frame->width, frame->height, QImage::Format_RGBA8888);
+    // Phase J.1 — QImage::Format_RGBA64 is 4 × uint16 RGBA, byte-identical
+    // to AV_PIX_FMT_RGBA64LE and to DXGI R16G16B16A16_UNORM, so swscale
+    // writes straight into the image and the renderer uploads it as is.
+    QImage rgba(frame->width, frame->height,
+                sixteen ? QImage::Format_RGBA64 : QImage::Format_RGBA8888);
     uint8_t *dst[4] = { rgba.bits(), nullptr, nullptr, nullptr };
     int dstStride[4] = { static_cast<int>(rgba.bytesPerLine()), 0, 0, 0 };
 
@@ -1086,8 +1105,14 @@ void VideoDecoder::publishCpuFrame(AVFrame *frame)
             m_loggedRgbExpandOnce = true;
         }
         if (limited) {
-            expandRgba8LegalToFull(rgba.bits(), frame->width, frame->height,
-                                   static_cast<int>(rgba.bytesPerLine()));
+            if (sixteen) {
+                expandRgba16LegalToFull(reinterpret_cast<uint16_t *>(rgba.bits()),
+                                        frame->width, frame->height,
+                                        static_cast<int>(rgba.bytesPerLine()));
+            } else {
+                expandRgba8LegalToFull(rgba.bits(), frame->width, frame->height,
+                                       static_cast<int>(rgba.bytesPerLine()));
+            }
         }
     }
 

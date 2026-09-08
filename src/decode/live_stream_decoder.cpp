@@ -1,5 +1,6 @@
 #include "live_stream_decoder.h"
 #include "video_decoder.h"
+#include "decode/rgb_range.h"   // Phase J.1 — cpuPublishPixelFormat
 
 #include <QImage>
 #include <QSettings>
@@ -467,14 +468,18 @@ void LiveStreamDecoder::publishFrame(AVFrame *frame, AVCodecContext *cctx,
 #endif
     {
         // Software fallback (and the v1 Windows/Linux path): convert
-        // to RGBA8 — mirrors VideoDecoder's CPU sink.
+        // to RGBA — mirrors VideoDecoder's CPU sink, including Phase
+        // J.1's depth rule (10-bit P010 / 10-bit sources → RGBA64).
+        const AVPixelFormat dstFmt = cpuPublishPixelFormat(frame->format);
         *sws = sws_getCachedContext(*sws,
                 frame->width, frame->height,
                 static_cast<AVPixelFormat>(frame->format),
-                frame->width, frame->height, AV_PIX_FMT_RGBA,
+                frame->width, frame->height, dstFmt,
                 SWS_BILINEAR, nullptr, nullptr, nullptr);
         if (!*sws) return;
-        QImage rgba(frame->width, frame->height, QImage::Format_RGBA8888);
+        QImage rgba(frame->width, frame->height,
+                    dstFmt == AV_PIX_FMT_RGBA64LE ? QImage::Format_RGBA64
+                                                  : QImage::Format_RGBA8888);
         uint8_t *dst[4]      = { rgba.bits(), nullptr, nullptr, nullptr };
         int      dstStride[4] = { int(rgba.bytesPerLine()), 0, 0, 0 };
         sws_scale(*sws, frame->data, frame->linesize, 0, frame->height,
