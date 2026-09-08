@@ -21,9 +21,39 @@
 
 extern "C" {
 struct AVBufferRef;
+struct AVCodecContext;
 }
 
 namespace qcv {
+
+// Phase I.E (2026-09-08) — app-owned, cached Vulkan FRAME POOLS.
+//
+// FFmpeg's ff_get_format() unrefs avctx->hw_frames_ctx on every call,
+// and a decoder may re-enter get_format mid-stream (seen on ProRes
+// under frame threading). With FFmpeg-managed pools that tears the
+// old pool down while the D3D11 bridge / compositor may still be
+// sampling its images — the pool churn that surfaced as
+// VK_ERROR_DEVICE_LOST (nvlddmkm 153 page faults) on the mixed-res
+// ProRes playlist with FFmpeg 9.0. Same rule as the 2.2.8 output
+// park-and-reuse, one layer earlier: nothing GPU-visible is destroyed
+// mid-session.
+//
+// Call from the get_format callback AFTER choosing AV_PIX_FMT_VULKAN:
+// builds the frames context exactly as FFmpeg would
+// (avcodec_get_hw_frames_parameters → the hwaccel's frame_params fills
+// usage / per-plane VkFormats / dims), then either returns a new ref to
+// a cached, already-initialised pool with identical parameters or
+// initialises this one and caches it. Assign the result to
+// avctx->hw_frames_ctx. Returns nullptr when the codec context's
+// device is not Vulkan or on failure — the caller then leaves
+// hw_frames_ctx null and FFmpeg allocates as before.
+AVBufferRef *acquireSharedVulkanFramesCtx(AVCodecContext *avctx);
+
+// Drops the cache's refs. Pools whose frames are still referenced by
+// a decoder / published FrameHandle survive until those drop. Called
+// on device loss (VideoDecoder::releaseCachedHwDevice) and from
+// VulkanDeviceManager::shutdown() BEFORE the VkDevice is destroyed.
+void releaseSharedVulkanFramesCache();
 
 // Allocates an AVBufferRef wrapping an AVVulkanDeviceContext that
 // points at the shared VkDevice / VkInstance / physical device owned

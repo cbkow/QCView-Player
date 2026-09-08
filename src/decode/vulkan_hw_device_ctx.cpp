@@ -4,12 +4,16 @@
 
 #include <QtLogging>
 
+#include <cstring>
+#include <mutex>
 #include <vector>
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavutil/buffer.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
+#include <libavutil/pixdesc.h>
 }
 
 #include <vulkan/vulkan.h>
@@ -140,6 +144,123 @@ AVBufferRef *createSharedVulkanHwDeviceCtx()
           "(%d queue families, %d device extensions)",
           nq, static_cast<int>(exts.size()));
     return ref;
+}
+
+// ---------------------------------------------------------------------
+// Phase I.E — cached, app-owned Vulkan frame pools (see header).
+// ---------------------------------------------------------------------
+namespace {
+
+struct FramesCacheEntry {
+    const void       *device   = nullptr;   // VkDevice identity (see acquire)
+    int               width    = 0;
+    int               height   = 0;
+    int               swFormat = AV_PIX_FMT_NONE;
+    VkFormat          planeFmt[4] = { VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED,
+                                      VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED };
+    VkImageUsageFlags usage    = 0;
+    AVBufferRef      *frames   = nullptr;   // our cache ref (initialised)
+};
+
+std::mutex                    g_framesCacheMutex;
+std::vector<FramesCacheEntry> g_framesCache;
+
+} // namespace
+
+AVBufferRef *acquireSharedVulkanFramesCtx(AVCodecContext *avctx)
+{
+    if (!avctx || !avctx->hw_device_ctx) return nullptr;
+    const auto *dev =
+        reinterpret_cast<const AVHWDeviceContext *>(avctx->hw_device_ctx->data);
+    if (!dev || dev->type != AV_HWDEVICE_TYPE_VULKAN) return nullptr;
+    // Key on the VkDevice, not the AVHWDeviceContext: every context
+    // createSharedVulkanHwDeviceCtx() hands out wraps the SAME
+    // VulkanDeviceManager device (same queues, same lock callbacks),
+    // and a decoder that visits a D3D11VA clip in between comes back
+    // with a fresh AVHWDeviceContext pointer. The pool keeps its own
+    // device_ref alive, so the context it was built on outlives it.
+    const void *deviceKey =
+        reinterpret_cast<const AVVulkanDeviceContext *>(dev->hwctx)->act_dev;
+
+    // Let the hwaccel describe the pool it needs (dims incl. coded
+    // alignment, sw_format, per-plane VkFormats, usage, create_pnext).
+    AVBufferRef *fresh = nullptr;
+    int err = avcodec_get_hw_frames_parameters(avctx, avctx->hw_device_ctx,
+                                               AV_PIX_FMT_VULKAN, &fresh);
+    if (err < 0 || !fresh) {
+        qWarning("acquireSharedVulkanFramesCtx: avcodec_get_hw_frames_parameters "
+                 "failed (%d) — FFmpeg will manage the pool", err);
+        return nullptr;
+    }
+    auto *fc  = reinterpret_cast<AVHWFramesContext *>(fresh->data);
+    auto *vfc = reinterpret_cast<AVVulkanFramesContext *>(fc->hwctx);
+
+    // Key = the hwaccel's REQUEST, captured before av_hwframe_ctx_init:
+    // vulkan_frames_init widens `usage` to what the device supports
+    // and fills the per-plane VkFormats, so post-init values never
+    // equal the next request's pre-init values.
+    FramesCacheEntry key;
+    key.device   = deviceKey;
+    key.width    = fc->width;
+    key.height   = fc->height;
+    key.swFormat = fc->sw_format;
+    std::memcpy(key.planeFmt, vfc->format, sizeof(key.planeFmt));
+    key.usage    = vfc->usage;
+
+    std::lock_guard<std::mutex> lock(g_framesCacheMutex);
+    for (const FramesCacheEntry &e : g_framesCache) {
+        if (e.device == key.device && e.width == key.width
+            && e.height == key.height && e.swFormat == key.swFormat
+            && e.usage == key.usage
+            && std::memcmp(e.planeFmt, key.planeFmt, sizeof(e.planeFmt)) == 0) {
+            av_buffer_unref(&fresh);
+            qInfo("acquireSharedVulkanFramesCtx: pool HIT %dx%d %s (%zu cached)",
+                  e.width, e.height,
+                  av_get_pix_fmt_name(static_cast<AVPixelFormat>(e.swFormat)),
+                  g_framesCache.size());
+            return av_buffer_ref(e.frames);
+        }
+    }
+
+    // Mirror ff_decode_get_hw_frames_ctx's headroom for fixed-size
+    // pools (Vulkan pools are dynamic → initial_pool_size is 0 and
+    // this is a no-op, kept for parity).
+    if (fc->initial_pool_size) {
+        const int extra = avctx->extra_hw_frames > 0 ? avctx->extra_hw_frames : 0;
+        fc->initial_pool_size += 3 + extra;
+    }
+    if ((err = av_hwframe_ctx_init(fresh)) < 0) {
+        qWarning("acquireSharedVulkanFramesCtx: av_hwframe_ctx_init failed "
+                 "(%d) — FFmpeg will manage the pool", err);
+        av_buffer_unref(&fresh);
+        return nullptr;
+    }
+
+    key.frames = av_buffer_ref(fresh);
+    g_framesCache.push_back(key);
+    qInfo("acquireSharedVulkanFramesCtx: pool allocated %dx%d %s (%zu cached)",
+          key.width, key.height,
+          av_get_pix_fmt_name(static_cast<AVPixelFormat>(key.swFormat)),
+          g_framesCache.size());
+    return fresh;
+}
+
+void releaseSharedVulkanFramesCache()
+{
+    std::vector<AVBufferRef *> refs;
+    {
+        std::lock_guard<std::mutex> lock(g_framesCacheMutex);
+        refs.reserve(g_framesCache.size());
+        for (FramesCacheEntry &e : g_framesCache) refs.push_back(e.frames);
+        g_framesCache.clear();
+    }
+    // Unref outside the lock — a last-ref drop runs FFmpeg's pool
+    // teardown (semaphore waits + vkDestroyImage) and must not hold
+    // our cache mutex while doing so.
+    for (AVBufferRef *r : refs) av_buffer_unref(&r);
+    if (!refs.empty())
+        qInfo("releaseSharedVulkanFramesCache: dropped %zu cached pool(s)",
+              refs.size());
 }
 
 } // namespace qcv

@@ -159,14 +159,24 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
         const AVPixelFormat want = *p;
         for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
             if (fmts[i] == want) {
-                qInfo("VideoDecoder: get_format codec=%s offered=[%s] picked=%s",
+                qInfo("VideoDecoder: get_format codec=%s offered=[%s] picked=%s [ctx=%p %dx%d threads=%d active_type=%d cur_pix=%s hwfc=%p]",
                       ctx && ctx->codec ? ctx->codec->name : "?",
                       qPrintable(offered),
-                      av_get_pix_fmt_name(want));
+                      av_get_pix_fmt_name(want), static_cast<void*>(ctx), ctx->width, ctx->height, ctx->thread_count, ctx->active_thread_type, av_get_pix_fmt_name(ctx->pix_fmt), static_cast<void*>(ctx->hw_frames_ctx));
                 // Pool sizing + alpha feasibility is decided upfront
                 // in initFFmpeg via the Vulkan hwframes probe — see
-                // the "Unified pre-probe" block there. Nothing else
-                // to do here: return the picked hw pix_fmt.
+                // the "Unified pre-probe" block there.
+#if defined(Q_OS_WIN)
+                // Phase I.E — own the Vulkan frame pool. FFmpeg has
+                // just unref'd any previous hw_frames_ctx (it does so
+                // on every get_format call); handing it a ref to our
+                // cached pool means a mid-stream re-call reuses the
+                // same images instead of destroying them under the
+                // bridge. Null → FFmpeg allocates as before.
+                if (want == AV_PIX_FMT_VULKAN && ctx && !ctx->hw_frames_ctx) {
+                    ctx->hw_frames_ctx = qcv::acquireSharedVulkanFramesCtx(ctx);
+                }
+#endif
                 return want;
             }
         }
@@ -831,6 +841,16 @@ bool VideoDecoder::initFFmpeg(const QString &path)
             s.value(QStringLiteral("performance/ffmpegThreads"), 0).toInt();
         m_cctx->thread_type  = FF_THREAD_FRAME | FF_THREAD_SLICE;
     }
+    // Phase I.E — no frame threading under the Vulkan hwaccel. The GPU
+    // does the decode, so 16 frame threads buy nothing, and each
+    // worker carries a private codec context whose first frame can
+    // re-enter get_format (observed: same AVCodecContext, two calls
+    // ~10 ms apart on 1440x1080 ProRes) → pool churn. One thread
+    // removes the re-entrancy source; the cached pool above covers
+    // any re-call that still happens.
+    if (m_hwAccelType == QLatin1String("vulkan")) {
+        m_cctx->thread_count = 1;
+    }
     if (int err = avcodec_open2(m_cctx, codec, nullptr); err < 0) {
         setError(tr("avcodec_open2 failed: %1").arg(avErrToString(err)));
         return false;
@@ -930,6 +950,11 @@ void VideoDecoder::releaseCachedHwDevice()
     if (m_hwDeviceCtx) {
         av_buffer_unref(&m_hwDeviceCtx);
     }
+#if defined(Q_OS_WIN)
+    // Phase I.E — the cached frame pools belong to the same (now
+    // lost) device; drop them so a recovered device starts clean.
+    qcv::releaseSharedVulkanFramesCache();
+#endif
 }
 
 bool VideoDecoder::initSwsContext(AVFrame *frame)

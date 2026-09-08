@@ -1,4 +1,5 @@
 #include "vulkan_device_manager.h"
+#include "../vulkan_hw_device_ctx.h"   // Phase I.E — releaseSharedVulkanFramesCache
 
 #include <QString>
 #include <QtLogging>
@@ -114,6 +115,11 @@ void VulkanDeviceManager::shutdown()
 {
     std::lock_guard lock(m_mutex);
     if (!m_initialized) return;
+
+    // Phase I.E — drop the app-owned FFmpeg frame pools while the
+    // VkDevice is still alive (their teardown waits on semaphores and
+    // destroys images on this device).
+    releaseSharedVulkanFramesCache();
 
     waitForGpu();
     destroyDevice();
