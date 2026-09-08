@@ -358,6 +358,13 @@ bool VulkanDeviceManager::createLogicalDevice()
         vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, avail.data());
 
         constexpr const char *kFfmpegHybridExts[] = {
+            // Phase I.G — driver-side queue serialization. FFmpeg 9.0
+            // honours this: with the extension + feature enabled it
+            // allocates no per-queue mutex and the driver serializes
+            // every submitter (FFmpeg decode, our compositor, the
+            // bridge). It is the successor to the deprecated
+            // lock_queue/unlock_queue callbacks (gone at libavutil 62).
+            "VK_KHR_internally_synchronized_queues",
             "VK_KHR_push_descriptor",
             "VK_EXT_shader_atomic_float",
             "VK_KHR_cooperative_matrix",
@@ -415,6 +422,10 @@ bool VulkanDeviceManager::createLogicalDevice()
     wgMemLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR;
     VkPhysicalDeviceShaderExpectAssumeFeaturesKHR expectAssumeFeatures{};
     expectAssumeFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EXPECT_ASSUME_FEATURES_KHR;
+#ifdef VK_KHR_internally_synchronized_queues
+    VkPhysicalDeviceInternallySynchronizedQueuesFeaturesKHR isqFeatures{};
+    isqFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INTERNALLY_SYNCHRONIZED_QUEUES_FEATURES_KHR;
+#endif
 
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -440,8 +451,33 @@ bool VulkanDeviceManager::createLogicalDevice()
         chain(&wgMemLayoutFeatures, &wgMemLayoutFeatures.pNext);
     if (isExtEnabled("VK_KHR_shader_expect_assume"))
         chain(&expectAssumeFeatures, &expectAssumeFeatures.pNext);
+#ifdef VK_KHR_internally_synchronized_queues
+    if (isExtEnabled("VK_KHR_internally_synchronized_queues"))
+        chain(&isqFeatures, &isqFeatures.pNext);
+#endif
 
     vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features2);
+
+    // Phase I.G — create every queue internally synchronized when the
+    // driver supports it. Queues created with a non-zero flag can only
+    // be retrieved with vkGetDeviceQueue2 carrying the same flag (below),
+    // and FFmpeg must be told via AVVulkanDeviceContext.queue_flags +
+    // the feature struct in device_features (createSharedVulkanHwDeviceCtx).
+    m_internallySyncedQueues = false;
+    VkDeviceQueueCreateFlags queueFlags = 0;
+#ifdef VK_KHR_internally_synchronized_queues
+    // Escape hatch (perf A/B + field fallback): QCV_NO_INTERNAL_QUEUE_SYNC=1
+    // keeps the queues externally synchronized (app mutex + FFmpeg
+    // lock_queue), exactly the pre-I.G behaviour.
+    const bool disableIsq = qEnvironmentVariableIntValue("QCV_NO_INTERNAL_QUEUE_SYNC") != 0;
+    if (!disableIsq
+        && isExtEnabled("VK_KHR_internally_synchronized_queues")
+        && isqFeatures.internallySynchronizedQueues) {
+        m_internallySyncedQueues = true;
+        queueFlags = VK_DEVICE_QUEUE_CREATE_INTERNALLY_SYNCHRONIZED_BIT_KHR;
+        for (auto &qci : queueCis) qci.flags = queueFlags;
+    }
+#endif
 
     VkDeviceCreateInfo ci{};
     ci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -457,12 +493,23 @@ bool VulkanDeviceManager::createLogicalDevice()
         qCritical("vkCreateDevice failed: %d", static_cast<int>(r));
         return false;
     }
-    vkGetDeviceQueue(m_device, m_graphicsFamily, 0, &m_graphicsQueue);
-    vkGetDeviceQueue(m_device, m_computeFamily,  0, &m_computeQueue);
-    vkGetDeviceQueue(m_device, m_transferFamily, 0, &m_transferQueue);
+    auto getQueue = [&](uint32_t family, VkQueue *out) {
+        VkDeviceQueueInfo2 qi{};
+        qi.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2;
+        qi.flags            = queueFlags;   // must match creation flags
+        qi.queueFamilyIndex = family;
+        qi.queueIndex       = 0;
+        vkGetDeviceQueue2(m_device, &qi, out);
+    };
+    getQueue(m_graphicsFamily, &m_graphicsQueue);
+    getQueue(m_computeFamily,  &m_computeQueue);
+    getQueue(m_transferFamily, &m_transferQueue);
     if (m_videoDecodeFamily != UINT32_MAX) {
-        vkGetDeviceQueue(m_device, m_videoDecodeFamily, 0, &m_videoDecodeQueue);
+        getQueue(m_videoDecodeFamily, &m_videoDecodeQueue);
     }
+    qInfo("VulkanDeviceManager: queues %s",
+          m_internallySyncedQueues ? "INTERNALLY SYNCHRONIZED (driver serializes submits)"
+                                   : "externally synchronized (app queueMutex + FFmpeg lock_queue)");
 
     m_enabledDeviceExtensions.clear();
     m_enabledDeviceExtensions.reserve(deviceExts.size());

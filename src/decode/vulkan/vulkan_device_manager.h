@@ -93,6 +93,13 @@ public:
         return m_enabledDeviceExtensions;
     }
 
+    // Phase I.G — true when every queue was created with
+    // VK_DEVICE_QUEUE_CREATE_INTERNALLY_SYNCHRONIZED_BIT_KHR (extension +
+    // feature present). The driver then serializes vkQueueSubmit across
+    // all submitters; createSharedVulkanHwDeviceCtx forwards the flag +
+    // feature struct so FFmpeg retrieves the same queues correctly.
+    bool internallySyncedQueues() const { return m_internallySyncedQueues; }
+
     // Submit an empty buffer and wait for all prior GPU work. Used
     // before CPU readback in diagnostics + before destroying resources
     // that may still be referenced by in-flight command buffers.
@@ -175,6 +182,7 @@ private:
     VkQueue m_videoDecodeQueue = VK_NULL_HANDLE;
 
     std::vector<std::string> m_enabledDeviceExtensions;
+    bool m_internallySyncedQueues = false;   // Phase I.G
 
     VkPhysicalDeviceProperties m_deviceProps{};
 

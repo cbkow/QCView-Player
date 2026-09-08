@@ -65,6 +65,25 @@ AVBufferRef *createSharedVulkanHwDeviceCtx()
     vk->device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     vk->device_features.pNext = nullptr;
 
+    // Phase I.G — tell FFmpeg the queues were created internally
+    // synchronized: (a) queue_flags so its vkGetDeviceQueue2 matches the
+    // creation flags (mismatch = no queue), (b) the feature struct in the
+    // device_features chain, which is what ff_vk_exec_pool_init() looks
+    // for before it uses the flag and skips its own per-queue mutexes.
+    // Static storage: FFmpeg keeps the pNext pointer for the context's
+    // lifetime. lock_queue/unlock_queue below stay wired (harmless, and
+    // still required by lavu 61); this is what replaces them at lavu 62.
+#if defined(VK_KHR_internally_synchronized_queues) && LIBAVUTIL_VERSION_MAJOR >= 61
+    static VkPhysicalDeviceInternallySynchronizedQueuesFeaturesKHR s_isqFeatures{};
+    if (dm.internallySyncedQueues()) {
+        s_isqFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INTERNALLY_SYNCHRONIZED_QUEUES_FEATURES_KHR;
+        s_isqFeatures.pNext = nullptr;
+        s_isqFeatures.internallySynchronizedQueues = VK_TRUE;
+        vk->device_features.pNext = &s_isqFeatures;
+        vk->queue_flags = VK_DEVICE_QUEUE_CREATE_INTERNALLY_SYNCHRONIZED_BIT_KHR;
+    }
+#endif
+
     vk->enabled_inst_extensions    = nullptr;
     vk->nb_enabled_inst_extensions = 0;
 
