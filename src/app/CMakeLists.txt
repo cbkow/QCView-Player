@@ -203,20 +203,29 @@ if(APPLE)
     # Contents/Frameworks and sign them with the hardened runtime.
     # Guarded on existence so the build stays green before the FFmpeg
     # rebuild that produces the CLIs (--enable-programs, v2.2.3).
+    # The CLIs come from the same prefix the libraries were resolved
+    # from: QCV_FFMPEG_PREFIX when set (side-by-side FFmpeg trial), else
+    # external/install. Mixing a 9.x CLI with 8.x dylibs (or vice versa)
+    # fails at dyld, so the two must never diverge.
+    if(QCV_FFMPEG_PREFIX)
+        set(_qcv_ffmpeg_bin "${QCV_FFMPEG_PREFIX}/bin")
+    else()
+        set(_qcv_ffmpeg_bin "${CMAKE_SOURCE_DIR}/external/install/bin")
+    endif()
     foreach(_qcv_tool IN ITEMS ffmpeg ffprobe)
-        if(EXISTS "${CMAKE_SOURCE_DIR}/external/install/bin/${_qcv_tool}")
+        if(EXISTS "${_qcv_ffmpeg_bin}/${_qcv_tool}")
             add_custom_command(TARGET qcview POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E make_directory
                     "$<TARGET_FILE_DIR:qcview>/../Helpers"
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${CMAKE_SOURCE_DIR}/external/install/bin/${_qcv_tool}"
+                    "${_qcv_ffmpeg_bin}/${_qcv_tool}"
                     "$<TARGET_FILE_DIR:qcview>/../Helpers/${_qcv_tool}"
                 COMMENT "Staging ${_qcv_tool} into qcview.app/Contents/Helpers"
                 VERBATIM
             )
         else()
             message(STATUS
-                "QCView: external/install/bin/${_qcv_tool} not found — "
+                "QCView: ${_qcv_ffmpeg_bin}/${_qcv_tool} not found — "
                 "ffmpeg-provider staging skipped for this tool")
         endif()
     endforeach()
@@ -352,10 +361,24 @@ if(WIN32)
     # directory before walking PATH). Skipped when QCV_BTBN_FFMPEG_DLL_DIR
     # isn't set (vcpkg-fallback path in external/CMakeLists.txt).
     if(QCV_BTBN_FFMPEG_DLL_DIR)
-        foreach(_dll IN ITEMS
-            avcodec-62.dll avformat-62.dll avutil-60.dll
-            avfilter-11.dll avdevice-62.dll
-            swresample-6.dll swscale-9.dll)
+        # DLL names carry each library's major (avcodec-62.dll on the
+        # 8.1 line, avcodec-63.dll on 9.x). Derive them from the
+        # pkg-config versions external/CMakeLists.txt resolved, so a
+        # BtbN refresh across a major bump needs no edit here.
+        set(_ffmpeg_dlls "")
+        foreach(_mod IN ITEMS avcodec avformat avutil avfilter avdevice
+                              swresample swscale)
+            set(_ver "${FFMPEG_lib${_mod}_VERSION}")
+            if(NOT _ver)
+                message(FATAL_ERROR
+                    "FFMPEG_lib${_mod}_VERSION not set by pkg_check_modules; "
+                    "cannot derive ${_mod}-<major>.dll name")
+            endif()
+            string(REGEX REPLACE "^([0-9]+)\\..*$" "\\1" _major "${_ver}")
+            list(APPEND _ffmpeg_dlls "${_mod}-${_major}.dll")
+        endforeach()
+        message(STATUS "FFmpeg DLLs to stage: ${_ffmpeg_dlls}")
+        foreach(_dll IN LISTS _ffmpeg_dlls)
             add_custom_command(TARGET qcview POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${QCV_BTBN_FFMPEG_DLL_DIR}/${_dll}"

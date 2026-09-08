@@ -568,15 +568,20 @@ MultiStreamAudioDecoder::buildPipeline(int mode) const
         qWarning("MultiStreamAudioDecoder: abuffersink create failed");
         return {};
     }
-    static const enum AVSampleFormat kOutFmts[] = { AV_SAMPLE_FMT_FLT,
-                                                     AV_SAMPLE_FMT_NONE };
-    static const int kOutRates[] = { kOutSampleRate, -1 };
-    av_opt_set_int_list(p->buffersink, "sample_fmts", kOutFmts,
-                          AV_SAMPLE_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
-    av_opt_set_int_list(p->buffersink, "sample_rates", kOutRates,
-                          -1, AV_OPT_SEARCH_CHILDREN);
-    av_opt_set(p->buffersink, "ch_layouts", "stereo",
-                 AV_OPT_SEARCH_CHILDREN);
+    // FFmpeg 9.0 (lavfi 12 / lavu 61) removed av_opt_set_int_list() and
+    // abuffersink's legacy binary-list options ("sample_fmts",
+    // "sample_rates", "ch_layouts"). The array-typed replacements
+    // ("sample_formats", "samplerates", "channel_layouts") plus
+    // av_opt_set_array() exist since FFmpeg 7.1, so this compiles
+    // against both the 8.1 line and 9.x.
+    const enum AVSampleFormat outFmt = AV_SAMPLE_FMT_FLT;
+    const int outRate = kOutSampleRate;
+    av_opt_set_array(p->buffersink, "sample_formats", AV_OPT_SEARCH_CHILDREN,
+                     0, 1, AV_OPT_TYPE_SAMPLE_FMT, &outFmt);
+    av_opt_set_array(p->buffersink, "samplerates", AV_OPT_SEARCH_CHILDREN,
+                     0, 1, AV_OPT_TYPE_INT, &outRate);
+    av_opt_set(p->buffersink, "channel_layouts", "stereo",
+               AV_OPT_SEARCH_CHILDREN);
 
     const int mergeInputs = static_cast<int>(plan.inputStreams.size());
     AVFilterContext *prev = nullptr;

@@ -1,5 +1,5 @@
 diff --git a/libavcodec/dnxhddec.c b/libavcodec/dnxhddec.c
-index 7ec61f9..2b5572b 100644
+index 7ec61f9..649e1f0 100644
 --- a/libavcodec/dnxhddec.c
 +++ b/libavcodec/dnxhddec.c
 @@ -74,6 +74,17 @@ typedef struct DNXHDContext {
@@ -164,7 +164,7 @@ index 7ec61f9..2b5572b 100644
      if (first_field) {
          if ((ret = ff_thread_get_buffer(avctx, picture, 0)) < 0)
              return ret;
-@@ -674,33 +786,40 @@ decode_coding_unit:
+@@ -674,36 +786,50 @@ decode_coding_unit:
          ctx->rows[i].errors = 0;
      }
  
@@ -231,7 +231,17 @@ index 7ec61f9..2b5572b 100644
          }
      }
      avctx->pix_fmt = ctx->pix_fmt;
-@@ -717,6 +836,8 @@ static av_cold int dnxhd_decode_close(AVCodecContext *avctx)
++    /* ff_get_buffer() mirrored the provisional header-time label into
++     * sw_pix_fmt, and since FFmpeg 9.0 avcodec_parameters_from_context()
++     * prefers sw_pix_fmt over pix_fmt — so a stream probe would report
++     * the label we just corrected away (gbrp for a YCbCr-native file).
++     * Keep the two in step. */
++    if (avctx->sw_pix_fmt != AV_PIX_FMT_NONE)
++        avctx->sw_pix_fmt = ctx->pix_fmt;
+     if (ret) {
+         av_log(ctx->avctx, AV_LOG_ERROR, "%d lines with errors\n", ret);
+         return AVERROR_INVALIDDATA;
+@@ -717,6 +843,8 @@ static av_cold int dnxhd_decode_close(AVCodecContext *avctx)
  {
      DNXHDContext *ctx = avctx->priv_data;
  

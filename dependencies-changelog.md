@@ -5,6 +5,48 @@ pin, reason, tested platforms, and anything to watch in production.
 
 ---
 
+## 2026-09-08 — FFmpeg 9.0 investigation (branch `ffmpeg-9`) — NOT a bump, pin stays `n8.1.2`
+
+**Dependency:** FFmpeg (both platforms). **Status:** investigated and
+trial-built on macOS; nothing shipped, `external/install/` and
+`external/ffmpeg-win64/` untouched.
+
+**What 9.0 means for us:** every library major bumps (libavutil 61,
+libavcodec 63, libavformat 63, libavdevice 63, libavfilter 12,
+libswscale 10, libswresample 7). Exactly one app source break
+(`av_opt_set_int_list` + abuffersink `sample_fmts`/`sample_rates`/
+`ch_layouts`, removed) and one build-system break (literal
+`avcodec-62.dll` staging list). Both fixed on the branch in a way that
+still builds against 8.1. `lock_queue`/`unlock_queue` (our Vulkan queue
+serialization, v2.2.8) are deprecated but still honoured in 9.0; they
+disappear at libavutil 62 — forward plan recorded in `dependencies.md`.
+
+**Patches:** both apply cleanly to `n9.0.1`. Patch 0001 regenerated to
+also sync `avctx->sw_pix_fmt` at end-of-frame — 9.0's
+`avcodec_parameters_from_context()` prefers `sw_pix_fmt`, which held the
+patch's provisional header-time label, so stream probes reported
+`gbrp10le` for YCbCr-native DNxHR 444. Frames were always correct;
+8.1.2 behaviour unchanged. Regression vectors framemd5-identical
+8.1.2 vs 9.0.1, and the Avid ACT clip verifies on 9.0.1 (`gbrp12le,tv`,
+framemd5 `d0a389c3f22b`, 1 and 8 threads).
+
+**Trial build:** `n9.0.1` + patches → `external/install-ff9/`
+(gitignored, same configure flags, no new build deps); app built in
+`build-ff9/` via new `-DQCV_FFMPEG_PREFIX`. Links, `probe-video` /
+`probe-metadata` match the 8.1.2 build.
+
+**Windows:** official BtbN 9.0 gpl-shared build inspected — Vulkan
+ProRes/H.264/HEVC/AV1 hwaccels present with shaders precompiled (no
+libshaderc/glslang runtime any more). Rebuild with the patched BtbN
+recipe (`./build.sh win64 gpl-shared 9.0`) is the next step there.
+
+**Watch:** `swscale` rewrite is opt-in (legacy API stays on the legacy
+backend) — no perf change expected until we migrate to
+`sws_scale_frame()` + `SWS_UNSTABLE`. ffmpeg CLI dropped `-vsync` & co.
+(qcbridge command lines to audit).
+
+---
+
 ## 2026-08-20 — Windows FFmpeg: prebuilt `n8.1.2-20260624` → self-built BtbN recipe `n8.1.2-44-g7c533d0f86-20260820` (local patches)
 
 **Dependency:** FFmpeg, Windows vendored tree `external/ffmpeg-win64/`

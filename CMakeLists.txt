@@ -15,7 +15,7 @@ endif()
 # Project
 # ---------------------------------------------------------------------
 project(qcview
-    VERSION 2.2.8
+    VERSION 2.2.9
     LANGUAGES CXX
     DESCRIPTION "QCView Player — HDR-capable review tool (Qt Quick + QRhi rebuild)"
 )
@@ -75,6 +75,24 @@ if(APPLE AND EXISTS "${QCV_VENDOR_PREFIX}/lib")
         set(ENV{PKG_CONFIG_PATH} "${QCV_VENDOR_PREFIX}/lib/pkgconfig")
     endif()
     message(STATUS "Using vendored deps from ${QCV_VENDOR_PREFIX}")
+endif()
+
+# Optional alternate FFmpeg prefix (macOS). Lets a side-by-side FFmpeg
+# build (e.g. external/install-ff9/ for the 9.x trial — see
+# dependencies.md "FFmpeg 9.0 migration") take precedence over the
+# FFmpeg in external/install/ without touching that tree. Only the
+# libav*/libsw* .pc files are expected there; every other vendored dep
+# still resolves from QCV_VENDOR_PREFIX.
+set(QCV_FFMPEG_PREFIX "" CACHE PATH
+    "Alternate FFmpeg install prefix searched before external/install (macOS)")
+if(APPLE AND QCV_FFMPEG_PREFIX)
+    if(NOT EXISTS "${QCV_FFMPEG_PREFIX}/lib/pkgconfig/libavcodec.pc")
+        message(FATAL_ERROR
+            "QCV_FFMPEG_PREFIX='${QCV_FFMPEG_PREFIX}' has no lib/pkgconfig/libavcodec.pc")
+    endif()
+    set(ENV{PKG_CONFIG_PATH}
+        "${QCV_FFMPEG_PREFIX}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+    message(STATUS "FFmpeg override prefix: ${QCV_FFMPEG_PREFIX}")
 endif()
 
 # ---------------------------------------------------------------------

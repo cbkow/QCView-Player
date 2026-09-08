@@ -96,6 +96,7 @@ scripts/*.md
 # 70+ MB of FFmpeg / OCIO / OpenEXR / etc. built for deployment
 # target. Source not in tree; the script rebuilds it on demand.
 external/install/
+external/install-ff9/
 external/source/
 external/build/
 

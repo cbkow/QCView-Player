@@ -302,6 +302,160 @@ running FFmpeg's configure:
 `PKG_CONFIG_PATH=external/install/lib/pkgconfig` must link and run a
 `srt_startup()`/`srt_cleanup()` pair.
 
+#### FFmpeg 9.0 — migration status (branch `ffmpeg-9`, investigated 2026-09-08, NOT shipped)
+
+FFmpeg 9.0 "Lei" (2026-08-04; point release `n9.0.1`) bumps **every**
+library major — libavutil 61 / libavcodec 63 / libavformat 63 /
+libavdevice 63 / libavfilter 12 / libswscale 10 / libswresample 7 — so
+all sonames and DLL names change. The pin above stays `n8.1.2` until the
+items under *Before adopting* are done. Everything below was verified on
+the `ffmpeg-9` branch against a real `n9.0.1` build.
+
+**App-side breaking changes (exhaustive sweep of `src/`, `tools/`, CMake):**
+
+1. `av_opt_set_int_list()` and abuffersink's legacy list options
+   (`sample_fmts` / `sample_rates` / `ch_layouts`) are gone
+   (`FF_API_OPT_INT_LIST`, `FF_API_BUFFERSINK_OPTS`). The one caller,
+   `src/audio/multi_stream_audio_decoder.cpp`, now uses
+   `av_opt_set_array()` on the array-typed `sample_formats` /
+   `samplerates` / `channel_layouts` options — present since FFmpeg 7.1,
+   so the same code builds against 8.1 and 9.x.
+2. `src/app/CMakeLists.txt` staged `avcodec-62.dll` etc. by literal
+   name. The list is now derived from the pkg-config module versions
+   (`FFMPEG_libavcodec_VERSION` → `avcodec-<major>.dll`), so a BtbN
+   refresh across a major bump needs no edit.
+3. Nothing else needed touching. Verified unchanged for what we use:
+   the legacy stateful swscale API (`sws_getContext` / `sws_scale` /
+   `sws_setColorspaceDetails`; the `SWS_BILINEAR` / `SWS_POINT` flags
+   moved to a "deprecated in favour of `SwsContext.scaler`" block but
+   carry no `attribute_deprecated`), `hwcontext_d3d11va.h` and
+   `hwcontext_videotoolbox.h` (0 changed lines), the `AVVkFrame.img[]`
+   / `AVVulkanFramesContext.format[]` fields the D3D11 bridge reads,
+   `codecpar->coded_side_data` + `av_display_rotation_get`, the
+   `AVChannelLayout` / `swr_alloc_set_opts2` audio path, `avfft.h`
+   removal (unused), and the removed `FF_CODEC_PROPERTY_*`,
+   `AVCodec->pix_fmts`, `av_opt_ptr`, `AVPacketList` (all unused).
+   Zero FFmpeg deprecation warnings in the app build.
+
+**Deprecations to plan for (compile clean in 9.0, break later):**
+
+- `AVVulkanDeviceContext.lock_queue` / `unlock_queue` — deprecated in
+  lavu 60.29 "without replacement", removed at lavu 62 (FFmpeg 10).
+  `src/decode/vulkan_hw_device_ctx.cpp` already guards them with
+  `FF_API_VULKAN_SYNC_QUEUES`. In 9.0 they are still honoured:
+  `ff_vk_exec_submit()` calls them around every `vkQueueSubmit2`, and
+  because `VulkanDeviceManager` does not enable
+  `VK_KHR_internally_synchronized_queues` (new in 9.0's optional-extension
+  table) libavutil still allocates its own per-queue mutexes and defers
+  to our callbacks — so the v2.2.8 app-wide queue serialization keeps
+  working. Forward path when they vanish: enable
+  `VK_KHR_internally_synchronized_queues` where the driver offers it
+  (FFmpeg then skips its own locking and the driver serializes all
+  submitters), or give FFmpeg dedicated queue indices via `qf[].num` so
+  it never shares a `VkQueue` with the D3D11 bridge / compositor.
+- `AVVkFrame.access[]` is now `VkAccessFlagBits2` and the fixed
+  queue-family fields (`queue_family_index`, `nb_graphics_queues`, …)
+  are removed — we touch neither (we fill `qf[]` / `nb_qf`).
+
+**Vulkan on Windows — what actually changed:** 9.0 dropped the
+`libshaderc` / `libglslang` runtime dependency; every Vulkan shader is
+compiled to SPIR-V at FFmpeg build time (`glslc` / `glslang` on the
+build box, `spirv_compiler` in configure). The official BtbN
+`ffmpeg-n9.0-latest-win64-gpl-shared-9.0.zip` (2026-09-07) was
+downloaded and inspected: `avcodec-63.dll` carries `prores_vulkan`,
+`prores_raw_vulkan`, `h264/hevc/av1/vp9/ffv1/apv/dpx_vulkan`,
+`h264/hevc_d3d11va`, `h264_d3d12va`, and `swscale-10.dll` has the
+SPIR-V backend. So the "vcpkg lacks libplacebo + libshaderc → no ProRes
+Vulkan decode" reason for BtbN (§Windows above) dissolves in 9.x; BtbN
+is still required for the local patches. Also new: `hwcontext_vulkan`
+pixel formats X2RGB10 / X2BGR10 / XV30 / RGBAF16, and
+`AVVulkanDeviceContext.queue_flags` (zero-init is fine).
+
+**swscale rewrite — opt-in, not automatic:** the legacy stateful API
+"always implies `SWS_BACKEND_LEGACY`", and even `sws_scale_frame()`
+picks the legacy backend unless `SWS_UNSTABLE` is set or a float format
+is involved (`libswscale/graph.c: prefer_ops_backend`). All six of our
+`SwsContext` owners (`video_decoder`, `scrub_decoder`, `live_stream_decoder`,
+`video_image_loader`, `dual_video_decoder`, `dual_scrub_decoder{,_macos}`)
+use the legacy API, so 9.0 changes nothing for them except the reworked
+AArch64 NEON yuv2rgb kernels that live in the legacy path. Getting the
+new C / NEON / x86 / SPIR-V backends means migrating those sites to
+`sws_scale_frame()` + `SWS_UNSTABLE` (or `SwsContext.backends`) and
+measuring bit-exactness (`SWS_BITEXACT`) and throughput — a separate
+follow-up, not part of the version bump.
+
+**Local patches on 9.0.1:** both `external/patches/ffmpeg/*.patch`
+`git apply --check` cleanly (upstream `dnxhddec.c` is byte-identical
+between `n8.1.2` and `n9.0.1`; `mxfdec.c` differs by 3 lines elsewhere).
+One behavioural interaction needed a fix: 9.0's
+`avcodec_parameters_from_context()` prefers `avctx->sw_pix_fmt` over
+`pix_fmt`, and `ff_get_buffer()` mirrors the ACT patch's *provisional*
+header-time label into `sw_pix_fmt`, so `avformat_find_stream_info()`
+reported `gbrp10le` for a YCbCr-native (FFmpeg-encoded `yuv444p10`)
+DNxHR 444 file even though every frame came out `yuv444p10le`. Patch
+0001 now syncs `sw_pix_fmt` in its end-of-frame correction (regenerated
+2026-09-08; applies to both trees; no effect on 8.1.2, where codecpar
+still comes from `pix_fmt`). Verified on 9.0.1: framemd5 identical to
+the 8.1.2 build for the regression vectors (`yuv444p10` MOV,
+`gbrp10` MOV, `gbrp10` MXF → `pc`, hex-edited RGBA ref levels → `tv`),
+probe labels now match 8.1.2. The Avid ACT test vector (CW clip) also
+passes on 9.0.1: `gbrp12le,tv`, framemd5 `d0a389c3f22b` at 1 and 8
+threads, identical to the 8.1.2 build, no "variable ACT" errors, frame-1
+PNG byte-identical.
+
+**macOS trial build (done):** `n9.0.1` + patches built with the recipe
+above, unchanged flags, into `external/install-ff9/` (gitignored) so
+`external/install/` and `main` stay intact. Build tooling needed nothing
+new (no `--enable-libshaderc`; with Homebrew Vulkan headers 1.4.350 +
+`glslc` present configure also compiled the Vulkan hwaccels and SPIR-V
+shaders, exactly as 8.1.2 already autodetected `vulkan`; no new dylib
+link deps, the loader is dlopen'd). New `prores_raw_videotoolbox`
+hwaccel appears. The app builds in `build-ff9/` via the new macOS-only
+cache var `-DQCV_FFMPEG_PREFIX=$PWD/external/install-ff9` (searched
+before `external/install`; Helpers `ffmpeg`/`ffprobe` are staged from the
+same prefix so CLI and dylibs never diverge), links `libav*.63` /
+`libavutil.61`, `probe-video` passes on HEVC / ProRes / DNxHR /
+DNxHR-MXF, `probe-metadata` output is identical to the 8.1.2 build, and a
+35 s GUI launch on a ProRes 422 HQ clip opened cleanly (VideoToolbox
+hwaccel attached, Metal zero-copy publish, audio decoder up, no
+errors). Note `external/source/ffmpeg/` (the 8.1.2 tree) carries the
+amended `dnxhddec.c` so `git apply --check -R` stays true; the installed
+8.1.2 dylibs predate that one-line change, which is inert on 8.1.2.
+
+```bash
+# Trial build against 9.x without disturbing build/ or external/install/
+cmake -S . -B build-ff9 -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=/Users/chris/Qt/6.11.1/macos \
+  -DQCV_FFMPEG_PREFIX="$PWD/external/install-ff9"
+cmake --build build-ff9 -j"$(sysctl -n hw.ncpu)"
+```
+
+**ffmpeg CLI (shipped Helpers / Windows `ffmpeg.exe`):** 9.0 removed
+`-vsync`, `-top`, `-qphist`, `-filter_complex_script`,
+`-adrift_threshold` and reworked `-re` / `-readrate`; TLS peer
+verification is on by default. QCView itself never passes arguments
+(it is only the provider via `toolbox.json`), but the qcbridge Blender
+add-on spawns this binary — audit its command lines before shipping a
+9.x CLI.
+
+**Before adopting (in order):**
+
+1. ~~Re-verify the Avid ACT vector on the 9.0.1 build~~ — done 2026-09-08.
+2. macOS runtime pass on `build-ff9`: playback / scrub / dual / live
+   SRT / multi-stream audio mix (the only source change with runtime
+   behaviour is the abuffersink option migration).
+3. Windows: `./build.sh win64 gpl-shared 9.0` with the (regenerated)
+   patches per §Windows, drop into `external/ffmpeg-win64/`, rebuild
+   (DLL names now auto-derived), runtime-test the Vulkan ProRes bridge
+   path and D3D11VA; watch the `lock_queue` path on NVIDIA mixed-res
+   playlists (the v2.2.8 crash fix).
+4. Cut over: rebuild `external/install/` from `n9.0.1` (or keep the
+   side-by-side prefix and point the release build at it), update the
+   pin table / §7 / revision history / `LICENSES/THIRD_PARTY_NOTICES.txt`
+   (`FFmpeg.GPL.Shared.8.1` → 9.0) / `dependencies-changelog.md`.
+   `scripts/bundle_dylibs.sh` and `sign-and-notarize.sh` walk dylibs
+   dynamically and need no change.
+
 ### OCIO (OpenColorIO)
 
 ```cmake
@@ -640,5 +794,6 @@ If the bump touches OCIO's profile version, update Guide 05 §12's
 | 2026-06-24 | Windows FFmpeg: BtbN GPL-Shared `n8.1-11-g75d37c499d` → `n8.1.2-20260624` (vendored in-tree at `external/ffmpeg-win64/`, gitignored). Security fix for CVE-2026-8461 "PixelSmash". See `dependencies-changelog.md`. | Chris |
 | 2026-06-24 | macOS FFmpeg: self-built `n8.1` → `n8.1.2` (rebuilt in-tree at `external/install/`, gitignored). Same CVE-2026-8461 fix; sonames unchanged (62/60/62), ABI-clean drop-in. Also dropped vestigial `--enable-nonfree`. See `dependencies-changelog.md`. | Chris |
 | 2026-08-20 | Windows FFmpeg: BtbN prebuilt `n8.1.2-20260624` → **self-built BtbN-recipe** `n8.1.2-44-g7c533d0f86-20260820` (WSL2+Docker, same toolchain image/flags/DLL majors) so Windows carries the two local patches (`external/patches/ffmpeg/`: DNxHR 444 ACT + untagged-limited convention, MXF RGBA range). Patches must be re-applied on every refresh — recipe in §Windows above. See `dependencies-changelog.md`. | Chris |
+| 2026-09-08 | FFmpeg 9.0 investigated on branch `ffmpeg-9` (NOT adopted; pin stays `n8.1.2`): all library majors bump (61/63/63/63/12/10/7); app needed one source change (`av_opt_set_int_list` → `av_opt_set_array`, dual-version safe) + DLL names derived from pkg-config; patch 0001 regenerated to sync `sw_pix_fmt` (9.0 probe-label interaction); `n9.0.1` built into `external/install-ff9/` and the app built/linked via new `QCV_FFMPEG_PREFIX`. Details + remaining steps in §2 "FFmpeg 9.0 — migration status". | Claude |
 
 (Append future bumps here.)
