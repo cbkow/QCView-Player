@@ -691,11 +691,21 @@ bool VideoDecoder::initFFmpeg(const QString &path)
     const bool kForceSoftwareDecode = !kHwDecodeEnabled;
     const bool kIsProRes =
         codecpar && codecpar->codec_id == AV_CODEC_ID_PRORES;
+    // ProRes RAW (FFmpeg 9.0+): the decoder emits a 16-bit Bayer mosaic
+    // (bayer_*16). The Vulkan hwaccel would hand the bridge a single R16
+    // image our compositor cannot debayer yet, and D3D11VA has no ProRes
+    // RAW at all — so software decode + swscale's Bayer→RGB cascade for
+    // now. GPU debayer (compositor mode) is the follow-up.
+    const bool kIsProResRaw =
+        codecpar && codecpar->codec_id == AV_CODEC_ID_PRORES_RAW;
     bool skipVulkan = !kIsProRes || kForceSoftwareDecode;
-    bool skipAllHw  = kForceSoftwareDecode;
+    bool skipAllHw  = kForceSoftwareDecode || kIsProResRaw;
     if (kForceSoftwareDecode) {
         qInfo("VideoDecoder: software decode forced — "
               "performance/hardwareDecodeEnabled is off");
+    } else if (kIsProResRaw) {
+        qInfo("VideoDecoder: codec=prores_raw → software decode + CPU "
+              "debayer (GPU debayer not implemented yet)");
     } else if (skipVulkan) {
         qInfo("VideoDecoder: codec=%s → routing to D3D11VA (Vulkan "
               "reserved for ProRes on Windows)",

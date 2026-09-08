@@ -403,6 +403,23 @@ passes on 9.0.1: `gbrp12le,tv`, framemd5 `d0a389c3f22b` at 1 and 8
 threads, identical to the 8.1.2 build, no "variable ACT" errors, frame-1
 PNG byte-identical.
 
+**Local patch 0003 — ProRes RAW Bayer patterns (2026-09-08, Windows-verified):**
+`external/patches/ffmpeg/0003-prores-raw-bayer-patterns.patch`. Upstream
+(9.0.1 and master) rejects every ProRes RAW frame whose header Bayer
+pattern is not 0 ("Bayer pattern N is not implemented"); an iPhone 17 Pro
+clip carries 3. The decoded mosaic is laid out identically regardless
+of the value — that clip debayers correctly ONLY as RGGB (BGGR inverts
+the hues, GRBG/GBRG go grey) — so the patch accepts every value, keeps
+the RGGB tag and logs the raw value at verbose. It also registers the
+other three 16-bit Bayer formats in hwcontext_vulkan's format table.
+The app routes `prores_raw` to software decode + swscale debayer
+(1.2 fps at 4224x3024; viewable, not real-time). The 9.0.1 Vulkan
+ProRes RAW hwaccel decodes the same clip at ~158 fps but its output is
+vertically flipped and left in a 12-bit range (both also in master as
+of May 2026) — needs an upstream-style fix plus a compositor debayer
+mode before it can be used. Re-apply on every FFmpeg refresh like
+0001/0002 (the recipes' "both patches" now means all three).
+
 **macOS trial build (done):** `n9.0.1` + patches built with the recipe
 above, unchanged flags, into `external/install-ff9/` (gitignored) so
 `external/install/` and `main` stay intact. Build tooling needed nothing

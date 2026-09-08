@@ -1,0 +1,39 @@
+diff --git a/libavcodec/prores_raw.c b/libavcodec/prores_raw.c
+index 28f9b54..cf09b87 100644
+--- a/libavcodec/prores_raw.c
++++ b/libavcodec/prores_raw.c
+@@ -418,12 +418,15 @@ static int decode_frame(AVCodecContext *avctx,
+     uint8_t crop_t = bytestream2_get_byte(&gb_hdr);
+     uint8_t crop_b = bytestream2_get_byte(&gb_hdr);
+ 
+-    /* BayerPattern: 0=RGGB, 1/2/3 = alternates */
++    /* BayerPattern: upstream rejects anything but 0 (RGGB). QCView local
++     * patch (2026-09-08): the mosaic the decoder emits is laid out the
++     * same regardless of this value — an iPhone 17 Pro clip carrying
++     * pattern 3 debayers correctly ONLY as RGGB (BGGR inverts the hues,
++     * GRBG/GBRG collapse to grey). So accept every value, keep the RGGB
++     * tag, and log the raw value so other cameras can be checked. */
+     int bayer_pattern = bytestream2_get_be16(&gb_hdr) & 0x3;
+-    if (bayer_pattern != 0) {
+-        avpriv_request_sample(avctx, "Bayer pattern %d", bayer_pattern);
+-        return AVERROR_PATCHWELCOME;
+-    }
++    if (bayer_pattern != 0)
++        av_log(avctx, AV_LOG_VERBOSE, "Bayer pattern %d in header — output tagged RGGB\n", bayer_pattern);
+ 
+     /* senselValueRange: black_level is hardcoded to 0x100,
+      * white_level = senselValueRange + 0x100 */
+diff --git a/libavutil/hwcontext_vulkan.c b/libavutil/hwcontext_vulkan.c
+index 90d3d14..8cf0232 100644
+--- a/libavutil/hwcontext_vulkan.c
++++ b/libavutil/hwcontext_vulkan.c
+@@ -469,6 +469,9 @@ static const struct FFVkFormatEntry {
+ 
+     /* Bayer */
+     { VK_FORMAT_R16_UNORM, AV_PIX_FMT_BAYER_RGGB16, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 1, { VK_FORMAT_R16_UNORM } },
++    { VK_FORMAT_R16_UNORM, AV_PIX_FMT_BAYER_GRBG16, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 1, { VK_FORMAT_R16_UNORM } },
++    { VK_FORMAT_R16_UNORM, AV_PIX_FMT_BAYER_GBRG16, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 1, { VK_FORMAT_R16_UNORM } },
++    { VK_FORMAT_R16_UNORM, AV_PIX_FMT_BAYER_BGGR16, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 1, { VK_FORMAT_R16_UNORM } },
+ 
+     /* Two-plane 420 YUV at 8, 10, 12 and 16 bits */
+     { VK_FORMAT_G8_B8R8_2PLANE_420_UNORM,                  AV_PIX_FMT_NV12, ASPECT_2PLANE, 2, 1, 2, { VK_FORMAT_R8_UNORM,  VK_FORMAT_R8G8_UNORM   } },
