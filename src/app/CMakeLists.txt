@@ -365,6 +365,19 @@ if(WIN32)
         # 8.1 line, avcodec-63.dll on 9.x). Derive them from the
         # pkg-config versions external/CMakeLists.txt resolved, so a
         # BtbN refresh across a major bump needs no edit here.
+        #
+        # libavdevice is NOT in external/CMakeLists.txt's
+        # pkg_check_modules(FFMPEG …) list — qcview never links it; only
+        # the staged ffmpeg.exe loads it — so query its version alone
+        # (no IMPORTED_TARGET, nothing gets linked) purely for the DLL
+        # name. PKG_CONFIG_PATH already prefers the BtbN tree here.
+        # (find_package is per-directory scope — external/'s call does
+        # not define PKG_CONFIG_VERSION here, and FindPkgConfig's
+        # re-check test needs it.)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(FFMPEG_AVDEVICE QUIET libavdevice)
+        set(FFMPEG_libavdevice_VERSION
+            "${FFMPEG_AVDEVICE_VERSION}")
         set(_ffmpeg_dlls "")
         foreach(_mod IN ITEMS avcodec avformat avutil avfilter avdevice
                               swresample swscale)

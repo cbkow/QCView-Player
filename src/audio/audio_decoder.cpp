@@ -295,6 +295,11 @@ bool AudioDecoder::openAudioStream()
     }
 
     m_codecCtx = avcodec_alloc_context3(codec);
+    // pkt_timebase is "set by user" for decoding — FFmpeg needs it to
+    // re-stamp frames after dropping AAC priming / padding samples
+    // (skip_samples side data on seeks); 9.0 warns "Could not update
+    // timestamps for discarded samples" without it.
+    if (m_codecCtx) m_codecCtx->pkt_timebase = stream->time_base;
     if (!m_codecCtx
         || avcodec_parameters_to_context(m_codecCtx, stream->codecpar) < 0
         || avcodec_open2(m_codecCtx, codec, nullptr) < 0) {

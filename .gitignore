@@ -106,6 +106,7 @@ external/build/
 # >=100 MB files, so these are never committed. Re-fetch per
 # dependencies.md §2 / dependencies-changelog.md.
 external/ffmpeg-win64/
+external/ffmpeg-win64-*/   # parked previous-major BtbN trees (e.g. 8.1.2 kept aside during the 9.0 trial)
 
 # Local Claude Code / agent config
 .claude/

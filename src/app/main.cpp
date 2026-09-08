@@ -208,6 +208,24 @@ bool stageSpawnableToolsWin(const QString &appDir, const QString &binDir)
             ok = false;
         }
     }
+    // Purge FFmpeg DLLs from a previous major (avcodec-62.dll next to
+    // avcodec-63.dll after the 8.1→9.0 bump): the copy loop above only
+    // overwrites names it ships, so ~170 MB of dead DLLs would
+    // otherwise accumulate per user across bumps. Best-effort — a
+    // copy held open by a running spawn just gets purged next launch.
+    {
+        const QStringList stale = QDir(binDir).entryList(
+            { QStringLiteral("av*.dll"), QStringLiteral("sw*.dll"),
+              QStringLiteral("postproc-*.dll") },
+            QDir::Files);
+        for (const QString &old : stale) {
+            if (!names.contains(old)) {
+                if (QFile::remove(binDir + QLatin1Char('/') + old))
+                    qInfo("toolbox.json: purged stale %s from mirror",
+                          qPrintable(old));
+            }
+        }
+    }
     if (ok) {
         QSaveFile stamp(stampPath);
         ok = stamp.open(QIODevice::WriteOnly)
@@ -317,6 +335,7 @@ QStringList collectPositionalArgs(const QStringList &args)
     };
     consumeFlag(QStringLiteral("--dual-test"),     2);
     consumeFlag(QStringLiteral("--simulate-user"), 2);
+    consumeFlag(QStringLiteral("--playlist-test"), 1);
     consumeFlag(QStringLiteral("--sbs"),           0);
 
     QStringList out;
@@ -337,7 +356,8 @@ QStringList collectPositionalArgs(const QStringList &args)
 bool hasDevModeFlag(const QStringList &args)
 {
     return args.contains(QStringLiteral("--dual-test"))
-        || args.contains(QStringLiteral("--simulate-user"));
+        || args.contains(QStringLiteral("--simulate-user"))
+        || args.contains(QStringLiteral("--playlist-test"));
 }
 
 // Open a list of file paths / qcview:// URIs through the running
@@ -672,6 +692,34 @@ int main(int argc, char *argv[])
                         windowManager.setCompositorMode(1);
                     });
                 });
+            });
+        }
+
+        // --playlist-test DIR: build a Playlist from every video file
+        // in DIR (sorted by name) and activate it, exactly as if the
+        // user had multi-selected the files and created a playlist.
+        // Dev entry for hammering clip-boundary crossings (mixed-res
+        // ProRes → Vulkan bridge park-and-reuse, v2.2.8) without a
+        // saved project or UI driver tools.
+        const int plIdx = args.indexOf(QStringLiteral("--playlist-test"));
+        if (plIdx >= 0 && plIdx + 1 < args.size()) {
+            const QString dir = args.at(plIdx + 1);
+            QTimer::singleShot(800, &windowManager, [&windowManager, dir] {
+                const QStringList files = QDir(dir).entryList(
+                    { QStringLiteral("*.mov"), QStringLiteral("*.mp4"),
+                      QStringLiteral("*.mxf"), QStringLiteral("*.mkv") },
+                    QDir::Files, QDir::Name);
+                QStringList paths;
+                for (const QString &f : files)
+                    paths << QDir(dir).absoluteFilePath(f);
+                qInfo("--playlist-test: %lld files in %s",
+                      static_cast<long long>(paths.size()), qPrintable(dir));
+                if (auto *p = windowManager.project(); p && !paths.isEmpty()) {
+                    const QString id = p->createPlaylist(paths);
+                    if (!id.isEmpty()) p->setActiveItem(id);
+                    qInfo("--playlist-test: playlist %s active",
+                          qPrintable(id));
+                }
             });
         }
     }

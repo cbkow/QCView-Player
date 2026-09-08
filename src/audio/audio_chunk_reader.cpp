@@ -53,6 +53,13 @@ bool AudioChunkReader::open(const QString &path, int routingMode)
     }
     AVStream *stream = m_fmt->streams[m_streamIdx];
     m_codec = avcodec_alloc_context3(dec);
+    // pkt_timebase is "set by user" for decoding: FFmpeg needs it to
+    // re-stamp frames after dropping AAC priming / padding samples
+    // (skip_samples side data the mov demuxer attaches on seeks).
+    // FFmpeg 9.0 logs "Could not update timestamps for discarded
+    // samples" per seek without it. (avcodec_parameters_to_context
+    // never sets it.)
+    if (m_codec) m_codec->pkt_timebase = stream->time_base;
     if (!m_codec
         || avcodec_parameters_to_context(m_codec, stream->codecpar) < 0
         || avcodec_open2(m_codec, dec, nullptr) < 0) {
