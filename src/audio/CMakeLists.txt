@@ -73,3 +73,13 @@ elseif(WIN32)
             avrt
     )
 endif()
+
+# FFmpeg headers must win over any other copy on the include path
+# (vcpkg's FFmpeg on Windows, Homebrew's on macOS). 2026-09-08: qcv_render
+# silently compiled AVVkFrame against vcpkg's 8.1 headers while running
+# the 9.0 DLLs -> shifted struct layout -> garbage semaphore handles ->
+# driver crash. BEFORE puts the vendored include dir ahead of everything.
+if(TARGET PkgConfig::FFMPEG)
+    target_include_directories(qcv_audio BEFORE PRIVATE
+        $<TARGET_PROPERTY:PkgConfig::FFMPEG,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()

@@ -33,6 +33,7 @@
 struct AVFrame;
 typedef struct VkImage_T              *VkImage;
 typedef struct VkImageView_T          *VkImageView;
+typedef struct VkSemaphore_T          *VkSemaphore;   // Phase I.F frame sync
 
 namespace qcv {
 
@@ -87,6 +88,20 @@ public:
         int   hasAlpha;     // 1 if samplerViews[3] is real alpha
         int   isRgb;        // 1 if planes are G/B/R (GBRP family)
         int   isBiplanar;   // 1 if samplerViews[1] is interleaved UV
+
+        // Phase I.F — FFmpeg AVVkFrame synchronization. One timeline
+        // semaphore per source VkImage (AVVkFrame::sem / sem_value):
+        // the submit WAITS on syncSem[i] at syncWaitValue[i] (the
+        // decode that produced the image) and SIGNALS syncSem[i] at
+        // syncWaitValue[i] + 1 (our read is done). That signal is what
+        // lets FFmpeg's pool free / next decode into the same image
+        // wait for us — without it our sampling was invisible to the
+        // decoder's sync. Caller holds lock_frame() around dispatch()
+        // and bumps sem_value[i] on success. nbSync = 0 → no frame
+        // sync (non-FFmpeg callers).
+        int         nbSync;
+        VkSemaphore syncSem[4];
+        uint64_t    syncWaitValue[4];
     };
 
     // Run the YUV→RGB compute pass. Serializes GPU-side on the shared

@@ -8,6 +8,7 @@
 #include <QtLogging>
 
 extern "C" {
+#include <libavutil/avutil.h>     // avutil_version() — ABI guard in initialize()
 #include <libavutil/frame.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
@@ -393,6 +394,23 @@ bool D3D11VulkanDecodeBridge::initialize(D3D11VulkanYuvCompositor *yuvCompositor
         return false;
     }
 
+    // ABI guard (2026-09-08): this TU reads AVVkFrame / AVVulkanFramesContext
+    // by struct layout. If the headers it was compiled against belong to
+    // a different libavutil major than the DLL that is actually loaded
+    // (it happened: vcpkg's 8.1 headers vs the vendored 9.0 DLLs — the
+    // widened `access[]` shifted `sem[]`, and we submitted image layouts
+    // as semaphore handles), refuse to run the zero-copy path rather
+    // than corrupt the driver. Decoders then fall back to CPU publish.
+    const unsigned rtMajor = AV_VERSION_MAJOR(avutil_version());
+    if (rtMajor != static_cast<unsigned>(LIBAVUTIL_VERSION_MAJOR)) {
+        qCritical("D3D11VulkanDecodeBridge: libavutil ABI mismatch — headers "
+                  "%d, runtime DLL %u. Zero-copy Vulkan bridge DISABLED. "
+                  "(Fix the include order: the vendored FFmpeg include dir "
+                  "must precede every other FFmpeg copy on the path.)",
+                  LIBAVUTIL_VERSION_MAJOR, rtMajor);
+        return false;
+    }
+
     m_impl->yuv         = yuvCompositor;
     m_impl->initialized = true;
     qInfo("D3D11VulkanDecodeBridge: initialized (per-stream cache; shared "
@@ -629,7 +647,43 @@ D3D11VulkanDecodeBridge::consumeAVFrame(AVFrame *avFrame, int rangeOverride)
     dp.hasAlpha   = hasAlpha ? 1 : 0;
     dp.isBiplanar = isBiplanar ? 1 : 0;
 
-    if (!m_impl->yuv->dispatch(dp)) {
+    // Phase I.F — make our GPU read visible to FFmpeg's frame sync.
+    // AVVkFrame carries one timeline semaphore per VkImage (one image
+    // for multi-plane NV12/P010, one per plane otherwise). Per the
+    // hwcontext_vulkan contract: lock the frame, wait each image at
+    // its current sem_value, signal at sem_value + 1, bump sem_value,
+    // unlock right after submission (no waiting inside the lock).
+    // FFmpeg's vulkan_frame_free() and the next decode into this image
+    // both wait on that value, so a pool teardown or reuse can no
+    // longer overtake an in-flight compositor dispatch.
+    const int nbImages = isBiplanar ? 1 : planeCount;
+    if (vkfctx->lock_frame) vkfctx->lock_frame(hwfc, vkf);
+    dp.nbSync = 0;
+    for (int i = 0; i < nbImages && i < 4; ++i) {
+        if (vkf->sem[i] == VK_NULL_HANDLE) continue;
+        dp.syncSem[dp.nbSync]       = vkf->sem[i];
+        dp.syncWaitValue[dp.nbSync] = vkf->sem_value[i];
+        ++dp.nbSync;
+    }
+    if (!m_impl->loggedFirstFrame) {
+        qInfo("D3D11VulkanDecodeBridge: frame sync — %d image(s): "
+              "sem=[%p %p %p %p] value=[%llu %llu %llu %llu] img=[%p %p %p %p] "
+              "lock_frame=%p",
+              nbImages, (void *)vkf->sem[0], (void *)vkf->sem[1],
+              (void *)vkf->sem[2], (void *)vkf->sem[3],
+              (unsigned long long)vkf->sem_value[0], (unsigned long long)vkf->sem_value[1],
+              (unsigned long long)vkf->sem_value[2], (unsigned long long)vkf->sem_value[3],
+              (void *)vkf->img[0], (void *)vkf->img[1], (void *)vkf->img[2], (void *)vkf->img[3],
+              (void *)vkfctx->lock_frame);
+    }
+    const bool dispatched = m_impl->yuv->dispatch(dp);
+    if (dispatched) {
+        for (int i = 0; i < nbImages && i < 4; ++i) {
+            if (vkf->sem[i] != VK_NULL_HANDLE) vkf->sem_value[i] += 1;
+        }
+    }
+    if (vkfctx->unlock_frame) vkfctx->unlock_frame(hwfc, vkf);
+    if (!dispatched) {
         return nullptr;
     }
 
