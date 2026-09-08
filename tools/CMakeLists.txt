@@ -12,3 +12,8 @@ add_subdirectory(probe-metadata)
 
 # probe-ocio-d3d11 (Phase F.1.a spike) builds standalone — see its own
 # CMakeLists.txt for the configure command. Not part of the main build.
+
+# Windows-only: uses the Vulkan shared-device helper (Q_OS_WIN).
+if(WIN32)
+    add_subdirectory(bench-decode)
+endif()
