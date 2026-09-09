@@ -30,11 +30,15 @@ extern "C" void dualCvPixelBufferRetain(void *cvPix);
 extern "C" void dualCvPixelBufferRelease(void *cvPix);
 #endif
 
+// firstSoftwareFormat / softwareOnlyCodec are platform-neutral and used
+// by every get_format; the Vulkan handoff helpers in the same header
+// stay Windows-only inside it.
+#include "decode/vulkan_hw_device_ctx.h"
+#include "decode/hw_routing.h"             // softwareOnlyCodec
 #if defined(Q_OS_WIN)
 // F.2.12.c — Vulkan-decode handoff. Same helper single-flow uses;
 // promoted to a public header in F.2.12.a so dual reuses it
 // verbatim instead of duplicating the AVVulkanDeviceContext setup.
-#include "decode/vulkan_hw_device_ctx.h"
 // Cut A — used in teardownFFmpeg to flush in-flight Vulkan work
 // before freeing the hwdevice context that owns the AVVkFrame pool.
 // Without the flush, an intermittent VK_ERROR_DEVICE_LOST cascades on
@@ -66,6 +70,8 @@ QString avErrToString(int err)
 AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx,
                                 const AVPixelFormat *fmts)
 {
+    if (ctx && qcv::softwareOnlyCodec(ctx->codec_id))   // decode/hw_routing.h
+        return qcv::firstSoftwareFormat(fmts);
     // Mirrors single-flow VideoDecoder::hwaccelGetFormat. Windows
     // routes per-codec — ProRes via Vulkan (libplacebo compute is
     // the only viable hardware path), everything else via D3D11VA
@@ -105,11 +111,9 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx,
             }
         }
     }
-#if defined(Q_OS_WIN)
+    // fmts[0] may be a foreign hwaccel (`vulkan` for ProRes RAW on
+    // macOS since 9.0) — first SOFTWARE format on every platform.
     return qcv::firstSoftwareFormat(fmts);
-#else
-    return fmts[0];
-#endif
 }
 
 // Adaptive timeout for the decode CV — matches old QCView's pattern

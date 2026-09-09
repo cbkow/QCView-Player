@@ -4,9 +4,8 @@
 #include "decode/thread_policy.h"
 #include "decode/seek_compat.h"
 #include "video_decoder.h"
-#if defined(Q_OS_WIN)
-#include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
-#endif
+#include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat (all platforms)
+#include "decode/hw_routing.h"             // softwareOnlyCodec (all platforms)
 
 #if defined(Q_OS_WIN)
 // Cut A — see VideoDecoder::close for rationale. Same flush before
@@ -44,8 +43,10 @@ QString avErrToString(int err)
     return QString::fromUtf8(buf);
 }
 
-AVPixelFormat hwaccelGetFormat(AVCodecContext * /*ctx*/, const AVPixelFormat *fmts)
+AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
 {
+    if (ctx && qcv::softwareOnlyCodec(ctx->codec_id))   // decode/hw_routing.h
+        return qcv::firstSoftwareFormat(fmts);
 #if defined(Q_OS_MACOS)
     constexpr AVPixelFormat kPreferred = AV_PIX_FMT_VIDEOTOOLBOX;
 #elif defined(Q_OS_WIN)
@@ -58,14 +59,11 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext * /*ctx*/, const AVPixelFormat *fm
     for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
         if (fmts[i] == kPreferred) return kPreferred;
     }
-#if defined(Q_OS_WIN)
     // Phase K.3 — fmts[0] can be a foreign hwaccel (`vulkan` for
-    // FFV1/APV, `vaapi` for VVC) that FFmpeg rejects before re-calling
-    // us; go straight to the first software format.
+    // FFV1/APV, `vaapi` for VVC; on macOS `vulkan` for ProRes RAW since
+    // 9.0 compiles the Vulkan hwaccels in) that FFmpeg rejects before
+    // re-calling us; go straight to the first software format.
     return qcv::firstSoftwareFormat(fmts);
-#else
-    return fmts[0];
-#endif
 }
 
 } // namespace

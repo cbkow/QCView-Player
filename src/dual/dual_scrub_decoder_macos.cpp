@@ -45,17 +45,22 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 #include <libswscale/swscale.h>
 }
+#include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
+#include "decode/hw_routing.h"             // softwareOnlyCodec
 
 namespace qcv::dual {
 
 namespace {
 
-AVPixelFormat hwaccelGetFormat(AVCodecContext * /*ctx*/, const AVPixelFormat *fmts)
+AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
 {
+    if (ctx && qcv::softwareOnlyCodec(ctx->codec_id))   // decode/hw_routing.h
+        return qcv::firstSoftwareFormat(fmts);
     for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
         if (fmts[i] == AV_PIX_FMT_VIDEOTOOLBOX) return AV_PIX_FMT_VIDEOTOOLBOX;
     }
-    return fmts[0];
+    // fmts[0] is `vulkan` for ProRes RAW on 9.0 — first SOFTWARE format.
+    return qcv::firstSoftwareFormat(fmts);
 }
 
 // CPU-readback fallback frame (software decode / non-wrappable surface).

@@ -36,6 +36,7 @@ extern "C" {
 }
 
 #include "vulkan_hw_device_ctx.h"   // firstSoftwareFormat (all platforms)
+#include "hw_routing.h"              // softwareOnlyCodec (all platforms)
 #if defined(Q_OS_WIN)
 #  include <vulkan/vulkan.h>
 #  include "vulkan/vulkan_device_manager.h"
@@ -119,6 +120,15 @@ FfmpegLogInstaller g_ffmpegLogInstaller;
 // successfully — otherwise FFmpeg uses its default selection.
 AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
 {
+    // decode/hw_routing.h — codecs whose registered hwaccels don't
+    // work (ProRes RAW): never pick a hw format, straight to software.
+    if (ctx && qcv::softwareOnlyCodec(ctx->codec_id)) {
+        const AVPixelFormat sw = qcv::firstSoftwareFormat(fmts);
+        qInfo("VideoDecoder: get_format codec=%s → %s (software-only codec, "
+              "hwaccels skipped)", ctx->codec ? ctx->codec->name : "?",
+              av_get_pix_fmt_name(sw));
+        return sw;
+    }
     // Per-platform candidate list, tried in priority order. On Windows
     // we route per-codec: ProRes gets Vulkan (libplacebo compute is
     // the only viable hardware path), everything else gets D3D11VA

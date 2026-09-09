@@ -16,6 +16,7 @@ qt_add_library(qcv_decode STATIC
     scrub_decoder.h
     rgb_range.h
     thread_policy.h
+    hw_routing.h
     sws_threaded.h
     stream_extent.h
     seek_compat.h

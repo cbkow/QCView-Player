@@ -18,6 +18,7 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
+#include "vulkan_hw_device_ctx.h"   // firstSoftwareFormat (all platforms)
 
 #include <algorithm>
 #include <chrono>
@@ -50,7 +51,7 @@ AVPixelFormat liveGetFormat(AVCodecContext *, const AVPixelFormat *fmts)
     for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
         if (fmts[i] == AV_PIX_FMT_VIDEOTOOLBOX) return fmts[i];
     }
-    return fmts[0];
+    return qcv::firstSoftwareFormat(fmts);   // never a foreign hwaccel
 }
 #elif defined(Q_OS_WIN)
 AVPixelFormat liveGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
