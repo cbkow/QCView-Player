@@ -27,6 +27,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec_desc.h>
+#include <libavutil/cpu.h>
 }
 
 namespace qcv {
@@ -44,6 +45,16 @@ inline void applySoftwareThreadPolicy(AVCodecContext *ctx, const AVCodec *codec,
     ctx->thread_type  = (intraOnly && sliceCap)
                         ? FF_THREAD_SLICE
                         : (FF_THREAD_FRAME | FF_THREAD_SLICE);
+}
+
+// Dual view runs two software decoders at once; give each half the
+// machine instead of letting both ask for every core (2026-09-09: the
+// 8K ProRes XQ clip decodes in the same 33 ms/frame on 16 slice threads
+// as on 32, so the split costs nothing and removes the contention).
+inline int dualSideThreadCount()
+{
+    const int n = av_cpu_count();
+    return n > 1 ? n / 2 : 1;
 }
 
 inline const char *threadPolicyName(const AVCodecContext *ctx)

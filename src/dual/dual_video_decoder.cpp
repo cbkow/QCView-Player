@@ -195,6 +195,7 @@ void DualVideoDecoder::close()
     m_path.clear();
     m_width = m_height = m_frameCount = 0;
     m_fps = 0.0;
+    m_intraOnly = false;
 }
 
 void DualVideoDecoder::setDecodeTarget(int frameNumber)
@@ -306,6 +307,34 @@ std::shared_ptr<DualFrame> DualVideoDecoder::getBufferedFrame(int frameNumber) c
         // flooding.
         static std::atomic<int> missCount{0};
         const int n = missCount.fetch_add(1) + 1;
+        // Slow-source fallback (2026-09-09, pairs with chase mode in the
+        // decode loop): when the decoder trails the playhead the exact
+        // frame is never buffered, so the compositor kept the last
+        // texture that happened to hit and B looked frozen. Hand back
+        // the NEWEST buffered frame at or before the request instead,
+        // as long as it is within one ring of it — B then plays at the
+        // decoder's rate, dropping frames. Anything further away
+        // (a real seek / scrub miss) still returns null so the
+        // caller's hold-last behaviour is unchanged.
+        {
+            int bestIdx = -1, bestFn = -1;
+            for (int i = 0; i < m_ringCount; ++i) {
+                const int idx = (m_ringHead + i) % kRingSize;
+                if (!m_ring[idx].valid) continue;
+                const int fn = m_ring[idx].frameNumber;
+                if (fn <= frameNumber && fn > bestFn && frameNumber - fn <= kRingSize) {
+                    bestFn = fn; bestIdx = idx;
+                }
+            }
+            if (bestIdx >= 0) {
+                if (n % 120 == 1) {
+                    qInfo("DualVideoDecoder: getBufferedFrame req=%d not buffered — "
+                          "showing nearest %d (decoder trailing by %d)",
+                          frameNumber, bestFn, frameNumber - bestFn);
+                }
+                return m_ring[bestIdx].frame;
+            }
+        }
         if (n % 30 == 1) {
             int bufMin = INT_MAX, bufMax = INT_MIN, valid = 0;
             for (int i = 0; i < m_ringCount; ++i) {
@@ -418,6 +447,9 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
     AVStream *st = m_fmt->streams[m_streamIdx];
     AVCodecParameters *codecpar = st->codecpar;
     const AVCodec *codec = avcodec_find_decoder(codecpar->codec_id);
+    if (const AVCodecDescriptor *desc = avcodec_descriptor_get(codecpar->codec_id)) {
+        m_intraOnly = (desc->props & AV_CODEC_PROP_INTRA_ONLY) != 0;
+    }
     if (!codec) {
         qWarning("DualVideoDecoder: no decoder for codec id %d", codecpar->codec_id);
         return false;
@@ -592,7 +624,9 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
     // for intra codecs, frame+slice for inter. Vulkan keeps its single
     // decode thread (Phase I.E).
     if (m_hwBackend != QStringLiteral("vulkan")) {
-        qcv::applySoftwareThreadPolicy(m_cctx, codec, 0);
+        qcv::applySoftwareThreadPolicy(m_cctx, codec, qcv::dualSideThreadCount());
+        qInfo("DualVideoDecoder: threading %s (count=%d)",
+              qcv::threadPolicyName(m_cctx), m_cctx->thread_count);
     }
     if (int err = avcodec_open2(m_cctx, codec, nullptr); err < 0) {
         qWarning("DualVideoDecoder: avcodec_open2 failed: %s",
@@ -1122,6 +1156,40 @@ void DualVideoDecoder::decodeThreadFunc()
         if (m_pendingSeekTarget.load(std::memory_order_acquire) >= 0) continue;
         if (m_scrubActive.load(std::memory_order_acquire)) continue;
         if (!needsMoreFrames()) continue;
+
+        // Chase mode (2026-09-09) — a source that decodes slower than
+        // the playhead moves used to spiral: decode sequentially, fall
+        // >16 frames behind, get flushed by requestFrame's seek, refill
+        // from a stale point, repeat — B showed one ring's worth of
+        // frames and then froze (8294x3164 ProRes XQ in software). For
+        // intra-only codecs a seek costs exactly one decode, so when the
+        // playhead is more than kChaseLag frames past the newest buffered
+        // frame, jump to the playhead instead of decoding intermediates.
+        // B then plays at whatever rate the machine manages, dropping
+        // frames, instead of freezing. Inter codecs keep the sequential
+        // policy (a seek there means a keyframe run).
+        if (m_intraOnly) {
+            constexpr int kChaseLag = 3;
+            const int target = m_decodeTarget.load(std::memory_order_acquire);
+            int bufMax = -1;
+            {
+                std::lock_guard<std::mutex> lk(m_bufferMutex);
+                for (int i = 0; i < m_ringCount; ++i) {
+                    const int idx = (m_ringHead + i) % kRingSize;
+                    if (m_ring[idx].valid) bufMax = std::max(bufMax, m_ring[idx].frameNumber);
+                }
+            }
+            if (bufMax >= 0 && target > bufMax + kChaseLag) {
+                static std::atomic<int> chaseLog{0};
+                if ((chaseLog.fetch_add(1) % 120) == 0) {
+                    qInfo("DualVideoDecoder: chase — playhead %d, newest buffered %d; "
+                          "seeking instead of decoding %d intermediates",
+                          target, bufMax, target - bufMax - 1);
+                }
+                performSeek(target, pkt, frame);
+                continue;
+            }
+        }
 
         // ---- Decode one frame (no wall-clock pacing; the master timer
         // controls when the renderer pulls).

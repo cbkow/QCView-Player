@@ -240,7 +240,7 @@ bool DualScrubDecoder::initFFmpeg(const QString &path)
               "performance/hardwareDecodeEnabled is off");
     }
 
-    qcv::applySoftwareThreadPolicy(m_cctx, codec, 0);   // see ScrubDecoder
+    qcv::applySoftwareThreadPolicy(m_cctx, codec, qcv::dualSideThreadCount());
     if (avcodec_open2(m_cctx, codec, nullptr) < 0) return false;
     qInfo("DualScrubDecoder: opened '%s'", qPrintable(trimmedName));
     return true;

@@ -230,6 +230,10 @@ private:
     // ---- Decode-ahead state ----
     std::atomic<int>  m_decodeTarget{0};
     std::atomic<int>  m_pendingSeekTarget{-1};
+    // Intra-only codec (ProRes / DNxHR / FFV1 / RAW…): every frame is a
+    // keyframe, so a seek costs one decode. Enables chase mode in the
+    // decode loop when the source can't keep up with the playhead.
+    bool              m_intraOnly = false;
 
     // ---- Scrub coordination ----
     // m_scrubActive: when true, decode thread's primary CV wait
