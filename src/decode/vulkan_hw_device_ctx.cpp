@@ -286,10 +286,21 @@ void releaseSharedVulkanFramesCache()
 
 bool vulkanPreferredCodec(int avCodecId)
 {
+    // ProRes ONLY. FFV1 and APV were routed here for one evening
+    // (2026-09-08) and measured on the RTX 5090 with the vendored
+    // 9.0.1 CLI, 1080p 4:2:2 10-bit, 24 frames:
+    //   FFV1  software 228 ms   Vulkan 4659 ms (24 slices), 3585 ms
+    //                            for TEN frames at the encoder default
+    //                            of one slice — ~3 fps, and the single
+    //                            giant workgroup stalls the desktop
+    //   APV   software 111 ms   Vulkan  671 ms
+    // The Vulkan FFV1 decoder is a slice-parallel compute shader; real
+    // archives are often 1-4 slices, so it is unusable as a default.
+    // Software FFV1/APV are frame-threaded and faster than the GPU
+    // here anyway. The bridge's 3-plane support stays for the day a
+    // compute decoder earns its place.
     switch (static_cast<AVCodecID>(avCodecId)) {
     case AV_CODEC_ID_PRORES:   // Vulkan decoder since FFmpeg 8.0
-    case AV_CODEC_ID_FFV1:     // 8.0
-    case AV_CODEC_ID_APV:      // 9.0
         return true;
     default:
         return false;

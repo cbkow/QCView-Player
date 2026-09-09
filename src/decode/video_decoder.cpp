@@ -723,13 +723,9 @@ bool VideoDecoder::initFFmpeg(const QString &path)
         qInfo("VideoDecoder: codec=prores_raw → software decode + CPU "
               "debayer (GPU debayer not implemented yet)");
     } else if (skipVulkan) {
-        qInfo("VideoDecoder: codec=%s → routing to D3D11VA (Vulkan "
-              "reserved for ProRes / FFV1 / APV on Windows)",
+        qInfo("VideoDecoder: codec=%s → D3D11VA if the codec has it, else "
+              "software (Vulkan reserved for ProRes on Windows)",
               avcodec_get_name(codecpar ? codecpar->codec_id : AV_CODEC_ID_NONE));
-    } else if (!kIsProRes) {
-        qInfo("VideoDecoder: codec=%s → routing to Vulkan (compute "
-              "decoder on the shared device)",
-              avcodec_get_name(codecpar->codec_id));
     }
 
     // Unified pre-probe for the Vulkan hwaccel path: attempt to

@@ -27,11 +27,13 @@ struct AVCodecContext;
 
 namespace qcv {
 
-// Windows hw-decode routing (Phase K.3, 2026-09-08). Vulkan takes the
-// INTRA codecs whose FFmpeg Vulkan decoders are compute-shader based
-// and run on our shared VkDevice: ProRes (8.0), FFV1 (8.0), APV (9.0).
-// Inter codecs (H.264 / HEVC / AV1 / VP9 / VVC…) go to D3D11VA on the
-// renderer's ID3D11Device — see the hw-decode-strategy note.
+// Windows hw-decode routing (Phase K.3, 2026-09-08). Vulkan takes
+// ProRes (FFmpeg's compute-shader decoder on our shared VkDevice).
+// FFV1 and APV were tried and measured 6-20× SLOWER than software on
+// the 5090 (see the .cpp) — they decode on the CPU. Inter codecs
+// (H.264 / HEVC / AV1 / VP9) go to D3D11VA on the renderer's
+// ID3D11Device; everything else is software — see the
+// hw-decode-strategy note.
 bool vulkanPreferredCodec(int avCodecId);
 
 // The hw pixel format served by the device attached to `avctx`
