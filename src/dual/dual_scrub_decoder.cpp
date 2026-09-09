@@ -1,6 +1,7 @@
 #include "dual_scrub_decoder.h"
 #include "decode/sws_rgba_image.h"
 #include "dual_video_decoder.h"
+#include "decode/thread_policy.h"
 #if defined(Q_OS_WIN)
 #include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
 #endif
@@ -239,6 +240,7 @@ bool DualScrubDecoder::initFFmpeg(const QString &path)
               "performance/hardwareDecodeEnabled is off");
     }
 
+    qcv::applySoftwareThreadPolicy(m_cctx, codec, 0);   // see ScrubDecoder
     if (avcodec_open2(m_cctx, codec, nullptr) < 0) return false;
     qInfo("DualScrubDecoder: opened '%s'", qPrintable(trimmedName));
     return true;

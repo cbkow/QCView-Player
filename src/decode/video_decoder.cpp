@@ -1,6 +1,7 @@
 #include "video_decoder.h"
 
 #include "decode/rgb_range.h"
+#include "decode/thread_policy.h"
 
 #include "decoder_cleanup_queue.h"
 
@@ -877,11 +878,16 @@ bool VideoDecoder::initFFmpeg(const QString &path)
     // proper multithreading on the software fallback path. Auto
     // is the default; user override comes from Settings via
     // QSettings("performance/ffmpegThreads").
+    // 2026-09-09: intra-only codecs get SLICE threads only (see
+    // decode/thread_policy.h for the numbers — ProRes RAW's first frame
+    // went from 1.8 s to 118 ms and its rate from 5 to ~75 fps).
     {
         QSettings s;
-        m_cctx->thread_count =
-            s.value(QStringLiteral("performance/ffmpegThreads"), 0).toInt();
-        m_cctx->thread_type  = FF_THREAD_FRAME | FF_THREAD_SLICE;
+        qcv::applySoftwareThreadPolicy(
+            m_cctx, codec,
+            s.value(QStringLiteral("performance/ffmpegThreads"), 0).toInt());
+        qInfo("VideoDecoder: threading %s (count=%d)",
+              qcv::threadPolicyName(m_cctx), m_cctx->thread_count);
     }
     // Phase I.E — no frame threading under the Vulkan hwaccel. The GPU
     // does the decode, so 16 frame threads buy nothing, and each

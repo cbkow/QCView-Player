@@ -1,6 +1,7 @@
 #include "scrub_decoder.h"
 #include "decode/sws_rgba_image.h"
 #include "decoder_cleanup_queue.h"
+#include "decode/thread_policy.h"
 #include "video_decoder.h"
 #if defined(Q_OS_WIN)
 #include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
@@ -278,6 +279,11 @@ bool ScrubDecoder::initFFmpeg(const QString &path)
               "performance/hardwareDecodeEnabled is off");
     }
 
+    // 2026-09-09: libavcodec's default thread_count is 1, so this
+    // decoder was single-threaded (a 4K ProRes RAW scrub frame = 530
+    // ms). Auto count; slice threads for intra codecs (lowest latency
+    // per single-frame seek), frame+slice for inter.
+    qcv::applySoftwareThreadPolicy(m_cctx, codec, 0);
     if (avcodec_open2(m_cctx, codec, nullptr) < 0) return false;
     return true;
 }

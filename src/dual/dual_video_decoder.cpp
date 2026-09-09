@@ -1,6 +1,7 @@
 #include "dual_video_decoder.h"
 
 #include "decode/rgb_range.h"
+#include "decode/thread_policy.h"
 
 #include <QDebug>
 #include <QFileInfo>
@@ -585,6 +586,13 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
     }
 #endif
 
+    // 2026-09-09: auto thread count (libavcodec's default is ONE
+    // thread — both dual decoders were single-threaded), slice threads
+    // for intra codecs, frame+slice for inter. Vulkan keeps its single
+    // decode thread (Phase I.E).
+    if (m_hwBackend != QStringLiteral("vulkan")) {
+        qcv::applySoftwareThreadPolicy(m_cctx, codec, 0);
+    }
     if (int err = avcodec_open2(m_cctx, codec, nullptr); err < 0) {
         qWarning("DualVideoDecoder: avcodec_open2 failed: %s",
                  qPrintable(avErrToString(err)));
