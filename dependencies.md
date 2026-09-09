@@ -490,7 +490,11 @@ add-on spawns this binary — audit its command lines before shipping a
 - GPU ProRes RAW: the 9.0.1 Vulkan `prores_raw` hwaccel is ~158 fps but
   vertically flipped and left in a 12-bit range (same in master); needs
   an upstream-style fix plus a compositor debayer mode and camera colour
-  handling. Software decode (~1.2 fps at 4224x3024) ships meanwhile.
+  handling. The 9.0 `prores_raw_videotoolbox` hwaccel returns a null
+  image buffer for every frame (-12905) on an M5 Max / macOS 26.6.2 with
+  an iPhone 17 Pro RAW HQ clip (CLI and app alike), so
+  `decode/hw_routing.h` routes ProRes RAW to software on every platform
+  (2026-09-09). Software decode + swscale debayer ships meanwhile.
 - swscale unstable x86 "ops" backend: ~15× faster per thread for 8K
   12-bit YUV→RGBA64; watch each FFmpeg release for it leaving
   `SWS_UNSTABLE`, then adopt env-gated (Bayer not covered).

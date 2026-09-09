@@ -35,6 +35,8 @@ sources keep their depth into the OCIO pass), `firstSoftwareFormat`
 made platform-neutral (was Windows-only, called everywhere), dual
 decoder RGBA64 publish un-gated.
 
+**macOS ProRes RAW (found after the first 2.3.0 build, release withdrawn and rebuilt):** 9.0's new `prores_raw_videotoolbox` hwaccel was picked by every macOS get_format and VideoToolbox returned null buffers for every frame (-12905), so RAW clips showed nothing. `decode/hw_routing.h` now forces software for ProRes RAW on every platform and all macOS get_format fallbacks return the first software format (fmts[0] is the compiled-in Vulkan hwaccel for RAW under 9.0).
+
 **Watch:** first releases on a fresh major — track 9.0.x point releases
 (security fixes now land on 9.0 and 8.1 both). `lock_queue` callbacks
 are gone from our code path (internally synchronised queues) so the
