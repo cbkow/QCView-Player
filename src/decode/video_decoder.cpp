@@ -2,11 +2,13 @@
 
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
+#include "decode/sws_threaded.h"
 
 #include "decoder_cleanup_queue.h"
 
 #include <QDebug>
 #include <QFileInfo>
+#include <chrono>
 #include <QSettings>
 #include <QtLogging>
 #include <algorithm>
@@ -263,6 +265,7 @@ bool VideoDecoder::open(const QString &path)
     m_loggedHwToCpuFallback = false;
     m_loggedVulkanFormat    = false;
     m_loggedD3D11Format     = false;   // per-clip, like the Vulkan one-shot
+    m_dumpedFirstFrame      = false;
     // Open paused. Autoplay-on-open was disorienting in QC review
     // workflows where the user wants to scrub a freshly-loaded clip
     // before pressing Space. Callers (load, drop, project click)
@@ -1022,62 +1025,18 @@ bool VideoDecoder::initSwsContext(AVFrame *frame)
         sws_freeContext(m_sws);
         m_sws = nullptr;
     }
-    m_sws = sws_getContext(
-        frame->width, frame->height,
-        static_cast<AVPixelFormat>(frame->format),
-        frame->width, frame->height,
-        dstFmt,
-        SWS_BILINEAR, nullptr, nullptr, nullptr);
+    // Threaded context (decode/sws_threaded.h) — legacy-initialised, so
+    // sws_setColorspaceDetails below still governs matrix + range.
+    m_sws = qcv::swsCreateThreaded();
     m_swsDstFormat = dstFmt;
     if (!m_sws) {
-        setError(tr("sws_getContext failed"));
+        setError(tr("swscale context init failed"));
         return false;
     }
 
-    // Pick the matrix that matches the source colorspace metadata, not
-    // swscale's BT.601 default. Wrong matrix = "crunched" colors —
-    // saturated greens shift toward cyan, oranges go pink, shadows
-    // milky. (Phase 2 will replace this CPU path with proper OCIO
-    // input transforms; for Phase 1.8.1 we just pick the right matrix
-    // and let macOS handle BT.709 → sRGB-display approximately.)
-    int srcCsp;
-    switch (frame->colorspace) {
-        case AVCOL_SPC_BT709:      srcCsp = SWS_CS_ITU709; break;
-        case AVCOL_SPC_BT470BG:    srcCsp = SWS_CS_ITU601; break;
-        case AVCOL_SPC_SMPTE170M:  srcCsp = SWS_CS_SMPTE170M; break;
-        case AVCOL_SPC_SMPTE240M:  srcCsp = SWS_CS_SMPTE240M; break;
-        case AVCOL_SPC_FCC:        srcCsp = SWS_CS_FCC; break;
-        case AVCOL_SPC_BT2020_NCL: srcCsp = SWS_CS_BT2020; break;
-        case AVCOL_SPC_BT2020_CL:  srcCsp = SWS_CS_BT2020; break;
-        default:
-            // Heuristic: HD content is BT.709, SD is BT.601. Matches
-            // what most video tools do when metadata is missing.
-            srcCsp = (frame->width >= 1280 || frame->height >= 720)
-                     ? SWS_CS_ITU709 : SWS_CS_SMPTE170M;
-            break;
-    }
-    // Phase 3.G — apply the user's per-clip range override when set.
-    // The detected `frame->color_range` only feeds the conversion when
-    // the override is Auto (0). Wrong-range mistagged sources are
-    // common enough to need a manual escape hatch.
-    int srcFullRange = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
-    const int rangeOv = m_rangeOverride.load(std::memory_order_acquire);
-    if (rangeOv == 1) srcFullRange = 1;        // Full
-    else if (rangeOv == 2) srcFullRange = 0;   // Limited
-    // RGB sources: range expansion is done by publishCpuFrame's helper
-    // (rgb_range.h, one rule shared with scrub / dual / thumbs). The
-    // 8-bit RGB→RGBA path in swscale ignores these range flags, but the
-    // 16-bit RGB→RGBA64 path (swscale 10) honours them — leaving
-    // limited→full here made the Avid DNxHR 444 clip expand TWICE
-    // (crushed blacks, clipped highlights). Declare no range change so
-    // the helper stays the single source of truth on both depths.
-    if (isRgbPixelFormat(frame->format)) srcFullRange = 1;
-
-    sws_setColorspaceDetails(
-        m_sws,
-        sws_getCoefficients(srcCsp), srcFullRange,
-        sws_getCoefficients(SWS_CS_ITU709), /*dstFullRange=*/1,
-        /*brightness=*/0, /*contrast=*/1 << 16, /*saturation=*/1 << 16);
+    // Matrix + range are set on the frame by qcv::swsConvertToBuffer
+    // (decode/sws_threaded.h: tagged matrix or HD/SD heuristic, Range
+    // pill override, RGB sources declare no range change).
 
     m_swsSrcWidth  = frame->width;
     m_swsSrcHeight = frame->height;
@@ -1118,12 +1077,30 @@ void VideoDecoder::publishCpuFrame(AVFrame *frame)
     // writes straight into the image and the renderer uploads it as is.
     QImage rgba(frame->width, frame->height,
                 sixteen ? QImage::Format_RGBA64 : QImage::Format_RGBA8888);
-    uint8_t *dst[4] = { rgba.bits(), nullptr, nullptr, nullptr };
-    int dstStride[4] = { static_cast<int>(rgba.bytesPerLine()), 0, 0, 0 };
-
-    sws_scale(m_sws,
-              frame->data, frame->linesize, 0, frame->height,
-              dst, dstStride);
+    // Frame API → sliced across the context's threads (sws_scale with
+    // raw pointers is always single-threaded).
+    const auto swsT0 = std::chrono::steady_clock::now();
+    if (qcv::swsConvertToBuffer(m_sws, frame,
+                                static_cast<AVPixelFormat>(m_swsDstFormat), rgba.bits(),
+                                static_cast<int>(rgba.bytesPerLine()),
+                                m_rangeOverride.load(std::memory_order_acquire)) < 0) {
+        qWarning("VideoDecoder: sws_scale_frame failed; frame dropped");
+        return;
+    }
+    {
+        // Tuning telemetry: mean conversion time per 100 frames.
+        static thread_local double  swsAccumMs = 0.0;
+        static thread_local int     swsAccumN  = 0;
+        swsAccumMs += std::chrono::duration<double, std::milli>(
+                          std::chrono::steady_clock::now() - swsT0).count();
+        if (++swsAccumN == 100) {
+            qInfo("VideoDecoder: swscale %dx%d → %s: %.2f ms/frame (threads=%d)",
+                  frame->width, frame->height,
+                  sixteen ? "RGBA64" : "RGBA8", swsAccumMs / swsAccumN,
+                  m_sws->threads);
+            swsAccumMs = 0.0; swsAccumN = 0;
+        }
+    }
 
     // RGB sources: swscale applies no range handling on an RGB→RGB
     // conversion, so the Range pill would be inert here — apply the
@@ -1162,6 +1139,21 @@ void VideoDecoder::publishCpuFrame(AVFrame *frame)
     // gate can compare A vs B from sources with different
     // stream time_bases.
     const int64_t ptsUs = ptsToMicroseconds(pts);
+
+    // Parity harness: QCV_DUMP_FRAME=<dir> writes the FIRST published
+    // CPU frame of each clip as PNG (16-bit for RGBA64) so conversion
+    // paths can be diffed numerically (see decode/sws_threaded.h).
+    {
+        static const QString kDumpDir = qEnvironmentVariable("QCV_DUMP_FRAME");
+        if (!kDumpDir.isEmpty() && !m_dumpedFirstFrame) {
+            m_dumpedFirstFrame = true;
+            const QString out = kDumpDir + QLatin1Char('/')
+                              + QFileInfo(m_sourcePath).completeBaseName()
+                              + QStringLiteral(".png");
+            qInfo("VideoDecoder: dumping first CPU frame → %s (%s)",
+                  qPrintable(out), rgba.save(out, "PNG") ? "ok" : "FAILED");
+        }
+    }
 
     publishHandle(FrameHandle::cpu(std::move(rgba), ptsUs), pts, /*pace=*/true);
 }

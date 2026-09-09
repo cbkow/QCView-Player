@@ -1,6 +1,7 @@
 #include "live_stream_decoder.h"
 #include "video_decoder.h"
 #include "decode/rgb_range.h"   // Phase J.1 — cpuPublishPixelFormat
+#include "decode/sws_threaded.h"
 #if defined(Q_OS_WIN)
 #include "decode/d3d11va_hw_device_ctx.h"   // Phase K.2 — shared-device D3D11VA
 #endif
@@ -519,19 +520,17 @@ void LiveStreamDecoder::publishFrame(AVFrame *frame, AVCodecContext *cctx,
         // to RGBA — mirrors VideoDecoder's CPU sink, including Phase
         // J.1's depth rule (10-bit P010 / 10-bit sources → RGBA64).
         const AVPixelFormat dstFmt = cpuPublishPixelFormat(frame->format);
-        *sws = sws_getCachedContext(*sws,
-                frame->width, frame->height,
-                static_cast<AVPixelFormat>(frame->format),
-                frame->width, frame->height, dstFmt,
-                SWS_BILINEAR, nullptr, nullptr, nullptr);
+        // Threaded dynamic-mode context: one per session, it follows
+        // geometry / format changes on its own.
+        if (!*sws) *sws = qcv::swsCreateThreaded();
         if (!*sws) return;
         QImage rgba(frame->width, frame->height,
                     dstFmt == AV_PIX_FMT_RGBA64LE ? QImage::Format_RGBA64
                                                   : QImage::Format_RGBA8888);
-        uint8_t *dst[4]      = { rgba.bits(), nullptr, nullptr, nullptr };
-        int      dstStride[4] = { int(rgba.bytesPerLine()), 0, 0, 0 };
-        sws_scale(*sws, frame->data, frame->linesize, 0, frame->height,
-                  dst, dstStride);
+        if (qcv::swsConvertToBuffer(*sws, frame, dstFmt, rgba.bits(),
+                                    int(rgba.bytesPerLine())) < 0) {
+            return;
+        }
         sink->publishExternalFrame(FrameHandle::cpu(std::move(rgba), ptsUs),
                                    ptsUs);
     }

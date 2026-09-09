@@ -298,6 +298,7 @@ private:
     bool    m_loggedMetalFormat     = false;
     bool    m_loggedCpuFormat       = false;
     bool    m_loggedD3D11Format     = false;   // Phase K.1
+    bool    m_dumpedFirstFrame      = false;   // QCV_DUMP_FRAME harness
     bool    m_d3d11ZeroCopy         = false;   // Phase K.1: shared-device D3D11VA attached
     // One-shot diag for the RGB legal-range expansion state (re-logs on change).
     bool m_loggedRgbExpand     = false;

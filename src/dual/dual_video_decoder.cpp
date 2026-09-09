@@ -2,6 +2,7 @@
 
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
+#include "decode/sws_threaded.h"
 
 #include <QDebug>
 #include <QFileInfo>
@@ -688,14 +689,9 @@ bool DualVideoDecoder::initSwsContext(AVFrame *frame)
             sws_freeContext(m_sws);
             m_sws = nullptr;
         }
-        m_sws = sws_getContext(
-            frame->width, frame->height,
-            static_cast<AVPixelFormat>(frame->format),
-            frame->width, frame->height,
-            dstFmt,
-            SWS_BILINEAR, nullptr, nullptr, nullptr);
+        m_sws = qcv::swsCreateThreaded();
         if (!m_sws) {
-            qWarning("DualVideoDecoder: sws_getContext failed");
+            qWarning("DualVideoDecoder: swscale context init failed");
             return false;
         }
         m_swsSrcW   = frame->width;
@@ -704,42 +700,9 @@ bool DualVideoDecoder::initSwsContext(AVFrame *frame)
         m_swsDstFmt = dstFmt;
     }
 
-    int srcCsp;
-    switch (frame->colorspace) {
-        case AVCOL_SPC_BT709:      srcCsp = SWS_CS_ITU709; break;
-        case AVCOL_SPC_BT470BG:    srcCsp = SWS_CS_ITU601; break;
-        case AVCOL_SPC_SMPTE170M:  srcCsp = SWS_CS_SMPTE170M; break;
-        case AVCOL_SPC_SMPTE240M:  srcCsp = SWS_CS_SMPTE240M; break;
-        case AVCOL_SPC_FCC:        srcCsp = SWS_CS_FCC; break;
-        case AVCOL_SPC_BT2020_NCL: srcCsp = SWS_CS_BT2020; break;
-        case AVCOL_SPC_BT2020_CL:  srcCsp = SWS_CS_BT2020; break;
-        default:
-            srcCsp = (frame->width >= 1280 || frame->height >= 720)
-                     ? SWS_CS_ITU709 : SWS_CS_SMPTE170M;
-            break;
-    }
-    // videoRangeOverride: 0 = Auto (use detected), 1 = Full, 2 = Limited.
-    // Mirrors single-flow's metal_player_renderer.mm:1224-1226 and
-    // d3d11_vulkan_decode_bridge.cpp:568-572. Apply per-frame so a
-    // mid-stream override change (Inspector pill click) takes effect
-    // without waiting for a format change to re-init the context.
-    const int detectedFullRange =
-        (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
-    const int ov = m_rangeOverride.load(std::memory_order_acquire);
-    int srcFullRange = detectedFullRange;
-    if (ov == 1) srcFullRange = 1;
-    else if (ov == 2) srcFullRange = 0;
-    // RGB sources: the legal→full expansion is convertFrameToRgba's
-    // helper (rgb_range.h). swscale's 16-bit RGB→RGBA64 path honours
-    // these flags (the 8-bit one never did), so declare no range change
-    // here or the frame expands twice. Same fix as VideoDecoder.
-    if (isRgbPixelFormat(frame->format)) srcFullRange = 1;
-
-    sws_setColorspaceDetails(
-        m_sws,
-        sws_getCoefficients(srcCsp), srcFullRange,
-        sws_getCoefficients(SWS_CS_ITU709), /*dstFullRange=*/1,
-        /*brightness=*/0, /*contrast=*/1 << 16, /*saturation=*/1 << 16);
+    // Matrix + range are set on the frame by qcv::swsConvertToBuffer
+    // (decode/sws_threaded.h: tagged matrix or HD/SD heuristic, Range
+    // pill override, RGB sources declare no range change).
 
     return true;
 }
@@ -940,12 +903,13 @@ DualVideoDecoder::convertFrameToRgba(AVFrame *frame, int frameNumber)
                                                   sixteen ? QImage::Format_RGBA64
                                                           : QImage::Format_RGBA8888);
 
-    uint8_t *dst[4] = { out->rgba->bits(), nullptr, nullptr, nullptr };
-    int dstStride[4] = { static_cast<int>(out->rgba->bytesPerLine()), 0, 0, 0 };
-
-    sws_scale(m_sws,
-              src->data, src->linesize, 0, src->height,
-              dst, dstStride);
+    if (qcv::swsConvertToBuffer(m_sws, src,
+                                static_cast<AVPixelFormat>(m_swsDstFmt), out->rgba->bits(),
+                                static_cast<int>(out->rgba->bytesPerLine()),
+                                m_rangeOverride.load(std::memory_order_acquire)) < 0) {
+        qWarning("DualVideoDecoder: sws_scale_frame failed; frame dropped");
+        return nullptr;
+    }
     // RGB sources: swscale did no range work — apply the legal→full
     // expansion under the same rule as playback / scrub (rgb_range.h).
     if (rgbFrameNeedsLegalExpansion(

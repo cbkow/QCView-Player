@@ -21,6 +21,7 @@
 // (single-flow + dual A/B, Windows + macOS).
 
 #include "decode/rgb_range.h"
+#include "decode/sws_threaded.h"
 
 #include <QImage>
 
@@ -38,7 +39,8 @@ namespace qcv {
 // `expandLegalRgb`: apply the RGB legal→full expansion after the scale
 // (see rgb_range.h) — callers pass rgbFrameNeedsLegalExpansion(yf, ov).
 inline QImage swsFrameToRgbaImage(SwsContext *sws, const AVFrame *yf,
-                                  bool expandLegalRgb = false)
+                                  bool expandLegalRgb = false,
+                                  int rangeOverride = 0)
 {
     if (!sws || !yf || yf->width <= 0 || yf->height <= 0) return {};
     const int w = yf->width;
@@ -49,9 +51,12 @@ inline QImage swsFrameToRgbaImage(SwsContext *sws, const AVFrame *yf,
     auto *buf = static_cast<uint8_t *>(av_malloc(bufSize));
     if (!buf) return {};
 
-    uint8_t *dst[4]  = { buf, nullptr, nullptr, nullptr };
-    int dstStride[4] = { stride, 0, 0, 0 };
-    sws_scale(sws, yf->data, yf->linesize, 0, h, dst, dstStride);
+    // Frame API so a context built by swsCreateThreaded slices across
+    // its threads (the pointer API is always single-threaded).
+    if (swsConvertToBuffer(sws, yf, AV_PIX_FMT_RGBA, buf, stride, rangeOverride) < 0) {
+        av_free(buf);
+        return {};
+    }
     if (expandLegalRgb) expandRgba8LegalToFull(buf, w, h, stride);
 
     return QImage(buf, w, h, stride, QImage::Format_RGBA8888,

@@ -275,36 +275,13 @@ bool DualScrubDecoder::initSwsContext(AVFrame *frame)
     }
     if (!dimsSame) {
         if (m_sws) { sws_freeContext(m_sws); m_sws = nullptr; }
-        m_sws = sws_getContext(
-            frame->width, frame->height,
-            static_cast<AVPixelFormat>(frame->format),
-            frame->width, frame->height, AV_PIX_FMT_RGBA,
-            SWS_BILINEAR, nullptr, nullptr, nullptr);
+        m_sws = qcv::swsCreateThreaded();
         if (!m_sws) return false;
     }
 
-    int srcCsp;
-    switch (frame->colorspace) {
-        case AVCOL_SPC_BT709:      srcCsp = SWS_CS_ITU709; break;
-        case AVCOL_SPC_BT470BG:    srcCsp = SWS_CS_ITU601; break;
-        case AVCOL_SPC_SMPTE170M:  srcCsp = SWS_CS_SMPTE170M; break;
-        case AVCOL_SPC_SMPTE240M:  srcCsp = SWS_CS_SMPTE240M; break;
-        case AVCOL_SPC_FCC:        srcCsp = SWS_CS_FCC; break;
-        case AVCOL_SPC_BT2020_NCL:
-        case AVCOL_SPC_BT2020_CL:  srcCsp = SWS_CS_BT2020; break;
-        default:
-            srcCsp = (frame->width >= 1280 || frame->height >= 720)
-                     ? SWS_CS_ITU709 : SWS_CS_SMPTE170M;
-            break;
-    }
-    int srcFullRange = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
-    if (rangeOv == 1)      srcFullRange = 1;   // Full
-    else if (rangeOv == 2) srcFullRange = 0;   // Limited
-    sws_setColorspaceDetails(
-        m_sws,
-        sws_getCoefficients(srcCsp), srcFullRange,
-        sws_getCoefficients(SWS_CS_ITU709), 1,
-        0, 1 << 16, 1 << 16);
+    // Matrix + range are set on the frame by qcv::swsConvertToBuffer
+    // (decode/sws_threaded.h: tagged matrix or HD/SD heuristic, Range
+    // pill override, RGB sources declare no range change).
 
     m_swsSrcWidth     = frame->width;
     m_swsSrcHeight    = frame->height;
@@ -505,13 +482,12 @@ void DualScrubDecoder::publishEntry(const std::shared_ptr<DualScrubEntry> &entry
     if (!yf || !initSwsContext(yf)) return;
     // Padded-destination helper — a bare QImage overflows on odd widths
     // (see decode/sws_rgba_image.h).
+    const int rangeOv = m_streaming ? m_streaming->rangeOverride() : 0;
     QImage rgba = swsFrameToRgbaImage(
-        m_sws, yf,
-        rgbFrameNeedsLegalExpansion(
-            yf, m_streaming ? m_streaming->rangeOverride() : 0));
+        m_sws, yf, rgbFrameNeedsLegalExpansion(yf, rangeOv), rangeOv);
     if (rgba.isNull()) return;
-    // rangeOverride baked into the QImage by sws (initSwsContext applied the
-    // current override), so the DualFrame carries 0.
+    // rangeOverride baked into the QImage by the conversion, so the
+    // DualFrame carries 0.
     m_streaming->publishExternalFrame(
         entry->frameNumber, makeCpuFrame(std::move(rgba), entry->frameNumber,
                                          /*rangeOverride=*/0));
