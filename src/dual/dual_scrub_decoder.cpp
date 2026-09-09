@@ -1,6 +1,9 @@
 #include "dual_scrub_decoder.h"
 #include "decode/sws_rgba_image.h"
 #include "dual_video_decoder.h"
+#if defined(Q_OS_WIN)
+#include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
+#endif
 
 #if defined(Q_OS_WIN)
 // Cut A — see VideoDecoder::close for rationale. Same flush before
@@ -42,7 +45,12 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext * /*ctx*/, const AVPixelFormat *fm
     for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
         if (fmts[i] == kPreferred) return kPreferred;
     }
+#if defined(Q_OS_WIN)
+    // Phase K.3 — see ScrubDecoder: skip foreign hwaccel entries.
+    return qcv::firstSoftwareFormat(fmts);
+#else
     return fmts[0];
+#endif
 }
 
 // Build a DualFrame::Kind::Cpu from a packed-RGBA QImage (the format

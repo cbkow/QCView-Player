@@ -2,6 +2,9 @@
 #include "decode/sws_rgba_image.h"
 #include "decoder_cleanup_queue.h"
 #include "video_decoder.h"
+#if defined(Q_OS_WIN)
+#include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
+#endif
 
 #if defined(Q_OS_WIN)
 // Cut A — see VideoDecoder::close for rationale. Same flush before
@@ -53,7 +56,14 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext * /*ctx*/, const AVPixelFormat *fm
     for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
         if (fmts[i] == kPreferred) return kPreferred;
     }
+#if defined(Q_OS_WIN)
+    // Phase K.3 — fmts[0] can be a foreign hwaccel (`vulkan` for
+    // FFV1/APV, `vaapi` for VVC) that FFmpeg rejects before re-calling
+    // us; go straight to the first software format.
+    return qcv::firstSoftwareFormat(fmts);
+#else
     return fmts[0];
+#endif
 }
 
 } // namespace
