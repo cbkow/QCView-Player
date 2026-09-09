@@ -91,6 +91,7 @@ namespace qcv {
 // Forward decl — defined in an anonymous namespace lower in this TU,
 // but used by the loadRequested handler in the constructor below.
 namespace { QString buildViewportNoticeText(const MediaItem &item); }
+namespace { qcv::IPlayerRenderer *fetchActiveRenderer(QWindow *playerWindow); }
 
 WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     : QObject(parent)
@@ -972,10 +973,24 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             // the status strip doesn't read "ERROR" for a file we're
             // handling gracefully with the viewport notice.
             m_videoDecoder->clearErrorState();
+            // Drop the previous clip's texture from the A slot too.
+            // activeItemIdChanged already pushed the FAILED item's
+            // rotation/PAR (0 / 1:1); re-presenting the previous clip's
+            // last frame under those read as "the RAW flipped upside
+            // down" before the notice covered it.
+            if (auto *r = fetchActiveRenderer(m_playerWindow.data())) {
+                r->clearSourceAState();
+            }
             setViewportNotice(buildViewportNoticeText(item));
             return;
         }
         // (Notice already cleared after closeActiveMedia above.)
+        // Re-push PAR + rotation now that the load has settled: the
+        // activeItemIdChanged push ran BEFORE closeActiveMedia, i.e.
+        // while a previous playlist was still active, so
+        // audioRoutingScopeMediaItemId() resolved to the old playlist's
+        // current clip (a 180° RAW, say) instead of this item.
+        applyPixelAspectToRenderer();
         // Kick a seek to frame 0 so the decoder publishes the first
         // frame immediately. open() leaves the decoder paused with
         // its decode loop blocked on play/seek; without this nudge
@@ -3634,6 +3649,16 @@ int WindowManager::playlistAdvanceToClip(int trackClipIndex, bool autoplay,
     // mode, scope id == playlistActiveClip()->mediaItemId; without
     // this emit the QML binding never re-evaluates on cross-clip
     // transitions because activeItemId stays on the playlist.
+    // Per-clip pixel aspect + display rotation follow the clip that is
+    // now in the viewport. activeItemIdChanged does NOT fire on a
+    // playlist clip change (the active item is the playlist itself),
+    // so without this push the renderer kept whatever quarter-turn the
+    // previous clip (or the playlist item, 0) had — a 180°-tagged
+    // iPhone ProRes RAW clip played upside down, and the clip after it
+    // inherited its 180. audioRoutingScopeMediaItemId() resolves to the
+    // new clip now that m_playlistCurrentClipIndex is set.
+    applyPixelAspectToRenderer();
+
     emit audioRoutingScopeChanged();
     emit playlistCurrentItemIndexChanged();
     return idx;
