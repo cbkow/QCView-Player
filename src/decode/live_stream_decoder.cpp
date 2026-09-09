@@ -1,6 +1,9 @@
 #include "live_stream_decoder.h"
 #include "video_decoder.h"
 #include "decode/rgb_range.h"   // Phase J.1 — cpuPublishPixelFormat
+#if defined(Q_OS_WIN)
+#include "decode/d3d11va_hw_device_ctx.h"   // Phase K.2 — shared-device D3D11VA
+#endif
 
 #include <QImage>
 #include <QSettings>
@@ -49,10 +52,20 @@ AVPixelFormat liveGetFormat(AVCodecContext *, const AVPixelFormat *fmts)
     return fmts[0];
 }
 #elif defined(Q_OS_WIN)
-AVPixelFormat liveGetFormat(AVCodecContext *, const AVPixelFormat *fmts)
+AVPixelFormat liveGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
 {
     for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
-        if (fmts[i] == AV_PIX_FMT_D3D11) return fmts[i];
+        if (fmts[i] == AV_PIX_FMT_D3D11) {
+            // Phase K.2 — on the renderer's device, hand FFmpeg the
+            // app-owned cached pool (same rule as VideoDecoder: the
+            // decoder must never allocate its own texture array on the
+            // shared device per get_format call).
+            if (ctx && !ctx->hw_frames_ctx
+                && qcv::isSharedD3D11VaDeviceCtx(ctx->hw_device_ctx)) {
+                ctx->hw_frames_ctx = qcv::acquireSharedD3D11VaFramesCtx(ctx);
+            }
+            return fmts[i];
+        }
     }
     return fmts[0];
 }
@@ -279,16 +292,25 @@ bool LiveStreamDecoder::connectOnce()
 #elif defined(Q_OS_WIN)
     // D3D11VA — same routing as VideoDecoder's H.264/HEVC file path
     // (Vulkan stays ProRes-only on Windows; live streams are inter
-    // codecs). GPU decode + NV12 readback in the receive loop below;
-    // silent SW fallback via get_format when the codec has no d3d11va
-    // support. Respects the same hardwareDecodeEnabled escape hatch
-    // as file playback.
+    // codecs). Phase K.2: prefer the renderer's ID3D11Device so the
+    // decoded NV12/P010 slice is sampled directly (zero-copy, same
+    // bridge as the file path); fall back to an FFmpeg-owned device +
+    // readback when no shared device is registered (renderer not up,
+    // or a non-D3D11 backend). Silent SW fallback via get_format when
+    // the codec has no d3d11va support. Respects the same
+    // hardwareDecodeEnabled escape hatch as file playback.
     if (QSettings().value(
             QStringLiteral("performance/hardwareDecodeEnabled"),
             true).toBool()) {
-        AVBufferRef *hwDev = nullptr;
-        if (av_hwdevice_ctx_create(&hwDev, AV_HWDEVICE_TYPE_D3D11VA,
-                                   nullptr, nullptr, 0) == 0) {
+        AVBufferRef *hwDev = qcv::createSharedD3D11VaHwDeviceCtx();
+        if (hwDev) {
+            qInfo("LiveStreamDecoder: D3D11VA on the shared renderer device "
+                  "(zero-copy)");
+        } else if (av_hwdevice_ctx_create(&hwDev, AV_HWDEVICE_TYPE_D3D11VA,
+                                          nullptr, nullptr, 0) != 0) {
+            hwDev = nullptr;
+        }
+        if (hwDev) {
             cctx->hw_device_ctx = hwDev;   // cctx takes the ref
             cctx->get_format    = liveGetFormat;
         }
@@ -404,9 +426,21 @@ bool LiveStreamDecoder::connectOnce()
                 continue;
             }
 #if defined(Q_OS_WIN)
+            if (frame->format == AV_PIX_FMT_D3D11
+                && qcv::d3d11FrameIsZeroCopyConsumable(frame)) {
+                // Phase K.2 — slice lives on the renderer's device:
+                // publish the AVFrame itself (clone keeps the pool slot
+                // reserved while it is sampled), no readback.
+                publishFrame(frame, cctx, &sws, vs->time_base,
+                             "d3d11va zero-copy");
+                lastPublishMs = nowMs();
+                av_frame_unref(frame);
+                continue;
+            }
             if (frame->format == AV_PIX_FMT_D3D11 && swFrame) {
-                // GPU-decoded frame: NV12 readback, then the shared
-                // sws path — mirrors VideoDecoder's D3D11VA branch.
+                // GPU-decoded frame on an FFmpeg-owned device: NV12
+                // readback, then the shared sws path — mirrors
+                // VideoDecoder's pre-K.1 D3D11VA branch.
                 if (av_hwframe_transfer_data(swFrame, frame, 0) >= 0) {
                     swFrame->pts                   = frame->pts;
                     swFrame->best_effort_timestamp = frame->best_effort_timestamp;
@@ -463,6 +497,20 @@ void LiveStreamDecoder::publishFrame(AVFrame *frame, AVCodecContext *cctx,
             sink->publishExternalFrame(
                 FrameHandle::metal(pix, frame->width, frame->height, ptsUs),
                 ptsUs);
+        }
+    } else
+#elif defined(Q_OS_WIN)
+    if (frame->format == AV_PIX_FMT_D3D11
+        && qcv::d3d11FrameIsZeroCopyConsumable(frame)) {
+        // Phase K.2 — NV12/P010 slice on the renderer's device: the
+        // same FrameHandle the file path publishes; the clone keeps
+        // the pool slot reserved until the renderer drops the handle.
+        if (AVFrame *cloned = av_frame_clone(frame)) {
+            sink->publishExternalFrame(
+                FrameHandle::d3d11(cloned, frame->width, frame->height, ptsUs),
+                ptsUs);
+        } else {
+            qWarning("LiveStreamDecoder: av_frame_clone failed; frame dropped");
         }
     } else
 #endif

@@ -151,6 +151,7 @@ struct D3D11VaDecodeBridge::Impl {
         if (array != cachedArray) {
             views.clear();
             cachedArray = array;
+            loggedFirst = false;   // re-announce format/size for the new pool
             qInfo("D3D11VaDecodeBridge: new decoder texture array %p — view cache reset",
                   static_cast<void *>(array));
         }
