@@ -25,22 +25,6 @@
     <language>en</language>
     <!-- @@APPCAST_INSERT@@ -->
     <item>
-      <title>Version 2.3.0</title>
-      <link>https://qcview.app/installation/</link>
-      <sparkle:version>2.3.0</sparkle:version>
-      <sparkle:shortVersionString>2.3.0</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[
-      <ul><li>See the release notes at https://github.com/cbkow/QCView-Player/releases/tag/v2.3.0</li></ul>
-      ]]></description>
-      <pubDate>Wed, 09 Sep 2026 12:27:56 -0400</pubDate>
-      <enclosure
-        url="https://github.com/cbkow/QCView-Player/releases/download/v2.3.0/QCView-MacOS.dmg"
-        sparkle:edSignature="KfZm0fuGB2FH0M1tLBxsobsJLjmovMdqAh2byLesQn2RkLALDNtAPvyWYIrEsjOTzqM57IG7f1KDb9iUDg4pDw=="
-        length="162060615"
-        type="application/octet-stream" />
-    </item>
-    <item>
       <title>Version 2.2.8</title>
       <link>https://qcview.app/installation/</link>
       <sparkle:version>2.2.8</sparkle:version>
