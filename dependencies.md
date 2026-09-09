@@ -485,6 +485,20 @@ add-on spawns this binary — audit its command lines before shipping a
    for >8-bit sources, platform-neutral `firstSoftwareFormat`, dual
    RGBA64 un-gated) landed in the same pass.
 
+**Open after the 9.0 adoption (both platforms unless noted):**
+
+- GPU ProRes RAW: the 9.0.1 Vulkan `prores_raw` hwaccel is ~158 fps but
+  vertically flipped and left in a 12-bit range (same in master); needs
+  an upstream-style fix plus a compositor debayer mode and camera colour
+  handling. Software decode (~1.2 fps at 4224x3024) ships meanwhile.
+- swscale unstable x86 "ops" backend: ~15× faster per thread for 8K
+  12-bit YUV→RGBA64; watch each FFmpeg release for it leaving
+  `SWS_UNSTABLE`, then adopt env-gated (Bayer not covered).
+- Variable-delay WebP/GIF: the frame counter assumes a constant rate.
+- Still `.webp` lands in Videos (no WebP loader in the still cache).
+- macOS only: Metal generation-race port (`9bc0fea3` mirror), Metal Dark
+  Gray #161616, dual audio via CoreAudio.
+
 ### OCIO (OpenColorIO)
 
 ```cmake
