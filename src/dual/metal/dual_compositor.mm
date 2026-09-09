@@ -288,6 +288,19 @@ struct CachedSideTexture {
     }
 };
 
+// Texture format for a Cpu-kind DualFrame. Byte-identical layouts:
+//   Format_RGBA8888   → RGBA8Unorm    (SDR sources)
+//   Format_RGBA16FPx4 → RGBA16Float   (EXR FP16)
+//   Format_RGBA64     → RGBA16Unorm   (>8-bit / Bayer video, Phase J.1)
+inline MTLPixelFormat metalFormatForQImage(const QImage &img)
+{
+    switch (img.format()) {
+    case QImage::Format_RGBA16FPx4: return MTLPixelFormatRGBA16Float;
+    case QImage::Format_RGBA64:     return MTLPixelFormatRGBA16Unorm;
+    default:                        return MTLPixelFormatRGBA8Unorm;
+    }
+}
+
 } // namespace
 
 struct DualCompositor::Impl {
@@ -588,12 +601,11 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
         case DualFrame::Kind::Cpu: {
             // CPU path — replaceRegion into the cached MTLTexture at
             // a format matching the QImage's bytes (RGBA8Unorm for
-            // SDR sources, RGBA16Float for EXR's FP16 path).
-            const QImage::Format qfmt = f->rgba->format();
-            const MTLPixelFormat mfmt =
-                (qfmt == QImage::Format_RGBA16FPx4)
-                    ? MTLPixelFormatRGBA16Float
-                    : MTLPixelFormatRGBA8Unorm;
+            // SDR sources, RGBA16Float for EXR's FP16 path,
+            // RGBA16Unorm for Phase J.1's Format_RGBA64 >8-bit /
+            // Bayer video — 4 × uint16, uploaded as is; mapping it to
+            // RGBA8Unorm pushed 8 bytes/px into a 4-byte texture).
+            const MTLPixelFormat mfmt = metalFormatForQImage(*f->rgba);
             if (!cache.fits(outW, outH, mfmt)) {
                 cache.recreate(device, outW, outH, mfmt);
             }
@@ -696,9 +708,7 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
         const bool aPastEnd = m_controller->aPastEnd(masterFrame);
         const bool bPastEnd = m_controller->bPastEnd(masterFrame);
         auto formatFor = [](const QImage &img) {
-            return (img.format() == QImage::Format_RGBA16FPx4)
-                ? MTLPixelFormatRGBA16Float
-                : MTLPixelFormatRGBA8Unorm;
+            return metalFormatForQImage(img);
         };
         if (!aPastEnd && fA && fA->valid()
             && fA->kind == DualFrame::Kind::Cpu) {

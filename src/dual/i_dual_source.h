@@ -33,6 +33,7 @@ namespace qcv::dual {
 //              The QImage's format determines the texture format:
 //              Format_RGBA8888 → MTLPixelFormatRGBA8Unorm
 //              Format_RGBA16FPx4 → MTLPixelFormatRGBA16Float
+//              Format_RGBA64 → MTLPixelFormatRGBA16Unorm (>8-bit video)
 //              EXR sources land here as RGBA16F so OCIO sees full
 //              FP16 precision instead of an 8-bit clamp.
 //   - Metal  → IDualPixbufConverter routes through CvPixbufMetalBridge
