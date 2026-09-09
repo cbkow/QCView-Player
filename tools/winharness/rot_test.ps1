@@ -1,6 +1,6 @@
 param([string]$Phase)
 Add-Type -AssemblyName System.Windows.Forms
-$sp  = "C:\Users\UNIONG~1\AppData\Local\Temp\claude\C--Users-uniongraphics-Documents-GitHub-QCView-Player\227456b9-cda2-4db4-bcc4-7c0861e2d745\scratchpad"
+$sp  = $(if ($env:QCV_HARNESS_DIR) { $env:QCV_HARNESS_DIR } else { $PSScriptRoot })
 $exe = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview.exe"
 $wd  = Split-Path $exe
 function Cap($name) { & "$sp\cap.ps1" -Out "$sp\rot_$name.png" | Out-Null; "$(Get-Date -Format HH:mm:ss.fff) cap $name" }

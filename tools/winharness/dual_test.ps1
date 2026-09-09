@@ -1,7 +1,7 @@
 param([string]$A, [string]$B, [string]$Label = "dual")
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$sp  = "C:\Users\UNIONG~1\AppData\Local\Temp\claude\C--Users-uniongraphics-Documents-GitHub-QCView-Player\227456b9-cda2-4db4-bcc4-7c0861e2d745\scratchpad"
+$sp  = $(if ($env:QCV_HARNESS_DIR) { $env:QCV_HARNESS_DIR } else { $PSScriptRoot })
 $exe = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview.exe"
 $log = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview-log.txt"
 $sig = '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();'

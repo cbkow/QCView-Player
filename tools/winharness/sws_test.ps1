@@ -1,6 +1,6 @@
 param([string]$Threads = "")
 Add-Type -AssemblyName System.Windows.Forms
-$sp  = "C:\Users\UNIONG~1\AppData\Local\Temp\claude\C--Users-uniongraphics-Documents-GitHub-QCView-Player\227456b9-cda2-4db4-bcc4-7c0861e2d745\scratchpad"
+$sp  = $(if ($env:QCV_HARNESS_DIR) { $env:QCV_HARNESS_DIR } else { $PSScriptRoot })
 $exe = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview.exe"
 $log = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview-log.txt"
 $raw = "C:\Volumes\union-ny-gfx\union-jobs\000000_SYNC\01_A001_09211049_C068.mov"

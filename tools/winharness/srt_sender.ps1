@@ -1,2 +1,2 @@
-$log = 'C:\Users\UNIONG~1\AppData\Local\Temp\claude\C--Users-uniongraphics-Documents-GitHub-QCView-Player\227456b9-cda2-4db4-bcc4-7c0861e2d745\scratchpad\srt_sender.log'
+$log = "$PSScriptRoot\srt_sender.log"
 while ($true) { & 'C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\ffmpeg.exe' -hide_banner -loglevel error -re -f lavfi -i testsrc2=size=1280x720:rate=30 -f lavfi -i "sine=frequency=440" -c:v libx264 -preset veryfast -tune zerolatency -g 30 -pix_fmt yuv420p -c:a aac -f mpegts "srt://127.0.0.1:9000?mode=listener" 2>>$log; Start-Sleep 1 }
