@@ -29,7 +29,9 @@ constexpr int kCacheTickMs = 10;
 bool looksLikeImageFile(const QString &path)
 {
     static const QStringList kExts = {
-        "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "exr"
+        "png", "jpg", "jpeg", "tif", "tiff", "bmp", "exr"
+        // gif dropped 2026-09-09: animated GIFs are videos (FFmpeg), and
+        // the dual controller's looksLikeVideo() claims the extension first.
     };
     const QString ext = QFileInfo(path).suffix().toLower();
     return kExts.contains(ext);

@@ -4,6 +4,7 @@
 #include "decode/thread_policy.h"
 #include "decode/sws_threaded.h"
 #include "decode/seek_compat.h"
+#include "decode/stream_extent.h"
 
 #include <QDebug>
 #include <QFileInfo>
@@ -661,6 +662,12 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
         totalFrames = static_cast<int>(av_rescale_q(
             m_fmt->duration, { 1, AV_TIME_BASE },
             { m_streamFrameRate.den, m_streamFrameRate.num }));
+    }
+    if (totalFrames <= 0) {
+        // Duration-less container (animated WebP / GIF / APNG) — count
+        // the packets, same as VideoDecoder (decode/stream_extent.h).
+        const qcv::StreamExtent ext = qcv::scanStreamExtent(m_path, m_streamIdx);
+        if (ext.ok) totalFrames = ext.frames;
     }
     m_frameCount = totalFrames;
 

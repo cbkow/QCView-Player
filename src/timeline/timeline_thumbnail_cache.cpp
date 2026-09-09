@@ -443,7 +443,7 @@ TimelineThumbnailCache::getOrCreateLoader(
     const bool isVideo =
         (ext == "mov" || ext == "mp4" || ext == "mxf"
          || ext == "avi" || ext == "mkv" || ext == "m4v"
-         || ext == "webm" || ext == "webp");
+         || ext == "webm" || ext == "webp" || ext == "gif");
 
     if (isVideo) {
         info->is_video = true;

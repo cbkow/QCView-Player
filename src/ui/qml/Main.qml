@@ -100,7 +100,7 @@ ApplicationWindow {
         title: qsTr("Open Media…")
         fileMode: FileDialog.OpenFile
         nameFilters: [
-            qsTr("Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp "
+            qsTr("Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif "
                  + "*.wav *.aif *.aiff *.mp3 *.flac *.m4a "
                  + "*.png *.jpg *.jpeg *.tif *.tiff *.exr)"),
             qsTr("All files (*)"),

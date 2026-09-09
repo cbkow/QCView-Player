@@ -708,7 +708,7 @@ int main(int argc, char *argv[])
                 const QStringList files = QDir(dir).entryList(
                     { QStringLiteral("*.mov"), QStringLiteral("*.mp4"),
                       QStringLiteral("*.mxf"), QStringLiteral("*.mkv"),
-                      QStringLiteral("*.webp") },
+                      QStringLiteral("*.webp"), QStringLiteral("*.gif") },
                     QDir::Files, QDir::Name);
                 QStringList paths;
                 for (const QString &f : files)

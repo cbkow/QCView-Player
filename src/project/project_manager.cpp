@@ -295,6 +295,7 @@ QString ProjectManager::detectType(const QString &path, MediaType *outType)
         // the single-still cache has no WebP loader (native PNG / TIFF /
         // JPEG / EXR only).
         QStringLiteral("webp"),
+        QStringLiteral("gif"),   // animated GIF, same reasoning
     };
     static const QStringList kAudioExts = {
         QStringLiteral("wav"), QStringLiteral("aif"), QStringLiteral("aiff"),
