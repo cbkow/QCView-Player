@@ -42,7 +42,7 @@ MEDIA / DECODE
 ================================================================================
 
 2. FFmpeg
-   Copyright (c) 2000-2025 FFmpeg developers.
+   Copyright (c) 2000-2026 FFmpeg developers.
    License: GNU General Public License version 3 (GPL v3) on both platforms.
    Website: https://ffmpeg.org/
    Source: https://github.com/FFmpeg/FFmpeg
@@ -51,11 +51,12 @@ MEDIA / DECODE
    Modules linked dynamically: libavcodec, libavformat, libavutil,
    libavfilter, libavdevice, libswscale, libswresample.
 
-   [Windows] QCView links the BtbN "GPL Shared" build
-   (FFmpeg.GPL.Shared.8.1), configured with --enable-gpl. It statically
-   links libplacebo and libshaderc into the avutil / avcodec DLLs (see
-   entries 3-4), and ships transitive codec libraries as separate DLLs
-   (see entry 7).
+   [Windows] QCView links a BtbN "GPL Shared" recipe build of FFmpeg 9.0
+   (FFmpeg.GPL.Shared.9.0), configured with --enable-gpl. It statically
+   links libplacebo into the avutil / avcodec DLLs (see entry 3; FFmpeg
+   9.0 no longer links libshaderc — its Vulkan shaders are precompiled
+   at build time), and ships transitive codec libraries as separate
+   DLLs (see entry 7).
 
    [macOS] QCView ships a self-built FFmpeg (arm64), configured with
    --enable-gpl --enable-version3, which makes the resulting binary
@@ -89,13 +90,18 @@ MEDIA / DECODE
    Files: libplacebo-LICENSE.txt
    Note: statically linked into BtbN FFmpeg on Windows.
 
-4. shaderc / glslang / SPIRV-Tools [Windows]
+4. shaderc / glslang / SPIRV-Tools [Windows — build-time only since FFmpeg 9.0]
    Copyright (c) 2015-present Google LLC, The Khronos Group, LunarG, Inc.
    License: Apache License 2.0 (shaderc) / BSD-3-Clause (glslang)
             / Apache License 2.0 + Khronos source-license (SPIRV-Tools)
    Website: https://github.com/google/shaderc /
             https://github.com/KhronosGroup/glslang
    Files: Apache-2.0.txt, BSD-3-Clause.txt
+   Note: through FFmpeg 8.1 libshaderc was statically linked into the
+   BtbN avutil / avcodec DLLs. FFmpeg 9.0 compiles its Vulkan shaders
+   to SPIR-V with glslang at build time and no longer links any of
+   these libraries, so no shaderc / glslang / SPIRV-Tools code ships
+   in QCView 2.3.0+. Entry retained for the record.
 
 5. x264
    Copyright (c) 2003-2023 x264 project

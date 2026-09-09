@@ -326,16 +326,6 @@ int attachedHwDeviceType(const AVBufferRef *hwDeviceCtx)
     return dev ? dev->type : AV_HWDEVICE_TYPE_NONE;
 }
 
-AVPixelFormat firstSoftwareFormat(const AVPixelFormat *fmts)
-{
-    if (!fmts) return AV_PIX_FMT_NONE;
-    for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
-        const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(fmts[i]);
-        if (d && !(d->flags & AV_PIX_FMT_FLAG_HWACCEL)) return fmts[i];
-    }
-    return fmts[0];
-}
-
 } // namespace qcv
 
 #endif // Q_OS_WIN

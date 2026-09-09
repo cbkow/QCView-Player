@@ -84,3 +84,18 @@ WASAPI, MSIX. Escape hatches: `QCV_NO_INTERNAL_QUEUE_SYNC=1`,
   `SWS_UNSTABLE`, then adopt env-gated (Bayer not covered).
 - Variable-delay WebP/GIF: frame counter assumes a constant rate.
 - Still `.webp` lands in Videos (no WebP loader in the still cache).
+
+---
+
+## macOS status (2026-09-09, Mac session)
+
+| Handoff item | Result |
+|---|---|
+| 1. FFmpeg 9.0.1 + 0001/0002/0003 | Built into `external/install/` with the unchanged recipe; 8.1.2 dylibs parked in `external/install/lib/parked-ffmpeg-8.1.2/`, source in `external/source/ffmpeg-8.1.2-parked/`. Avid ACT vector framemd5 `d0a389c3f22b` (1 & 8 threads) identical to 8.1.2; DNxHR/MXF vectors identical. Pin table, §7, revision history, notices (`FFmpeg.GPL.Shared.9.0`, shaderc/glslang marked build-time only) and `dependencies-changelog.md` updated. `build/` reconfigured against it (`-U 'FFMPEG*'` needed — pkg-config results are cached). |
+| 2. 16-bit CPU frames on Metal | Taught the Metal CPU video slot (`uploadCpuFrameRgba`, shared by sides A and B) to upload `Format_RGBA64` as `MTLPixelFormatRGBA16Unorm`; texture cache keys on pixel format too. Dual decoder RGBA64 publish un-gated (`dual_video_decoder.cpp`). Validation-layer run (`MTL_DEBUG_LAYER=1`) on the 12-bit ACT clip: clean. |
+| 3. Compile-untested files | One break: `qcv::firstSoftwareFormat` was declared/defined only under `Q_OS_WIN` but called from every platform's `get_format` → now a platform-neutral inline in `vulkan_hw_device_ctx.h`. `dual_scrub_decoder_macos.cpp`, `thread_policy.h`, `sws_threaded.h`, `stream_extent.h`, `seek_compat.h` compile clean; zero FFmpeg deprecation warnings. |
+| 4. swscale parity | `QCV_SWS_LEGACY=1` vs unset, `QCV_DUMP_FRAME`: 4/4 byte-identical PNGs — DNxHR LB 8-bit (RGBA8), DNxHR HQX 10-bit (RGBA64), Avid DNxHR 444 12-bit ACT (`gbrp12le` → RGBA64), animated GIF (RGBA8). |
+| 4. Visual checks | Pending chris: rotation (`prores_rot180.mov` test vector, playlist + failed load), dual (VideoToolbox ProRes ×2, 8K-class on B), animated WebP (no animated WebP on this Mac — needs a sample), ProRes RAW (no RAW clip on this Mac — needs an iPhone sample). Rotation is implemented on Metal (`setRotationA/B` → compositor quarter-turns) so the pending "rotation feature on Metal" item from the older handoff is already closed. |
+| 5. Release | Next: `./scripts/sign-and-notarize.sh build` → GitHub release v2.3.0 → `update_appcast.sh`. Not run yet (waiting on the visual pass). |
+
+Still open from older handoffs (unchanged): Metal generation-race port (`9bc0fea3` mirror), Metal Dark Gray #161616, dual audio via CoreAudio.

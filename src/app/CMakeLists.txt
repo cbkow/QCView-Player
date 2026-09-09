@@ -354,12 +354,12 @@ if(WIN32)
     )
 
     # Phase F.2.4.X — drop BtbN's avcodec-XX.dll / avformat-XX.dll / ...
-    # alongside qcview.exe. They ABI-match vcpkg's FFmpeg 8.1 majors but
-    # ship libplacebo + libshaderc statically linked, enabling prores
-    # Vulkan decode. Runs AFTER vcpkg's applocal.ps1 so we overwrite the
-    # vcpkg-supplied DLLs (Windows binds to the file in the exe's
-    # directory before walking PATH). Skipped when QCV_BTBN_FFMPEG_DLL_DIR
-    # isn't set (vcpkg-fallback path in external/CMakeLists.txt).
+    # alongside qcview.exe (the patched FFmpeg 9.0 recipe build; vcpkg's
+    # FFmpeg, if present, is a different major and stays unused). Runs
+    # AFTER vcpkg's applocal.ps1 so we overwrite any vcpkg-supplied DLLs
+    # (Windows binds to the file in the exe's directory before walking
+    # PATH). Skipped when QCV_BTBN_FFMPEG_DLL_DIR isn't set
+    # (vcpkg-fallback path in external/CMakeLists.txt).
     if(QCV_BTBN_FFMPEG_DLL_DIR)
         # DLL names carry each library's major (avcodec-62.dll on the
         # 8.1 line, avcodec-63.dll on 9.x). Derive them from the

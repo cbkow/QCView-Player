@@ -35,10 +35,10 @@ extern "C" {
 #endif
 }
 
+#include "vulkan_hw_device_ctx.h"   // firstSoftwareFormat (all platforms)
 #if defined(Q_OS_WIN)
 #  include <vulkan/vulkan.h>
 #  include "vulkan/vulkan_device_manager.h"
-#  include "vulkan_hw_device_ctx.h"
 #  include "d3d11va_hw_device_ctx.h"   // Phase K.1 — zero-copy D3D11VA
 #endif
 

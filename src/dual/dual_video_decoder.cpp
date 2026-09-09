@@ -711,15 +711,12 @@ void DualVideoDecoder::teardownFFmpeg()
 
 bool DualVideoDecoder::initSwsContext(AVFrame *frame)
 {
-    // Phase J.1 — depth-aware destination (rgb_range.h), Windows for
-    // now: the D3D11 dual compositor uploads RGBA64 as UNORM16; the
-    // Metal dual path has not adopted RGBA64 yet, so macOS keeps RGBA8
-    // until its own pass.
-#if defined(Q_OS_WIN)
+    // Phase J.1 — depth-aware destination (rgb_range.h) on every
+    // platform: the D3D11 dual compositor uploads RGBA64 as UNORM16,
+    // and the Metal renderer's CPU slot (uploadCpuFrameRgba, shared by
+    // sides A and B) uploads Format_RGBA64 as RGBA16Unorm since the
+    // 2.3.0 macOS pass.
     const AVPixelFormat dstFmt = cpuPublishPixelFormat(frame->format);
-#else
-    const AVPixelFormat dstFmt = AV_PIX_FMT_RGBA;
-#endif
     const bool fresh = !(m_sws
         && m_swsSrcW   == frame->width
         && m_swsSrcH   == frame->height

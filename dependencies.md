@@ -62,17 +62,17 @@ Each entry includes the `FetchContent_Declare()` block to copy into
 FetchContent_Declare(
     ffmpeg
     GIT_REPOSITORY https://github.com/FFmpeg/FFmpeg.git
-    GIT_TAG n8.1.2                              # release tag, ABI-stable
+    GIT_TAG n9.0.1                              # release tag, ABI-stable
     GIT_SHALLOW TRUE
 )
 ```
 
 | | Value |
 |---|---|
-| **Pin** | **n8.1.2** (8.1 release branch) — both **macOS (self-built, in-tree at `external/install/`)** and **Windows (self-built BtbN recipe, `n8.1.2-44-g7c533d0f86-20260820`)** — both carry the two local patches in `external/patches/ffmpeg/` |
+| **Pin** | **n9.0.1** (9.0 release branch) since 2026-09-09 — both **macOS (self-built, in-tree at `external/install/`)** and **Windows (self-built BtbN recipe, 9.0 branch, 2026-09-08)** — both carry the three local patches in `external/patches/ffmpeg/` (0001 DNxHR ACT, 0002 MXF RGBA range, 0003 ProRes RAW Bayer patterns) |
 | **License** | **GPL v3** on both shipped platforms (macOS self-built `--enable-gpl --enable-version3`; Windows BtbN GPL-Shared `--enable-gpl`) |
-| **Verified** | macOS self-built `n8.1.2` (libavcodec 62.28.102 / libavutil 60.26.102 / libavformat 62.12.102) loads + app links/builds clean; Windows build version-checked |
-| **Build flags** | `--enable-videotoolbox --enable-vulkan --enable-libdav1d --enable-libsvtav1 --enable-libopus --enable-libsrt --disable-x86asm-on-cross` |
+| **Verified** | macOS self-built `n9.0.1` (libavcodec 63.1.101 / libavutil 61.1.101 / libavformat 63.1.101 / libswscale 10.1.101) loads + app links/builds clean (2026-09-09); Windows 2.3.0 shipped on the BtbN-recipe 9.0.1 build (Store + sideload) |
+| **Build flags** | `--enable-videotoolbox --enable-vulkan --enable-libdav1d --enable-libsvtav1 --enable-libopus --enable-libsrt --disable-x86asm-on-cross` (9.0: Vulkan shaders are precompiled at build time — `glslc`/`glslang` on the build box; no `--enable-libshaderc`) |
 | **Hwaccels needed** | `videotoolbox` (macOS), `vulkan` (Win+Linux) |
 | **Codecs needed** | H.264, H.265, AV1, ProRes, DNxHR, JPEG (image-sequence fallback) |
 
@@ -84,26 +84,31 @@ toggle.
 
 #### Windows: BtbN GPL-Shared build (vendored, in-tree)
 
-vcpkg's FFmpeg 8.1 ships **without libplacebo + libshaderc**, so the
-ProRes Vulkan compute decoder is unavailable. Windows therefore uses a
-[BtbN GPL-Shared 8.1-branch build](https://github.com/BtbN/FFmpeg-Builds)
-with both baked into the DLLs (same major API — libavcodec 62 /
-libavutil 60 / libavformat 62 — so it ABI-matches vcpkg's headers and is
-a drop-in for the DLL-copy step in `src/app/CMakeLists.txt`).
+Windows uses a [BtbN GPL-Shared build](https://github.com/BtbN/FFmpeg-Builds)
+(9.0 branch since 2026-09-08). Historically the reason was that vcpkg's
+FFmpeg 8.1 shipped without libplacebo + libshaderc, so the ProRes Vulkan
+compute decoder was unavailable; with 9.0 the shaders are precompiled
+and that dependency is gone, but BtbN's recipe is still what carries
+our three local patches. The DLL majors (libavcodec 63 / libavutil 61 /
+libavformat 63 / libavfilter 12 / libavdevice 63 / libswresample 7 /
+libswscale 10) are derived from the `.pc` versions in
+`src/app/CMakeLists.txt`, so the DLL-copy step follows a major bump.
 
 - **Vendored at** `external/ffmpeg-win64/` — the default
-  `QCV_BTBN_FFMPEG_DIR`. **Gitignored** (~200 MB; `avcodec-62.dll` alone
+  `QCV_BTBN_FFMPEG_DIR`. **Gitignored** (~200 MB; `avcodec-63.dll` alone
   is ~98 MB, and `main` auto-pushes to GitHub which hard-blocks
   ≥100 MB files). The `.pc` files are relocatable
   (`prefix=${pcfiledir}/../..`), so the tree works from any location.
-- **Current build:** `n8.1.2-44-g7c533d0f86-20260820` — **self-built
-  with BtbN's own recipe** (WSL2 + Docker, see below) so it carries the
-  two local patches in `external/patches/ffmpeg/` (DNxHR 444 ACT +
-  MXF RGBA range — see the macOS section for what they do). Same
+- **Current build:** `n9.0.1` (BtbN `release/9.0`, built 2026-09-08 —
+  the exact `n9.0.1-N-g…-20260908` tag is in `ffmpeg.exe -version` on
+  the Windows box) — **self-built with BtbN's own recipe** (WSL2 +
+  Docker, see below) so it carries the three local patches in
+  `external/patches/ffmpeg/` (DNxHR 444 ACT, MXF RGBA range, ProRes
+  RAW Bayer patterns — see the macOS section for what they do). Same
   toolchain image, same configure flags, same DLL majors as the
-  official BtbN zip → byte-level drop-in. Retains the CVE-2026-8461
-  "PixelSmash" fix (in 8.1.2) that motivated the previous
-  `n8.1.2-20260624` prebuilt refresh.
+  official BtbN zip → byte-level drop-in. Shipped in Windows 2.3.0.
+  The previous 8.1-line tree (`n8.1.2-44-g7c533d0f86-20260820`, two
+  patches) is parked as `external/ffmpeg-win64-8.1.2/` (gitignored).
 - **Why not winget:** the `BtbN.FFmpeg.GPL.Shared.8.1` winget package was
   still pinned to the vulnerable April build (`8.1-20260430`) with no
   upgrade available; and since 2026-08-20 the official prebuilts are out
@@ -137,9 +142,9 @@ sed -i 's/\r$//' ~/FFmpeg-Builds/ffpatches/*.patch
 #            git apply --verbose "\$_p"       # note the \$ escape
 #        done
 #   2. add `-v "$PWD/ffpatches":/ffpatches` to the `docker run … bash /build.sh` line
-cd ~/FFmpeg-Builds && ./build.sh win64 gpl-shared 8.1
-# → artifacts/ffmpeg-<ver>-win64-gpl-shared-8.1.zip
-# Log must show BOTH "Applied patch … cleanly." lines before configure.
+cd ~/FFmpeg-Builds && ./build.sh win64 gpl-shared 9.0
+# → artifacts/ffmpeg-<ver>-win64-gpl-shared-9.0.zip
+# Log must show all THREE "Applied patch … cleanly." lines before configure.
 ```
 
 Gotcha: WSL kills background work when the last `wsl.exe` session
@@ -181,10 +186,13 @@ to `PKG_CONFIG_PATH` (see `QCV_VENDOR_PREFIX`). The whole `external/install/`
 tree is **gitignored**, so the binary is never committed and must be
 rebuilt from source on each dev machine / version bump.
 
-- **Current build:** `n8.1.2` — **patches CVE-2026-8461 "PixelSmash"**
-  (heap OOB write in the MagicYUV decoder; fixed upstream 2026-06-17).
-  Sonames unchanged from the prior `n8.1` build (libavcodec 62 /
-  libavutil 60 / libavformat 62), so it's an ABI-clean drop-in.
+- **Current build:** `n9.0.1` (since 2026-09-09) with all three local
+  patches. Every soname changed from the 8.1 line (libavcodec 63 /
+  libavutil 61 / libavformat 63 / libavfilter 12 / libavdevice 63 /
+  libswresample 7 / libswscale 10); the 8.1.2 dylibs and source tree
+  are parked (`external/install/lib/parked-ffmpeg-8.1.2/`,
+  `external/source/ffmpeg-8.1.2-parked/`, both gitignored) for a
+  rollback. Prior build: `n8.1.2` (CVE-2026-8461 "PixelSmash" fix).
 - **Local patch — DNxHR 444 Adaptive Colour Transform (2026-08-20):**
   `external/patches/ffmpeg/0001-dnxhd-adaptive-colour-transform.patch`
   (tracked). Upstream's `dnxhddec.c` reads the per-macroblock ACT flag
@@ -223,10 +231,11 @@ overwrites the `libav*`/`libsw*` dylibs + headers in `external/install/`):
 
 ```bash
 INSTALL="$PWD/external/install"
-git clone --depth 1 --branch n8.1.2 https://github.com/FFmpeg/FFmpeg.git external/source/ffmpeg
+git clone --depth 1 --branch n9.0.1 https://github.com/FFmpeg/FFmpeg.git external/source/ffmpeg
 cd external/source/ffmpeg
 git apply ../../patches/ffmpeg/0001-dnxhd-adaptive-colour-transform.patch   # DNxHR 444 ACT fix (see note above)
 git apply ../../patches/ffmpeg/0002-mxfdec-rgba-component-ref-color-range.patch  # MXF RGBA range tag (see note above)
+git apply ../../patches/ffmpeg/0003-prores-raw-bayer-patterns.patch          # ProRes RAW Bayer patterns (see note above)
 PKG_CONFIG_PATH="$INSTALL/lib/pkgconfig" ./configure \
   --prefix="$INSTALL" --enable-shared --disable-static --enable-pthreads \
   --enable-videotoolbox --enable-audiotoolbox \
@@ -241,9 +250,10 @@ PKG_CONFIG_PATH="$INSTALL/lib/pkgconfig" ./configure \
   --extra-ldflags="-L$INSTALL/lib -mmacosx-version-min=13.0 -arch arm64" \
   --extra-libs=-lc++
 make -j"$(sysctl -n hw.ncpu)" && make install
-# make install leaves the old versioned dylibs behind — prune stale ones:
+# make install leaves the old versioned dylibs behind — park or prune stale
+# ones (a major bump also leaves dangling libavcodec.<oldmajor>.dylib symlinks):
 #   ls external/install/lib/libav*.*.*.dylib  (keep only the newest micro)
-# Verify: cat external/install/include/libavutil/ffversion.h  → n8.1.2
+# Verify: cat external/install/include/libavutil/ffversion.h  → n9.0.1
 #         external/install/bin/ffmpeg -protocols | grep srt   → srt in+out
 ```
 
@@ -302,14 +312,14 @@ running FFmpeg's configure:
 `PKG_CONFIG_PATH=external/install/lib/pkgconfig` must link and run a
 `srt_startup()`/`srt_cleanup()` pair.
 
-#### FFmpeg 9.0 — migration status (branch `ffmpeg-9`, investigated 2026-09-08, NOT shipped)
+#### FFmpeg 9.0 — migration status (investigated 2026-09-08 on branch `ffmpeg-9`; ADOPTED — Windows 2.3.0 shipped 2026-09-08, macOS cut over 2026-09-09)
 
 FFmpeg 9.0 "Lei" (2026-08-04; point release `n9.0.1`) bumps **every**
 library major — libavutil 61 / libavcodec 63 / libavformat 63 /
 libavdevice 63 / libavfilter 12 / libswscale 10 / libswresample 7 — so
-all sonames and DLL names change. The pin above stays `n8.1.2` until the
-items under *Before adopting* are done. Everything below was verified on
-the `ffmpeg-9` branch against a real `n9.0.1` build.
+all sonames and DLL names change. The pin above is now `n9.0.1` on both
+platforms; the *Before adopting* list at the end records how each step
+closed. Everything below was verified against real `n9.0.1` builds.
 
 **App-side breaking changes (exhaustive sweep of `src/`, `tools/`, CMake):**
 
@@ -455,23 +465,25 @@ verification is on by default. QCView itself never passes arguments
 add-on spawns this binary — audit its command lines before shipping a
 9.x CLI.
 
-**Before adopting (in order):**
+**Before adopting (in order) — all closed:**
 
 1. ~~Re-verify the Avid ACT vector on the 9.0.1 build~~ — done 2026-09-08.
-2. macOS runtime pass on `build-ff9`: playback / scrub / dual / live
-   SRT / multi-stream audio mix (the only source change with runtime
-   behaviour is the abuffersink option migration).
-3. Windows: `./build.sh win64 gpl-shared 9.0` with the (regenerated)
-   patches per §Windows, drop into `external/ffmpeg-win64/`, rebuild
-   (DLL names now auto-derived), runtime-test the Vulkan ProRes bridge
-   path and D3D11VA; watch the `lock_queue` path on NVIDIA mixed-res
-   playlists (the v2.2.8 crash fix).
-4. Cut over: rebuild `external/install/` from `n9.0.1` (or keep the
-   side-by-side prefix and point the release build at it), update the
-   pin table / §7 / revision history / `LICENSES/THIRD_PARTY_NOTICES.txt`
-   (`FFmpeg.GPL.Shared.8.1` → 9.0) / `dependencies-changelog.md`.
-   `scripts/bundle_dylibs.sh` and `sign-and-notarize.sh` walk dylibs
-   dynamically and need no change.
+2. ~~macOS runtime pass on `build-ff9`~~ — chris, 2026-09-08 ("everything
+   seems to be working").
+3. ~~Windows: BtbN 9.0 rebuild + Vulkan/D3D11 runtime pass~~ — the 2.3.0
+   Windows programme (23 commits, `git log 2608b554..066e4ffc`): the
+   `lock_queue` question was settled by moving to
+   `VK_KHR_internally_synchronized_queues` + app-owned cached Vulkan
+   frame pools (the 2.2.8 device loss was our own pool churn); D3D11VA
+   went zero-copy; FFV1/APV stay on the CPU (Vulkan 6–20× slower).
+4. ~~Cut over~~ — macOS 2026-09-09: `external/install/` rebuilt from
+   `n9.0.1` + 0001/0002/0003 with the unchanged recipe, 8.1.2 dylibs
+   and source parked (see the macOS "Current build" bullet), the
+   release build dir `build/` reconfigured against it (`QCV_FFMPEG_PREFIX`
+   stays available for future side-by-side trials). macOS-specific
+   follow-ups from the 2.3.0 Windows work (Metal RGBA16Unorm CPU slot
+   for >8-bit sources, platform-neutral `firstSoftwareFormat`, dual
+   RGBA64 un-gated) landed in the same pass.
 
 ### OCIO (OpenColorIO)
 
@@ -787,7 +799,7 @@ If the bump touches OCIO's profile version, update Guide 05 §12's
 | Dep | Pin | Source | Category |
 |---|---|---|---|
 | Qt | 6.11.0 | installer | SDK |
-| FFmpeg | n8.1.2 (macOS self-built; Win self-built BtbN recipe: `n8.1.2-44-g7c533d0f86-20260820`) — both + 2 local patches | self-built on both, vendored in-tree | core |
+| FFmpeg | n9.0.1 (macOS self-built; Win self-built BtbN recipe, 9.0 branch) — both + 3 local patches | self-built on both, vendored in-tree | core |
 | OCIO | v2.5.0 | FetchContent | core |
 | OpenEXR | v3.4.7 | FetchContent | core |
 | ink-stroke-modeler | (commit TBD) | FetchContent | core |
@@ -812,5 +824,6 @@ If the bump touches OCIO's profile version, update Guide 05 §12's
 | 2026-06-24 | macOS FFmpeg: self-built `n8.1` → `n8.1.2` (rebuilt in-tree at `external/install/`, gitignored). Same CVE-2026-8461 fix; sonames unchanged (62/60/62), ABI-clean drop-in. Also dropped vestigial `--enable-nonfree`. See `dependencies-changelog.md`. | Chris |
 | 2026-08-20 | Windows FFmpeg: BtbN prebuilt `n8.1.2-20260624` → **self-built BtbN-recipe** `n8.1.2-44-g7c533d0f86-20260820` (WSL2+Docker, same toolchain image/flags/DLL majors) so Windows carries the two local patches (`external/patches/ffmpeg/`: DNxHR 444 ACT + untagged-limited convention, MXF RGBA range). Patches must be re-applied on every refresh — recipe in §Windows above. See `dependencies-changelog.md`. | Chris |
 | 2026-09-08 | FFmpeg 9.0 investigated on branch `ffmpeg-9` (NOT adopted; pin stays `n8.1.2`): all library majors bump (61/63/63/63/12/10/7); app needed one source change (`av_opt_set_int_list` → `av_opt_set_array`, dual-version safe) + DLL names derived from pkg-config; patch 0001 regenerated to sync `sw_pix_fmt` (9.0 probe-label interaction); `n9.0.1` built into `external/install-ff9/` and the app built/linked via new `QCV_FFMPEG_PREFIX`. Details + remaining steps in §2 "FFmpeg 9.0 — migration status". | Claude |
+| 2026-09-09 | **FFmpeg `n8.1.2` → `n9.0.1` on both platforms** (Windows 2.3.0 shipped 2026-09-08 on the BtbN-recipe 9.0.1 build with patches 0001–0003; macOS `external/install/` rebuilt 2026-09-09, 8.1.2 parked). All sonames/DLL majors change (63/61/63/12/63/7/10). New patch 0003 (ProRes RAW Bayer patterns). See §2 "FFmpeg 9.0 — migration status" and `dependencies-changelog.md`. | Chris (Win) / Claude (mac) |
 
 (Append future bumps here.)

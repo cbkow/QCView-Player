@@ -5,6 +5,45 @@ pin, reason, tested platforms, and anything to watch in production.
 
 ---
 
+## 2026-09-09 — FFmpeg `n8.1.2` → `n9.0.1` (both platforms; three local patches)
+
+**Dependency:** FFmpeg. **Old → new:** `n8.1.2` (8.1 line, two patches)
+→ `n9.0.1` (9.0 line, patches 0001 DNxHR ACT, 0002 MXF RGBA range,
+**0003 ProRes RAW Bayer patterns — new**). Every library major bumps:
+libavutil 61, libavcodec 63, libavformat 63, libavdevice 63,
+libavfilter 12, libswscale 10, libswresample 7.
+
+**Windows (2026-09-08, shipped in 2.3.0 — Store + signed sideload):**
+BtbN recipe on `release/9.0` with all three patches; vendored at
+`external/ffmpeg-win64/`, the 8.1.2 tree parked as
+`external/ffmpeg-win64-8.1.2/`. Went with a full hardware-decode
+programme (`git log 2608b554..066e4ffc`): app-owned cached Vulkan frame
+pools + `VK_KHR_internally_synchronized_queues` (root cause of the 2.2.8
+device loss was our own pool churn), zero-copy D3D11VA for inter codecs
+and live SRT, 16-bit CPU path with threaded `sws_scale_frame`, slice
+threading for intra codecs, animated WebP/GIF, ProRes RAW in software.
+
+**macOS (2026-09-09):** `external/install/` rebuilt from `n9.0.1` +
+0001/0002/0003 with the unchanged configure recipe; 8.1.2 dylibs parked
+in `external/install/lib/parked-ffmpeg-8.1.2/`, source in
+`external/source/ffmpeg-8.1.2-parked/`. Verified: Avid ACT vector
+framemd5 `d0a389c3f22b` identical to 8.1.2; DNxHR/MXF regression vectors
+identical; app links `libav*.63`/`libavutil.61`, zero FFmpeg deprecation
+warnings. macOS-side code needed for the Windows 2.3.0 changes: Metal CPU
+video slot uploads `Format_RGBA64` as `RGBA16Unorm` (>8-bit and Bayer
+sources keep their depth into the OCIO pass), `firstSoftwareFormat`
+made platform-neutral (was Windows-only, called everywhere), dual
+decoder RGBA64 publish un-gated.
+
+**Watch:** first releases on a fresh major — track 9.0.x point releases
+(security fixes now land on 9.0 and 8.1 both). `lock_queue` callbacks
+are gone from our code path (internally synchronised queues) so the
+libavutil-62 removal no longer matters. `swscale` unstable x86 "ops"
+backend still `SWS_UNSTABLE`. Rollback = un-park the 8.1.2 trees and
+rebuild (the app source is dual-version).
+
+---
+
 ## 2026-09-08 — FFmpeg 9.0 investigation (branch `ffmpeg-9`) — NOT a bump, pin stays `n8.1.2`
 
 **Dependency:** FFmpeg (both platforms). **Status:** investigated and

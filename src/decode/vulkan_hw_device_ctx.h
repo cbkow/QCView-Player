@@ -17,10 +17,34 @@
 
 #include <QtGlobal>
 
+extern "C" {
+#include <libavutil/pixdesc.h>
+#include <libavutil/pixfmt.h>
+}
+
+namespace qcv {
+
+// First software (non-hwaccel) format in a get_format list, or
+// fmts[0] when there is none. Platform-neutral: every platform's
+// get_format falls back through this when its hwaccel is declined
+// (fmts[0] may be a foreign hwaccel such as `vaapi` for VVC, which
+// FFmpeg would reject before re-calling us). Lives outside the
+// Q_OS_WIN block below because the .cpp is Windows-only.
+inline AVPixelFormat firstSoftwareFormat(const AVPixelFormat *fmts)
+{
+    if (!fmts) return AV_PIX_FMT_NONE;
+    for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
+        const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(fmts[i]);
+        if (d && !(d->flags & AV_PIX_FMT_FLAG_HWACCEL)) return fmts[i];
+    }
+    return fmts[0];
+}
+
+} // namespace qcv
+
 #if defined(Q_OS_WIN)
 
 extern "C" {
-#include <libavutil/pixfmt.h>
 struct AVBufferRef;
 struct AVCodecContext;
 }
@@ -48,10 +72,6 @@ AVPixelFormat attachedHwPixelFormat(const AVCodecContext *avctx);
 // Device type of an AVHWDeviceContext buffer (AV_HWDEVICE_TYPE_NONE
 // for null).
 int attachedHwDeviceType(const AVBufferRef *hwDeviceCtx);
-
-// First software (non-hwaccel) format in a get_format list, or
-// fmts[0] when there is none.
-AVPixelFormat firstSoftwareFormat(const AVPixelFormat *fmts);
 
 // Phase I.E (2026-09-08) — app-owned, cached Vulkan FRAME POOLS.
 //

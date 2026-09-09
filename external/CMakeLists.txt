@@ -37,23 +37,24 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 # CI/packaging: switch QCVIEW_USE_SYSTEM_FFMPEG=OFF and bring in via
 # ExternalProject_Add (FFmpeg uses ./configure, not CMake).
 #
-# Phase F.2.4 Windows override: vcpkg's FFmpeg 8.1 is missing
-# libplacebo + libshaderc, so the prores Vulkan compute decoder isn't
-# available. We use a BtbN GPL-Shared 8.1-branch build (same major API:
-# libavcodec 62 / libavutil 60 / libavformat 62) with libplacebo +
-# libshaderc baked into the DLLs. Prepending its pkgconfig dir to
-# PKG_CONFIG_PATH makes pkg-config prefer it over vcpkg's. Configure with
-# -DQCV_BTBN_FFMPEG_DIR=<path> (or the BTBN_FFMPEG_DIR env var via the
-# preset) to override the default in-tree location.
+# Phase F.2.4 Windows override: Windows links a BtbN GPL-Shared recipe
+# build (FFmpeg 9.0 line since 2026-09-08) instead of vcpkg's FFmpeg.
+# Originally because vcpkg's 8.1 lacked libplacebo + libshaderc (no
+# ProRes Vulkan compute decoder); with 9.0 the shaders are precompiled
+# and that reason is gone, but the BtbN recipe is what carries our three
+# local patches (external/patches/ffmpeg/). Prepending its pkgconfig dir
+# to PKG_CONFIG_PATH makes pkg-config prefer it over vcpkg's. Configure
+# with -DQCV_BTBN_FFMPEG_DIR=<path> (or the BTBN_FFMPEG_DIR env var via
+# the preset) to override the default in-tree location. The DLL majors
+# (avcodec-63 / avutil-61 / ...) are derived from the .pc versions in
+# src/app/CMakeLists.txt, so a major bump needs no edit here.
 #
 # Default is the in-tree vendored build at external/ffmpeg-win64/ — a
 # relocatable BtbN GPL-Shared build (.pc uses prefix=${pcfiledir}/../..).
-# The binaries are gitignored (avcodec-62.dll alone is ~98 MB, and main
-# auto-pushes to GitHub which hard-blocks >=100 MB files); re-fetch per
+# The binaries are gitignored (avcodec-63.dll alone is ~100 MB, and main
+# auto-pushes to GitHub which hard-blocks >=100 MB files); rebuild per
 # dependencies.md §2 / dependencies-changelog.md. Pinned to FFmpeg
-# 8.1.2 (n8.1.2-20260624) — patches CVE-2026-8461 "PixelSmash" (heap
-# OOB write in the MagicYUV decoder), which the prior n8.1-11 build was
-# vulnerable to.
+# n9.0.1 + patches 0001-0003.
 if(QCVIEW_USE_SYSTEM_FFMPEG)
     if(WIN32)
         # NOTE: the windows-release preset binds QCV_BTBN_FFMPEG_DIR to

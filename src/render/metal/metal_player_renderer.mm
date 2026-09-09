@@ -53,13 +53,20 @@ inline int parThumbW(int w, int num, int den)
     return static_cast<int>(std::lround(double(w) * num / den));
 }
 
-// Upload a CPU-decoded RGBA8 QImage into a cached MTLTexture.
+// Upload a CPU-decoded RGBA QImage into a cached MTLTexture.
 // Used when the decoder fell back to software (no zero-copy
-// VideoToolbox path) — sws_scale produces an RGBA8888 QImage in
-// publishCpuFrame which we then push through here onto the GPU.
-// The cached texture is recreated only when the frame dims change;
-// otherwise replaceRegion uploads new pixels in place. Returns the
-// cached texture on success, nil if anything went wrong.
+// VideoToolbox path) — publishCpuFrame produces either an RGBA8888
+// QImage (8-bit sources) or, since Phase J.1 (2.3.0), a Format_RGBA64
+// QImage for >8-bit and Bayer sources (DNxHR 10/12-bit, ProRes when
+// VideoToolbox declines, ProRes RAW, FFV1/APV/VVC software). RGBA64 is
+// 4 × uint16, byte-identical to MTLPixelFormatRGBA16Unorm, so it
+// uploads as is and the compositor samples it exactly like the 8-bit
+// slot (both are unorm → float in the shader); the extra depth
+// survives into the RGBA16F OCIO pass instead of being crushed to 8
+// bits on the CPU. The cached texture is recreated only when the
+// frame dims or pixel format change; otherwise replaceRegion uploads
+// new pixels in place. Returns the cached texture on success, nil if
+// anything went wrong.
 static id<MTLTexture> uploadCpuFrameRgba(
     id<MTLDevice> device,
     const QImage &img,
@@ -71,16 +78,20 @@ static id<MTLTexture> uploadCpuFrameRgba(
     const int h = img.height();
     if (w <= 0 || h <= 0) return nil;
 
-    // publishCpuFrame creates Format_RGBA8888 which matches
-    // MTLPixelFormatRGBA8Unorm byte layout directly. Convert
-    // defensively in case some other path sneaks in.
-    QImage src = (img.format() == QImage::Format_RGBA8888)
+    // Format_RGBA64 → RGBA16Unorm (Phase J.1 deep sources);
+    // Format_RGBA8888 → RGBA8Unorm. Anything else is converted to
+    // RGBA8888 defensively in case some other path sneaks in.
+    const bool sixteen = (img.format() == QImage::Format_RGBA64);
+    const MTLPixelFormat wantFmt = sixteen ? MTLPixelFormatRGBA16Unorm
+                                           : MTLPixelFormatRGBA8Unorm;
+    QImage src = (sixteen || img.format() == QImage::Format_RGBA8888)
                  ? img : img.convertToFormat(QImage::Format_RGBA8888);
 
-    if (cachedTex == nil || cachedW != w || cachedH != h) {
+    if (cachedTex == nil || cachedW != w || cachedH != h
+        || cachedTex.pixelFormat != wantFmt) {
         MTLTextureDescriptor *desc =
             [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:
-                MTLPixelFormatRGBA8Unorm
+                wantFmt
                 width:w height:h mipmapped:NO];
         desc.storageMode = MTLStorageModeShared;
         desc.usage = MTLTextureUsageShaderRead;
