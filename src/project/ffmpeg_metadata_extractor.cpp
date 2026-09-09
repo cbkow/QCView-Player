@@ -595,6 +595,24 @@ void extractVideoStream(AVFormatContext *ctx, VideoMetadata &m)
             av_pix_fmt_desc_get(static_cast<AVPixelFormat>(cp->format))) {
         m.isRgb = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0;
     }
+    if (cp->format == AV_PIX_FMT_NONE) {
+        // Some decoders only learn their pixel format from the first
+        // frame header, so the probe reports none and the name-based
+        // depth above falls through to 8. ProRes RAW (FFmpeg 9.0): the
+        // coefficients and iDCT are 12-bit and the linearization curve
+        // expands to a 16-bit Bayer output (bayer_rggb16le with our
+        // patch 0003) — report the CODED precision, as we do for
+        // ProRes 4444 / DNxHR, not the output container. Other codecs:
+        // fall back to FFmpeg's raw-sample hint when it has one.
+        if (cp->codec_id == AV_CODEC_ID_PRORES_RAW) {
+            m.pixelFormat = QStringLiteral("bayer_rggb16le");
+            m.bitDepth    = 12;
+            m.hasAlpha    = false;
+            m.isRgb       = false;
+        } else if (cp->bits_per_raw_sample > 0) {
+            m.bitDepth = cp->bits_per_raw_sample;
+        }
+    }
 
     m.colorspace      = colorspaceName(cp->color_space);
     m.colorPrimaries  = primariesName(cp->color_primaries);

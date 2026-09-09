@@ -265,6 +265,13 @@ void ProjectManager::applyLoadedState(QList<MediaItem>  pool,
             if (it.video.containerFormat.isEmpty()) {
                 m_metadataService->requestContainerProbe(it.id, it.path);
             }
+            // ProRes RAW caches written before 2026-09-09 carry no
+            // pixel format and an 8-bit depth (the probe never sees
+            // this codec's format); one full re-extract fixes both.
+            if (it.video.videoCodec == QLatin1String("prores_raw")
+                && it.video.pixelFormat.isEmpty()) {
+                m_metadataService->requestVideoExtraction(it.id, it.path);
+            }
         }
     }
 }
@@ -620,6 +627,14 @@ QString ProjectManager::addMediaFile(const QString &path)
                 && existing.video.containerFormat.isEmpty()) {
                 m_metadataService->requestContainerProbe(existing.id,
                                                          existing.path);
+            }
+            if (m_metadataService
+                && existing.type == MediaType::Video
+                && existing.video.loaded
+                && existing.video.videoCodec == QLatin1String("prores_raw")
+                && existing.video.pixelFormat.isEmpty()) {
+                m_metadataService->requestVideoExtraction(existing.id,
+                                                          existing.path);
             }
             return existing.id;
         }
