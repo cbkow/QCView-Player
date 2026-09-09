@@ -116,6 +116,18 @@ FrameHandle FrameHandle::vulkan(AVFrame *avFrame, int width, int height,
     return h;
 }
 
+FrameHandle FrameHandle::d3d11(AVFrame *avFrame, int width, int height,
+                               int64_t pts)
+{
+    FrameHandle h;
+    h.m_kind    = Kind::D3D11;
+    h.m_pts     = pts;
+    h.m_width   = width;
+    h.m_height  = height;
+    h.m_avFrame = avFrame;   // takes ownership; reset() will av_frame_free
+    return h;
+}
+
 void FrameHandle::reset()
 {
     // CVPixelBufferRelease isn't reachable on non-Apple — m_metalPixbuf

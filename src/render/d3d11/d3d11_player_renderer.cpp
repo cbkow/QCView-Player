@@ -9,6 +9,8 @@
 #include "d3d11_ocio_renderer.h"
 #include "d3d11_texture_pool.h"
 #include "d3d11_vulkan_decode_bridge.h"
+#include "d3d11va_decode_bridge.h"          // Phase K.1
+#include "decode/d3d11va_hw_device_ctx.h"   // Phase K.1 — shared-device hook
 #include "d3d11_vulkan_yuv_compositor.h"
 #include "render/i_dual_frame_source.h"
 
@@ -175,6 +177,11 @@ struct D3D11PlayerRenderer::Impl {
     // handles. After F.2.13 the bridge is a thin per-stream cache;
     // the heavy compute pipeline lives in yuvCompositor above.
     D3D11VulkanDecodeBridge          vulkanBridge;
+
+    // Phase K.1 — D3D11VA frames decoded on OUR device (FrameHandle::
+    // D3D11): per-slice views + YUV→RGB compute into a bridge-owned
+    // RGBA16F, consumed through the same SlotOwner::Bridge path.
+    D3D11VaDecodeBridge              d3d11vaBridge;
 
     // Phase F.2.11.d — DualFlow pipeline. Compositor pulls per-side
     // frames through the IDualFrameSource adapter (qcv_window). Canvas
@@ -466,6 +473,17 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
               "FrameHandle::Vulkan frames will be silently dropped");
     }
 
+    // Phase K.1 — zero-copy D3D11VA. Register OUR device with the decode
+    // library (it cannot link qcv_render) so VideoDecoder can wrap it as
+    // the D3D11VA hw device; bring up the slice→RGBA16F compute. Either
+    // failing leaves the decoder on FFmpeg's own device + readback.
+    if (!m_impl->d3d11vaBridge.initialize()) {
+        qInfo("D3D11PlayerRenderer::init: D3D11VaDecodeBridge init failed; "
+              "D3D11VA stays on the readback path");
+    } else {
+        qcv::setSharedD3D11Device(device, D3D11DeviceManager::instance().context());
+    }
+
     qInfo("D3D11PlayerRenderer: ready (child HWND %p on parent %p, "
           "%dx%d initial, BGRA8 flip-discard via DComp, compositor ready)",
           m_impl->childHwnd, parentHwnd, kInitW, kInitH);
@@ -538,6 +556,10 @@ void D3D11PlayerRenderer::shutdown()
     m_impl->captureSrcH = 0;
     m_impl->captureAnnotations.shutdown();
 
+    // Phase K.1 — drop the decoder-side pools + device refs before the
+    // bridge and the device go (pools are texture arrays on this device).
+    qcv::clearSharedD3D11Device();
+    m_impl->d3d11vaBridge.shutdown();
     m_impl->vulkanBridge.shutdown();
     m_impl->annotations.shutdown();
     m_impl->ocio.shutdown();
@@ -853,6 +875,32 @@ bool D3D11PlayerRenderer::consumeLatestVideoFrame()
             slot.owner  = Impl::SlotOwner::Bridge;
         }
         return true;   // dirty: trigger a redraw of the (currently black) texture
+    }
+    // Phase K.1 — D3D11VA frame on our device: same slot handoff as the
+    // Vulkan bridge (bridge-owned RGBA16F output, SlotOwner::Bridge).
+    if (h.kind() == FrameHandle::Kind::D3D11) {
+        if (!m_impl->d3d11vaBridge.isInitialized()) return false;
+        const int rangeOv = m_decoder ? m_decoder->rangeOverride() : 0;
+        const auto *imp = m_impl->d3d11vaBridge.consume(h, rangeOv);
+        if (!imp || imp->planes.empty()) return false;
+        const auto &p = imp->planes.front();
+        if (!p.srv) return false;
+        auto &slot = m_impl->videoA;
+        if (slot.srv.Get() != p.srv) {
+            slot.srv.Reset();
+            slot.texture.Reset();
+            p.srv->AddRef();
+            slot.srv.Attach(p.srv);
+            if (p.texture) {
+                p.texture->AddRef();
+                slot.texture.Attach(p.texture);
+            }
+            slot.width  = imp->pictureWidth;
+            slot.height = imp->pictureHeight;
+            slot.owner  = Impl::SlotOwner::Bridge;
+            slot.format = DXGI_FORMAT_UNKNOWN;
+        }
+        return true;
     }
     if (h.kind() != FrameHandle::Kind::Cpu) return false;
 

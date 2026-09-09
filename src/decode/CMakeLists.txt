@@ -101,6 +101,8 @@ if(NOT APPLE)
         # so DualVideoDecoder can reuse the exact same handoff logic.
         vulkan_hw_device_ctx.h
         vulkan_hw_device_ctx.cpp
+        d3d11va_hw_device_ctx.h
+        d3d11va_hw_device_ctx.cpp
     )
     if(WIN32)
         # vkGetMemoryWin32HandleKHR / vkGetSemaphoreWin32HandleKHR live

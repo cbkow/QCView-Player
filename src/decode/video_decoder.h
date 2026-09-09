@@ -235,6 +235,13 @@ private:
     // FrameHandle::Vulkan, publishes. The renderer-side bridge
     // (F.2.4.3) imports the VkImage into D3D11 via NT shared handle.
     void publishVulkanFrame(AVFrame *frame);
+#if defined(Q_OS_WIN)
+    // Phase K.1 — D3D11VA on the renderer's device. attachD3D11VaDevice
+    // prefers the shared device (zero-copy) and falls back to FFmpeg's
+    // own (readback); publishD3D11Frame mirrors publishVulkanFrame.
+    bool attachD3D11VaDevice();
+    void publishD3D11Frame(AVFrame *frame);
+#endif
     void publishHandle(FrameHandle handle, int64_t pts, bool pace);
     // Performs a synchronous seek + decode-forward to the target
     // frame number on the decode thread. Caller owns pkt/frame/swFrame.
@@ -290,6 +297,8 @@ private:
     // CPU fallback, or pure software). Cleared in open().
     bool    m_loggedMetalFormat     = false;
     bool    m_loggedCpuFormat       = false;
+    bool    m_loggedD3D11Format     = false;   // Phase K.1
+    bool    m_d3d11ZeroCopy         = false;   // Phase K.1: shared-device D3D11VA attached
     // One-shot diag for the RGB legal-range expansion state (re-logs on change).
     bool m_loggedRgbExpand     = false;
     bool m_loggedRgbExpandOnce = false;

@@ -34,6 +34,7 @@ extern "C" {
 #  include <vulkan/vulkan.h>
 #  include "vulkan/vulkan_device_manager.h"
 #  include "vulkan_hw_device_ctx.h"
+#  include "d3d11va_hw_device_ctx.h"   // Phase K.1 — zero-copy D3D11VA
 #endif
 
 // Defined in frame_handle.mm; lets video_decoder.cpp retain the
@@ -175,6 +176,13 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
                 // bridge. Null → FFmpeg allocates as before.
                 if (want == AV_PIX_FMT_VULKAN && ctx && !ctx->hw_frames_ctx) {
                     ctx->hw_frames_ctx = qcv::acquireSharedVulkanFramesCtx(ctx);
+                }
+                // Phase K.1 — same ownership rule for D3D11VA on the
+                // renderer's device (shared-device contexts only; a
+                // FFmpeg-owned device keeps FFmpeg's own pool + readback).
+                if (want == AV_PIX_FMT_D3D11 && ctx && !ctx->hw_frames_ctx
+                    && qcv::isSharedD3D11VaDeviceCtx(ctx->hw_device_ctx)) {
+                    ctx->hw_frames_ctx = qcv::acquireSharedD3D11VaFramesCtx(ctx);
                 }
 #endif
                 return want;
@@ -813,14 +821,19 @@ bool VideoDecoder::initFFmpeg(const QString &path)
         m_cctx->get_format    = hwaccelGetFormat;
         m_hwAccelType         = QStringLiteral("vulkan");
         qInfo("VideoDecoder: vulkan hwaccel attached (FFmpeg-managed pool)");
-    } else if (!skipAllHw
-               && av_hwdevice_ctx_create(&m_hwDeviceCtx, kHwType, nullptr, nullptr, 0) >= 0) {
+    } else if (!skipAllHw && attachD3D11VaDevice()) {
+        // Phase K.1 — D3D11VA on the RENDERER's device when the render
+        // side has registered it (zero-copy: frames stay on the GPU and
+        // D3D11VaDecodeBridge samples the texture-array slice). Falls
+        // back to FFmpeg's own device + readback when it hasn't.
         m_cctx->hw_device_ctx = av_buffer_ref(m_hwDeviceCtx);
         m_cctx->get_format = hwaccelGetFormat;
         m_hwAccelType = QString::fromUtf8(kHwName);
-        qInfo("VideoDecoder: %s hwaccel attached%s", kHwName,
+        qInfo("VideoDecoder: %s hwaccel attached%s%s", kHwName,
               skipVulkan ? " (codec-routed)"
-                         : " (Vulkan shared-device unavailable)");
+                         : " (Vulkan shared-device unavailable)",
+              m_d3d11ZeroCopy ? " [shared device, zero-copy]"
+                              : " [FFmpeg device, readback]");
     } else {
         qInfo("VideoDecoder: no hwaccel available; software decode%s",
               kForceSoftwareDecode ? " (forced by user setting)" : "");
@@ -1203,6 +1216,51 @@ void VideoDecoder::publishVulkanFrame(AVFrame *frame)
 #endif
 }
 
+#if defined(Q_OS_WIN)
+bool VideoDecoder::attachD3D11VaDevice()
+{
+    // A leftover context from the previous clip (e.g. a cached Vulkan
+    // device ref for ProRes) must not leak when this clip goes D3D11VA.
+    if (m_hwDeviceCtx) av_buffer_unref(&m_hwDeviceCtx);
+    m_d3d11ZeroCopy = false;
+    m_hwDeviceCtx = qcv::createSharedD3D11VaHwDeviceCtx();
+    if (m_hwDeviceCtx) {
+        m_d3d11ZeroCopy = true;
+        return true;
+    }
+    return av_hwdevice_ctx_create(&m_hwDeviceCtx, AV_HWDEVICE_TYPE_D3D11VA,
+                                  nullptr, nullptr, 0) >= 0;
+}
+
+void VideoDecoder::publishD3D11Frame(AVFrame *frame)
+{
+    // Phase K.1 — mirror of publishVulkanFrame for D3D11VA frames on
+    // the renderer's device: clone the AVFrame (keeps the pool slice
+    // reserved while the renderer samples it) and hand it over.
+    if (!m_loggedD3D11Format) {
+        const auto *fc = frame->hw_frames_ctx
+            ? reinterpret_cast<const AVHWFramesContext *>(frame->hw_frames_ctx->data)
+            : nullptr;
+        qInfo("VideoDecoder[%s]: D3D11 zero-copy publish — sw_format=%s (%dx%d)",
+              qPrintable(QFileInfo(m_sourcePath).fileName()),
+              fc ? av_get_pix_fmt_name(fc->sw_format) : "<none>",
+              frame->width, frame->height);
+        m_loggedD3D11Format = true;
+    }
+    AVFrame *cloned = av_frame_clone(frame);
+    if (!cloned) {
+        qWarning("VideoDecoder: av_frame_clone failed for D3D11 frame; dropping");
+        return;
+    }
+    const int64_t pts = (frame->best_effort_timestamp != AV_NOPTS_VALUE)
+                        ? frame->best_effort_timestamp
+                        : frame->pts;
+    const int64_t ptsUs = ptsToMicroseconds(pts);
+    publishHandle(FrameHandle::d3d11(cloned, frame->width, frame->height, ptsUs),
+                  pts, /*pace=*/true);
+}
+#endif
+
 void VideoDecoder::publishExternalFrame(FrameHandle handle, int64_t pts)
 {
     publishHandle(std::move(handle), pts, /*pace=*/false);
@@ -1423,6 +1481,14 @@ void VideoDecoder::decodeLoop()
                 // D3D11 on the renderer thread.
                 publishVulkanFrame(frame);
             }
+#if defined(Q_OS_WIN)
+            else if (frame->format == AV_PIX_FMT_D3D11 && m_d3d11ZeroCopy
+                     && qcv::d3d11FrameIsZeroCopyConsumable(frame)) {
+                // Phase K.1 — decoded straight into the renderer's
+                // texture array; publish the slice, no readback.
+                publishD3D11Frame(frame);
+            }
+#endif
             else if (frame->format == AV_PIX_FMT_D3D11 ||
                      frame->format == AV_PIX_FMT_VAAPI) {
                 if (int xferErr = av_hwframe_transfer_data(swFrame, frame, 0); xferErr < 0) {
@@ -1533,6 +1599,12 @@ void VideoDecoder::performSeek(int targetFrame, AVPacket *pkt,
                 else if (frame->format == AV_PIX_FMT_VULKAN) {
                     publishVulkanFrame(frame);
                 }
+#if defined(Q_OS_WIN)
+                else if (frame->format == AV_PIX_FMT_D3D11 && m_d3d11ZeroCopy
+                         && qcv::d3d11FrameIsZeroCopyConsumable(frame)) {
+                    publishD3D11Frame(frame);   // Phase K.1
+                }
+#endif
                 else if (frame->format == AV_PIX_FMT_D3D11 ||
                          frame->format == AV_PIX_FMT_VAAPI) {
                     if (av_hwframe_transfer_data(swFrame, frame, 0) >= 0) {

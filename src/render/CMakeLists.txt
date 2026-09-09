@@ -154,6 +154,8 @@ if(WIN32)
         # per-stream cache that points at the shared compositor.
         d3d11/d3d11_vulkan_decode_bridge.h
         d3d11/d3d11_vulkan_decode_bridge.cpp
+        d3d11/d3d11va_decode_bridge.h
+        d3d11/d3d11va_decode_bridge.cpp
         d3d11/d3d11_vulkan_yuv_compositor.h
         d3d11/d3d11_vulkan_yuv_compositor.cpp
         # Phase F.2.5 — D3D11 OCIO color pipeline. Mirrors the
