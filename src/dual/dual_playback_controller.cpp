@@ -38,6 +38,22 @@ bool looksLikeImageSequenceFile(const QString &path)
 
 } // namespace
 
+// ProRes on the dual sides: Vulkan (shared device, cached pools,
+// semaphore-synchronised bridge — Phases I.E/I.F/I.G, 2026-09-08) or
+// the pre-2026 software workaround. The workaround dates from a
+// VK_ERROR_DEVICE_LOST on seeks into the past-end gap of one side; the
+// device-loss class it guarded against was root-caused and fixed in the
+// I.E–I.G series, so Vulkan is the default again (2026-09-09 experiment).
+// QCV_DUAL_PRORES_SW=1 restores software decode for both sides.
+static bool dualProResForcesSoftware()
+{
+    static const bool kForce = [] {
+        const QByteArray v = qgetenv("QCV_DUAL_PRORES_SW");
+        return !v.isEmpty() && v != "0";
+    }();
+    return kForce;
+}
+
 DualPlaybackController::DualPlaybackController(QObject *parent)
     : QObject(parent)
     , m_timer(std::make_unique<DualPlaybackTimer>())
@@ -154,24 +170,20 @@ bool DualPlaybackController::open(const QString &pathA, DualSourceKind kindA,
               seqThreads, userThreads);
     }
 
-    // Both sides force ProRes through software decode in dual mode.
-    // The dual Vulkan path is unstable on NVIDIA with ProRes: a seek
-    // into the gap region where one side is past-end and the other
-    // triggers a VK_ERROR_DEVICE_LOST that disables hwaccel for the
-    // whole session. The crash trips regardless of whether ProRes is
-    // on A or B, so both sides take the SW path for ProRes specifically.
-    // Non-ProRes codecs still HW-accelerate normally on each side.
-    // Single-flow ProRes is also unaffected (the flag is per-instance
-    // and only gets set inside DualPlaybackController).
+    // ProRes on both dual sides: Vulkan by default since 2026-09-09
+    // (see dualProResForcesSoftware above for the history of the
+    // software workaround and the QCV_DUAL_PRORES_SW escape hatch).
+    // Non-ProRes codecs HW-accelerate normally on each side; the flag
+    // is per-instance and only set inside DualPlaybackController.
     m_sourceA = makeSource(pathA, kindA, exrLayerA, seqThreads,
-                            /*forceSwForProRes=*/true);
+                            dualProResForcesSoftware());
     if (!m_sourceA && !pathA.isEmpty()) {
         qWarning("DualPlaybackController: source A open failed (%s)",
                  qPrintable(pathA));
         return false;
     }
     m_sourceB = makeSource(pathB, kindB, exrLayerB, seqThreads,
-                            /*forceSwForProRes=*/true);
+                            dualProResForcesSoftware());
     if (!m_sourceB && !pathB.isEmpty()) {
         qWarning("DualPlaybackController: source B open failed (%s)",
                  qPrintable(pathB));
@@ -368,7 +380,7 @@ bool DualPlaybackController::swapB(const QString &path, DualSourceKind kind)
     // the dual-entry default in open().
     auto src = makeSource(path, kind, /*exrLayer=*/QString(),
                            /*imageSeqThreadCount=*/0,
-                           /*forceSwForProRes=*/true);
+                           dualProResForcesSoftware());
     if (!src) {
         qWarning("DualPlaybackController::swapB: open failed for %s",
                  qPrintable(path));
