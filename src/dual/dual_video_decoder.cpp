@@ -3,6 +3,7 @@
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
 #include "decode/sws_threaded.h"
+#include "decode/seek_compat.h"
 
 #include <QDebug>
 #include <QFileInfo>
@@ -1084,7 +1085,7 @@ void DualVideoDecoder::performSeek(int targetFrame, AVPacket *pkt, AVFrame *fram
     // codecs every frame is a keyframe; for inter-frame codecs FFmpeg
     // walks back to the nearest IDR/keyframe.
     const int64_t targetPts = ptsForFrameNumber(targetFrame);
-    if (av_seek_frame(m_fmt, m_streamIdx, targetPts, AVSEEK_FLAG_BACKWARD) < 0) {
+    if (qcv::seekStream(&m_fmt, m_streamIdx, targetPts, AVSEEK_FLAG_BACKWARD) < 0) {
         qWarning("DualVideoDecoder: av_seek_frame failed for frame %d", targetFrame);
         return;
     }

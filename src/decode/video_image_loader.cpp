@@ -4,6 +4,8 @@
 #include "video_image_loader.h"
 
 #include "decode/rgb_range.h"
+#include "decode/stream_extent.h"
+#include "decode/seek_compat.h"
 
 #include <QtLogging>
 
@@ -95,6 +97,12 @@ bool VideoImageLoader::initializeFfmpeg()
     } else if (stream->duration > 0) {
         detectedDur = static_cast<double>(stream->duration)
                       * av_q2d(stream->time_base);
+    } else {
+        // Duration-less container (animated WebP / GIF / APNG) —
+        // count packets; see decode/stream_extent.h.
+        const qcv::StreamExtent ext = qcv::scanStreamExtent(
+            QString::fromStdString(m_videoPath), m_videoStreamIdx);
+        if (ext.ok && ext.durationUs > 0) detectedDur = ext.durationUs / 1e6;
     }
     if (detectedDur > 0.0
         && (m_duration <= 0.0
@@ -239,8 +247,8 @@ bool VideoImageLoader::seekAndDecodeFrame(double timestampSec,
         static_cast<int64_t>(timestampSec * AV_TIME_BASE),
         AV_TIME_BASE_Q, stream->time_base);
 
-    if (av_seek_frame(m_formatCtx, m_videoStreamIdx, targetPts,
-                      AVSEEK_FLAG_BACKWARD) < 0) {
+    if (qcv::seekStream(&m_formatCtx, m_videoStreamIdx, targetPts,
+                        AVSEEK_FLAG_BACKWARD) < 0) {   // see decode/seek_compat.h
         return false;
     }
     avcodec_flush_buffers(m_codecCtx);

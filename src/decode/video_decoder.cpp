@@ -3,6 +3,8 @@
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
 #include "decode/sws_threaded.h"
+#include "decode/stream_extent.h"
+#include "decode/seek_compat.h"
 
 #include "decoder_cleanup_queue.h"
 
@@ -942,6 +944,12 @@ bool VideoDecoder::initFFmpeg(const QString &path)
                                               { 1, AV_TIME_BASE },
                                               { fr.den, fr.num }));
     }
+    if (total <= 0) {
+        // No frame count and no duration anywhere (animated WebP / GIF /
+        // APNG demuxers): count the packets — see decode/stream_extent.h.
+        const qcv::StreamExtent ext = qcv::scanStreamExtent(path, m_videoStreamIdx);
+        if (ext.ok) total = ext.frames;
+    }
     m_frameIndex = FrameIndex(tb.num, tb.den, fr.num, fr.den, total, intraOnly);
     if (total > 0) m_frameCount = total;
 
@@ -1548,8 +1556,10 @@ void VideoDecoder::performSeek(int targetFrame, AVPacket *pkt,
     // on the keyframe at-or-before target. For intra codecs every
     // frame is a keyframe so this is exact; for inter codecs we
     // decode forward from the keyframe.
-    if (av_seek_frame(m_fmt, m_videoStreamIdx, targetPts,
-                      AVSEEK_FLAG_BACKWARD) < 0) {
+    // qcv::seekStream — av_seek_frame, or a reopen-at-start for demuxers
+    // that cannot seek (animated WebP); see decode/seek_compat.h.
+    if (qcv::seekStream(&m_fmt, m_videoStreamIdx, targetPts,
+                        AVSEEK_FLAG_BACKWARD) < 0) {
         recordDecodeError(tr("av_seek_frame failed for frame %1").arg(targetFrame));
         return;
     }

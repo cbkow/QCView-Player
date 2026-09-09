@@ -282,12 +282,12 @@ Rectangle {
         // All-types filter; addMediaFile detects the type by
         // extension and routes to the matching internal bin.
         nameFilters: [
-            qsTr("All media (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm "
+            qsTr("All media (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp "
                + "*.wav *.aif *.aiff *.mp3 *.flac *.m4a "
                + "*.png *.jpg *.jpeg *.tif *.tiff *.exr)"),
-            qsTr("Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm)"),
+            qsTr("Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp)"),
             qsTr("Audio files (*.wav *.aif *.aiff *.mp3 *.flac *.m4a)"),
-            qsTr("Image files (*.png *.jpg *.jpeg *.tif *.tiff *.exr)"),
+            qsTr("Image files (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp)"),
             qsTr("All files (*)")
         ]
         fileMode: FileDialog.OpenFiles

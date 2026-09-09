@@ -22,6 +22,7 @@
 #include "dual_scrub_cache.h"       // DualScrubEntry
 #include "decode/simple_lru.h"      // SimpleLRU
 #include "decode/sws_rgba_image.h"  // swsFrameToRgbaImage
+#include "decode/seek_compat.h"
 
 #include <QFileInfo>
 #include <QImage>
@@ -371,8 +372,8 @@ bool MacDualScrubDecoder::decodeAndPublish(int target, AVPacket *pkt,
         (target - m_decoderPos) <= kForwardReach;
 
     if (!canForward) {
-        if (av_seek_frame(m_fmt, m_videoStreamIdx, targetPts,
-                          AVSEEK_FLAG_BACKWARD) < 0) {
+        if (qcv::seekStream(&m_fmt, m_videoStreamIdx, targetPts,
+                            AVSEEK_FLAG_BACKWARD) < 0) {   // see decode/seek_compat.h
             return false;
         }
         avcodec_flush_buffers(m_cctx);

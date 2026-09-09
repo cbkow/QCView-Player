@@ -1,6 +1,7 @@
 // FFmpegMetadataExtractor — see header.
 
 #include "ffmpeg_metadata_extractor.h"
+#include "decode/stream_extent.h"
 
 #include <QFileInfo>
 #include <QtLogging>
@@ -571,6 +572,17 @@ void extractVideoStream(AVFormatContext *ctx, VideoMetadata &m)
         // PlaybackTimer.totalFrames via lround) report 721; aligning
         // here keeps the inspector consistent with the timeline.
         m.totalFrames = static_cast<int>(std::lround(m.duration * m.frameRate));
+    } else {
+        // Duration-less containers (animated WebP / GIF / APNG): count
+        // the packets so the bin and timeline get a real length — the
+        // same helper VideoDecoder uses (decode/stream_extent.h).
+        const qcv::StreamExtent ext = qcv::scanStreamExtent(
+            QString::fromUtf8(ctx->url ? ctx->url : ""), idx);
+        if (ext.ok) {
+            m.totalFrames = ext.frames;
+            m.duration    = ext.durationUs > 0 ? ext.durationUs / 1e6
+                                               : ext.frames / m.frameRate;
+        }
     }
 
     const AVCodec *codec = avcodec_find_decoder(cp->codec_id);

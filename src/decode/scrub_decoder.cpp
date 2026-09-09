@@ -2,6 +2,7 @@
 #include "decode/sws_rgba_image.h"
 #include "decoder_cleanup_queue.h"
 #include "decode/thread_policy.h"
+#include "decode/seek_compat.h"
 #include "video_decoder.h"
 #if defined(Q_OS_WIN)
 #include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
@@ -437,8 +438,8 @@ bool ScrubDecoder::decodeAndPublish(int target, AVPacket *pkt,
         //    the target and flush. AVSEEK_FLAG_BACKWARD lands on a keyframe
         //    (an IDR for inter codecs — exactly what VideoToolbox needs to
         //    recover after a flush); for intra codecs it's the exact frame.
-        if (av_seek_frame(m_fmt, m_videoStreamIdx, targetPts,
-                          AVSEEK_FLAG_BACKWARD) < 0) {
+        if (qcv::seekStream(&m_fmt, m_videoStreamIdx, targetPts,
+                            AVSEEK_FLAG_BACKWARD) < 0) {   // see decode/seek_compat.h
             return false;
         }
         avcodec_flush_buffers(m_cctx);

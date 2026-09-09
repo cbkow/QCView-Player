@@ -290,6 +290,11 @@ QString ProjectManager::detectType(const QString &path, MediaType *outType)
         QStringLiteral("mov"), QStringLiteral("mp4"), QStringLiteral("m4v"),
         QStringLiteral("mxf"), QStringLiteral("mkv"), QStringLiteral("avi"),
         QStringLiteral("webm"), QStringLiteral("ts"),  QStringLiteral("mts"),
+        // WebP (FFmpeg 9.0 webp_anim demuxer/decoder): animated files
+        // play as video; stills decode as a one-frame video too, since
+        // the single-still cache has no WebP loader (native PNG / TIFF /
+        // JPEG / EXR only).
+        QStringLiteral("webp"),
     };
     static const QStringList kAudioExts = {
         QStringLiteral("wav"), QStringLiteral("aif"), QStringLiteral("aiff"),

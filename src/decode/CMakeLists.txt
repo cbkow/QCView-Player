@@ -17,6 +17,8 @@ qt_add_library(qcv_decode STATIC
     rgb_range.h
     thread_policy.h
     sws_threaded.h
+    stream_extent.h
+    seek_compat.h
     sws_rgba_image.h
     live_stream_decoder.cpp
     live_stream_decoder.h

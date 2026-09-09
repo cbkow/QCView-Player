@@ -2,6 +2,7 @@
 #include "decode/sws_rgba_image.h"
 #include "dual_video_decoder.h"
 #include "decode/thread_policy.h"
+#include "decode/seek_compat.h"
 #if defined(Q_OS_WIN)
 #include "decode/vulkan_hw_device_ctx.h"   // firstSoftwareFormat
 #endif
@@ -363,8 +364,8 @@ bool DualScrubDecoder::decodeAndPublish(int target, AVPacket *pkt,
 
     if (!canForward) {
         // 3. Cold / backward / long-jump: seek to the keyframe at-or-before.
-        if (av_seek_frame(m_fmt, m_videoStreamIdx, targetPts,
-                          AVSEEK_FLAG_BACKWARD) < 0) {
+        if (qcv::seekStream(&m_fmt, m_videoStreamIdx, targetPts,
+                            AVSEEK_FLAG_BACKWARD) < 0) {   // see decode/seek_compat.h
             return false;
         }
         avcodec_flush_buffers(m_cctx);

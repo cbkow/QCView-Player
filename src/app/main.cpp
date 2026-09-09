@@ -707,7 +707,8 @@ int main(int argc, char *argv[])
             QTimer::singleShot(800, &windowManager, [&windowManager, dir] {
                 const QStringList files = QDir(dir).entryList(
                     { QStringLiteral("*.mov"), QStringLiteral("*.mp4"),
-                      QStringLiteral("*.mxf"), QStringLiteral("*.mkv") },
+                      QStringLiteral("*.mxf"), QStringLiteral("*.mkv"),
+                      QStringLiteral("*.webp") },
                     QDir::Files, QDir::Name);
                 QStringList paths;
                 for (const QString &f : files)

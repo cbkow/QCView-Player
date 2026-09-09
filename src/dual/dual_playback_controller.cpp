@@ -23,7 +23,8 @@ namespace {
 bool looksLikeVideo(const QString &path)
 {
     static const QStringList kExts = {
-        "mov", "mp4", "mkv", "avi", "mxf", "webm", "ts", "m2t", "m2ts", "m4v"
+        "mov", "mp4", "mkv", "avi", "mxf", "webm", "ts", "m2t", "m2ts", "m4v",
+        "webp"   // animated WebP (FFmpeg 9.0 webp_anim); stills also decode as 1-frame video
     };
     return kExts.contains(QFileInfo(path).suffix().toLower());
 }
