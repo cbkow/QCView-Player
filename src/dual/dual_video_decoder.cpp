@@ -72,16 +72,11 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx,
     constexpr AVPixelFormat kPreferred[] = { AV_PIX_FMT_VIDEOTOOLBOX,
                                               AV_PIX_FMT_NONE };
 #elif defined(Q_OS_WIN)
-    static constexpr AVPixelFormat kProResPreferred[] = {
-        AV_PIX_FMT_VULKAN, AV_PIX_FMT_D3D11, AV_PIX_FMT_NONE
+    // Phase K.3 — only the format the ATTACHED device serves is
+    // acceptable (see VideoDecoder::hwaccelGetFormat).
+    const AVPixelFormat kPreferred[] = {
+        qcv::attachedHwPixelFormat(ctx), AV_PIX_FMT_NONE
     };
-    static constexpr AVPixelFormat kOtherPreferred[] = {
-        AV_PIX_FMT_D3D11, AV_PIX_FMT_VULKAN, AV_PIX_FMT_NONE
-    };
-    const bool isProRes =
-        ctx && ctx->codec && ctx->codec->id == AV_CODEC_ID_PRORES;
-    const AVPixelFormat *kPreferred =
-        isProRes ? kProResPreferred : kOtherPreferred;
 #elif defined(Q_OS_LINUX)
     constexpr AVPixelFormat kPreferred[] = { AV_PIX_FMT_VULKAN,
                                               AV_PIX_FMT_VAAPI,
@@ -92,10 +87,25 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx,
     for (const AVPixelFormat *p = kPreferred; *p != AV_PIX_FMT_NONE; ++p) {
         const AVPixelFormat want = *p;
         for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
-            if (fmts[i] == want) return want;
+            if (fmts[i] == want) {
+#if defined(Q_OS_WIN)
+                // Phase I.E ownership rule, dual side: FFmpeg has just
+                // unref'd hw_frames_ctx; hand it the cached app-owned
+                // pool so a mid-stream get_format re-entry cannot tear
+                // images down under the bridge. Null → FFmpeg pool.
+                if (want == AV_PIX_FMT_VULKAN && ctx && !ctx->hw_frames_ctx) {
+                    ctx->hw_frames_ctx = qcv::acquireSharedVulkanFramesCtx(ctx);
+                }
+#endif
+                return want;
+            }
         }
     }
+#if defined(Q_OS_WIN)
+    return qcv::firstSoftwareFormat(fmts);
+#else
     return fmts[0];
+#endif
 }
 
 // Adaptive timeout for the decode CV — matches old QCView's pattern
@@ -474,7 +484,11 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
     // ProRes-over-Vulkan instability on NVIDIA dual paths.
     const bool kForceSoftwareDecode =
         !kHwDecodeEnabled || (kIsProRes && m_forceSwForProRes);
-    bool skipVulkan = !kIsProRes || kForceSoftwareDecode;
+    // Phase K.3 — Vulkan for the compute-decoded intra codecs (ProRes,
+    // FFV1, APV), D3D11VA for the rest; mirrors VideoDecoder.
+    const bool kVulkanCodec =
+        codecpar && qcv::vulkanPreferredCodec(codecpar->codec_id);
+    bool skipVulkan = !kVulkanCodec || kForceSoftwareDecode;
     bool skipAllHw  = kForceSoftwareDecode;
 
     // Vulkan pre-probe — only when we'd actually use Vulkan for
@@ -528,7 +542,12 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
         m_cctx->get_format    = hwaccelGetFormat;
         m_hwAttached          = true;
         m_hwBackend           = QStringLiteral("vulkan");
-        qInfo("DualVideoDecoder: vulkan hwaccel attached (FFmpeg-managed pool)");
+        // Phase I.E, dual side: the Vulkan decoders are compute passes
+        // on the shared device — frame threads only multiply
+        // get_format re-entries (the pool-churn trigger) for no gain.
+        m_cctx->thread_count  = 1;
+        qInfo("DualVideoDecoder: vulkan hwaccel attached (app-owned cached "
+              "pool, thread_count=1)");
     } else if (!skipAllHw
                && av_hwdevice_ctx_create(&m_hwDeviceCtx,
                                           AV_HWDEVICE_TYPE_D3D11VA,

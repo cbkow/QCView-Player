@@ -124,16 +124,15 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
 #if defined(Q_OS_MACOS)
     constexpr AVPixelFormat kPreferred[] = { AV_PIX_FMT_VIDEOTOOLBOX };
 #elif defined(Q_OS_WIN)
-    static constexpr AVPixelFormat kProResPreferred[] = {
-        AV_PIX_FMT_VULKAN, AV_PIX_FMT_D3D11, AV_PIX_FMT_NONE
+    // Phase K.3 — the ONLY acceptable hw format is the one the attached
+    // device serves (initFFmpeg already made the Vulkan-vs-D3D11VA
+    // routing decision when it attached the device). FFmpeg lists every
+    // hwaccel the codec has regardless of the device type; picking e.g.
+    // `vulkan` for FFV1 while a D3D11VA device is attached fails with
+    // "Invalid setup for format vulkan" and costs a second round.
+    const AVPixelFormat kPreferred[] = {
+        qcv::attachedHwPixelFormat(ctx), AV_PIX_FMT_NONE
     };
-    static constexpr AVPixelFormat kOtherPreferred[] = {
-        AV_PIX_FMT_D3D11, AV_PIX_FMT_VULKAN, AV_PIX_FMT_NONE
-    };
-    const bool isProRes =
-        ctx && ctx->codec && ctx->codec->id == AV_CODEC_ID_PRORES;
-    const AVPixelFormat *kPreferred =
-        isProRes ? kProResPreferred : kOtherPreferred;
 #elif defined(Q_OS_LINUX)
     constexpr AVPixelFormat kPreferred[] = { AV_PIX_FMT_VULKAN, AV_PIX_FMT_VAAPI };
 #else
@@ -189,12 +188,15 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
             }
         }
     }
+    // Codec doesn't support our hwaccel; pick the first SOFTWARE format
+    // (fmts[0] may be a foreign hwaccel such as `vaapi` for VVC, which
+    // FFmpeg would reject before re-calling us).
+    const AVPixelFormat sw = qcv::firstSoftwareFormat(fmts);
     qInfo("VideoDecoder: get_format codec=%s offered=[%s] picked=%s (SW fallback)",
           ctx && ctx->codec ? ctx->codec->name : "?",
           qPrintable(offered),
-          av_get_pix_fmt_name(fmts[0]));
-    // Codec doesn't support our hwaccel; let FFmpeg use the first SW fmt.
-    return fmts[0];
+          av_get_pix_fmt_name(sw));
+    return sw;
 }
 
 // Phase F.2.12.a — createSharedVulkanHwDeviceCtx moved to
@@ -259,6 +261,7 @@ bool VideoDecoder::open(const QString &path)
     m_loggedCpuFormat       = false;
     m_loggedHwToCpuFallback = false;
     m_loggedVulkanFormat    = false;
+    m_loggedD3D11Format     = false;   // per-clip, like the Vulkan one-shot
     // Open paused. Autoplay-on-open was disorienting in QC review
     // workflows where the user wants to scrub a freshly-loaded clip
     // before pressing Space. Callers (load, drop, project click)
@@ -706,7 +709,12 @@ bool VideoDecoder::initFFmpeg(const QString &path)
     // now. GPU debayer (compositor mode) is the follow-up.
     const bool kIsProResRaw =
         codecpar && codecpar->codec_id == AV_CODEC_ID_PRORES_RAW;
-    bool skipVulkan = !kIsProRes || kForceSoftwareDecode;
+    // Phase K.3 — Vulkan for the compute-decoded intra codecs (ProRes,
+    // FFV1, APV); D3D11VA for inter codecs. kIsProRes stays for the
+    // ProRes-specific pre-probe diagnostics below.
+    const bool kVulkanCodec =
+        codecpar && qcv::vulkanPreferredCodec(codecpar->codec_id);
+    bool skipVulkan = !kVulkanCodec || kForceSoftwareDecode;
     bool skipAllHw  = kForceSoftwareDecode || kIsProResRaw;
     if (kForceSoftwareDecode) {
         qInfo("VideoDecoder: software decode forced — "
@@ -716,8 +724,12 @@ bool VideoDecoder::initFFmpeg(const QString &path)
               "debayer (GPU debayer not implemented yet)");
     } else if (skipVulkan) {
         qInfo("VideoDecoder: codec=%s → routing to D3D11VA (Vulkan "
-              "reserved for ProRes on Windows)",
+              "reserved for ProRes / FFV1 / APV on Windows)",
               avcodec_get_name(codecpar ? codecpar->codec_id : AV_CODEC_ID_NONE));
+    } else if (!kIsProRes) {
+        qInfo("VideoDecoder: codec=%s → routing to Vulkan (compute "
+              "decoder on the shared device)",
+              avcodec_get_name(codecpar->codec_id));
     }
 
     // Unified pre-probe for the Vulkan hwaccel path: attempt to
@@ -755,6 +767,17 @@ bool VideoDecoder::initFFmpeg(const QString &path)
         // probe below validates THIS clip's format/dim against the
         // device — codec change between clips is fine because the
         // device context is codec-agnostic.
+        // Phase K.3: the cached device is only reusable if it IS a
+        // Vulkan device. m_hwDeviceCtx also holds the D3D11VA device
+        // after an inter-codec clip (attachD3D11VaDevice), and probing
+        // a Vulkan pool on that fails ("hardware pixel format 'vulkan'
+        // is not supported by the device type 'D3D11VA'") — which used
+        // to read as a driver rejection and silently sent the next
+        // ProRes / FFV1 / APV clip in a mixed playlist to software.
+        if (m_hwDeviceCtx
+            && qcv::attachedHwDeviceType(m_hwDeviceCtx) != AV_HWDEVICE_TYPE_VULKAN) {
+            av_buffer_unref(&m_hwDeviceCtx);
+        }
         const bool reuseCachedDevice = (m_hwDeviceCtx != nullptr);
         AVBufferRef *deviceProbe = reuseCachedDevice
             ? av_buffer_ref(m_hwDeviceCtx)

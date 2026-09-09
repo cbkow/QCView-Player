@@ -20,11 +20,36 @@
 #if defined(Q_OS_WIN)
 
 extern "C" {
+#include <libavutil/pixfmt.h>
 struct AVBufferRef;
 struct AVCodecContext;
 }
 
 namespace qcv {
+
+// Windows hw-decode routing (Phase K.3, 2026-09-08). Vulkan takes the
+// INTRA codecs whose FFmpeg Vulkan decoders are compute-shader based
+// and run on our shared VkDevice: ProRes (8.0), FFV1 (8.0), APV (9.0).
+// Inter codecs (H.264 / HEVC / AV1 / VP9 / VVC…) go to D3D11VA on the
+// renderer's ID3D11Device — see the hw-decode-strategy note.
+bool vulkanPreferredCodec(int avCodecId);
+
+// The hw pixel format served by the device attached to `avctx`
+// (AV_PIX_FMT_VULKAN for a Vulkan device, AV_PIX_FMT_D3D11 for
+// D3D11VA), AV_PIX_FMT_NONE when no hw device is attached. get_format
+// must only ever pick THIS format: FFmpeg offers every hwaccel the
+// codec has (e.g. `vulkan` for FFV1/APV even when a D3D11VA device is
+// attached, `vaapi` for VVC) and picking a mismatched one costs an
+// "Invalid setup for format …" error plus a second get_format round.
+AVPixelFormat attachedHwPixelFormat(const AVCodecContext *avctx);
+
+// Device type of an AVHWDeviceContext buffer (AV_HWDEVICE_TYPE_NONE
+// for null).
+int attachedHwDeviceType(const AVBufferRef *hwDeviceCtx);
+
+// First software (non-hwaccel) format in a get_format list, or
+// fmts[0] when there is none.
+AVPixelFormat firstSoftwareFormat(const AVPixelFormat *fmts);
 
 // Phase I.E (2026-09-08) — app-owned, cached Vulkan FRAME POOLS.
 //

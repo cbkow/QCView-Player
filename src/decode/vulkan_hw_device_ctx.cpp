@@ -282,6 +282,49 @@ void releaseSharedVulkanFramesCache()
               refs.size());
 }
 
+// ---- Phase K.3 — routing helpers shared by VideoDecoder / DualVideoDecoder
+
+bool vulkanPreferredCodec(int avCodecId)
+{
+    switch (static_cast<AVCodecID>(avCodecId)) {
+    case AV_CODEC_ID_PRORES:   // Vulkan decoder since FFmpeg 8.0
+    case AV_CODEC_ID_FFV1:     // 8.0
+    case AV_CODEC_ID_APV:      // 9.0
+        return true;
+    default:
+        return false;
+    }
+}
+
+AVPixelFormat attachedHwPixelFormat(const AVCodecContext *avctx)
+{
+    if (!avctx || !avctx->hw_device_ctx) return AV_PIX_FMT_NONE;
+    const auto *dev = reinterpret_cast<const AVHWDeviceContext *>(avctx->hw_device_ctx->data);
+    if (!dev) return AV_PIX_FMT_NONE;
+    switch (dev->type) {
+    case AV_HWDEVICE_TYPE_VULKAN:  return AV_PIX_FMT_VULKAN;
+    case AV_HWDEVICE_TYPE_D3D11VA: return AV_PIX_FMT_D3D11;
+    default:                       return AV_PIX_FMT_NONE;
+    }
+}
+
+int attachedHwDeviceType(const AVBufferRef *hwDeviceCtx)
+{
+    if (!hwDeviceCtx) return AV_HWDEVICE_TYPE_NONE;
+    const auto *dev = reinterpret_cast<const AVHWDeviceContext *>(hwDeviceCtx->data);
+    return dev ? dev->type : AV_HWDEVICE_TYPE_NONE;
+}
+
+AVPixelFormat firstSoftwareFormat(const AVPixelFormat *fmts)
+{
+    if (!fmts) return AV_PIX_FMT_NONE;
+    for (int i = 0; fmts[i] != AV_PIX_FMT_NONE; ++i) {
+        const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(fmts[i]);
+        if (d && !(d->flags & AV_PIX_FMT_FLAG_HWACCEL)) return fmts[i];
+    }
+    return fmts[0];
+}
+
 } // namespace qcv
 
 #endif // Q_OS_WIN

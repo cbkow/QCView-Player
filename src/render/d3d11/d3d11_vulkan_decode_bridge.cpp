@@ -38,6 +38,42 @@ namespace {
 // (h264/h265/av1 hwaccel), map the multi-plane format to the per-plane
 // VkFormats we use when creating PLANE_0/PLANE_1 aspect views.
 // Returns true on a known biplanar format; out params filled.
+// Three-plane multiplane images (one VkImage, PLANE_0/1/2 aspects) —
+// what hwcontext_vulkan allocates for 8-bit planar YUV when the
+// driver exposes the format (yuv420p / yuv422p / yuv444p from FFV1,
+// and the 10/12/16-bit 3PACK16 variants). The per-plane view format
+// is the same for all three planes; the packed 10X6 / 12X4 formats
+// sample as full-scale UNORM (data in the high bits), so bitScale
+// stays 1 like the biplanar P010 path.
+bool triplanarPlaneFormat(VkFormat multiPlane, VkFormat &planeFmt)
+{
+    switch (multiPlane) {
+        case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
+        case VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM:
+        case VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM:
+            planeFmt = VK_FORMAT_R8_UNORM;
+            return true;
+        case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16:
+        case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16:
+        case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16:
+            planeFmt = VK_FORMAT_R10X6_UNORM_PACK16;
+            return true;
+        case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16:
+        case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16:
+        case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16:
+            planeFmt = VK_FORMAT_R12X4_UNORM_PACK16;
+            return true;
+        case VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM:
+        case VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM:
+        case VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM:
+            planeFmt = VK_FORMAT_R16_UNORM;
+            return true;
+        default:
+            planeFmt = VK_FORMAT_UNDEFINED;
+            return false;
+    }
+}
+
 bool biplanarPlaneFormats(VkFormat multiPlane,
                            VkFormat &plane0Fmt,
                            VkFormat &plane1Fmt)
@@ -145,8 +181,10 @@ struct D3D11VulkanDecodeBridge::Impl {
         VkImageView color  = VK_NULL_HANDLE;
         VkImageView plane0 = VK_NULL_HANDLE;
         VkImageView plane1 = VK_NULL_HANDLE;
+        VkImageView plane2 = VK_NULL_HANDLE;   // 3-plane multiplane images
     };
     std::unordered_map<VkImage, CachedPlaneViews> viewCache;
+    const AVHWFramesContext *loggedLayoutBail = nullptr;   // one warning per pool
 
     // Tracks the AVHWFramesContext pointer the cache was built
     // against. Pointer compare only — we never dereference after the
@@ -335,6 +373,7 @@ VkImageView resolveCachedView(D3D11VulkanDecodeBridge::Impl &impl,
     VkImageView *slot = nullptr;
     if (aspect == VK_IMAGE_ASPECT_PLANE_0_BIT)      slot = &entry.plane0;
     else if (aspect == VK_IMAGE_ASPECT_PLANE_1_BIT) slot = &entry.plane1;
+    else if (aspect == VK_IMAGE_ASPECT_PLANE_2_BIT) slot = &entry.plane2;
     else                                             slot = &entry.color;
     if (*slot != VK_NULL_HANDLE) return *slot;
 
@@ -367,6 +406,7 @@ void destroyCachedViews(D3D11VulkanDecodeBridge::Impl &impl)
             if (kv.second.color  != VK_NULL_HANDLE) vkDestroyImageView(device, kv.second.color,  nullptr);
             if (kv.second.plane0 != VK_NULL_HANDLE) vkDestroyImageView(device, kv.second.plane0, nullptr);
             if (kv.second.plane1 != VK_NULL_HANDLE) vkDestroyImageView(device, kv.second.plane1, nullptr);
+            if (kv.second.plane2 != VK_NULL_HANDLE) vkDestroyImageView(device, kv.second.plane2, nullptr);
         }
     }
     impl.viewCache.clear();
@@ -568,15 +608,41 @@ D3D11VulkanDecodeBridge::consumeAVFrame(AVFrame *avFrame, int rangeOverride)
                                             biplanePlane1Fmt);
     }
 
-    if (!isBiplanar && planeCount < 3) {
-        // Unknown layout — can't dispatch.
+    bool     isTriplanar = false;
+    VkFormat triplanePlaneFmt = VK_FORMAT_UNDEFINED;
+    if (planeCount == 1 && !isBiplanar) {
+        isTriplanar = triplanarPlaneFormat(vkfctx->format[0], triplanePlaneFmt);
+    }
+
+    if (!isBiplanar && !isTriplanar && planeCount < 3) {
+        // Unknown layout — can't dispatch. Say so once per pool so a
+        // silent blank canvas has a log line behind it.
+        if (m_impl->loggedLayoutBail != hwfc) {
+            m_impl->loggedLayoutBail = hwfc;
+            qWarning("D3D11VulkanDecodeBridge: unsupported Vulkan frame layout — "
+                     "%d image(s), format[0]=%d (sw_format=%s); frame dropped",
+                     planeCount, static_cast<int>(vkfctx->format[0]),
+                     av_get_pix_fmt_name(sw_format));
+        }
         return nullptr;
     }
 
-    const bool hasAlpha = (!isBiplanar && planeCount >= 4);
+    const bool hasAlpha = (!isBiplanar && !isTriplanar && planeCount >= 4);
     VkImageView samplerViews[4] = { VK_NULL_HANDLE, VK_NULL_HANDLE,
                                      VK_NULL_HANDLE, VK_NULL_HANDLE };
-    if (isBiplanar) {
+    if (isTriplanar) {
+        samplerViews[0] = resolveCachedView(*m_impl, vkf->img[0],
+                                              VK_IMAGE_ASPECT_PLANE_0_BIT,
+                                              triplanePlaneFmt);
+        samplerViews[1] = resolveCachedView(*m_impl, vkf->img[0],
+                                              VK_IMAGE_ASPECT_PLANE_1_BIT,
+                                              triplanePlaneFmt);
+        samplerViews[2] = resolveCachedView(*m_impl, vkf->img[0],
+                                              VK_IMAGE_ASPECT_PLANE_2_BIT,
+                                              triplanePlaneFmt);
+        samplerViews[3] = samplerViews[2];
+        if (!samplerViews[0] || !samplerViews[1] || !samplerViews[2]) return nullptr;
+    } else if (isBiplanar) {
         samplerViews[0] = resolveCachedView(*m_impl, vkf->img[0],
                                               VK_IMAGE_ASPECT_PLANE_0_BIT,
                                               biplanePlane0Fmt);
@@ -611,7 +677,7 @@ D3D11VulkanDecodeBridge::consumeAVFrame(AVFrame *avFrame, int rangeOverride)
     dp.outputView  = m_impl->output.vkView;
     dp.width       = avFrame->width;
     dp.height      = avFrame->height;
-    if (isBiplanar)               dp.bitScale = 1.0f;
+    if (isBiplanar || isTriplanar) dp.bitScale = 1.0f;   // multiplane: full-scale UNORM
     else if (bitDepth >= 16)      dp.bitScale = 1.0f;
     else if (bitDepth == 12)      dp.bitScale = 65535.0f / 4095.0f;
     else if (bitDepth == 10)      dp.bitScale = 65535.0f / 1023.0f;
@@ -656,7 +722,7 @@ D3D11VulkanDecodeBridge::consumeAVFrame(AVFrame *avFrame, int rangeOverride)
     // FFmpeg's vulkan_frame_free() and the next decode into this image
     // both wait on that value, so a pool teardown or reuse can no
     // longer overtake an in-flight compositor dispatch.
-    const int nbImages = isBiplanar ? 1 : planeCount;
+    const int nbImages = (isBiplanar || isTriplanar) ? 1 : planeCount;
     if (vkfctx->lock_frame) vkfctx->lock_frame(hwfc, vkf);
     dp.nbSync = 0;
     for (int i = 0; i < nbImages && i < 4; ++i) {
