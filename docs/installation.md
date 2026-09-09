@@ -48,6 +48,16 @@ Once installed in **Applications**, QCView keeps itself up to date — it checks
 
 ## Version History
 
+What’s new in 2.3.0
+
+- Upgraded from FFmpeg 8.1.2 to 9.0.1 on both platforms
+- Added ProRes RAW support
+- Added animated WebP support
+- Upgraded display path for higher-than-8-bit video sources.
+- Improved software decoding of intra-frame Codecs.
+- Improved software decoding in Dual View setups.
+- Added Vulkan ProRes support in Dual View on Windows (huge performance boost for Windows)
+
 What's new in 2.2.7
 
 - **Avid DNx 4:4:4 levels** — untagged DNxHD/DNxHR 4:4:4 (RGB included)
