@@ -336,6 +336,7 @@ QStringList collectPositionalArgs(const QStringList &args)
     consumeFlag(QStringLiteral("--dual-test"),     2);
     consumeFlag(QStringLiteral("--simulate-user"), 2);
     consumeFlag(QStringLiteral("--playlist-test"), 1);
+    consumeFlag(QStringLiteral("--hdr-mode"),      1);
     consumeFlag(QStringLiteral("--sbs"),           0);
 
     QStringList out;
@@ -357,7 +358,8 @@ bool hasDevModeFlag(const QStringList &args)
 {
     return args.contains(QStringLiteral("--dual-test"))
         || args.contains(QStringLiteral("--simulate-user"))
-        || args.contains(QStringLiteral("--playlist-test"));
+        || args.contains(QStringLiteral("--playlist-test"))
+        || args.contains(QStringLiteral("--hdr-mode"));
 }
 
 // Open a list of file paths / qcview:// URIs through the running
@@ -722,6 +724,27 @@ int main(int argc, char *argv[])
                           qPrintable(id));
                 }
             });
+        }
+
+        // --hdr-mode N: select the output mode (WindowManager::HdrMode
+        // int: 0 SDR sRGB, 1 SDR P3, 2 EDR linear sRGB, 3 EDR linear
+        // P3, 4 HDR10) after the window is up. The mode isn't
+        // persisted, so this is the only way to exercise the EDR /
+        // HDR swapchain paths without driving the Color panel UI —
+        // dev entry for verifying viewport fills / overlays encode
+        // correctly on linear-light drawables.
+        const int hdrIdx = args.indexOf(QStringLiteral("--hdr-mode"));
+        if (hdrIdx >= 0 && hdrIdx + 1 < args.size()) {
+            bool ok = false;
+            const int mode = args.at(hdrIdx + 1).toInt(&ok);
+            if (ok && mode >= 0 && mode <= 4) {
+                QTimer::singleShot(600, &windowManager, [&windowManager, mode] {
+                    windowManager.setHdrMode(mode);
+                    qInfo("--hdr-mode: set output mode %d", mode);
+                });
+            } else {
+                qWarning("--hdr-mode: expected an integer 0..4");
+            }
         }
     }
 

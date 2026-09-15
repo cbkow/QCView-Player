@@ -165,6 +165,46 @@ public:
     void renderBackground(void *encoder, int mode,
                           int dstWidth, int dstHeight, float tilePixels);
 
+    // Media-bounds-aware background. Describes where the media sits
+    // so the fill can be blended toward a per-mode target color
+    // OUTSIDE the media rect(s), making the bounds of fully/partly
+    // transparent media visible. Mirrors the present-blit geometry:
+    // `canvasW/H` (the compositeRaw intermediate) is aspect-fit 1:1
+    // into the drawable, then each source is aspect-fit into its
+    // region of that canvas exactly like sampleFit does — the shader
+    // repeats that math in float so the edge lands on the same pixel
+    // as the compositor's discard edge.
+    //
+    //   layoutMode: 0 Single (A full canvas), 1 SideBySide (A left
+    //               half / B right half), 2 SplitWipe (A where
+    //               canvas u < splitPos, else B), 3 Difference
+    //               (union of A and B fits).
+    //   srcA/B:     display-orientation effective dims (PAR
+    //               un-squeezed, rotation-swapped) — the same values
+    //               the compositor UBO gets.
+    //   aValid/bValid: side has (or had) a source; false → no rect
+    //               for that side. Past-end sides stay valid so the
+    //               clip's footprint remains marked.
+    struct BackgroundLayout {
+        int   canvasW = 0, canvasH = 0;
+        int   layoutMode = 0;
+        float splitPos = 0.5f;
+        int   srcAW = 0, srcAH = 0;
+        int   srcBW = 0, srcBH = 0;
+        bool  aValid = false;
+        bool  bValid = false;
+    };
+
+    // `layout` may be null → whole viewport is treated as "inside"
+    // (plain fill, prior behavior). `linearOutput` = the drawable is
+    // linear-light with 1.0 = SDR white (EDR / extended-linear
+    // modes): the sRGB-space fill constants are EOTF-decoded before
+    // being written so the viewport tone matches the Qt chrome.
+    void renderBackground(void *encoder, int mode,
+                          int dstWidth, int dstHeight, float tilePixels,
+                          const BackgroundLayout *layout,
+                          bool linearOutput);
+
 private:
     struct Impl;
     Impl *m_impl = nullptr;

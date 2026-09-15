@@ -121,6 +121,23 @@ public:
     void encodeLoadingSpinner(void *encoderPtr, int dstWidth, int dstHeight,
                               int targetPixelFormat);
 
+    // Snapshot of the geometry the last renderFrame() encoded, for
+    // the present pass's media-bounds background fill (see
+    // MetalCompositor::BackgroundLayout). Dims are display-
+    // orientation effective dims (PAR un-squeezed, rotation-swapped)
+    // — the same numbers dual_fs received. A side stays valid with
+    // its last-known dims while past its clip end so the footprint
+    // remains marked; it's invalid only when it has no source.
+    struct LastLayout {
+        int   mode     = 0;
+        float splitPos = 0.5f;
+        int   srcAW = 0, srcAH = 0;
+        int   srcBW = 0, srcBH = 0;
+        bool  aValid = false;
+        bool  bValid = false;
+    };
+    const LastLayout &lastLayout() const { return m_lastLayout; }
+
     // Impl is exposed for free-function helpers in the .mm (spinner
     // pipeline + encode). Nothing outside dual_compositor.mm
     // references it.
@@ -141,6 +158,7 @@ private:
     int   m_parDenB   = 1;
     int   m_rotQA     = 0;
     int   m_rotQB     = 0;
+    LastLayout m_lastLayout;
 };
 
 } // namespace qcv::dual

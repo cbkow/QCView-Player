@@ -811,6 +811,27 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
     ubo.seamHighlight = m_seamHighlight;
     ubo.diffGain    = m_diffGain;
 
+    // Geometry snapshot for the present pass's media-bounds fill.
+    // Only overwrite a side's dims while it actually has a texture;
+    // a past-end side keeps its last-known footprint (the cache dims
+    // are zeroed at past-end, so srcAW/H would read 1×1 here).
+    m_lastLayout.mode     = static_cast<int>(m_mode);
+    m_lastLayout.splitPos = m_splitPos;
+    if (aActive) {
+        m_lastLayout.srcAW  = static_cast<int>(ubo.srcSizeA[0]);
+        m_lastLayout.srcAH  = static_cast<int>(ubo.srcSizeA[1]);
+        m_lastLayout.aValid = true;
+    } else if (!aPastEnd) {
+        m_lastLayout.aValid = false;
+    }
+    if (bActive) {
+        m_lastLayout.srcBW  = static_cast<int>(ubo.srcSizeB[0]);
+        m_lastLayout.srcBH  = static_cast<int>(ubo.srcSizeB[1]);
+        m_lastLayout.bValid = true;
+    } else if (!bPastEnd) {
+        m_lastLayout.bValid = false;
+    }
+
     [enc setRenderPipelineState:m_impl->pipeline];
     [enc setFragmentTexture:texA atIndex:0];
     [enc setFragmentTexture:texB atIndex:1];

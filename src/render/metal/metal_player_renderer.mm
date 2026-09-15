@@ -110,6 +110,19 @@ static id<MTLTexture> uploadCpuFrameRgba(
 
 } // namespace
 
+namespace {
+// Drawable is linear-light with 1.0 = SDR white (Apple EDR). Hdr10 is
+// mapped to ExtendedLinearSRgb by MetalHdrSwapchain (no PQ surface on
+// macOS), so it counts as linear here too. Drives the background
+// pass's sRGB→linear decode of its fill constants.
+bool isLinearHdrMode(HdrMode m)
+{
+    return m == HdrMode::ExtendedLinearSRgb
+        || m == HdrMode::ExtendedLinearDisplayP3
+        || m == HdrMode::Hdr10;
+}
+} // namespace
+
 struct MetalPlayerRenderer::Impl {
     id<MTLDevice>       device       = nil;
     id<MTLCommandQueue> commandQueue = nil;
@@ -970,9 +983,26 @@ void MetalPlayerRenderer::drawFrame()
                 const float tilePixels = 20.0f *
                     static_cast<float>(m_impl->layer.contentsScale > 0
                                        ? m_impl->layer.contentsScale : 1.0);
+                // Media-bounds fill for dual: per-side effective dims
+                // + mode + split from the dual compositor's last
+                // encode, so each region marks its own footprint.
+                const auto &ll = m_impl->dualCompositor.lastLayout();
+                MetalCompositor::BackgroundLayout bgLayout;
+                bgLayout.canvasW    = canvasW;
+                bgLayout.canvasH    = canvasH;
+                bgLayout.layoutMode = ll.mode;
+                bgLayout.splitPos   = ll.splitPos;
+                bgLayout.srcAW      = ll.srcAW;
+                bgLayout.srcAH      = ll.srcAH;
+                bgLayout.srcBW      = ll.srcBW;
+                bgLayout.srcBH      = ll.srcBH;
+                bgLayout.aValid     = ll.aValid;
+                bgLayout.bValid     = ll.bValid;
                 m_impl->presentCompositor.renderBackground(
                     (__bridge void *)enc, static_cast<int>(m_bgMode),
-                    dstW, dstH, tilePixels);
+                    dstW, dstH, tilePixels,
+                    (ll.aValid || ll.bValid) ? &bgLayout : nullptr,
+                    isLinearHdrMode(m_impl->hdr.appliedMode()));
                 m_impl->presentCompositor.renderSingle(
                     (__bridge void *)enc,
                     dualCorrected,
@@ -1682,9 +1712,23 @@ void MetalPlayerRenderer::drawFrame()
         const float tilePixels =
             20.0f * static_cast<float>(m_impl->layer.contentsScale > 0
                                        ? m_impl->layer.contentsScale : 1.0);
+        // Media-bounds fill: tell the background pass where the
+        // picture sits (canvas → drawable, then the effective source
+        // dims → canvas) so the letterbox blends toward the theme
+        // tone and a transparent clip's footprint stays visible.
+        // No source → plain fill (nullptr layout).
+        MetalCompositor::BackgroundLayout bgLayout;
+        bgLayout.canvasW    = m_impl->compositeW;
+        bgLayout.canvasH    = m_impl->compositeH;
+        bgLayout.layoutMode = 0;
+        bgLayout.srcAW      = effSourceW;
+        bgLayout.srcAH      = effSourceH;
+        bgLayout.aValid     = haveSourceTexture && effSourceW > 0 && effSourceH > 0;
         m_impl->presentCompositor.renderBackground(
             (__bridge void *)enc, static_cast<int>(m_bgMode),
-            dstW, dstH, tilePixels);
+            dstW, dstH, tilePixels,
+            bgLayout.aValid ? &bgLayout : nullptr,
+            isLinearHdrMode(m_impl->hdr.appliedMode()));
 
         if (haveSourceTexture && compositeCorrected) {
             // 1:1 single-mode aspect-fit of compositeCorrected into

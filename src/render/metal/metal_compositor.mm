@@ -6,7 +6,12 @@
 
 #import <Metal/Metal.h>
 
+#include <QByteArray>
+#include <QList>
 #include <QtLogging>
+
+#include <algorithm>
+#include <array>
 
 namespace qcv {
 
@@ -178,16 +183,32 @@ fragment float4 fs_main(VsOut in [[stage_in]],
 }
 )";
 
-// Viewport background fill — solid color or 2-tile checkerboard.
-// Matches old QCView's DrawVideoBackground (panel_viewport.cpp:1594).
+// Viewport background fill — solid color or 2-tile checkerboard,
+// media-bounds aware. The fill itself matches old QCView's
+// DrawVideoBackground (panel_viewport.cpp:1594). OUTSIDE the media
+// rect(s) the fill is blended toward a per-mode target color so the
+// bounds of fully / partly transparent media stay visible (see
+// MetalCompositor::BackgroundLayout). Fill constants are sRGB-
+// encoded; when the drawable is linear-light (EDR) they're EOTF-
+// decoded at the end so the viewport tone matches the Qt chrome.
 constexpr const char *kBackgroundMSL = R"(
 #include <metal_stdlib>
 using namespace metal;
 
 struct BgUBO {
     float2 dstSize;
-    int    mode;        // 0 black, 1 darkgray, 2 darkChecker, 3 lightChecker
-    float  tilePixels;  // checkerboard tile size in device pixels
+    float2 canvasSize;   // compositeRaw dims (blitted aspect-fit into dst)
+    float2 srcSizeA;     // display-orientation effective dims
+    float2 srcSizeB;
+    float4 target;       // rgb = outside-target color (sRGB), a = mix strength
+    int    mode;         // 0 black, 1 darkgray, 2 darkChecker, 3 lightChecker
+    float  tilePixels;   // checkerboard tile size in device pixels
+    int    layoutMode;   // 0 single, 1 sbs, 2 wipe, 3 difference
+    float  splitPos;
+    int    aValid;
+    int    bValid;
+    int    linearOutput; // 1 = drawable is linear-light (1.0 = SDR white)
+    int    hasLayout;    // 0 = no media rect info → everything is "inside"
 };
 
 struct VsOut {
@@ -211,34 +232,114 @@ vertex VsOut bg_vs(uint vid [[vertex_id]])
     return o;
 }
 
+// The exact test sampleFit() performs (fs_main here, dual_fs in the
+// dual compositor) minus the texture read: is `px` inside the
+// aspect-fit of srcSize into the rect at rectOrigin/rectSize? Kept
+// step-for-step identical so the bounds edge lands on the same pixel
+// as the compositor's discard edge.
+static inline bool insideFit(float2 px, float2 rectOrigin, float2 rectSize,
+                             float2 srcSize)
+{
+    if (srcSize.x <= 0.0 || srcSize.y <= 0.0) return false;
+    float2 rectPxPos = px - rectOrigin;
+    if (rectPxPos.x < 0.0 || rectPxPos.x >= rectSize.x ||
+        rectPxPos.y < 0.0 || rectPxPos.y >= rectSize.y) {
+        return false;
+    }
+    float scale = min(rectSize.x / srcSize.x, rectSize.y / srcSize.y);
+    float2 scaledSrc = srcSize * scale;
+    float2 offset    = (rectSize - scaledSrc) * 0.5;
+    float2 inSrcPx   = (rectPxPos - offset) / scale;
+    return !(inSrcPx.x < 0.0 || inSrcPx.x >= srcSize.x ||
+             inSrcPx.y < 0.0 || inSrcPx.y >= srcSize.y);
+}
+
+// Is this drawable pixel covered by media? Mirrors the present blit
+// (canvas aspect-fit into the drawable) and then the canvas
+// compositor's per-mode region layout.
+static inline bool insideMedia(float2 dstPx, constant BgUBO &u)
+{
+    if (u.hasLayout == 0) return true;
+    if (u.canvasSize.x <= 0.0 || u.canvasSize.y <= 0.0) return false;
+
+    float  scale  = min(u.dstSize.x / u.canvasSize.x,
+                        u.dstSize.y / u.canvasSize.y);
+    float2 scaled = u.canvasSize * scale;
+    float2 offset = (u.dstSize - scaled) * 0.5;
+    float2 cPx    = (dstPx - offset) / scale;
+    if (cPx.x < 0.0 || cPx.x >= u.canvasSize.x ||
+        cPx.y < 0.0 || cPx.y >= u.canvasSize.y) {
+        return false;
+    }
+    const bool aOk = u.aValid != 0;
+    const bool bOk = u.bValid != 0;
+    const float2 zero = float2(0.0, 0.0);
+
+    if (u.layoutMode == 1) {
+        // Side-by-side: A left half, B right half.
+        const float  halfW = u.canvasSize.x * 0.5;
+        const float2 halfRect = float2(halfW, u.canvasSize.y);
+        if (cPx.x < halfW) return aOk && insideFit(cPx, zero, halfRect, u.srcSizeA);
+        return bOk && insideFit(cPx, float2(halfW, 0.0), halfRect, u.srcSizeB);
+    } else if (u.layoutMode == 2) {
+        // Wipe: A where canvas u < splitPos, else B; both full-canvas fits.
+        if (cPx.x / u.canvasSize.x < u.splitPos) {
+            return aOk && insideFit(cPx, zero, u.canvasSize, u.srcSizeA);
+        }
+        return bOk && insideFit(cPx, zero, u.canvasSize, u.srcSizeB);
+    } else if (u.layoutMode == 3) {
+        // Difference: union of both full-canvas fits (max(a.a, b.a)).
+        return (aOk && insideFit(cPx, zero, u.canvasSize, u.srcSizeA)) ||
+               (bOk && insideFit(cPx, zero, u.canvasSize, u.srcSizeB));
+    }
+    // Single: A full canvas.
+    return aOk && insideFit(cPx, zero, u.canvasSize, u.srcSizeA);
+}
+
+// sRGB EOTF (IEC 61966-2-1) — decode the sRGB-space fill constants
+// for linear-light (EDR) drawables, where 1.0 = SDR white.
+static inline float3 srgbToLinear(float3 c)
+{
+    float3 lo = c / 12.92;
+    float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+    return select(hi, lo, c <= 0.04045);
+}
+
 fragment float4 bg_fs(VsOut in [[stage_in]],
                       constant BgUBO &u [[buffer(0)]])
 {
+    const float2 px = in.uv * u.dstSize;
+
+    float3 fill;
     if (u.mode == 0) {
-        return float4(0.0, 0.0, 0.0, 1.0);
-    }
-    if (u.mode == 1) {
+        fill = float3(0.0);
+    } else if (u.mode == 1) {
         // 22/255 = 0.0863 — #161616, Theme.bg (the rails' well tone;
         // was 27/255 #1B1B1B, the old app default)
-        return float4(0.0863, 0.0863, 0.0863, 1.0);
+        fill = float3(0.0863);
+    } else {
+        // Checkerboard — pixel-coord based so tile size is constant
+        // regardless of the drawable's logical aspect.
+        const float tile = max(8.0, u.tilePixels);
+        int cx = int(floor(px.x / tile));
+        int cy = int(floor(px.y / tile));
+        bool even = ((cx + cy) & 1) == 0;
+        if (u.mode == 3) {
+            // Light checker: 200/255 vs ~UI_LIGHT_GRAY (~178/255)
+            fill = even ? float3(0.7843) : float3(0.6980);
+        } else {
+            // Dark checker: 30/255 vs 20/255 — the most common review choice
+            fill = even ? float3(0.1176) : float3(0.0784);
+        }
     }
 
-    // Checkerboard — pixel-coord based so tile size is constant
-    // regardless of the drawable's logical aspect.
-    const float2 px = in.uv * u.dstSize;
-    const float tile = max(8.0, u.tilePixels);
-    int cx = int(floor(px.x / tile));
-    int cy = int(floor(px.y / tile));
-    bool even = ((cx + cy) & 1) == 0;
-
-    if (u.mode == 3) {
-        // Light checker: 200/255 vs ~UI_LIGHT_GRAY (~178/255)
-        return even ? float4(0.7843, 0.7843, 0.7843, 1.0)
-                    : float4(0.6980, 0.6980, 0.6980, 1.0);
+    if (!insideMedia(px, u)) {
+        fill = mix(fill, u.target.rgb, saturate(u.target.a));
     }
-    // Dark checker: 30/255 vs 20/255 — the most common review choice
-    return even ? float4(0.1176, 0.1176, 0.1176, 1.0)
-                : float4(0.0784, 0.0784, 0.0784, 1.0);
+    if (u.linearOutput != 0) {
+        fill = srgbToLinear(fill);
+    }
+    return float4(fill, 1.0);
 }
 )";
 
@@ -668,9 +769,77 @@ void MetalCompositor::renderCornerOverlay(void *encoderPtr,
             vertexStart:0 vertexCount:6];
 }
 
+namespace {
+
+// Media-bounds fill policy, per BackgroundMode (index = mode):
+// outside the media rect the fill is mixed toward `target` by
+// `strength`. Target is Theme.bg (#161616) for every mode except
+// DarkGray — which IS Theme.bg, so it lifts toward Theme.toolbar
+// (#1f1f1f) instead, the chrome's alt grey one step up.
+// Default strength is 1.0 everywhere (sides take the target color
+// outright — tuned with chris 2026-09-15). Tunable at launch via
+// QCV_BOUNDS_MIX ("0.7" applies to all four; "1.0,0.5,1.0,0.7" is
+// per mode: black, darkgray, darkChecker, lightChecker).
+constexpr float kThemeBg     = 22.0f / 255.0f;   // #161616 Theme.bg
+constexpr float kThemeToolbar = 31.0f / 255.0f;  // #1f1f1f Theme.toolbar
+
+struct BoundsPolicy {
+    float target[3];
+    float strength;
+};
+
+const std::array<float, 4> &boundsStrengths()
+{
+    static const std::array<float, 4> strengths = [] {
+        std::array<float, 4> s = { 1.0f, 1.0f, 1.0f, 1.0f };   // tuned 2026-09-15
+        const QByteArray env = qgetenv("QCV_BOUNDS_MIX");
+        if (!env.isEmpty()) {
+            const QList<QByteArray> parts = env.split(',');
+            if (parts.size() == 1) {
+                bool ok = false;
+                const float v = parts[0].trimmed().toFloat(&ok);
+                if (ok) s.fill(std::clamp(v, 0.0f, 1.0f));
+            } else {
+                for (int i = 0; i < std::min<int>(4, parts.size()); ++i) {
+                    bool ok = false;
+                    const float v = parts[i].trimmed().toFloat(&ok);
+                    if (ok) s[i] = std::clamp(v, 0.0f, 1.0f);
+                }
+            }
+            qInfo("MetalCompositor: QCV_BOUNDS_MIX override → "
+                  "black=%.2f darkgray=%.2f darkChecker=%.2f lightChecker=%.2f",
+                  s[0], s[1], s[2], s[3]);
+        }
+        return s;
+    }();
+    return strengths;
+}
+
+BoundsPolicy boundsPolicyFor(int mode)
+{
+    const int m = std::max(0, std::min(3, mode));
+    BoundsPolicy p;
+    const float t = (m == 1) ? kThemeToolbar : kThemeBg;
+    p.target[0] = p.target[1] = p.target[2] = t;
+    p.strength  = boundsStrengths()[static_cast<size_t>(m)];
+    return p;
+}
+
+} // namespace
+
 void MetalCompositor::renderBackground(void *encoderPtr, int mode,
                                        int dstWidth, int dstHeight,
                                        float tilePixels)
+{
+    renderBackground(encoderPtr, mode, dstWidth, dstHeight, tilePixels,
+                     /*layout=*/nullptr, /*linearOutput=*/false);
+}
+
+void MetalCompositor::renderBackground(void *encoderPtr, int mode,
+                                       int dstWidth, int dstHeight,
+                                       float tilePixels,
+                                       const BackgroundLayout *layout,
+                                       bool linearOutput)
 {
     if (!m_impl || !encoderPtr) return;
     if (dstWidth <= 0 || dstHeight <= 0) return;
@@ -696,13 +865,11 @@ void MetalCompositor::renderBackground(void *encoderPtr, int mode,
             qWarning("MetalCompositor: bg functions not found");
             return;
         }
-
         MTLRenderPipelineDescriptor *desc = [MTLRenderPipelineDescriptor new];
         desc.vertexFunction   = vsFn;
         desc.fragmentFunction = fsFn;
         desc.colorAttachments[0].pixelFormat =
             static_cast<MTLPixelFormat>(m_impl->targetPixelFmt);
-
         id<MTLRenderPipelineState> pso =
             [device newRenderPipelineStateWithDescriptor:desc error:&err];
         if (!pso) {
@@ -717,16 +884,55 @@ void MetalCompositor::renderBackground(void *encoderPtr, int mode,
     id<MTLRenderCommandEncoder> enc =
         (__bridge id<MTLRenderCommandEncoder>)encoderPtr;
 
-    struct BgUBO {
-        float dstSizeX, dstSizeY;
+    // alignas(16): the MSL struct holds float2/float4 members, which
+    // force 8/16-byte alignment (sizeof 80). A plain scalar mirror
+    // would bind too few bytes — see the AGX bytes_per_row note in
+    // the memory file macos-metal-debug-workflow.
+    struct alignas(16) BgUBO {
+        float dstSize[2];
+        float canvasSize[2];
+        float srcSizeA[2];
+        float srcSizeB[2];
+        float target[4];
         int   mode;
         float tilePixels;
-    } ubo = {
-        static_cast<float>(dstWidth),
-        static_cast<float>(dstHeight),
-        std::max(0, std::min(3, mode)),
-        std::max(8.0f, tilePixels),
+        int   layoutMode;
+        float splitPos;
+        int   aValid;
+        int   bValid;
+        int   linearOutput;
+        int   hasLayout;
     };
+    static_assert(sizeof(BgUBO) == 80,
+                  "BgUBO must match the MSL BgUBO layout (80 bytes)");
+
+    const int clampedMode = std::max(0, std::min(3, mode));
+    const BoundsPolicy policy = boundsPolicyFor(clampedMode);
+
+    BgUBO ubo{};
+    ubo.dstSize[0]  = static_cast<float>(dstWidth);
+    ubo.dstSize[1]  = static_cast<float>(dstHeight);
+    ubo.target[0]   = policy.target[0];
+    ubo.target[1]   = policy.target[1];
+    ubo.target[2]   = policy.target[2];
+    ubo.target[3]   = policy.strength;
+    ubo.mode        = clampedMode;
+    ubo.tilePixels  = std::max(8.0f, tilePixels);
+    ubo.linearOutput = linearOutput ? 1 : 0;
+    if (layout && layout->canvasW > 0 && layout->canvasH > 0
+        && (layout->aValid || layout->bValid)) {
+        ubo.canvasSize[0] = static_cast<float>(layout->canvasW);
+        ubo.canvasSize[1] = static_cast<float>(layout->canvasH);
+        ubo.srcSizeA[0]   = static_cast<float>(layout->srcAW);
+        ubo.srcSizeA[1]   = static_cast<float>(layout->srcAH);
+        ubo.srcSizeB[0]   = static_cast<float>(layout->srcBW);
+        ubo.srcSizeB[1]   = static_cast<float>(layout->srcBH);
+        ubo.layoutMode    = std::max(0, std::min(3, layout->layoutMode));
+        ubo.splitPos      = layout->splitPos;
+        ubo.aValid        = layout->aValid ? 1 : 0;
+        ubo.bValid        = layout->bValid ? 1 : 0;
+        ubo.hasLayout     = 1;
+    }
 
     [enc setRenderPipelineState:m_impl->bgPipeline];
     [enc setFragmentBytes:&ubo length:sizeof(ubo) atIndex:0];
