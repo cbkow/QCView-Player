@@ -8,9 +8,13 @@
 #include <d3dcompiler.h>
 #include <wrl/client.h>
 
+#include <QByteArray>
+#include <QList>
 #include <QtLogging>
 
 #include <algorithm>
+#include <array>
+#include <cstring>
 
 namespace qcv {
 
@@ -37,12 +41,27 @@ VsOut VSMain(uint vid : SV_VertexID)
 // black / solid dark grey / 32 px checkerboard in two greys). hasSrc=0
 // paints background only; hasSrc=1 samples src inside fitRect and
 // falls back to background outside. bgMode picks which fill.
-//   0 = Black                  (0.000, 0.000, 0.000)
-//   1 = DarkGray   ≈ 22/255    (0.0863 — #161616, Theme.bg / the
-//                               rails' well tone; keep matched with
-//                               the three rail-collapse seam fills)
+//   0 = Black                  (0.000, 0.000, 0.000) — solid everywhere,
+//                               no bounds blend (some viewers want
+//                               plain black; chris 2026-09-15)
+//   1 = DarkGray   ≈ 31/255    (0.1216 — #1f1f1f, Theme.toolbar inside
+//                               the media; #161616 Theme.bg outside)
 //   2 = DarkCheckerboard       (#1f1f1f / #2e2e2e)
 //   3 = LightCheckerboard      (#b3b3b3 / #cccccc)
+//
+// Media-bounds fill (2026-09-15, ported from kBackgroundMSL on macOS):
+// with hasLayout=1 every pixel OUTSIDE the media rect(s) blends the
+// fill toward `target.rgb` (#161616 Theme.bg) by `target.a`, so a
+// fully / partly transparent clip still shows its footprint. Single layouts get the
+// CPU-computed `mediaRect` (the same fit + comparison the source pass
+// uses, so the edge lands on the same pixel); dual layouts repeat
+// D3D11DualCompositor's sampleFit math in float.
+//
+// The fill constants are sRGB-encoded. `encoding` re-encodes them for
+// the bound swapchain (0 SDR verbatim, 1 scRGB linear, 2 HDR10 PQ) —
+// the same helpers and reference luminance as the annotation renderer
+// (Phase F.2.9). The source is never re-encoded here: OCIO (or the
+// bypass) already produced swapchain-space values.
 constexpr const char *kPsHlsl = R"(
 cbuffer Constants : register(b0) {
     float2 dstSize;        // destination viewport, pixels
@@ -57,9 +76,27 @@ cbuffer Constants : register(b0) {
                            //     transparent outside the source rect (the
                            //     viewport notice card; mirrors Metal's
                            //     present-compositor src-over + discard).
+                           // 2 = source-only: straight src inside the fit
+                           //     rect, (0,0,0,0) outside, opaque blend —
+                           //     the OCIO intermediate pass.
     int    rotQ;           // display rotation, quarter-turns CW {0..3}
-    float  brightness;     // post-composite multiplier; 1.0 = identity
+    float  brightness;     // source multiplier; 1.0 = identity
     float3 borderColor;    // RGB of the edge frame (used when borderPx > 0)
+    // ---- media-bounds fill + output encoding (row 4 onward) ----
+    float2 canvasSize;     // presented texture dims (aspect-fit into dst)
+    float2 srcSizeA;       // display-orientation effective dims
+    float2 srcSizeB;
+    int    layoutMode;     // 0 single, 1 sbs, 2 wipe, 3 difference
+    float  splitPos;
+    int    aValid;
+    int    bValid;
+    int    hasLayout;      // 0 = no media rect info → everything "inside"
+    int    encoding;       // 0 SDR, 1 scRGB linear, 2 HDR10 PQ
+    float4 target;         // rgb = outside-target color (sRGB), a = strength
+    float4 mediaRect;      // layoutMode 0: xy = min, zw = size (dst pixels)
+    float  refNits;        // reference luminance for encodings 1 / 2
+    int    applyBrightness;// 0 = source written without the multiplier
+    float2 _pad1;
 };
 
 Texture2D    src       : register(t0);
@@ -82,7 +119,10 @@ float2 rotatedSrcUv(float2 p)
 float4 backgroundColor(float2 fragPx)
 {
     if (bgMode == 1) {
-        return float4(0.0863, 0.0863, 0.0863, 1.0);
+        // 31/255 = 0.1216 — #1f1f1f, Theme.toolbar. Chris flipped the
+        // greys 2026-09-15: the media footprint takes the chrome's alt
+        // grey and the outside falls to Theme.bg like every other mode.
+        return float4(0.1216, 0.1216, 0.1216, 1.0);
     } else if (bgMode == 2) {
         // Dark checkerboard — 32 px squares.
         int2 cell = int2(fragPx) / 32;
@@ -99,9 +139,126 @@ float4 backgroundColor(float2 fragPx)
     return float4(0.0, 0.0, 0.0, 1.0);   // Black (mode 0)
 }
 
+// The exact test D3D11DualCompositor's sampleFit performs minus the
+// texture read: is `px` inside the aspect-fit of srcSize into the
+// rect at rectOrigin/rectSize? Kept step-for-step identical so the
+// bounds edge lands on the same canvas pixel as the dual compositor's
+// discard edge.
+bool insideFit(float2 px, float2 rectOrigin, float2 rectSize, float2 srcSize)
+{
+    if (srcSize.x <= 0.0 || srcSize.y <= 0.0) return false;
+    float2 rectPxPos = px - rectOrigin;
+    if (rectPxPos.x < 0.0 || rectPxPos.x >= rectSize.x ||
+        rectPxPos.y < 0.0 || rectPxPos.y >= rectSize.y) {
+        return false;
+    }
+    float scale = min(rectSize.x / srcSize.x, rectSize.y / srcSize.y);
+    float2 scaledSrc = srcSize * scale;
+    float2 offset    = (rectSize - scaledSrc) * 0.5;
+    float2 inSrcPx   = (rectPxPos - offset) / scale;
+    return !(inSrcPx.x < 0.0 || inSrcPx.x >= srcSize.x ||
+             inSrcPx.y < 0.0 || inSrcPx.y >= srcSize.y);
+}
+
+// Is this destination pixel covered by media? Single layouts use the
+// CPU-computed rect with the SAME comparison the source sampling
+// uses; dual layouts map dst → canvas (the present blit's aspect-fit)
+// and repeat the canvas compositor's per-mode region layout.
+bool insideMedia(float2 fragPx)
+{
+    if (hasLayout == 0) return true;
+    if (layoutMode == 0) {
+        return aValid != 0 &&
+               fragPx.x >= mediaRect.x && fragPx.x < mediaRect.x + mediaRect.z &&
+               fragPx.y >= mediaRect.y && fragPx.y < mediaRect.y + mediaRect.w;
+    }
+    if (canvasSize.x <= 0.0 || canvasSize.y <= 0.0) return false;
+    float  scale  = min(dstSize.x / canvasSize.x, dstSize.y / canvasSize.y);
+    float2 scaled = canvasSize * scale;
+    float2 offset = (dstSize - scaled) * 0.5;
+    float2 cPx    = (fragPx - offset) / scale;
+    if (cPx.x < 0.0 || cPx.x >= canvasSize.x ||
+        cPx.y < 0.0 || cPx.y >= canvasSize.y) {
+        return false;
+    }
+    const bool aOk = aValid != 0;
+    const bool bOk = bValid != 0;
+    const float2 zero = float2(0.0, 0.0);
+    if (layoutMode == 1) {
+        // Side-by-side: A left half, B right half.
+        const float  halfW = canvasSize.x * 0.5;
+        const float2 halfRect = float2(halfW, canvasSize.y);
+        if (cPx.x < halfW) return aOk && insideFit(cPx, zero, halfRect, srcSizeA);
+        return bOk && insideFit(cPx, float2(halfW, 0.0), halfRect, srcSizeB);
+    } else if (layoutMode == 2) {
+        // Wipe: A where canvas u < splitPos, else B; both full-canvas fits.
+        if (cPx.x / canvasSize.x < splitPos) {
+            return aOk && insideFit(cPx, zero, canvasSize, srcSizeA);
+        }
+        return bOk && insideFit(cPx, zero, canvasSize, srcSizeB);
+    }
+    // Difference: union of both full-canvas fits (max(a.a, b.a)).
+    return (aOk && insideFit(cPx, zero, canvasSize, srcSizeA)) ||
+           (bOk && insideFit(cPx, zero, canvasSize, srcSizeB));
+}
+
+// ---- output encoding (verbatim from d3d11_annotation_renderer.cpp) ----
+float3 srgbToLinear(float3 c)
+{
+    float3 lo = c / 12.92;
+    float3 hi = pow(max((c + 0.055) / 1.055, 0.0), 2.4);
+    float3 s  = step(0.04045, c);
+    return lerp(lo, hi, s);
+}
+
+static const float3x3 kBt709ToBt2020 = float3x3(
+    0.6274040, 0.3292820, 0.0433136,
+    0.0690970, 0.9195400, 0.0113612,
+    0.0163914, 0.0880132, 0.8955950
+);
+
+float3 pqEncode(float3 lin)
+{
+    // ST.2084 inverse-EOTF. lin is normalized so that 1.0 = 10,000 nits.
+    const float m1 = 0.1593017578125;   // 2610 / 16384
+    const float m2 = 78.84375;          // 2523 /    32
+    const float c1 =  0.8359375;        // 3424 /  4096
+    const float c2 = 18.8515625;        // 2413 /   128
+    const float c3 = 18.6875;           // 2392 /   128
+    float3 Y   = max(lin, 0.0);
+    float3 Ym1 = pow(Y, m1);
+    float3 num = c1 + c2 * Ym1;
+    float3 den = 1.0 + c3 * Ym1;
+    return pow(num / den, m2);
+}
+
+// sRGB-space fill → swapchain encoding.
+float3 encodeFill(float3 c)
+{
+    if (encoding == 1) {
+        return srgbToLinear(c) * (refNits / 80.0);       // scRGB: 1.0 = 80 nits
+    } else if (encoding == 2) {
+        float3 lin2020 = mul(kBt709ToBt2020, srgbToLinear(c));
+        return pqEncode(lin2020 * (refNits / 10000.0));
+    }
+    return c;
+}
+
+// The background under this pixel: mode fill, blended toward the
+// theme target outside the media, then encoded for the swapchain.
+float3 fillColor(float2 fragPx)
+{
+    float3 fill = backgroundColor(fragPx).rgb;
+    if (!insideMedia(fragPx)) {
+        fill = lerp(fill, target.rgb, saturate(target.a));
+    }
+    return encodeFill(fill);
+}
+
 float4 PSMain(VsOut input) : SV_TARGET
 {
     float2 fragPx = input.uv * dstSize;
+    const float srcGain = (applyBrightness != 0) ? brightness : 1.0;
 
     // Overlay mode (viewport notice card): blend the source STRAIGHT over
     // whatever is already in the RTV via the hardware src-over blend
@@ -110,6 +267,11 @@ float4 PSMain(VsOut input) : SV_TARGET
     // corners / margin. Mirrors MetalCompositor's present pass
     // (enableSrcOverBlending + discard on alpha==0). No bg fill, no
     // border here — the card carries its own rounded border.
+    //
+    // Source-only mode (2) is the same fragment with the opaque blend
+    // state bound: the OCIO intermediate receives the straight picture
+    // and alpha 0 everywhere else, so the present pass can composite
+    // it over the real (post-OCIO) background.
     if (overlayMode != 0) {
         if (hasSrc != 0 &&
             fragPx.x >= fitRectMin.x && fragPx.x < fitRectMin.x + fitRectSize.x &&
@@ -117,7 +279,7 @@ float4 PSMain(VsOut input) : SV_TARGET
         {
             float2 srcUv = (fragPx - fitRectMin) / fitRectSize;
             float4 v = src.Sample(srcSamp, rotatedSrcUv(srcUv));
-            return float4(v.rgb * brightness, v.a);
+            return float4(v.rgb * srcGain, v.a);
         }
         return float4(0.0, 0.0, 0.0, 0.0);   // leave RTV untouched
     }
@@ -128,9 +290,9 @@ float4 PSMain(VsOut input) : SV_TARGET
     if (borderPx > 0.0 &&
         (fragPx.x < borderPx || fragPx.x > dstSize.x - borderPx ||
          fragPx.y < borderPx || fragPx.y > dstSize.y - borderPx)) {
-        return float4(borderColor * brightness, 1.0);
+        return float4(borderColor * srcGain, 1.0);
     }
-    float4 bg = backgroundColor(fragPx);
+    float3 bg = fillColor(fragPx);
     if (hasSrc != 0 &&
         fragPx.x >= fitRectMin.x && fragPx.x <  fitRectMin.x + fitRectSize.x &&
         fragPx.y >= fitRectMin.y && fragPx.y <  fitRectMin.y + fitRectSize.y)
@@ -142,11 +304,12 @@ float4 PSMain(VsOut input) : SV_TARGET
         // transparent video pixels against whatever's underneath the
         // player surface (which currently reads as a flat blue tint).
         // The user-picked Background mode shows through where the
-        // video has alpha < 1.
-        float3 rgb = v.rgb * v.a + bg.rgb * (1.0 - v.a);
-        return float4(rgb * brightness, 1.0);
+        // video has alpha < 1. Brightness scales the picture only —
+        // the fill has to keep matching the Qt chrome.
+        float3 rgb = v.rgb * srcGain * v.a + bg * (1.0 - v.a);
+        return float4(rgb, 1.0);
     }
-    return float4(bg.rgb * brightness, 1.0);
+    return float4(bg, 1.0);
 }
 )";
 
@@ -225,15 +388,109 @@ struct CompositorCB {
     float pad0;           // 32
     int   hasSrc;         // 36
     int   bgMode;         // 40
-    int   overlayMode;    // 44  (0 = bg-fill composite; 1 = src-over the RTV)
+    int   overlayMode;    // 44  (0 = bg-fill composite; 1 = src-over the RTV;
+                          //      2 = source-only into an intermediate)
     int   rotQ;           // 48  display rotation, quarter-turns CW {0..3}
     float brightness;     // 52
     float borderColor[3]; // 64
+    // ---- media-bounds fill + output encoding ----
+    float canvasSize[2];  // 72
+    float srcSizeA[2];    // 80
+    float srcSizeB[2];    // 88
+    int   layoutMode;     // 92
+    float splitPos;       // 96
+    int   aValid;         // 100
+    int   bValid;         // 104
+    int   hasLayout;      // 108
+    int   encoding;       // 112
+    float target[4];      // 128  rgb = outside target (sRGB), a = strength
+    float mediaRect[4];   // 144  layoutMode 0: min.xy, size.zw (dst px)
+    float refNits;        // 148
+    int   applyBrightness;// 152
+    float pad1[2];        // 160
 };
-static_assert(sizeof(CompositorCB) == 64,
+static_assert(sizeof(CompositorCB) == 160,
               "CompositorCB must match HLSL packing exactly.");
 static_assert(sizeof(CompositorCB) % 16 == 0,
               "CompositorCB must be 16-byte aligned for D3D11 cbuffer.");
+
+// Aspect-fit `srcW×srcH` into `dstW×dstH`. ONE implementation shared
+// by the source fit and the media-bounds rect so both produce bit-
+// identical floats for the same inputs — the bounds edge must land on
+// the same pixel as the picture's edge (no seam).
+struct FitRect { float x, y, w, h; };
+FitRect aspectFit(float dstW, float dstH, float srcW, float srcH)
+{
+    FitRect r{ 0.0f, 0.0f, dstW, dstH };
+    if (srcW > 0.0f && srcH > 0.0f) {
+        const float srcAspect = srcW / srcH;
+        const float dstAspect = dstW / dstH;
+        if (srcAspect > dstAspect) {
+            r.w = dstW;
+            r.h = dstW / srcAspect;
+        } else {
+            r.h = dstH;
+            r.w = dstH * srcAspect;
+        }
+    }
+    r.x = (dstW - r.w) * 0.5f;
+    r.y = (dstH - r.h) * 0.5f;
+    return r;
+}
+
+// Media-bounds policy (ported from metal_compositor.mm, then retuned
+// with chris on Windows 2026-09-15): outside the media rect the fill
+// is mixed toward Theme.bg (#161616) by `strength`. Strength defaults:
+//   Black        0.0 — solid black everywhere (plain-black viewers)
+//   DarkGray     1.0 — #1f1f1f inside the media, #161616 outside
+//   DarkChecker  1.0
+//   LightChecker 1.0
+// Tunable at launch via QCV_BOUNDS_MIX ("0.7" applies to all four;
+// "1.0,0.5,1.0,0.7" is per mode: black, darkgray, darkChecker,
+// lightChecker). NOTE: macOS still has the earlier policy (black
+// blended, DarkGray #161616 inside → #1f1f1f outside) — mirror there.
+constexpr float kThemeBg      = 22.0f / 255.0f;   // #161616 Theme.bg
+
+struct BoundsPolicy {
+    float target[3];
+    float strength;
+};
+
+const std::array<float, 4> &boundsStrengths()
+{
+    static const std::array<float, 4> strengths = [] {
+        std::array<float, 4> s = { 0.0f, 1.0f, 1.0f, 1.0f };   // tuned 2026-09-15
+        const QByteArray env = qgetenv("QCV_BOUNDS_MIX");
+        if (!env.isEmpty()) {
+            const QList<QByteArray> parts = env.split(',');
+            if (parts.size() == 1) {
+                bool ok = false;
+                const float v = parts[0].trimmed().toFloat(&ok);
+                if (ok) s.fill(std::clamp(v, 0.0f, 1.0f));
+            } else {
+                for (int i = 0; i < std::min<int>(4, parts.size()); ++i) {
+                    bool ok = false;
+                    const float v = parts[i].trimmed().toFloat(&ok);
+                    if (ok) s[i] = std::clamp(v, 0.0f, 1.0f);
+                }
+            }
+            qInfo("D3D11Compositor: QCV_BOUNDS_MIX override → "
+                  "black=%.2f darkgray=%.2f darkChecker=%.2f lightChecker=%.2f",
+                  s[0], s[1], s[2], s[3]);
+        }
+        return s;
+    }();
+    return strengths;
+}
+
+BoundsPolicy boundsPolicyFor(int mode)
+{
+    const int m = std::max(0, std::min(3, mode));
+    BoundsPolicy p;
+    p.target[0] = p.target[1] = p.target[2] = kThemeBg;
+    p.strength  = boundsStrengths()[static_cast<size_t>(m)];
+    return p;
+}
 
 } // namespace
 
@@ -248,6 +505,7 @@ struct D3D11Compositor::Impl {
     ComPtr<ID3D11BlendState>     blendState;       // opaque (BlendEnable=FALSE)
     ComPtr<ID3D11BlendState>     blendStateAlpha;  // non-premult src-over
     float                        brightness = 1.0f;
+    float                        refNits    = 200.0f;   // Guide 06 D11 default
     bool initialized = false;
 };
 
@@ -256,6 +514,21 @@ D3D11Compositor::D3D11Compositor() : m_impl(std::make_unique<Impl>()) {}
 void D3D11Compositor::setBrightness(float brightness)
 {
     if (m_impl) m_impl->brightness = brightness;
+}
+
+void D3D11Compositor::setReferenceLuminance(float nits)
+{
+    if (m_impl && nits > 0.0f) m_impl->refNits = nits;
+}
+
+D3D11Compositor::OutputEncoding D3D11Compositor::encodingForFormat(int dxgiFormat)
+{
+    // Same format-keyed choice as D3D11AnnotationRenderer::initialize.
+    switch (static_cast<DXGI_FORMAT>(dxgiFormat)) {
+        case DXGI_FORMAT_R10G10B10A2_UNORM:  return OutputEncoding::Hdr10Pq;
+        case DXGI_FORMAT_R16G16B16A16_FLOAT: return OutputEncoding::ScRgbLinear;
+        default:                             return OutputEncoding::Sdr;
+    }
 }
 D3D11Compositor::~D3D11Compositor() { shutdown(); }
 bool D3D11Compositor::isInitialized() const { return m_impl && m_impl->initialized; }
@@ -391,7 +664,8 @@ void D3D11Compositor::renderSingle(void *ctxVoid, void *srcSrvVoid,
                                      float borderPx,
                                      float borderR, float borderG, float borderB,
                                      bool overlayBlend,
-                                     int rotQuarters)
+                                     int rotQuarters,
+                                     const PassOptions *opts)
 {
     if (!m_impl || !m_impl->initialized) return;
     if (dstW <= 0 || dstH <= 0) return;
@@ -399,22 +673,15 @@ void D3D11Compositor::renderSingle(void *ctxVoid, void *srcSrvVoid,
     auto *ctx    = static_cast<ID3D11DeviceContext *>(ctxVoid);
     auto *srcSrv = static_cast<ID3D11ShaderResourceView *>(srcSrvVoid);
 
-    // Compute aspect-fit rect.
-    float fitW = static_cast<float>(dstW);
-    float fitH = static_cast<float>(dstH);
-    if (srcSrv && srcW > 0 && srcH > 0) {
-        const float srcAspect = static_cast<float>(srcW) / srcH;
-        const float dstAspect = static_cast<float>(dstW) / dstH;
-        if (srcAspect > dstAspect) {
-            fitW = static_cast<float>(dstW);
-            fitH = static_cast<float>(dstW) / srcAspect;
-        } else {
-            fitH = static_cast<float>(dstH);
-            fitW = static_cast<float>(dstH) * srcAspect;
-        }
-    }
-    const float fitX = (static_cast<float>(dstW) - fitW) * 0.5f;
-    const float fitY = (static_cast<float>(dstH) - fitH) * 0.5f;
+    const float dstWf = static_cast<float>(dstW);
+    const float dstHf = static_cast<float>(dstH);
+
+    // Compute aspect-fit rect (full destination when there's no source).
+    const FitRect fit = srcSrv
+        ? aspectFit(dstWf, dstHf, static_cast<float>(srcW), static_cast<float>(srcH))
+        : FitRect{ 0.0f, 0.0f, dstWf, dstHf };
+
+    const bool sourceOnly = opts && opts->sourceOnly;
 
     // Map + update constant buffer.
     D3D11_MAPPED_SUBRESOURCE mapped{};
@@ -423,21 +690,70 @@ void D3D11Compositor::renderSingle(void *ctxVoid, void *srcSrvVoid,
         return;
     }
     CompositorCB cb{};
-    cb.dstSize[0] = static_cast<float>(dstW);
-    cb.dstSize[1] = static_cast<float>(dstH);
-    cb.fitMin[0]  = fitX;
-    cb.fitMin[1]  = fitY;
-    cb.fitSize[0] = fitW;
-    cb.fitSize[1] = fitH;
+    cb.dstSize[0] = dstWf;
+    cb.dstSize[1] = dstHf;
+    cb.fitMin[0]  = fit.x;
+    cb.fitMin[1]  = fit.y;
+    cb.fitSize[0] = fit.w;
+    cb.fitSize[1] = fit.h;
     cb.hasSrc     = srcSrv ? 1 : 0;
     cb.bgMode     = bgMode;
-    cb.overlayMode = overlayBlend ? 1 : 0;
+    cb.overlayMode = overlayBlend ? 1 : (sourceOnly ? 2 : 0);
     cb.rotQ       = rotQuarters & 3;
     cb.brightness = m_impl->brightness;
+    cb.applyBrightness = (!opts || opts->applyBrightness) ? 1 : 0;
     cb.borderPx       = borderPx;
     cb.borderColor[0] = borderR;
     cb.borderColor[1] = borderG;
     cb.borderColor[2] = borderB;
+
+    // Media-bounds fill + swapchain encoding (present passes only).
+    {
+        const int clampedMode = std::max(0, std::min(3, bgMode));
+        const BoundsPolicy policy = boundsPolicyFor(clampedMode);
+        cb.target[0] = policy.target[0];
+        cb.target[1] = policy.target[1];
+        cb.target[2] = policy.target[2];
+        cb.target[3] = policy.strength;
+        cb.refNits   = m_impl->refNits;
+        cb.encoding  = opts ? static_cast<int>(opts->encoding) : 0;
+
+        const BackgroundLayout *layout = opts ? opts->layout : nullptr;
+        if (layout && layout->canvasW > 0 && layout->canvasH > 0
+            && (layout->aValid || layout->bValid)) {
+            cb.canvasSize[0] = static_cast<float>(layout->canvasW);
+            cb.canvasSize[1] = static_cast<float>(layout->canvasH);
+            cb.srcSizeA[0]   = static_cast<float>(layout->srcAW);
+            cb.srcSizeA[1]   = static_cast<float>(layout->srcAH);
+            cb.srcSizeB[0]   = static_cast<float>(layout->srcBW);
+            cb.srcSizeB[1]   = static_cast<float>(layout->srcBH);
+            cb.layoutMode    = std::max(0, std::min(3, layout->layoutMode));
+            cb.splitPos      = layout->splitPos;
+            cb.aValid        = layout->aValid ? 1 : 0;
+            cb.bValid        = layout->bValid ? 1 : 0;
+            cb.hasLayout     = 1;
+            if (cb.layoutMode == 0) {
+                // Single layout: compute the media rect on the CPU with
+                // the SAME aspectFit the source pass used. When the
+                // canvas is presented 1:1 (the normal case — the OCIO
+                // intermediate is swapchain-sized) the canvas rect is
+                // taken as exactly the destination, so the media rect
+                // is bit-identical to the source pass's fit rect and
+                // the shader's comparison lands on the same pixel.
+                FitRect canvas{ 0.0f, 0.0f, dstWf, dstHf };
+                if (layout->canvasW != dstW || layout->canvasH != dstH) {
+                    canvas = aspectFit(dstWf, dstHf,
+                                       cb.canvasSize[0], cb.canvasSize[1]);
+                }
+                const FitRect media = aspectFit(canvas.w, canvas.h,
+                                                cb.srcSizeA[0], cb.srcSizeA[1]);
+                cb.mediaRect[0] = canvas.x + media.x;
+                cb.mediaRect[1] = canvas.y + media.y;
+                cb.mediaRect[2] = media.w;
+                cb.mediaRect[3] = media.h;
+            }
+        }
+    }
     std::memcpy(mapped.pData, &cb, sizeof(cb));
     ctx->Unmap(m_impl->cbuf.Get(), 0);
 

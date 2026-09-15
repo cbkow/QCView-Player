@@ -92,6 +92,23 @@ public:
     // SBS half-split + Wipe splitter line + sampleFit math).
     void renderFrame(void *ctx, int dstW, int dstH);
 
+    // Snapshot of the geometry the last renderFrame() drew, for the
+    // present pass's media-bounds background fill (mirror of
+    // dual::DualCompositor::LastLayout on macOS). Dims are display-
+    // orientation effective dims (PAR un-squeezed, rotation-swapped)
+    // — the same numbers the shader received. A side stays valid with
+    // its last-known dims while past its clip end so the footprint
+    // remains marked; it's invalid only when it has no source.
+    struct LastLayout {
+        int   mode     = 0;
+        float splitPos = 0.5f;
+        int   srcAW = 0, srcAH = 0;
+        int   srcBW = 0, srcBH = 0;
+        bool  aValid = false;
+        bool  bValid = false;
+    };
+    const LastLayout &lastLayout() const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;

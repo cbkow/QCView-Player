@@ -94,6 +94,15 @@ public:
     // query the swapchain's containing output).
     bool  isHdrSupported() const;
     float maxHdrHeadroom() const;     // nits ÷ 80 (SDR-diffuse-white)
+    // SDR white level of the monitor showing the window, in nits:
+    // 80 while HDR is off there (DWM maps scRGB 1.0 / PQ 80 nits to
+    // SDR white), else the Windows "SDR content brightness" value
+    // (DISPLAYCONFIG_SDR_WHITE_LEVEL). This is the reference that
+    // sRGB-picked UI colours (background fill, annotation strokes)
+    // must be scaled to on the scRGB / HDR10 swapchains so they land
+    // on the same grey as the Qt chrome. Refreshed with the
+    // capability query (init / mode change / resize).
+    float sdrWhiteNits() const;
 
 private:
     struct Impl;

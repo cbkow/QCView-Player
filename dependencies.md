@@ -503,6 +503,18 @@ add-on spawns this binary — audit its command lines before shipping a
 - macOS only: Metal generation-race port (`9bc0fea3` mirror), Metal Dark
   Gray #161616, dual audio via CoreAudio.
 
+**Open after the media-bounds viewport fill (macOS `a0c6725a`, Windows
+2026-09-15; HANDOFF-Windows.md retired):**
+
+- Checker tile size differs: Metal 20 pt × contentsScale, D3D11 fixed 32 px.
+- `computeDualViewLayout` in `src/render/dual_view_layout.cpp` has no callers.
+- macOS only: the Metal annotation renderer writes sRGB stroke / safety
+  colours into linear EDR drawables (D3D11 encodes them via F.2.9, now
+  scaled by the monitor's real SDR white level — `sdrWhiteNits()`).
+- Windows only: the scRGB / HDR10 fill + stroke encode is verified on
+  HDR-off monitors (SDR white = 80 nits); an HDR-on display (Windows
+  "SDR content brightness" via DISPLAYCONFIG_SDR_WHITE_LEVEL) is untested.
+
 ### OCIO (OpenColorIO)
 
 ```cmake

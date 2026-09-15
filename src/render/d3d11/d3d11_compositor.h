@@ -62,6 +62,72 @@ public:
     //                  quarters (display-orientation dims drive the fit);
     //                  the shader inverse-rotates its sampling so the
     //                  stored texture reads upright.
+    // `opts`        — present-pass options (media-bounds fill, output
+    //                  encoding, source-only pass); see PassOptions.
+    //                  nullptr = plain fill, SDR encoding, prior behavior.
+
+    // Media-bounds-aware background (mirror of
+    // MetalCompositor::BackgroundLayout). Describes where the media
+    // sits so the fill OUTSIDE the media rect(s) is blended toward
+    // Theme.bg (#161616), making the bounds of fully / partly
+    // transparent media visible. Black mode opts out (solid black). Geometry chain: `canvasW/H` is the
+    // texture being presented (aspect-fit 1:1 into the destination),
+    // then each source is aspect-fit into its region of that canvas
+    // exactly like D3D11DualCompositor's sampleFit does.
+    //
+    //   layoutMode: 0 Single (A full canvas), 1 SideBySide (A left
+    //               half / B right half), 2 Wipe (A where canvas
+    //               u < splitPos, else B), 3 Difference (union).
+    //   srcA/B:     display-orientation effective dims (PAR
+    //               un-squeezed, rotation-swapped).
+    //   aValid/bValid: side has (or had) a source; false → no rect.
+    //               Past-end sides stay valid so the footprint remains.
+    struct BackgroundLayout {
+        int   canvasW = 0, canvasH = 0;
+        int   layoutMode = 0;
+        float splitPos = 0.5f;
+        int   srcAW = 0, srcAH = 0;
+        int   srcBW = 0, srcBH = 0;
+        bool  aValid = false;
+        bool  bValid = false;
+    };
+
+    // How the fill constants (sRGB-encoded) must be written for the
+    // bound swapchain format. Same three variants — and the same
+    // reference luminance — as D3D11AnnotationRenderer (Phase F.2.9):
+    //   Sdr         B8G8R8A8_UNORM / G22       → sRGB values verbatim
+    //   ScRgbLinear R16G16B16A16_FLOAT / G10   → srgbToLinear · refNits/80
+    //   Hdr10Pq     R10G10B10A2_UNORM / G2084  → PQ(709→2020 · refNits/1e4)
+    enum class OutputEncoding : int {
+        Sdr         = 0,
+        ScRgbLinear = 1,
+        Hdr10Pq     = 2,
+    };
+    // Pick the variant from a DXGI_FORMAT (passed as int so this
+    // header stays free of <dxgiformat.h>).
+    static OutputEncoding encodingForFormat(int dxgiFormat);
+    // Reference luminance for the scRGB / PQ fill encodes (nits).
+    // Default 200 (Guide 06 D11); SDR ignores it.
+    void setReferenceLuminance(float nits);
+
+    struct PassOptions {
+        // Source-only pass: write the source STRAIGHT (rgb, a) inside
+        // its fit rect and (0,0,0,0) outside — no fill, opaque blend
+        // state. Used to render the picture into the OCIO intermediate
+        // so the real background can be drawn post-OCIO on the
+        // swapchain (Metal draws its fill in the present pass; the
+        // fill must never go through the display transform).
+        bool sourceOnly = false;
+        // Multiply the source by the compositor's brightness. Off for
+        // the single-flow present pass, where the source pass already
+        // applied it pre-OCIO. The fill is never brightness-scaled.
+        bool applyBrightness = true;
+        // Media footprint for the bounds fill. nullptr → whole
+        // destination is "inside" (plain fill).
+        const BackgroundLayout *layout = nullptr;
+        OutputEncoding encoding = OutputEncoding::Sdr;
+    };
+
     void renderSingle(void *ctx,
                        void *srcSrv,
                        int   dstW, int dstH,
@@ -72,7 +138,8 @@ public:
                        float borderG = 0.0f,
                        float borderB = 0.0f,
                        bool  overlayBlend = false,
-                       int   rotQuarters = 0);
+                       int   rotQuarters = 0,
+                       const PassOptions *opts = nullptr);
 
     // Phase F.2.8 follow-up — uniform output multiplier applied to
     // the final pixel before write. 1.0 = identity. Stored as state;

@@ -341,6 +341,8 @@ struct D3D11DualCompositor::Impl {
     bool  prepared       = false;
     bool  aActive        = false;
     bool  bActive        = false;
+    bool  aPastEnd       = false;
+    bool  bPastEnd       = false;
     int   srcAW          = 1;
     int   srcAH          = 1;
     int   srcBW          = 1;
@@ -349,6 +351,9 @@ struct D3D11DualCompositor::Impl {
     // Cache invalidation seams (dual_compositor.mm:484-504).
     int   cachedGeneration       = -1;
     int   lastRenderedMasterFrame = -1;
+
+    // Geometry snapshot for the present pass's media-bounds fill.
+    LastLayout lastLayout;
 
     bool  initialized = false;
 };
@@ -461,6 +466,15 @@ void D3D11DualCompositor::setFrameSource(IDualFrameSource *source)
     m_impl->cachedGeneration = -1;
     m_impl->lastRenderedMasterFrame = -1;
     m_impl->prepared = false;
+    // A new pair has no footprint yet — don't let the previous
+    // session's rects mark the viewport until the first frame draws.
+    m_impl->lastLayout = LastLayout{};
+}
+
+const D3D11DualCompositor::LastLayout &D3D11DualCompositor::lastLayout() const
+{
+    static const LastLayout kNone{};
+    return m_impl ? m_impl->lastLayout : kNone;
 }
 
 void D3D11DualCompositor::setExternalYuvCompositor(D3D11VulkanYuvCompositor *yuv)
@@ -673,6 +687,8 @@ void D3D11DualCompositor::prepareFrames(void *ctxVoid)
 
     m_impl->aActive = !aPastEnd && m_impl->cachedA.srv.Get() != nullptr;
     m_impl->bActive = !bPastEnd && m_impl->cachedB.srv.Get() != nullptr;
+    m_impl->aPastEnd = aPastEnd;
+    m_impl->bPastEnd = bPastEnd;
     m_impl->srcAW   = std::max(1, srcAW);
     m_impl->srcAH   = std::max(1, srcAH);
     m_impl->srcBW   = std::max(1, srcBW);
@@ -732,6 +748,28 @@ void D3D11DualCompositor::renderFrame(void *ctxVoid, int dstW, int dstH)
     cb.diffGain    = m_impl->diffGain;
     std::memcpy(mapped.pData, &cb, sizeof(cb));
     ctx->Unmap(m_impl->cbuf.Get(), 0);
+
+    // Geometry snapshot for the present pass's media-bounds fill.
+    // Only overwrite a side's dims while it actually has a texture;
+    // a past-end side keeps its last-known footprint (the cache dims
+    // are zeroed at past-end, so srcAW/H would read 1×1 here).
+    LastLayout &ll = m_impl->lastLayout;
+    ll.mode     = m_impl->mode;
+    ll.splitPos = m_impl->splitPos;
+    if (m_impl->aActive) {
+        ll.srcAW  = static_cast<int>(cb.srcSizeA[0]);
+        ll.srcAH  = static_cast<int>(cb.srcSizeA[1]);
+        ll.aValid = true;
+    } else if (!m_impl->aPastEnd) {
+        ll.aValid = false;
+    }
+    if (m_impl->bActive) {
+        ll.srcBW  = static_cast<int>(cb.srcSizeB[0]);
+        ll.srcBH  = static_cast<int>(cb.srcSizeB[1]);
+        ll.bValid = true;
+    } else if (!m_impl->bPastEnd) {
+        ll.bValid = false;
+    }
 
     // Pipeline state.
     ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

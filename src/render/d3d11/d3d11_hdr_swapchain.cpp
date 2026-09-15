@@ -16,7 +16,9 @@
 #include <QtLogging>
 
 #include <atomic>
+#include <cwchar>
 #include <mutex>
+#include <vector>
 
 namespace qcv {
 
@@ -98,6 +100,7 @@ struct D3D11HdrSwapchain::Impl {
     // different monitor; refreshed best-effort.
     bool                   hdrSupported = false;
     float                  maxHeadroom  = 1.0f;
+    float                  sdrWhiteNits = 80.0f;   // see sdrWhiteNits()
 };
 
 D3D11HdrSwapchain::D3D11HdrSwapchain()
@@ -224,6 +227,78 @@ void queryHdrCapability(IDXGIFactory2 *factory, bool &outSupported,
     }
 }
 
+// SDR white level (nits) of the monitor showing `hwnd`. DWM composes
+// SDR content (the Qt chrome) at this level on an HDR-on display; on
+// an HDR-off display scRGB 1.0 / PQ 80 nits IS SDR white, so 80.
+// Walks the active display-config paths, matches the window's
+// monitor by GDI device name, and reads DISPLAYCONFIG_SDR_WHITE_LEVEL
+// (Win10 1709+; SDRWhiteLevel is in 1/1000 of 80 nits). Falls back to
+// the first HDR-on path when the window's monitor isn't found, and to
+// 80 when nothing is HDR-on.
+float querySdrWhiteNits(HWND hwnd)
+{
+    constexpr float kSdrDefault = 80.0f;
+    UINT32 nPaths = 0, nModes = 0;
+    if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &nPaths, &nModes)
+            != ERROR_SUCCESS || nPaths == 0) {
+        return kSdrDefault;
+    }
+    std::vector<DISPLAYCONFIG_PATH_INFO> paths(nPaths);
+    std::vector<DISPLAYCONFIG_MODE_INFO> modes(nModes);
+    if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &nPaths, paths.data(),
+                           &nModes, modes.data(), nullptr) != ERROR_SUCCESS) {
+        return kSdrDefault;
+    }
+
+    MONITORINFOEXW mi{};
+    mi.cbSize = sizeof(mi);
+    const HMONITOR mon = hwnd ? MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+                              : nullptr;
+    const bool haveWindowMon = mon && GetMonitorInfoW(mon, &mi);
+
+    float fallback = 0.0f;
+    for (UINT32 i = 0; i < nPaths; ++i) {
+        const auto &p = paths[i];
+
+        DISPLAYCONFIG_SOURCE_DEVICE_NAME src{};
+        src.header.type      = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+        src.header.size      = sizeof(src);
+        src.header.adapterId = p.sourceInfo.adapterId;
+        src.header.id        = p.sourceInfo.id;
+        if (DisplayConfigGetDeviceInfo(&src.header) != ERROR_SUCCESS) continue;
+        const bool isWindowMon =
+            haveWindowMon && std::wcscmp(src.viewGdiDeviceName, mi.szDevice) == 0;
+
+        DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO aci{};
+        aci.header.type      = DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
+        aci.header.size      = sizeof(aci);
+        aci.header.adapterId = p.targetInfo.adapterId;
+        aci.header.id        = p.targetInfo.id;
+        const bool hdrOn =
+            DisplayConfigGetDeviceInfo(&aci.header) == ERROR_SUCCESS
+            && aci.advancedColorEnabled;
+        if (!hdrOn) {
+            if (isWindowMon) return kSdrDefault;   // window on an HDR-off monitor
+            continue;
+        }
+
+        DISPLAYCONFIG_SDR_WHITE_LEVEL wl{};
+        wl.header.type      = DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL;
+        wl.header.size      = sizeof(wl);
+        wl.header.adapterId = p.targetInfo.adapterId;
+        wl.header.id        = p.targetInfo.id;
+        if (DisplayConfigGetDeviceInfo(&wl.header) != ERROR_SUCCESS) {
+            if (isWindowMon) return kSdrDefault;
+            continue;
+        }
+        const float nits = static_cast<float>(wl.SDRWhiteLevel) / 1000.0f * 80.0f;
+        if (nits <= 0.0f) continue;
+        if (isWindowMon) return nits;
+        if (fallback <= 0.0f) fallback = nits;
+    }
+    return fallback > 0.0f ? fallback : kSdrDefault;
+}
+
 } // namespace
 
 bool D3D11HdrSwapchain::initialize(IDXGIFactory2 *factory, ID3D11Device *device,
@@ -321,14 +396,15 @@ bool D3D11HdrSwapchain::initialize(IDXGIFactory2 *factory, ID3D11Device *device,
 
     queryHdrCapability(m_impl->factory,
                         m_impl->hdrSupported, m_impl->maxHeadroom);
+    m_impl->sdrWhiteNits = querySdrWhiteNits(m_impl->childHwnd);
     qInfo("D3D11HdrSwapchain: capability query done");
 
     m_impl->initialized = true;
     qInfo("D3D11HdrSwapchain: initialized %dx%d %s (HDR-supported=%s, "
-          "max headroom=%.2fx)",
+          "max headroom=%.2fx, SDR white=%.0f nits)",
           width, height, m.name,
           m_impl->hdrSupported ? "yes" : "no",
-          m_impl->maxHeadroom);
+          m_impl->maxHeadroom, m_impl->sdrWhiteNits);
     return true;
 }
 
@@ -464,9 +540,11 @@ bool D3D11HdrSwapchain::applyPendingOnRenderThread()
     m_impl->appliedMode = pending;
     queryHdrCapability(m_impl->factory,
                         m_impl->hdrSupported, m_impl->maxHeadroom);
+    m_impl->sdrWhiteNits = querySdrWhiteNits(m_impl->childHwnd);
     qInfo("D3D11HdrSwapchain: mode → %s (swapchain recreated; HDR-supported=%s, "
-          "headroom=%.2fx)", target.name,
-          m_impl->hdrSupported ? "yes" : "no", m_impl->maxHeadroom);
+          "headroom=%.2fx, SDR white=%.0f nits)", target.name,
+          m_impl->hdrSupported ? "yes" : "no", m_impl->maxHeadroom,
+          m_impl->sdrWhiteNits);
     return true;  // format changed → caller should reinit PSOs
 }
 
@@ -494,6 +572,9 @@ bool D3D11HdrSwapchain::resize(int width, int height)
     }
     m_impl->width  = width;
     m_impl->height = height;
+    // A resize is also the usual signal that the window moved to
+    // another monitor (different DPI) — refresh the SDR white level.
+    m_impl->sdrWhiteNits = querySdrWhiteNits(m_impl->childHwnd);
     return true;
 }
 
@@ -526,5 +607,6 @@ void *D3D11HdrSwapchain::dcompVisual() const
 
 bool  D3D11HdrSwapchain::isHdrSupported() const  { return m_impl && m_impl->hdrSupported; }
 float D3D11HdrSwapchain::maxHdrHeadroom() const  { return m_impl ? m_impl->maxHeadroom : 1.0f; }
+float D3D11HdrSwapchain::sdrWhiteNits() const    { return m_impl ? m_impl->sdrWhiteNits : 80.0f; }
 
 } // namespace qcv

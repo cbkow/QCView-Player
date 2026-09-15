@@ -337,6 +337,7 @@ QStringList collectPositionalArgs(const QStringList &args)
     consumeFlag(QStringLiteral("--simulate-user"), 2);
     consumeFlag(QStringLiteral("--playlist-test"), 1);
     consumeFlag(QStringLiteral("--hdr-mode"),      1);
+    consumeFlag(QStringLiteral("--ocio-engage"),   0);
     consumeFlag(QStringLiteral("--sbs"),           0);
 
     QStringList out;
@@ -359,7 +360,8 @@ bool hasDevModeFlag(const QStringList &args)
     return args.contains(QStringLiteral("--dual-test"))
         || args.contains(QStringLiteral("--simulate-user"))
         || args.contains(QStringLiteral("--playlist-test"))
-        || args.contains(QStringLiteral("--hdr-mode"));
+        || args.contains(QStringLiteral("--hdr-mode"))
+        || args.contains(QStringLiteral("--ocio-engage"));
 }
 
 // Open a list of file paths / qcview:// URIs through the running
@@ -745,6 +747,24 @@ int main(int argc, char *argv[])
             } else {
                 qWarning("--hdr-mode: expected an integer 0..4");
             }
+        }
+
+        // --ocio-engage: flip the OCIO chain ON (the loaded config's
+        // default input / display / view) once the window is up.
+        // Engagement isn't persisted and defaults off, so this is the
+        // only way to exercise the OCIO render path (source → OCIO →
+        // present composite) without driving the Color panel UI —
+        // dev entry for verifying the post-OCIO background fill.
+        if (args.contains(QStringLiteral("--ocio-engage"))) {
+            QTimer::singleShot(600, &windowManager, [&windowManager] {
+                if (auto *ocio = windowManager.ocio()) {
+                    ocio->setEngaged(true);
+                    qInfo("--ocio-engage: engaged (input=%s display=%s view=%s)",
+                          qPrintable(ocio->activeInput()),
+                          qPrintable(ocio->activeDisplay()),
+                          qPrintable(ocio->activeView()));
+                }
+            });
         }
     }
 

@@ -165,6 +165,30 @@ struct D3D11PlayerRenderer::Impl {
     ComPtr<ID3D11ShaderResourceView> compositeSrv;
     int                              compositeW = 0;
     int                              compositeH = 0;
+    // OCIO output for the single flow (RGBA16F, swapchain size). The
+    // picture goes source → compositeTex → OCIO → compositeOcioOut,
+    // and the present pass composites it over the background fill on
+    // the swapchain — so the fill never passes through the display
+    // transform (matches Metal + the dual flow below). Torn down with
+    // compositeTex.
+    ComPtr<ID3D11Texture2D>          compositeOcioOut;
+    ComPtr<ID3D11RenderTargetView>   compositeOcioOutRtv;
+    ComPtr<ID3D11ShaderResourceView> compositeOcioOutSrv;
+    int                              compositeOcioOutW = 0;
+    int                              compositeOcioOutH = 0;
+
+    void releaseSingleIntermediates() {
+        compositeSrv.Reset();
+        compositeRtv.Reset();
+        compositeTex.Reset();
+        compositeW = 0;
+        compositeH = 0;
+        compositeOcioOutSrv.Reset();
+        compositeOcioOutRtv.Reset();
+        compositeOcioOut.Reset();
+        compositeOcioOutW = 0;
+        compositeOcioOutH = 0;
+    }
 
     // Phase F.2.13 — shared Vulkan YUV→RGB compute pipeline. Owned
     // here, injected into every bridge (single-flow's vulkanBridge AND
@@ -404,6 +428,9 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
         qCritical("D3D11PlayerRenderer::init: compositor init failed");
         return false;
     }
+    // Media-bounds fill encode (scRGB / PQ swapchains) uses the same
+    // reference luminance as the annotation strokes below.
+    m_impl->compositor.setReferenceLuminance(m_impl->hdrSwapchain.sdrWhiteNits());
 
     // Annotation renderer targets the swapchain back buffer's pixel
     // format. F.2.8 reinits this on every HDR-mode flip; F.2.9 picks
@@ -412,10 +439,12 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
         qWarning("D3D11PlayerRenderer::init: annotation renderer init failed "
                  "(strokes + safety overlay will not draw)");
     }
-    // F.2.9 — stroke reference luminance (Guide 06 D11 default 200 nits).
-    // SDR variant ignores this; scRGB + PQ variants use it to map sRGB-
-    // picked stroke colors to a stable on-screen brightness.
-    m_impl->annotations.setReferenceLuminance(200.0f);
+    // F.2.9 — stroke reference luminance. Initial value only; every
+    // frame re-sets it (and the compositor's) from the monitor's SDR
+    // white level (D3D11HdrSwapchain::sdrWhiteNits). SDR variant
+    // ignores this; scRGB + PQ variants use it to map sRGB-picked
+    // colors to the same on-screen brightness as the Qt chrome.
+    m_impl->annotations.setReferenceLuminance(m_impl->hdrSwapchain.sdrWhiteNits());
     // captureAnnotations targets RGBA8_UNORM (capture textures, not
     // the BGRA8 swapchain). Separate instance keeps its dynamic
     // vertex buffer state isolated from the live pass.
@@ -563,11 +592,7 @@ void D3D11PlayerRenderer::shutdown()
     m_impl->vulkanBridge.shutdown();
     m_impl->annotations.shutdown();
     m_impl->ocio.shutdown();
-    m_impl->compositeSrv.Reset();
-    m_impl->compositeRtv.Reset();
-    m_impl->compositeTex.Reset();
-    m_impl->compositeW = 0;
-    m_impl->compositeH = 0;
+    m_impl->releaseSingleIntermediates();
     m_impl->compositor.shutdown();
     m_impl->videoA.srv.Reset();
     m_impl->videoA.texture.Reset();
@@ -689,13 +714,9 @@ void D3D11PlayerRenderer::applyPendingResizeIfNeeded()
         m_impl->currentW = w;
         m_impl->currentH = h;
         sizeActuallyChanged = true;
-        // Drop the OCIO intermediate; drawFrame() will recreate it
+        // Drop the OCIO intermediates; drawFrame() will recreate them
         // at the new dims the next time OCIO is engaged.
-        m_impl->compositeSrv.Reset();
-        m_impl->compositeRtv.Reset();
-        m_impl->compositeTex.Reset();
-        m_impl->compositeW = 0;
-        m_impl->compositeH = 0;
+        m_impl->releaseSingleIntermediates();
     }
     if ((posChange || sizeChange) && m_impl->childHwnd) {
         // Honor the cover state: while the surface is meant to be hidden
@@ -1037,9 +1058,17 @@ void D3D11PlayerRenderer::drawFrame()
             qWarning("D3D11PlayerRenderer: annotation renderer reinit after HDR "
                      "mode change failed");
         }
-        // Reference luminance is per-instance state; shutdown()
-        // releases it, so re-set after each format-flip init.
-        m_impl->annotations.setReferenceLuminance(200.0f);
+    }
+    // Reference luminance for the scRGB / PQ encodes of sRGB-picked
+    // colours (background fill + annotation strokes): the monitor's
+    // actual SDR white level (80 nits with HDR off, the Windows SDR
+    // brightness setting with it on). A fixed 200 overshot 2.5x on
+    // HDR-off displays. Cheap per-frame stores; the swapchain caches
+    // the query.
+    {
+        const float refNits = m_impl->hdrSwapchain.sdrWhiteNits();
+        m_impl->compositor.setReferenceLuminance(refNits);
+        m_impl->annotations.setReferenceLuminance(refNits);
     }
 
     auto *rtv       = static_cast<ID3D11RenderTargetView *>(m_impl->hdrSwapchain.rtv());
@@ -1136,7 +1165,62 @@ void D3D11PlayerRenderer::drawFrame()
                 m_impl->compositeH = H;
             }
         }
+        // Second intermediate: OCIO output. The present pass then
+        // composites it over the background fill on the swapchain.
+        if (useOcio &&
+            (!m_impl->compositeOcioOut ||
+             m_impl->compositeOcioOutW != W || m_impl->compositeOcioOutH != H)) {
+            m_impl->compositeOcioOutSrv.Reset();
+            m_impl->compositeOcioOutRtv.Reset();
+            m_impl->compositeOcioOut.Reset();
+            D3D11_TEXTURE2D_DESC td{};
+            td.Width     = static_cast<UINT>(W);
+            td.Height    = static_cast<UINT>(H);
+            td.MipLevels = 1;
+            td.ArraySize = 1;
+            td.Format    = DXGI_FORMAT_R16G16B16A16_FLOAT;
+            td.SampleDesc.Count = 1;
+            td.Usage     = D3D11_USAGE_DEFAULT;
+            td.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+            HRESULT thr = device->CreateTexture2D(&td, nullptr,
+                                                  m_impl->compositeOcioOut.GetAddressOf());
+            if (FAILED(thr) ||
+                FAILED(device->CreateRenderTargetView(
+                           m_impl->compositeOcioOut.Get(), nullptr,
+                           m_impl->compositeOcioOutRtv.GetAddressOf())) ||
+                FAILED(device->CreateShaderResourceView(
+                           m_impl->compositeOcioOut.Get(), nullptr,
+                           m_impl->compositeOcioOutSrv.GetAddressOf()))) {
+                qWarning("D3D11PlayerRenderer: OCIO output RGBA16F create %dx%d failed "
+                         "(hr=0x%08lX)", W, H, static_cast<unsigned long>(thr));
+                useOcio = false;
+                m_impl->compositeOcioOutSrv.Reset();
+                m_impl->compositeOcioOutRtv.Reset();
+                m_impl->compositeOcioOut.Reset();
+            } else {
+                m_impl->compositeOcioOutW = W;
+                m_impl->compositeOcioOutH = H;
+            }
+        }
     }
+
+    // Media-bounds background (mirrors MetalPlayerRenderer's single
+    // present pass): tell the fill where the picture sits so the
+    // letterbox blends toward the theme tone and a transparent clip's
+    // footprint stays visible. No source → plain fill (null layout).
+    // The fill is encoded for the bound swapchain format (SDR / scRGB
+    // / HDR10 PQ) — the same variant choice as the annotation renderer.
+    D3D11Compositor::BackgroundLayout bgLayout;
+    bgLayout.canvasW    = W;
+    bgLayout.canvasH    = H;
+    bgLayout.layoutMode = 0;
+    bgLayout.srcAW      = dispAW;
+    bgLayout.srcAH      = dispAH;
+    bgLayout.aValid     = m_impl->videoA.srv && dispAW > 0 && dispAH > 0;
+    D3D11Compositor::PassOptions presentOpts;
+    presentOpts.layout   = bgLayout.aValid ? &bgLayout : nullptr;
+    presentOpts.encoding = D3D11Compositor::encodingForFormat(
+        m_impl->hdrSwapchain.currentFormat());
 
     // Hover-thumb corner overlays. Drawn into the compositor's
     // destination (intermediate RGBA16F when OCIO engaged, or
@@ -1192,7 +1276,12 @@ void D3D11PlayerRenderer::drawFrame()
     };
 
     if (useOcio) {
-        // Compositor → intermediate RTV.
+        // Pass 1 — source ONLY into the intermediate: the straight
+        // picture inside its fit rect (brightness applied here, pre-
+        // OCIO), alpha 0 everywhere else. The background is NOT drawn
+        // here any more: it used to ride through the OCIO display
+        // transform as if it were scene-referred, which Metal and our
+        // own dual flow never did. It's drawn post-OCIO in pass 3.
         ID3D11RenderTargetView *interRtv = m_impl->compositeRtv.Get();
         ctx->OMSetRenderTargets(1, &interRtv, nullptr);
         D3D11_VIEWPORT vp{};
@@ -1201,28 +1290,50 @@ void D3D11PlayerRenderer::drawFrame()
         vp.MinDepth = 0; vp.MaxDepth = 1;
         ctx->RSSetViewports(1, &vp);
 
+        D3D11Compositor::PassOptions sourceOpts;
+        sourceOpts.sourceOnly = true;
         m_impl->compositor.renderSingle(
             ctx,
             m_impl->videoA.srv.Get(),
             W, H,
             dispAW, dispAH,
-            m_bgMode.load(),
+            /*bgMode=*/0,
             /*borderPx=*/0.0f, 0.0f, 0.0f, 0.0f,
             /*overlayBlend=*/false,
-            rotQA);
+            rotQA,
+            &sourceOpts);
 
         // Thumbs into intermediate so OCIO processes them too.
         drawHoverThumbs(W, H);
 
-        // OCIO → swapchain RTV.
+        // Pass 2 — OCIO → OCIO output intermediate (alpha rides through).
         m_impl->ocio.apply(
             ctx,
             m_impl->compositeSrv.Get(),
-            rtv,
+            m_impl->compositeOcioOutRtv.Get(),
             W, H);
+
+        // Pass 3 — present: media-bounds background fill (encoded for
+        // the swapchain) with the corrected picture composited over it
+        // 1:1. Brightness is off here — pass 1 already applied it.
+        ctx->OMSetRenderTargets(1, &rtv, nullptr);
+        ctx->RSSetViewports(1, &vp);
+        presentOpts.applyBrightness = false;
+        m_impl->compositor.renderSingle(
+            ctx,
+            m_impl->compositeOcioOutSrv.Get(),
+            W, H,
+            W, H,
+            m_bgMode.load(),
+            /*borderPx=*/0.0f, 0.0f, 0.0f, 0.0f,
+            /*overlayBlend=*/false,
+            /*rotQuarters=*/0,
+            &presentOpts);
     } else {
-        // Bypass: compositor draws directly to the swapchain. Matches
-        // the pre-F.2.5 path verbatim.
+        // Bypass: compositor draws directly to the swapchain — fill +
+        // picture in one pass, so the bounds edge and the picture edge
+        // are the same comparison. Matches the pre-F.2.5 path plus the
+        // media-bounds fill.
         ctx->OMSetRenderTargets(1, &rtv, nullptr);
         D3D11_VIEWPORT vp{};
         vp.Width  = static_cast<float>(W);
@@ -1238,7 +1349,8 @@ void D3D11PlayerRenderer::drawFrame()
             m_bgMode.load(),
             /*borderPx=*/0.0f, 0.0f, 0.0f, 0.0f,
             /*overlayBlend=*/false,
-            rotQA);
+            rotQA,
+            &presentOpts);
 
         // No OCIO either way — thumbs into swapchain at the same
         // place the video pixels landed, so they share whatever
@@ -1396,7 +1508,12 @@ void D3D11PlayerRenderer::drawDualFrame()
             qWarning("D3D11PlayerRenderer: annotation renderer reinit after HDR "
                      "mode change failed (dual flow)");
         }
-        m_impl->annotations.setReferenceLuminance(200.0f);
+    }
+    // Same per-frame reference luminance as single flow (see drawFrame).
+    {
+        const float refNits = m_impl->hdrSwapchain.sdrWhiteNits();
+        m_impl->compositor.setReferenceLuminance(refNits);
+        m_impl->annotations.setReferenceLuminance(refNits);
     }
 
     auto *rtv       = static_cast<ID3D11RenderTargetView *>(m_impl->hdrSwapchain.rtv());
@@ -1587,6 +1704,10 @@ void D3D11PlayerRenderer::drawDualFrame()
     // Pass 2 — present-blit canvas → swapchain. The single compositor
     // does background fill + aspect-fit blit in one PS, same as the
     // single-flow path uses to letterbox a video into the canvas.
+    // Media-bounds fill for dual: per-side effective dims + mode +
+    // split from the dual compositor's last draw, so each region marks
+    // its own footprint (mirrors metal_player_renderer.mm's dual
+    // present pass). Fill encoded for the swapchain format.
     {
         ctx->OMSetRenderTargets(1, &rtv, nullptr);
         D3D11_VIEWPORT vp{};
@@ -1595,12 +1716,33 @@ void D3D11PlayerRenderer::drawDualFrame()
         vp.MinDepth = 0; vp.MaxDepth = 1;
         ctx->RSSetViewports(1, &vp);
 
+        const auto &ll = m_impl->dualCompositor.lastLayout();
+        D3D11Compositor::BackgroundLayout bgLayout;
+        bgLayout.canvasW    = canvasW;
+        bgLayout.canvasH    = canvasH;
+        bgLayout.layoutMode = ll.mode;
+        bgLayout.splitPos   = ll.splitPos;
+        bgLayout.srcAW      = ll.srcAW;
+        bgLayout.srcAH      = ll.srcAH;
+        bgLayout.srcBW      = ll.srcBW;
+        bgLayout.srcBH      = ll.srcBH;
+        bgLayout.aValid     = ll.aValid;
+        bgLayout.bValid     = ll.bValid;
+        D3D11Compositor::PassOptions presentOpts;
+        presentOpts.layout   = (ll.aValid || ll.bValid) ? &bgLayout : nullptr;
+        presentOpts.encoding = D3D11Compositor::encodingForFormat(
+            m_impl->hdrSwapchain.currentFormat());
+
         m_impl->compositor.renderSingle(
             ctx,
             correctedSrv,
             W, H,
             canvasW, canvasH,
-            m_bgMode.load());
+            m_bgMode.load(),
+            /*borderPx=*/0.0f, 0.0f, 0.0f, 0.0f,
+            /*overlayBlend=*/false,
+            /*rotQuarters=*/0,
+            &presentOpts);
     }
 
     // Pass 3 — annotations + safety overlay on the swapchain RTV.
