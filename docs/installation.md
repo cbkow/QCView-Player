@@ -48,6 +48,14 @@ Once installed in **Applications**, QCView keeps itself up to date — it checks
 
 ## Version History
 
+What's new in 2.3.2
+
+- Viewport background now shows the bounds of transparent media: the area outside the picture takes the app's grey, so clips with alpha keep a visible footprint (single, dual and playlist views).
+- Background modes retuned: Dark Gray now uses the toolbar grey inside the picture; the two checkerboards show faintly through the grey outside it; Black stays solid black.
+- Checkerboard tile colors are now identical on macOS and Windows.
+- Viewport background renders at the correct brightness in EDR (macOS) and scRGB / HDR10 (Windows) output modes — it previously appeared too bright and no longer matches the surrounding UI.
+- Windows: the viewport background is no longer color-managed through OCIO; stroke and background brightness follow the monitor's SDR white level.
+
 What’s new in 2.3.0
 
 - Upgraded from FFmpeg 8.1.2 to 9.0.1 on both platforms
