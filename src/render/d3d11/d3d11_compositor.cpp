@@ -443,8 +443,8 @@ FitRect aspectFit(float dstW, float dstH, float srcW, float srcH)
 // is mixed toward Theme.bg (#161616) by `strength`. Strength defaults:
 //   Black        0.0 — solid black everywhere (plain-black viewers)
 //   DarkGray     1.0 — #1f1f1f inside the media, #161616 outside
-//   DarkChecker  1.0
-//   LightChecker 1.0
+//   DarkChecker  0.7 — the checker ghosts through the grey outside
+//   LightChecker 0.7   (chris, 2.3.2)
 // Tunable at launch via QCV_BOUNDS_MIX ("0.7" applies to all four;
 // "1.0,0.5,1.0,0.7" is per mode: black, darkgray, darkChecker,
 // lightChecker). NOTE: macOS still has the earlier policy (black
@@ -459,7 +459,7 @@ struct BoundsPolicy {
 const std::array<float, 4> &boundsStrengths()
 {
     static const std::array<float, 4> strengths = [] {
-        std::array<float, 4> s = { 0.0f, 1.0f, 1.0f, 1.0f };   // tuned 2026-09-15
+        std::array<float, 4> s = { 0.0f, 1.0f, 0.7f, 0.7f };   // tuned 2026-09-15
         const QByteArray env = qgetenv("QCV_BOUNDS_MIX");
         if (!env.isEmpty()) {
             const QList<QByteArray> parts = env.split(',');
