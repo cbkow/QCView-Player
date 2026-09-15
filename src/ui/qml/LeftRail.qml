@@ -1592,9 +1592,11 @@ Rectangle {
                                 { id: 0, label: qsTr("Black"),       checker: false,
                                   c1: "#000000", c2: "#000000" },
                                 { id: 1, label: qsTr("Dark Gray"),   checker: false,
-                                  // #161616 = Theme.bg; keep matched
-                                  // with the compositors' bgMode 1.
-                                  c1: "#161616", c2: "#161616" },
+                                  // #1f1f1f = Theme.toolbar, the fill
+                                  // INSIDE the media for bgMode 1
+                                  // (outside falls to #161616); keep
+                                  // matched with both compositors.
+                                  c1: "#1f1f1f", c2: "#1f1f1f" },
                                 { id: 2, label: qsTr("Dark Check"),  checker: true,
                                   // 30/255 vs 20/255, matching the
                                   // shader's sRGB output in

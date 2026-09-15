@@ -314,9 +314,11 @@ fragment float4 bg_fs(VsOut in [[stage_in]],
     if (u.mode == 0) {
         fill = float3(0.0);
     } else if (u.mode == 1) {
-        // 22/255 = 0.0863 — #161616, Theme.bg (the rails' well tone;
-        // was 27/255 #1B1B1B, the old app default)
-        fill = float3(0.0863);
+        // 31/255 = 0.1216 — #1f1f1f, Theme.toolbar. The media
+        // footprint takes the chrome's alt grey; the outside falls to
+        // Theme.bg #161616 like every other mode (chris flipped the
+        // greys 2026-09-15 during the Windows retune; matches D3D11).
+        fill = float3(0.1216);
     } else {
         // Checkerboard — pixel-coord based so tile size is constant
         // regardless of the drawable's logical aspect.
@@ -772,16 +774,17 @@ void MetalCompositor::renderCornerOverlay(void *encoderPtr,
 namespace {
 
 // Media-bounds fill policy, per BackgroundMode (index = mode):
-// outside the media rect the fill is mixed toward `target` by
-// `strength`. Target is Theme.bg (#161616) for every mode except
-// DarkGray — which IS Theme.bg, so it lifts toward Theme.toolbar
-// (#1f1f1f) instead, the chrome's alt grey one step up.
-// Default strength is 1.0 everywhere (sides take the target color
-// outright — tuned with chris 2026-09-15). Tunable at launch via
-// QCV_BOUNDS_MIX ("0.7" applies to all four; "1.0,0.5,1.0,0.7" is
-// per mode: black, darkgray, darkChecker, lightChecker).
-constexpr float kThemeBg     = 22.0f / 255.0f;   // #161616 Theme.bg
-constexpr float kThemeToolbar = 31.0f / 255.0f;  // #1f1f1f Theme.toolbar
+// outside the media rect the fill is mixed toward `target` (always
+// Theme.bg #161616) by `strength`. Policy after the 2026-09-15 retune
+// with chris (identical on D3D11, see d3d11_compositor.cpp):
+//   Black        0.0 — solid black everywhere, no bounds cue (some
+//                      viewers want plain black)
+//   DarkGray     1.0 — #1f1f1f inside the media, #161616 outside
+//   DarkChecker  0.7 — checker ghosts through the grey outside
+//   LightChecker 0.7
+// Tunable at launch via QCV_BOUNDS_MIX ("0.7" applies to all four;
+// "0,1,0.7,0.7" is per mode: black, darkgray, darkChecker, lightChecker).
+constexpr float kThemeBg = 22.0f / 255.0f;   // #161616 Theme.bg
 
 struct BoundsPolicy {
     float target[3];
@@ -791,7 +794,7 @@ struct BoundsPolicy {
 const std::array<float, 4> &boundsStrengths()
 {
     static const std::array<float, 4> strengths = [] {
-        std::array<float, 4> s = { 1.0f, 1.0f, 1.0f, 1.0f };   // tuned 2026-09-15
+        std::array<float, 4> s = { 0.0f, 1.0f, 0.7f, 0.7f };   // tuned 2026-09-15
         const QByteArray env = qgetenv("QCV_BOUNDS_MIX");
         if (!env.isEmpty()) {
             const QList<QByteArray> parts = env.split(',');
@@ -819,8 +822,7 @@ BoundsPolicy boundsPolicyFor(int mode)
 {
     const int m = std::max(0, std::min(3, mode));
     BoundsPolicy p;
-    const float t = (m == 1) ? kThemeToolbar : kThemeBg;
-    p.target[0] = p.target[1] = p.target[2] = t;
+    p.target[0] = p.target[1] = p.target[2] = kThemeBg;
     p.strength  = boundsStrengths()[static_cast<size_t>(m)];
     return p;
 }

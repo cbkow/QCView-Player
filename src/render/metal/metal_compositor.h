@@ -157,7 +157,8 @@ public:
     // Drawn before the source pass so letterbox/pillarbox area
     // shows the chosen background. Modes:
     //   0 Black            — solid (0,0,0)
-    //   1 DarkGray         — solid (~0.105) old app DEFAULT
+    //   1 DarkGray         — #1f1f1f (Theme.toolbar) inside the media,
+    //                        #161616 outside; old app DEFAULT
     //   2 DarkCheckerboard — 30/20 IRE tiles
     //   3 LightCheckerboard— 200/UI_LIGHT_GRAY tiles
     // tilePixels controls the checker tile size at 1:1 device-pixel

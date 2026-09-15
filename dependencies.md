@@ -506,7 +506,9 @@ add-on spawns this binary — audit its command lines before shipping a
 **Open after the media-bounds viewport fill (macOS `a0c6725a`, Windows
 2026-09-15; HANDOFF-Windows.md retired):**
 
-- Checker tile size differs: Metal 20 pt × contentsScale, D3D11 fixed 32 px.
+- Checker tiles differ: Metal 20 pt × contentsScale at 30/20 (dark) and
+  200/178 (light); D3D11 fixed 32 px at 46/31 and 204/179. The 0.7 ghost
+  outside the media therefore reads #18/#15 on macOS vs #19/#1d on Windows.
 - `computeDualViewLayout` in `src/render/dual_view_layout.cpp` has no callers.
 - macOS only: the Metal annotation renderer writes sRGB stroke / safety
   colours into linear EDR drawables (D3D11 encodes them via F.2.9, now
