@@ -159,8 +159,8 @@ public:
     //   0 Black            — solid (0,0,0)
     //   1 DarkGray         — #1f1f1f (Theme.toolbar) inside the media,
     //                        #161616 outside; old app DEFAULT
-    //   2 DarkCheckerboard — 30/20 IRE tiles
-    //   3 LightCheckerboard— 200/UI_LIGHT_GRAY tiles
+    //   2 DarkCheckerboard — #2e2e2e / #1f1f1f tiles (matches D3D11)
+    //   3 LightCheckerboard— #cccccc / #b3b3b3 tiles (matches D3D11)
     // tilePixels controls the checker tile size at 1:1 device-pixel
     // mapping (caller passes layer.contentsScale-aware value).
     void renderBackground(void *encoder, int mode,

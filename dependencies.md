@@ -506,9 +506,11 @@ add-on spawns this binary — audit its command lines before shipping a
 **Open after the media-bounds viewport fill (macOS `a0c6725a`, Windows
 2026-09-15; HANDOFF-Windows.md retired):**
 
-- Checker tiles differ: Metal 20 pt × contentsScale at 30/20 (dark) and
-  200/178 (light); D3D11 fixed 32 px at 46/31 and 204/179. The 0.7 ghost
-  outside the media therefore reads #18/#15 on macOS vs #19/#1d on Windows.
+- Checker tile SIZE differs: Metal passes 20 pt × contentsScale (40 device
+  px on Retina, constant logical size); D3D11 hard-codes 32 device px, so
+  the tile shrinks visually as Windows DPI scaling rises (16 logical px at
+  200%). Fix on the Windows side: pass 20 × devicePixelRatio into the D3D11
+  shader like Metal does. Tile greys were matched to D3D11's on 2026-09-15.
 - `computeDualViewLayout` in `src/render/dual_view_layout.cpp` has no callers.
 - macOS only: the Metal annotation renderer writes sRGB stroke / safety
   colours into linear EDR drawables (D3D11 encodes them via F.2.9, now

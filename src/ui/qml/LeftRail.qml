@@ -1598,12 +1598,13 @@ Rectangle {
                                   // matched with both compositors.
                                   c1: "#1f1f1f", c2: "#1f1f1f" },
                                 { id: 2, label: qsTr("Dark Check"),  checker: true,
-                                  // 30/255 vs 20/255, matching the
-                                  // shader's sRGB output in
-                                  // metal_compositor.mm:209-210.
-                                  c1: "#1E1E1E", c2: "#141414" },
+                                  // Tile greys shared by both
+                                  // compositors (metal_compositor.mm
+                                  // bg_fs / d3d11_compositor.cpp
+                                  // backgroundColor).
+                                  c1: "#2e2e2e", c2: "#1f1f1f" },
                                 { id: 3, label: qsTr("Light Check"), checker: true,
-                                  c1: "#C8C8C8", c2: "#B2B2B2" },
+                                  c1: "#cccccc", c2: "#b3b3b3" },
                             ]
                             delegate: Rectangle {
                                 Layout.fillWidth: true

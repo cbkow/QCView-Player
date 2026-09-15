@@ -326,12 +326,13 @@ fragment float4 bg_fs(VsOut in [[stage_in]],
         int cx = int(floor(px.x / tile));
         int cy = int(floor(px.y / tile));
         bool even = ((cx + cy) & 1) == 0;
+        // Tile greys match D3D11's backgroundColor() (d3d11_compositor.cpp)
+        // so both platforms read identically: dark #2e2e2e / #1f1f1f,
+        // light #cccccc / #b3b3b3 (chris 2026-09-15).
         if (u.mode == 3) {
-            // Light checker: 200/255 vs ~UI_LIGHT_GRAY (~178/255)
-            fill = even ? float3(0.7843) : float3(0.6980);
+            fill = even ? float3(0.800) : float3(0.702);
         } else {
-            // Dark checker: 30/255 vs 20/255 — the most common review choice
-            fill = even ? float3(0.1176) : float3(0.0784);
+            fill = even ? float3(0.180) : float3(0.122);
         }
     }
 
