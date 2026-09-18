@@ -48,6 +48,10 @@ Once installed in **Applications**, QCView keeps itself up to date — it checks
 
 ## Version History
 
+What's new in 2.3.3
+
+- Fixed a regression bug in software decoding of intra-frame media.
+
 What's new in 2.3.2
 
 - Viewport background now shows the bounds of transparent media: the area outside the picture is tinted grey to create a letterbox/pillarbox shape around the media.
