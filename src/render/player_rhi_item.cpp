@@ -82,14 +82,16 @@ void uploadRgba8ImageToFp16(QRhiResourceUpdateBatch *batch,
         // 16-bit unsigned per channel → FP16. One multiply per channel.
         bytes.resize(n * 4 * sizeof(qfloat16));
         qfloat16 *dst = reinterpret_cast<qfloat16 *>(bytes.data());
-        const std::uint16_t *src =
-            reinterpret_cast<const std::uint16_t *>(img.constBits());
         constexpr float inv65535 = 1.0f / 65535.0f;
-        for (int i = 0; i < n; ++i) {
-            dst[i * 4 + 0] = qfloat16(src[i * 4 + 0] * inv65535);
-            dst[i * 4 + 1] = qfloat16(src[i * 4 + 1] * inv65535);
-            dst[i * 4 + 2] = qfloat16(src[i * 4 + 2] * inv65535);
-            dst[i * 4 + 3] = qfloat16(src[i * 4 + 3] * inv65535);
+        // Row-wise: swscale-produced images carry a padded pitch
+        // (decode/sws_rgba_image.h), so bytesPerLine() != width * 8.
+        const int rowVals = img.width() * 4;
+        for (int y = 0; y < img.height(); ++y) {
+            const std::uint16_t *src =
+                reinterpret_cast<const std::uint16_t *>(img.constScanLine(y));
+            for (int i = 0; i < rowVals; ++i) {
+                *dst++ = qfloat16(src[i] * inv65535);
+            }
         }
     } else {
         // 8-bit (or convert-to-8) path. Identical to the original
@@ -100,13 +102,14 @@ void uploadRgba8ImageToFp16(QRhiResourceUpdateBatch *batch,
         }
         bytes.resize(n * 4 * sizeof(qfloat16));
         qfloat16 *dst = reinterpret_cast<qfloat16 *>(bytes.data());
-        const uchar *p = src.constBits();
         constexpr float inv255 = 1.0f / 255.0f;
-        for (int i = 0; i < n; ++i) {
-            dst[i * 4 + 0] = qfloat16(p[i * 4 + 0] * inv255);
-            dst[i * 4 + 1] = qfloat16(p[i * 4 + 1] * inv255);
-            dst[i * 4 + 2] = qfloat16(p[i * 4 + 2] * inv255);
-            dst[i * 4 + 3] = qfloat16(p[i * 4 + 3] * inv255);
+        // Row-wise for the same reason as the RGBA64 branch.
+        const int rowVals = src.width() * 4;
+        for (int y = 0; y < src.height(); ++y) {
+            const uchar *p = src.constScanLine(y);
+            for (int i = 0; i < rowVals; ++i) {
+                *dst++ = qfloat16(p[i] * inv255);
+            }
         }
     }
     QRhiTextureSubresourceUploadDescription sub(

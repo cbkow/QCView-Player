@@ -2,6 +2,7 @@
 
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
+#include "decode/sws_rgba_image.h"  // swsAllocImage
 #include "decode/sws_threaded.h"
 #include "decode/seek_compat.h"
 #include "decode/stream_extent.h"
@@ -942,9 +943,11 @@ DualVideoDecoder::convertFrameToRgba(AVFrame *frame, int frameNumber)
     out->height      = src->height;
     out->kind        = DualFrame::Kind::Cpu;
     const bool sixteen = (m_swsDstFmt == AV_PIX_FMT_RGBA64LE);   // Phase J.1
-    out->rgba        = std::make_shared<QImage>(src->width, src->height,
-                                                  sixteen ? QImage::Format_RGBA64
-                                                          : QImage::Format_RGBA8888);
+    // Tail-padded allocation (see decode/sws_rgba_image.h).
+    out->rgba        = std::make_shared<QImage>(
+        qcv::swsAllocImage(src->width, src->height,
+                           sixteen ? QImage::Format_RGBA64
+                                   : QImage::Format_RGBA8888));
 
     if (qcv::swsConvertToBuffer(m_sws, src,
                                 static_cast<AVPixelFormat>(m_swsDstFmt), out->rgba->bits(),

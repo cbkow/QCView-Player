@@ -2,6 +2,7 @@
 
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
+#include "decode/sws_rgba_image.h"  // swsAllocImage
 #include "decode/sws_threaded.h"
 #include "decode/stream_extent.h"
 #include "decode/seek_compat.h"
@@ -1093,8 +1094,11 @@ void VideoDecoder::publishCpuFrame(AVFrame *frame)
     // Phase J.1 — QImage::Format_RGBA64 is 4 × uint16 RGBA, byte-identical
     // to AV_PIX_FMT_RGBA64LE and to DXGI R16G16B16A16_UNORM, so swscale
     // writes straight into the image and the renderer uploads it as is.
-    QImage rgba(frame->width, frame->height,
-                sixteen ? QImage::Format_RGBA64 : QImage::Format_RGBA8888);
+    // Tail-padded allocation — a bare QImage overflows on widths that are
+    // not a multiple of 16 (see decode/sws_rgba_image.h).
+    QImage rgba = qcv::swsAllocImage(frame->width, frame->height,
+                                     sixteen ? QImage::Format_RGBA64
+                                             : QImage::Format_RGBA8888);
     // Frame API → sliced across the context's threads (sws_scale with
     // raw pointers is always single-threaded).
     const auto swsT0 = std::chrono::steady_clock::now();

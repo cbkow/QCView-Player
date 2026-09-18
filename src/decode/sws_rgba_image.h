@@ -36,6 +36,40 @@ extern "C" {
 
 namespace qcv {
 
+// Destination pitch for every swscale → packed RGBA site: the row plus a
+// full 16-px SIMD block of padding, 64-byte aligned. The yuv420p → RGBA8
+// writer overshoots EVERY row by up to a block (32 bytes at 1080 wide), not
+// just the last one. With a tight pitch that lands in the next row's first
+// pixels — harmless single-threaded (the next row is written afterwards),
+// but under sliced threading the next slice's first row is already done, so
+// 8 garbage pixels survive at the left edge of each slice boundary (guard-
+// page harness 2026-09-18: 14 of 1920 rows differ 16 threads vs 1 at
+// 1080x1920; 0 with this pitch). Consumers must honour bytesPerLine().
+inline int swsPaddedStride(int w, int bytesPerPixel)
+{
+    return (w * bytesPerPixel + 16 * bytesPerPixel + 63) & ~63;
+}
+
+// swsAllocImage — a QImage for the CPU publish sites that convert in place
+// (playback / dual playback / live: swsConvertToBuffer into image.bits()).
+// Padded pitch + the same tail slack as swsFrameToRgbaImage. A bare QImage
+// here crashed the 2.3.2 Store build on software-decoded 1080x1920 H.264
+// (hardware decode off): packaged apps run on the segment heap, where the
+// 8.29 MB block ends on a page edge and the last row's overshoot faults;
+// the NT heap of an unpackaged build happens to leave slack there.
+// RGBA8888 / RGBA64 only.
+inline QImage swsAllocImage(int w, int h, QImage::Format format)
+{
+    if (w <= 0 || h <= 0) return {};
+    const int bpp = (format == QImage::Format_RGBA64) ? 8 : 4;
+    const std::size_t stride = static_cast<std::size_t>(swsPaddedStride(w, bpp));
+    // +1 row of trailing slack, see the header comment.
+    auto *buf = static_cast<uint8_t *>(av_malloc(stride * (h + 1)));
+    if (!buf) return {};
+    return QImage(buf, w, h, static_cast<qsizetype>(stride), format,
+                  [](void *p) { av_free(p); }, buf);
+}
+
 // `expandLegalRgb`: apply the RGB legal→full expansion after the scale
 // (see rgb_range.h) — callers pass rgbFrameNeedsLegalExpansion(yf, ov).
 inline QImage swsFrameToRgbaImage(SwsContext *sws, const AVFrame *yf,
@@ -45,7 +79,7 @@ inline QImage swsFrameToRgbaImage(SwsContext *sws, const AVFrame *yf,
     if (!sws || !yf || yf->width <= 0 || yf->height <= 0) return {};
     const int w = yf->width;
     const int h = yf->height;
-    const int stride = (w * 4 + 31) & ~31;   // 32-byte-aligned RGBA pitch
+    const int stride = swsPaddedStride(w, 4);   // row + SIMD block, see above
     // +1 row of trailing slack absorbs swscale's last-row block overshoot.
     const std::size_t bufSize = static_cast<std::size_t>(stride) * (h + 1);
     auto *buf = static_cast<uint8_t *>(av_malloc(bufSize));

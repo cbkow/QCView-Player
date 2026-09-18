@@ -1,6 +1,7 @@
 #include "live_stream_decoder.h"
 #include "video_decoder.h"
 #include "decode/rgb_range.h"   // Phase J.1 — cpuPublishPixelFormat
+#include "decode/sws_rgba_image.h"  // swsAllocImage
 #include "decode/sws_threaded.h"
 #if defined(Q_OS_WIN)
 #include "decode/d3d11va_hw_device_ctx.h"   // Phase K.2 — shared-device D3D11VA
@@ -525,9 +526,11 @@ void LiveStreamDecoder::publishFrame(AVFrame *frame, AVCodecContext *cctx,
         // geometry / format changes on its own.
         if (!*sws) *sws = qcv::swsCreateThreaded();
         if (!*sws) return;
-        QImage rgba(frame->width, frame->height,
-                    dstFmt == AV_PIX_FMT_RGBA64LE ? QImage::Format_RGBA64
-                                                  : QImage::Format_RGBA8888);
+        // Tail-padded allocation (see decode/sws_rgba_image.h).
+        QImage rgba = qcv::swsAllocImage(
+            frame->width, frame->height,
+            dstFmt == AV_PIX_FMT_RGBA64LE ? QImage::Format_RGBA64
+                                          : QImage::Format_RGBA8888);
         if (qcv::swsConvertToBuffer(*sws, frame, dstFmt, rgba.bits(),
                                     int(rgba.bytesPerLine())) < 0) {
             return;
