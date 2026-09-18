@@ -123,3 +123,8 @@ installer/msix/dist/
 installer/sideload/
 external/Sparkle/
 sparkle_private_key*.txt
+
+# Parked-idea write-ups. Investigation notes for things we looked at but did
+# not schedule — kept on disk so the research isn't lost, deliberately not
+# committed (they're thinking-in-progress, not project documentation).
+/ideas/
