@@ -42,7 +42,8 @@
 
 #pragma once
 
-#include <QObject>
+#include "decode/live_source.h"
+
 #include <QString>
 #include <atomic>
 #include <condition_variable>
@@ -61,81 +62,56 @@ namespace qcv {
 
 class VideoDecoder;
 
-class LiveStreamDecoder : public QObject
+// The QML-facing surface (properties, Status, signals) lives on LiveSource.
+class LiveStreamDecoder : public LiveSource
 {
     Q_OBJECT
-    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
-    Q_PROPERTY(QString url READ url CONSTANT)
-    Q_PROPERTY(int width READ width NOTIFY metadataChanged)
-    Q_PROPERTY(int height READ height NOTIFY metadataChanged)
-    Q_PROPERTY(QString codecName READ codecName NOTIFY metadataChanged)
-    Q_PROPERTY(QString pixelFormatName READ pixelFormatName NOTIFY metadataChanged)
-    Q_PROPERTY(bool hasAudio READ hasAudio NOTIFY metadataChanged)
-    Q_PROPERTY(int reconnectCount READ reconnectCount NOTIFY statusChanged)
 
 public:
-    enum Status : int {
-        Idle         = 0,   // constructed / closed
-        Connecting   = 1,   // first connection attempt in progress
-        Live         = 2,   // frames flowing
-        Reconnecting = 3,   // stream dropped / sender gone; retrying
-    };
-    Q_ENUM(Status)
-
     explicit LiveStreamDecoder(QObject *parent = nullptr);
     ~LiveStreamDecoder() override;
 
-    // Must be set before open(). The sink must outlive this object's
-    // close() — WindowManager owns both and tears down in that order.
-    void setSink(VideoDecoder *sink) { m_sink = sink; }
+    void setSink(VideoDecoder *sink) override { m_sink = sink; }
 
-    // Invoked (from the worker thread) after every published frame.
-    // WindowManager installs the renderer's requestUpdate here so the
-    // D3D11 render-on-demand loop wakes per frame (Metal free-runs and
-    // doesn't need it). Same cross-thread contract as the dual
-    // sources' setFrameAvailableCallback.
-    void setFrameCallback(std::function<void()> cb);
+    // WindowManager installs the renderer's requestUpdate here (see
+    // LiveSource). Same cross-thread contract as the dual sources'
+    // setFrameAvailableCallback.
+    void setFrameCallback(std::function<void()> cb) override;
 
-    bool open(const QString &url);
-    void close();
+    bool open(const QString &url) override;
+    void close() override;
 
-    Status  status() const {
+    Status  status() const override {
         return static_cast<Status>(m_status.load(std::memory_order_acquire));
     }
-    QString url() const { return m_url; }
-    int     width() const { return m_width.load(std::memory_order_acquire); }
-    int     height() const { return m_height.load(std::memory_order_acquire); }
-    bool    hasAudio() const { return m_hasAudio.load(std::memory_order_acquire); }
-    int     reconnectCount() const {
+    QString url() const override { return m_url; }
+    int     width() const override { return m_width.load(std::memory_order_acquire); }
+    int     height() const override { return m_height.load(std::memory_order_acquire); }
+    bool    hasAudio() const override { return m_hasAudio.load(std::memory_order_acquire); }
+    int     reconnectCount() const override {
         return m_reconnects.load(std::memory_order_acquire);
     }
     qint64  framesReceived() const {
         return m_framesReceived.load(std::memory_order_acquire);
     }
-    QString codecName() const;
-    QString pixelFormatName() const;
+    QString codecName() const override;
+    QString pixelFormatName() const override;
 
     // Polled by the live strip's 1 s QML Timer (deltas → fps/Mbps).
-    // Deliberately Q_INVOKABLE not Q_PROPERTY: per-packet NOTIFY
-    // signals would be pure churn.
-    Q_INVOKABLE double statFramesReceived() const {
+    double statFramesReceived() const override {
         return double(m_framesReceived.load(std::memory_order_acquire));
     }
-    Q_INVOKABLE double statBytesReceived() const {
+    double statBytesReceived() const override {
         return double(m_bytesReceived.load(std::memory_order_acquire));
     }
     // Frames decoded but not published because the loop was draining
     // backlog to the live edge. A steadily climbing value means the
     // receiver can't keep up with the stream in real time.
-    Q_INVOKABLE double statFramesConflated() const {
+    double statFramesConflated() const override {
         return double(m_framesConflated.load(std::memory_order_acquire));
     }
     // Seconds since this session went Live; 0 when not live.
-    Q_INVOKABLE int statLiveSeconds() const;
-
-signals:
-    void statusChanged();
-    void metadataChanged();
+    int statLiveSeconds() const override;
 
 private:
     // Worker internals — all run on m_thread.

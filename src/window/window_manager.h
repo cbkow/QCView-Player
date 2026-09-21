@@ -284,7 +284,7 @@ class WindowManager : public QObject
     // status / dims / codec / received pix_fmt / reconnect count
     // directly; null when live mode is off.
     Q_PROPERTY(bool liveActive READ liveActive NOTIFY liveActiveChanged)
-    Q_PROPERTY(qcv::LiveStreamDecoder *liveDecoder READ liveDecoder
+    Q_PROPERTY(qcv::LiveSource *liveDecoder READ liveDecoder
                NOTIFY liveDecoderChanged)
     // Phase 7.4.b.4 — pull-model: the cache itself, exposed to QML
     // so the PlayerWindow.qml binding can forward it to
@@ -669,7 +669,7 @@ public:
 
     bool imageSeqActive() const { return m_imageSeqActive; }
     bool liveActive() const { return m_liveActive; }
-    LiveStreamDecoder *liveDecoder() const { return m_liveDecoder.get(); }
+    LiveSource *liveDecoder() const { return m_liveDecoder.get(); }
     bool audioActive()    const { return m_audioActive; }
     ImageSequenceCache *imageSeqCache() const { return m_imageSeqCache.get(); }
 
@@ -1644,7 +1644,7 @@ private:
     // startLiveStream, destroyed in stopLiveStream (close() joins the
     // worker BEFORE anything downstream tears down — the live worker
     // publishes into m_videoDecoder's slot, so it must stop first).
-    std::unique_ptr<LiveStreamDecoder>    m_liveDecoder;
+    std::unique_ptr<LiveSource>           m_liveDecoder;   // SRT decoder or QCBridgeAE ring reader
     bool                                  m_liveActive          = false;
 
     // True while startImageSequence is mid-flight (the brief gap

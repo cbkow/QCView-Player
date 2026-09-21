@@ -21,6 +21,7 @@ qt_add_library(qcv_decode STATIC
     stream_extent.h
     seek_compat.h
     sws_rgba_image.h
+    live_source.h
     live_stream_decoder.cpp
     live_stream_decoder.h
     scrub_frame_cache.cpp

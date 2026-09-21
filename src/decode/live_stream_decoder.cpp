@@ -77,7 +77,7 @@ AVPixelFormat liveGetFormat(AVCodecContext *ctx, const AVPixelFormat *fmts)
 } // namespace
 
 LiveStreamDecoder::LiveStreamDecoder(QObject *parent)
-    : QObject(parent)
+    : LiveSource(parent)
 {
 }
 
