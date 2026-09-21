@@ -267,8 +267,16 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     // when entering modes where annotations are disabled (dual /
     // playlist).
     if (m_project) {
+        // Queued, not direct: setActiveItem emits activeItemIdChanged and
+        // then loadRequested back to back, and the load handler is where
+        // the old mode is torn down. Run directly, the sync read the OLD
+        // item's m_playlistActive / m_dualController — going playlist or
+        // dual -> video it cleared the notes, and nothing loaded the new
+        // video's afterwards (this was its only caller). Queued, it runs
+        // once the new item's mode is in place.
         connect(m_project, &ProjectManager::activeItemIdChanged,
-                this, &WindowManager::syncAnnotationManagerToActiveMedia);
+                this, &WindowManager::syncAnnotationManagerToActiveMedia,
+                Qt::QueuedConnection);
         // Phase 7.6 — Recent lists. Each successful media add or
         // project save / open bumps the path to the top of its
         // list (capped to 10).
@@ -422,8 +430,11 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     connect(this, &WindowManager::compositorModeChanged,
             this, &WindowManager::annotationsAllowedChanged);
     if (m_project) {
+        // Queued for the same reason as the annotation sync above: QML
+        // re-reads annotationsAllowed, which must see the new mode.
         connect(m_project, &ProjectManager::activeItemIdChanged,
-                this, &WindowManager::annotationsAllowedChanged);
+                this, &WindowManager::annotationsAllowedChanged,
+                Qt::QueuedConnection);
         // activeItem switches can change the audio-routing scope
         // (single mode: scope IS the active item; entering playlist
         // mode: scope flips to the active playlist clip). Playlist
