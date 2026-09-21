@@ -51,6 +51,12 @@ Pane {
     readonly property bool playlistActive:
         WindowManager.timeline
         && WindowManager.timeline.sourceMode === 1
+    // Live sources (srt://, QCBridge qcbae://) are blocked from dual view
+    // in C++ (setCompositorMode / setBSource refuse them) — the controls
+    // hid nothing and a click was silently refused. Same treatment as a
+    // playlist: only the A chip remains.
+    readonly property bool dualUnavailable:
+        playlistActive || WindowManager.liveActive
 
     function autoSaveName() {
         const proj = WindowManager.project;
@@ -240,7 +246,11 @@ Pane {
                     if (!drop.hasUrls || !WindowManager.project) return;
                     const u = WindowManager.urlToOsPath(drop.urls[0]);
                     if (!u) return;
-                    const id = WindowManager.project.addMediaFile(u);
+                    // Live URLs route to addLiveStream (see PlayerWindow's
+                    // viewport drop).
+                    const id = u.indexOf("://") >= 0
+                        ? WindowManager.project.addLiveStream(u, "")
+                        : WindowManager.project.addMediaFile(u);
                     if (id) {
                         WindowManager.project.setActiveItem(id);
                     } else {
@@ -281,7 +291,7 @@ Pane {
 
         Rectangle {
             id: bChip
-            visible: !root.playlistActive
+            visible: !root.dualUnavailable
             Layout.preferredWidth: visible ? 240 : 0
             Layout.preferredHeight: 24
             readonly property bool bLoaded:
@@ -449,7 +459,7 @@ Pane {
         // Raised idle + accent-when-checked = segmented control
         // (checked wins over the raised fill in FlatButton's pal).
         FlatButton {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
             iconName: "square"
@@ -459,7 +469,7 @@ Pane {
             onClicked: WindowManager.compositorMode = 0
         }
         FlatButton {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
             iconName: "square-split-horizontal"
@@ -469,7 +479,7 @@ Pane {
             onClicked: WindowManager.compositorMode = 1
         }
         FlatButton {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
             iconName: "split-horizontal"
@@ -479,7 +489,7 @@ Pane {
             onClicked: WindowManager.compositorMode = 2
         }
         FlatButton {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
             iconName: "exclude"
@@ -496,7 +506,7 @@ Pane {
         // the main action while editing an existing saved view.
         FlatButton {
             id: updateDualBtn
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
                      && WindowManager.compositorMode !== 0
                      && WindowManager.dualController
                      && root.isSavedDualView
@@ -518,7 +528,7 @@ Pane {
         // the Update button to its left handles overwrite).
         FlatButton {
             id: saveDualBtn
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
                      && WindowManager.compositorMode !== 0
                      && WindowManager.dualController
             variant: "raised"
@@ -537,7 +547,7 @@ Pane {
 
         // ---- Split slider (Split-Wipe only).
         FlatSlider {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
                      && WindowManager.compositorMode === 2
             Layout.preferredWidth: 160
             Layout.preferredHeight: 26
@@ -549,7 +559,7 @@ Pane {
         // Recessed readout chip — shared slider-readout treatment
         // (Safety Guides / brightness).
         Rectangle {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
                      && WindowManager.compositorMode === 2
             Layout.preferredWidth: 36
             Layout.preferredHeight: 16
@@ -569,7 +579,7 @@ Pane {
         // Adobe-style abs(A−B); higher amplifies subtle diffs (stays
         // black where aligned).
         FlatSlider {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
                      && WindowManager.compositorMode === 3
             Layout.preferredWidth: 160
             Layout.preferredHeight: 26
@@ -579,7 +589,7 @@ Pane {
             onValueChanged: WindowManager.diffGain = value
         }
         Rectangle {
-            visible: !root.saveMode && !root.playlistActive
+            visible: !root.saveMode && !root.dualUnavailable
                      && WindowManager.compositorMode === 3
             Layout.preferredWidth: 36
             Layout.preferredHeight: 16
