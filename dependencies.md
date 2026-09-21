@@ -220,14 +220,19 @@ rebuilt from source on each dev machine / version bump.
   0 / 2^n−1 → full, 16·2^(n−8) / 235·2^(n−8) → limited. Feeds the
   Inspector's Range-tag row and the Range pill's Auto. Windows carries
   it too since 2026-08-20 (v2.2.7), same as above.
-- **Codec deps** are pre-built **static** archives already in
-  `external/install/lib` (`libx264/libx265/libdav1d/libvpx/libmp3lame/`
-  `libopus/libSvtAv1Enc.a`) with matching `.pc` files in
-  `external/install/lib/pkgconfig` (note: `x265.pc` is vendored there too,
-  since FFmpeg's configure requires pkg-config for libx265).
+- **Codec deps** are **static** archives in `external/install/lib`
+  (`libx264/libx265/libdav1d/libvpx/libmp3lame/libopus/libSvtAv1Enc.a`)
+  with `.pc` files in `external/install/lib/pkgconfig`. Built from source
+  with pinned versions — recipe in "macOS: static codec libraries" below.
+  (Until 2026-09-21 they had no recipe: they were pre-built on the old dev
+  machine and lost with it.)
 
 **Re-build** (run from repo root; reuses the in-tree static codec deps,
 overwrites the `libav*`/`libsw*` dylibs + headers in `external/install/`):
+*(Under the toolchain note in "macOS: static codec libraries", also export
+`SDKROOT` and add `--sysroot="$SDKROOT"` and `-isysroot $SDKROOT` to both
+`--extra-cflags` and `--extra-ldflags`. Built that way 2026-09-21: all three
+patches applied cleanly, sonames 63/61/63/12/63/7/10, `srt` in+out, no fdk.)*
 
 ```bash
 INSTALL="$PWD/external/install"
@@ -269,6 +274,95 @@ the `ffmpeg` CLI — QCView ships it and acts as the suite's ffmpeg
 provider (see `toolbox.json`). avfoundation input devices ride along via
 libavdevice (autodetected on macOS) for the qcbridge mac-replica encoder
 fallback.
+
+#### macOS: static codec libraries (vendored, in-tree)
+
+Built 2026-09-21 on a new dev machine, because the previous set existed
+only as pre-built archives on the old one. Every lib is **static, arm64,
+minos 13.0**, installed into `external/install/`. Pins are each project's
+latest stable release on that date (none had been recorded before):
+
+| Lib | Pin | Source | Build system |
+|---|---|---|---|
+| x264 | `stable` @ `b35605ace3ddf7c1a5d67a2eb553f034aef41d55` (no release tags upstream) | code.videolan.org/videolan/x264 | configure |
+| x265 | `4.2` | bitbucket.org/multicoreware/x265_git | CMake |
+| dav1d | `1.5.4` | code.videolan.org/videolan/dav1d | Meson |
+| libvpx | `v1.17.0` | chromium.googlesource.com/webm/libvpx | configure |
+| LAME | `3.100` (last release, 2017) | sourceforge tarball | configure |
+| opus | `v1.6.1` | github.com/xiph/opus | CMake |
+| SVT-AV1 | `v4.2.0` | gitlab.com/AOMediaCodec/SVT-AV1 | CMake |
+
+Tools: `brew install nasm meson ninja pkgconf` (plus CMake).
+
+**Toolchain note — only if the CLT's newest SDK is newer than its linker.**
+On a machine with Command Line Tools 26.6 that also carry a macOS 27.0 SDK,
+the 26.6 linker cannot read the 27.0 `.tbd` files (`tapi error: unknown
+architecture`), and anything that picks the newest SDK fails to link.
+Pin the SDK for every build below (`SDKROOT` + `-isysroot` / 
+`CMAKE_OSX_SYSROOT` / FFmpeg `--sysroot`). libvpx asks
+`xcrun --sdk macosx --show-sdk-path` itself, and `xcrun` ignores `SDKROOT`
+when `--sdk` is explicit, so it needs a shim (below). On a machine whose SDK
+and linker agree, drop all of this.
+
+```bash
+# run from repo root (zsh). The SDK lines are the toolchain note above.
+PREFIX="$PWD/external/install"; SRC="$PWD/external/source"
+export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
+export MACOSX_DEPLOYMENT_TARGET=13.0 PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+ARCH="-arch arm64 -mmacosx-version-min=13.0 -isysroot $SDKROOT"
+CM=(-G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX"
+    -DCMAKE_PREFIX_PATH="$PREFIX" -DCMAKE_OSX_SYSROOT="$SDKROOT"
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DCMAKE_OSX_ARCHITECTURES=arm64)
+
+# x264
+git clone https://code.videolan.org/videolan/x264.git "$SRC/x264" && cd "$SRC/x264"
+git checkout b35605ace3ddf7c1a5d67a2eb553f034aef41d55
+./configure --prefix="$PREFIX" --enable-static --disable-shared --enable-pic --disable-cli \
+  --extra-cflags="$ARCH" --extra-ldflags="$ARCH" && make -j && make install
+
+# x265 — its CMake predates 3.5; CMake 4 needs the policy floor
+git clone --depth 1 --branch 4.2 https://bitbucket.org/multicoreware/x265_git.git "$SRC/x265" && cd "$SRC/x265"
+cmake -S source -B build "${CM[@]}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DENABLE_SHARED=OFF -DENABLE_CLI=OFF
+cmake --build build && cmake --install build          # installs x265.pc
+
+# dav1d
+git clone --depth 1 --branch 1.5.4 https://code.videolan.org/videolan/dav1d.git "$SRC/dav1d" && cd "$SRC/dav1d"
+meson setup build --prefix="$PREFIX" --libdir=lib --buildtype=release --default-library=static \
+  -Denable_tools=false -Denable_tests=false -Dc_args="$ARCH" -Dc_link_args="$ARCH"
+ninja -C build install
+
+# libvpx — shim xcrun's SDK query (toolchain note), then configure
+mkdir -p "$SRC/.xcrun-shim"
+printf '#!/bin/sh\nif [ "$1" = --sdk ] && [ "$2" = macosx ] && [ "$3" = --show-sdk-path ]; then echo "%s"; exit 0; fi\nexec /usr/bin/xcrun "$@"\n' "$SDKROOT" > "$SRC/.xcrun-shim/xcrun"
+chmod +x "$SRC/.xcrun-shim/xcrun"
+git clone --depth 1 --branch v1.17.0 https://chromium.googlesource.com/webm/libvpx "$SRC/libvpx" && cd "$SRC/libvpx"
+PATH="$SRC/.xcrun-shim:$PATH" ./configure --prefix="$PREFIX" --enable-static --disable-shared --enable-pic \
+  --enable-vp9-highbitdepth --disable-examples --disable-tools --disable-docs --disable-unit-tests \
+  --extra-cflags="$ARCH" --extra-cxxflags="$ARCH"
+PATH="$SRC/.xcrun-shim:$PATH" make -j && make install
+
+# LAME 3.100 — drop lame_init_old from the export list (macOS ld rejects it; Homebrew does the same)
+mkdir -p "$SRC/lame" && cd "$SRC/lame"
+curl -fsSL https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz | tar xz --strip-components 1
+sed -i '' '/lame_init_old/d' include/libmp3lame.sym
+CFLAGS="$ARCH" LDFLAGS="$ARCH" ./configure --prefix="$PREFIX" --enable-static --disable-shared \
+  --disable-frontend --enable-nasm && make -j && make install     # no .pc; FFmpeg finds it by check_lib
+
+# opus
+git clone --depth 1 --branch v1.6.1 https://github.com/xiph/opus.git "$SRC/opus" && cd "$SRC/opus"
+cmake -S . -B build "${CM[@]}" -DBUILD_SHARED_LIBS=OFF -DOPUS_BUILD_TESTING=OFF -DOPUS_BUILD_PROGRAMS=OFF -DBUILD_TESTING=OFF
+cmake --build build && cmake --install build
+
+# SVT-AV1
+git clone --depth 1 --branch v4.2.0 https://gitlab.com/AOMediaCodec/SVT-AV1.git "$SRC/svt-av1" && cd "$SRC/svt-av1"
+cmake -S . -B build "${CM[@]}" -DBUILD_SHARED_LIBS=OFF -DBUILD_APPS=OFF -DBUILD_TESTING=OFF
+cmake --build build && cmake --install build
+```
+
+Verify: every archive is arm64 with `minos 13.0` —
+`for a in external/install/lib/lib{x264,x265,dav1d,vpx,mp3lame,opus,SvtAv1Enc}.a; do lipo -archs $a; otool -l $a | grep -A3 LC_BUILD_VERSION | grep minos | sort -u; done`.
+FFmpeg n9.0.1's `--enable-libsvtav1` configured and built cleanly against
+SVT-AV1 4.2.0.
 
 #### macOS: libsrt 1.5.6 + mbedTLS 3.6.7 (vendored static, SRT transport)
 
@@ -859,5 +953,6 @@ If the bump touches OCIO's profile version, update Guide 05 §12's
 | 2026-08-20 | Windows FFmpeg: BtbN prebuilt `n8.1.2-20260624` → **self-built BtbN-recipe** `n8.1.2-44-g7c533d0f86-20260820` (WSL2+Docker, same toolchain image/flags/DLL majors) so Windows carries the two local patches (`external/patches/ffmpeg/`: DNxHR 444 ACT + untagged-limited convention, MXF RGBA range). Patches must be re-applied on every refresh — recipe in §Windows above. See `dependencies-changelog.md`. | Chris |
 | 2026-09-08 | FFmpeg 9.0 investigated on branch `ffmpeg-9` (NOT adopted; pin stays `n8.1.2`): all library majors bump (61/63/63/63/12/10/7); app needed one source change (`av_opt_set_int_list` → `av_opt_set_array`, dual-version safe) + DLL names derived from pkg-config; patch 0001 regenerated to sync `sw_pix_fmt` (9.0 probe-label interaction); `n9.0.1` built into `external/install-ff9/` and the app built/linked via new `QCV_FFMPEG_PREFIX`. Details + remaining steps in §2 "FFmpeg 9.0 — migration status". | Claude |
 | 2026-09-09 | **FFmpeg `n8.1.2` → `n9.0.1` on both platforms** (Windows 2.3.0 shipped 2026-09-08 on the BtbN-recipe 9.0.1 build with patches 0001–0003; macOS `external/install/` rebuilt 2026-09-09, 8.1.2 parked). All sonames/DLL majors change (63/61/63/12/63/7/10). New patch 0003 (ProRes RAW Bayer patterns). See §2 "FFmpeg 9.0 — migration status" and `dependencies-changelog.md`. | Chris (Win) / Claude (mac) |
+| 2026-09-21 | **macOS `external/install/` rebuilt from source on a new dev machine** (the old one, and its pre-built codec archives, are gone). Static codec libs now have pins and a recipe for the first time — x264 stable@b35605ac, x265 4.2, dav1d 1.5.4, libvpx v1.17.0, LAME 3.100, opus v1.6.1, SVT-AV1 v4.2.0 (§2 "macOS: static codec libraries"); mbedTLS 3.6.7 + libsrt 1.5.6 and FFmpeg `n9.0.1` + patches 0001–0003 per the existing recipes. Toolchain note for a CLT whose newest SDK outruns its linker. Patch *decode* verification (CW ACT clip framemd5) pending — clip not on this machine. | Claude |
 
 (Append future bumps here.)
