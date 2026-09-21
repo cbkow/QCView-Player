@@ -292,8 +292,14 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             setActiveDualViewId({});
             if (m_compositorMode != 0 || m_dualController) {
                 tearDownDualIslandToSingleState();
-                closeActiveMedia();
             }
+            // The old project's media must stop too, not only its dual
+            // view: New Project emits no loadRequested, so a live source
+            // kept its worker (and, for SRT, its socket) and a video kept
+            // decoding into an empty project. For an opened project the
+            // restored item's load calls closeActiveMedia() again, which
+            // is idempotent.
+            closeActiveMedia();
         });
 
         // Viewport-notice reconciliation. onVideoMetadataReady re-fires
