@@ -3902,6 +3902,15 @@ void WindowManager::startLiveStream(const MediaItem &item)
         return;
     }
 
+    // The sink is borrowed, not opened, so nothing resets its per-clip
+    // state for us: a Full/Limited range override left by the previous
+    // video item would otherwise apply to every live frame (Metal reads
+    // it per frame for VideoToolbox YUV frames). Live has no range pill.
+    // setRangeOverride's re-decode nudge is inert here: the sink was
+    // close()d (currentFrame -1), or the override is already 0.
+    if (m_videoDecoder->rangeOverride() != 0)
+        m_videoDecoder->setRangeOverride(0);
+
     m_liveDecoder = std::make_unique<LiveStreamDecoder>();
     m_liveDecoder->setSink(m_videoDecoder);
 
