@@ -200,6 +200,13 @@ public:
     // immediately). Updates currentFrame and emits frameAvailable.
     void publishExternalFrame(FrameHandle handle, int64_t pts);
 
+    // Drops whatever sits in the publish slot, unconsumed. For external
+    // publishers that stop without close(): a live source's final frame
+    // could otherwise be fetched after its session ended and drawn over
+    // the next source's background. close() already does this; a live
+    // session never calls it because the sink has no sourcePath.
+    void clearPublishedFrame();
+
     // Soft decode error — increments the count, sets lastDecodeError,
     // emits decodeHealthChanged. Public so ScrubDecoder can register
     // errors against the same health surface (users see one unified

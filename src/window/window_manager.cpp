@@ -3935,6 +3935,13 @@ void WindowManager::stopLiveStream()
     // the next source's first publish) replaces the last frame.
     m_liveDecoder->close();
     m_liveDecoder.reset();
+
+    // ...but the slot itself may still hold the session's final frame,
+    // published and not yet fetched. closeActiveMedia() skips the
+    // sink's close() (its sourcePath is empty during live), so without
+    // this the renderer could fetch that frame after clearSourceAState
+    // and draw one stale frame over the next source's background.
+    if (m_videoDecoder) m_videoDecoder->clearPublishedFrame();
     emit liveDecoderChanged();
 
     if (m_liveActive) {

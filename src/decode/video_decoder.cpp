@@ -1306,6 +1306,14 @@ void VideoDecoder::publishExternalFrame(FrameHandle handle, int64_t pts)
     m_paceBaselineSet = false;   // streaming pacing has lost coherence with slot
 }
 
+void VideoDecoder::clearPublishedFrame()
+{
+    // fetchLatest treats an invalid slot as "nothing new" and catches its
+    // sequence up, so the sequence counter needs no change here.
+    std::lock_guard<std::mutex> lk(m_publishMutex);
+    m_publishedFrame.reset();
+}
+
 void VideoDecoder::publishHandle(FrameHandle handle, int64_t pts, bool pace)
 {
     // FPS pacing — only when actively playing AND the caller asked
