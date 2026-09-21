@@ -985,7 +985,20 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         // viewport notice instead of a black/stale frame.
         const bool knownUnsupported =
             item.video.loaded && item.video.unsupportedCodec;
-        if (knownUnsupported || !m_videoDecoder->open(item.path)) {
+        const bool opened = !knownUnsupported && m_videoDecoder->open(item.path);
+        if (!opened && item.type == MediaType::Audio) {
+            // Audio-only media has no video stream by definition, so open()
+            // "fails" — but it has already announced the path
+            // (sourcePathChanged), which opened the AudioPlayer, and
+            // hasAudioChanged builds the audio timeline. The undecodable-
+            // raw branch below closed the decoder, which closed the audio
+            // too and showed "unsupported" for a playable file (regression
+            // from c8949562). Keep it open; only clear the error state so
+            // the status strip doesn't read ERROR.
+            m_videoDecoder->clearErrorState();
+            return;
+        }
+        if (!opened) {
             qWarning("WindowManager: '%s' has no decoder "
                      "(unsupported/raw) — showing viewport notice",
                      qPrintable(item.path));
