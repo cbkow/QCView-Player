@@ -458,6 +458,10 @@ public:
     // for the host's Transmit device if that isn't publishing yet.
     // host: "ae" or "premiere" ("probe" for QCBridgeAE's test producer).
     Q_INVOKABLE void connectHostBridge(const QString &host);
+    // The Inspector's Source block for a qcbae:// item: source, transport,
+    // pixels, colour, alpha, note (decode/qcbae/host_bridge_url.h). Empty
+    // map for any other URL.
+    Q_INVOKABLE QVariantMap hostBridgeFacts(const QString &url) const;
     bool hostBridgeAvailable() const {
 #ifdef QCV_HAS_HOST_BRIDGE
         return true;

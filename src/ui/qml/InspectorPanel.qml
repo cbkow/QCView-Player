@@ -109,6 +109,8 @@ Rectangle {
         case 2: return qsTr("Image");
         case 3: return qsTr("Image Sequence");
         case 4: return qsTr("Playlist");
+        case 5: return qsTr("Dual View");
+        case 6: return qsTr("Live");
         }
         return qsTr("Media");
     }
@@ -123,6 +125,7 @@ Rectangle {
         case 3: return "film-strip";
         case 4: return "playlist";
         case 5: return "frame-corners";
+        case 6: return "broadcast";       // LeftRail's live glyph
         }
         return "file";
     }
@@ -270,10 +273,13 @@ Rectangle {
             title: qsTr("File")
 
             // Path hidden for media types that don't reference an
-            // on-disk file — currently Playlist (4) and DualPair (5);
-            // both are pure pool aggregates with no path.
+            // on-disk file — Playlist (4) and DualPair (5), pure pool
+            // aggregates with no path — and LiveStream (6), whose `path`
+            // is a URL (srt://, qcbae://): shown as-is, with no size,
+            // duration or Reveal, which only mean something for a file.
             readonly property bool hasOnDiskPath:
-                root.itemType !== 4 && root.itemType !== 5
+                root.itemType !== 4 && root.itemType !== 5 && root.itemType !== 6
+            readonly property bool isLiveItem: root.itemType === 6
 
             // Hero thumbnail — full-width preview of the displayed
             // item (A or B follows the side picker via displayedItem).
@@ -383,10 +389,10 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
-                visible: fileCard.hasOnDiskPath
-                text: root.hasActive
-                    ? WindowManager.toNativeSeparators(root.displayedItem.path)
-                    : ""
+                visible: fileCard.hasOnDiskPath || fileCard.isLiveItem
+                text: !root.hasActive ? ""
+                    : fileCard.isLiveItem ? root.displayedItem.path
+                    : WindowManager.toNativeSeparators(root.displayedItem.path)
                 color: Theme.textSecondary
                 font.family: Theme.monoFamily
                 font.pixelSize: Theme.fontSizeMono
@@ -394,10 +400,39 @@ Rectangle {
                 wrapMode: Text.NoWrap
             }
 
+            // QCBridge source facts (qcbae:// live items) — what the pixels
+            // are, stated plainly because a QC call rests on it. Facts come
+            // from decode/qcbae/host_bridge_url.h, each measured in
+            // QCBridgeAE; nothing here is inferred from the frame.
+            ColumnLayout {
+                id: bridgeFacts
+                readonly property var f: fileCard.isLiveItem && root.hasActive
+                    ? WindowManager.hostBridgeFacts(root.displayedItem.path) : ({})
+                visible: !!f.source
+                Layout.fillWidth: true
+                Layout.topMargin: Theme.spacing
+                spacing: 2
+                KvRow { label: qsTr("Source");    value: bridgeFacts.f.source || "";    monoValue: false }
+                KvRow { label: qsTr("Transport"); value: bridgeFacts.f.transport || "" }
+                KvRow { label: qsTr("Pixels");    value: bridgeFacts.f.pixels || "" }
+                KvRow { label: qsTr("Colour");    value: bridgeFacts.f.colour || "";    monoValue: false }
+                KvRow { label: qsTr("Alpha");     value: bridgeFacts.f.alpha || "";     monoValue: false }
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 2
+                    text: bridgeFacts.f.note || ""
+                    color: Theme.textSecondary
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeTiny
+                    wrapMode: Text.WordWrap
+                }
+            }
+
             // Stat row: size, duration
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Theme.paddingLoose
+                visible: !fileCard.isLiveItem
                 Text {
                     text: root.hasActive
                         ? root.formatSize(root.displayedItem.sizeBytes || 0)
@@ -452,23 +487,25 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.spacing
                 spacing: 4
-                visible: fileCard.hasOnDiskPath
+                visible: fileCard.hasOnDiskPath || fileCard.isLiveItem
 
                 FlatButton {
                     variant: "raised"
                     Layout.preferredHeight: 24
                     iconName: "copy"
                     iconSize: Theme.iconSizeSmall
-                    text: qsTr("Copy path")
+                    text: fileCard.isLiveItem ? qsTr("Copy URL") : qsTr("Copy path")
                     onClicked: {
                         if (root.displayedItem && root.displayedItem.path) {
-                            WindowManager.copyTextToClipboard(
-                                WindowManager.toNativeSeparators(
-                                    root.displayedItem.path))
+                            WindowManager.copyTextToClipboard(fileCard.isLiveItem
+                                ? root.displayedItem.path
+                                : WindowManager.toNativeSeparators(
+                                      root.displayedItem.path))
                         }
                     }
                 }
                 FlatButton {
+                    visible: !fileCard.isLiveItem   // a URL has no folder
                     variant: "raised"
                     Layout.preferredHeight: 24
                     iconName: "folder-simple"

@@ -62,12 +62,12 @@ bool HostBridgeSource::open(const QString &url)
         return false;
     }
     m_url = url;
-    m_hostLabel = hostbridge::label(url);
+    m_hostApp = hostbridge::hostApp(url);
     m_stopRequested.store(false, std::memory_order_release);
     m_reconnects.store(0, std::memory_order_release);
     m_framesReceived.store(0, std::memory_order_release);
     m_bytesReceived.store(0, std::memory_order_release);
-    setStatus(Connecting, QStringLiteral("Waiting for %1").arg(m_hostLabel));
+    setStatus(Connecting, waitingText());
     m_thread = std::thread([this] { workerLoop(); });
     return true;
 }
@@ -92,7 +92,20 @@ QString HostBridgeSource::statusDetail() const
 
 QString HostBridgeSource::codecName() const
 {
-    return QStringLiteral("Transmit · %1").arg(m_hostLabel);
+    // The delivery mechanism, not the source's name: the item name
+    // ("QCBridge After Effects") is shown beside it already.
+    return QStringLiteral("Mercury Transmit");
+}
+
+QString HostBridgeSource::waitingText() const
+{
+    return QStringLiteral("Waiting for %1 (QCBridge Transmit device not publishing)")
+        .arg(m_hostApp);
+}
+
+QString HostBridgeSource::sentence(const QString &text)
+{
+    return text.isEmpty() ? text : text.left(1).toUpper() + text.mid(1);
 }
 
 int HostBridgeSource::statLiveSeconds() const
@@ -139,7 +152,7 @@ void HostBridgeSource::workerLoop()
                 // A version mismatch is not "waiting": say what is wrong.
                 const QString detail = err.contains(QLatin1String("version"))
                     ? QStringLiteral("Incompatible QCBridgeAE plugin (%1)").arg(err)
-                    : QStringLiteral("Waiting for %1").arg(m_hostLabel);
+                    : waitingText();
                 setStatus(everLive ? Reconnecting : Connecting, detail);
                 if (!interruptibleSleep(kWaitPollMs)) break;
                 continue;
@@ -158,7 +171,7 @@ void HostBridgeSource::workerLoop()
             ring = qcbae::SharedRing();
             if (everLive) m_reconnects.fetch_add(1, std::memory_order_acq_rel);
             setStatus(everLive ? Reconnecting : Connecting,
-                      QStringLiteral("%1 is not running").arg(m_hostLabel));
+                      sentence(QStringLiteral("%1 is not running").arg(m_hostApp)));
             if (!interruptibleSleep(kWaitPollMs)) break;
             continue;
         }
@@ -173,11 +186,11 @@ void HostBridgeSource::workerLoop()
         const void *pixels = nullptr;
         if (!ring.acquire_latest(&lastSeen, &d, &pixels)) {
             if (hs == qcbae::HostState::PausedFocus) {
-                setStatus(Paused, QStringLiteral(
+                setStatus(Paused, sentence(QStringLiteral(
                     "%1 stopped sending when it lost focus — untick “Disable video "
-                    "output when in the background” in its preferences").arg(m_hostLabel));
+                    "output when in the background” in its preferences").arg(m_hostApp)));
             } else if (hs == qcbae::HostState::Paused) {
-                setStatus(Paused, QStringLiteral("%1 paused the feed").arg(m_hostLabel));
+                setStatus(Paused, sentence(QStringLiteral("%1 paused the feed").arg(m_hostApp)));
             } else if (everLive && status() != Live) {
                 // Resumed; the comp may simply be unchanged, so no frame yet.
                 m_liveSinceMs.store(steadyMs(), std::memory_order_release);

@@ -3,7 +3,8 @@ import QtQuick.Layouts
 import Qcv
 
 // LiveStrip — v2.2.3. Replaces the TimelineStatus + TransportBar +
-// TimelinePanel rows while a live srt:// stream is active (there is
+// TimelinePanel rows while a live source is active — an srt:// stream, or
+// the QCBridgeAE After Effects / Premiere feed (qcbae://) (there is
 // nothing to scrub and no frame count that means anything — a grayed
 // transport would read as "broken", not "live").
 //
@@ -11,7 +12,8 @@ import Qcv
 // (resolution / codec / pix_fmt — the permanent home of the NVENC
 // 4:4:4-downgrade verification), measured fps + Mbps (1 s poll),
 // elapsed, reconnect count, screenshot buttons (the one transport
-// action that works on live).
+// action that works on live). Reads the LiveSource surface, so it serves
+// every kind; `sharedMemory` switches the network wording off.
 Rectangle {
     id: root
     color: Theme.surface
@@ -26,10 +28,16 @@ Rectangle {
     }
 
     readonly property var live: WindowManager.liveDecoder
-    // Status enum mirror (LiveStreamDecoder::Status).
+    // Status enum mirror (LiveSource::Status).
     readonly property bool isLive:         live && live.status === 2
     readonly property bool isReconnecting: live && live.status === 3
     readonly property bool isConnecting:   live && live.status === 1
+    readonly property bool isPaused:       live && live.status === 4
+    // Same-machine shared memory (QCBridgeAE): no network, so no Mb/s and
+    // "waiting" instead of "connecting" — the host app may simply be closed.
+    readonly property bool isShm:          live && live.sharedMemory
+    // The last frame is held while paused, so it can still be captured.
+    readonly property bool hasFrame:       isLive || isPaused
 
     // 1 s poll → fps / Mbps from counter deltas.
     property double _lastFrames: 0
@@ -72,7 +80,7 @@ Rectangle {
             width: 8; height: 8; radius: 4
             Layout.alignment: Qt.AlignVCenter
             color: root.isLive ? "#e5484d"
-                 : (root.isReconnecting || root.isConnecting)
+                 : (root.isReconnecting || root.isConnecting || root.isPaused)
                    ? "#e6a23c" : Theme.textMuted
             // On-air pulse while live.
             SequentialAnimation on opacity {
@@ -85,6 +93,8 @@ Rectangle {
         }
         Text {
             text: root.isLive ? qsTr("LIVE")
+                : root.isPaused ? qsTr("PAUSED")
+                : (root.isShm && (root.isReconnecting || root.isConnecting)) ? qsTr("WAITING")
                 : root.isReconnecting ? qsTr("RECONNECTING")
                 : root.isConnecting ? qsTr("CONNECTING")
                 : qsTr("OFFLINE")
@@ -113,11 +123,24 @@ Rectangle {
             elide: Text.ElideMiddle
             Layout.maximumWidth: 220
         }
+        // Why the source isn't live, in one line ("Waiting for After
+        // Effects", or the preference that stops a focus-loss pause).
         Text {
-            visible: !!root.live && root.live.width > 0
+            visible: !!root.live && !root.isLive && root.live.statusDetail !== ""
+            text: root.live ? root.live.statusDetail : ""
+            color: "#e6a23c"
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+            Layout.minimumWidth: 80
+        }
+        Text {
+            visible: !!root.live && root.live.width > 0 && (root.isLive || root.live.statusDetail === "")
             text: root.live
                   ? root.live.width + "×" + root.live.height
                     + "  ·  " + root.live.codecName
+                    + (root.isShm ? "  ·  " + qsTr("shared memory") : "")
                     + "  ·  " + root.live.pixelFormatName
                   : ""
             color: Theme.textMuted
@@ -125,13 +148,27 @@ Rectangle {
             font.pixelSize: Theme.fontSizeSmall
         }
 
-        Item { Layout.fillWidth: true }
+        Item { Layout.fillWidth: true; visible: !root.live || root.isLive || root.live.statusDetail === "" }
+
+        // The frame carries inf or NaN — upstream never clamps them
+        // (QCBridgeAE PLAN.md D4), so say so rather than let them pass as
+        // black or bright pixels.
+        Text {
+            visible: !!root.live && root.live.nonFinite && root.hasFrame
+            text: qsTr("inf/NaN in frame")
+            color: "#e5484d"
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            font.bold: true
+        }
 
         // ---- Measured rates + elapsed + drops ---------------------
         Text {
             visible: root.isLive
+            // Mb/s would be memcpy throughput for shared memory, not a
+            // network rate worth watching; fps and elapsed still are.
             text: root.measuredFps.toFixed(0) + " fps  ·  "
-                  + root.measuredMbps.toFixed(1) + " Mb/s  ·  "
+                  + (root.isShm ? "" : root.measuredMbps.toFixed(1) + " Mb/s  ·  ")
                   + root._elapsedText(root.liveSeconds)
             color: Theme.textMuted
             font.family: Theme.fontFamily
@@ -139,7 +176,8 @@ Rectangle {
         }
         Text {
             visible: !!root.live && root.live.reconnectCount > 0
-            text: qsTr("%1 drop%2")
+            // Shared memory: the host app quit and came back, not a drop.
+            text: (root.isShm ? qsTr("%1 restart%2") : qsTr("%1 drop%2"))
                   .arg(root.live ? root.live.reconnectCount : 0)
                   .arg(root.live && root.live.reconnectCount === 1 ? "" : "s")
             color: "#e6a23c"
@@ -158,13 +196,13 @@ Rectangle {
         // ---- Screenshots — the transport action that works live --
         FlatButton {
             iconName: "file-image"
-            enabled: root.isLive
+            enabled: root.hasFrame
             tooltipText: qsTr("Screenshot to clipboard (⌥T)")
             onClicked: WindowManager.screenshotToClipboard()
         }
         FlatButton {
             iconName: "file-arrow-down"
-            enabled: root.isLive
+            enabled: root.hasFrame
             tooltipText: qsTr("Screenshot to Desktop (T)")
             onClicked: WindowManager.screenshotToFile()
         }

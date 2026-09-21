@@ -14,7 +14,8 @@
 // behaviour in QCView (routing, persistence, dual guards) working.
 //
 // What the ring tells us, and what the UI shows:
-//   no ring yet / producer never seen  -> Connecting ("Waiting for …")
+//   no ring yet / producer never seen  -> Connecting ("Waiting for After
+//                                         Effects …")
 //   producer process gone              -> Reconnecting (AE quits without
 //                                         unloading the device, so the ring
 //                                         outlives it; liveness is the pid)
@@ -87,12 +88,14 @@ private:
     void setGeometry(int w, int h);
     void setNonFinite(bool v);
     bool interruptibleSleep(int ms);   // false when close() interrupted it
+    QString waitingText() const;
+    static QString sentence(const QString &text);   // capitalise the first letter
     QImage *takePoolImage(int w, int h);
 
     VideoDecoder         *m_sink = nullptr;
     QString               m_url;
     QString               m_ringName;
-    QString               m_hostLabel;
+    QString               m_hostApp;     // "After Effects" — who to wait for
 
     std::thread           m_thread;
     std::atomic<bool>     m_stopRequested{false};

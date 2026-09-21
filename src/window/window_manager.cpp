@@ -2741,6 +2741,20 @@ void WindowManager::connectHostBridge(const QString &host)
     m_project->setActiveItem(id);
 }
 
+QVariantMap WindowManager::hostBridgeFacts(const QString &url) const
+{
+    const hostbridge::SourceFacts f = hostbridge::facts(url);
+    if (f.source.isEmpty()) return {};
+    return {
+        {QStringLiteral("source"),    f.source},
+        {QStringLiteral("transport"), f.transport},
+        {QStringLiteral("pixels"),    f.pixels},
+        {QStringLiteral("colour"),    f.colour},
+        {QStringLiteral("alpha"),     f.alpha},
+        {QStringLiteral("note"),      f.note},
+    };
+}
+
 void WindowManager::openProjectPath(const QString &path)
 {
     if (!m_project || path.isEmpty()) return;

@@ -40,13 +40,69 @@ inline QString ringName(const QString &url)
     return {};
 }
 
+// The source as the user sees it — bin row, LiveStrip, recents. Named for
+// the product that delivers it, not just the host application.
 inline QString label(const QString &url)
+{
+    const QString h = hostOf(url);
+    if (h == QLatin1String("ae"))       return QStringLiteral("QCBridge After Effects");
+    if (h == QLatin1String("premiere")) return QStringLiteral("QCBridge Premiere Pro");
+    if (h == QLatin1String("probe"))    return QStringLiteral("QCBridge Test Signal");
+    return {};
+}
+
+// The application the user acts on when the feed stops ("After Effects is
+// not running"). The test signal's "host" is QCBridgeAE's qcbae-probe tool.
+inline QString hostApp(const QString &url)
 {
     const QString h = hostOf(url);
     if (h == QLatin1String("ae"))       return QStringLiteral("After Effects");
     if (h == QLatin1String("premiere")) return QStringLiteral("Premiere Pro");
-    if (h == QLatin1String("probe"))    return QStringLiteral("QCBridgeAE probe");
+    if (h == QLatin1String("probe"))    return QStringLiteral("the QCBridge test producer");
     return {};
+}
+
+// What the Inspector states about a source. Each claim was measured in
+// QCBridgeAE (lab/results/2026-09-21-a4-transmit-probe/, -a6-transmit-device/)
+// — keep it that way: a wrong statement here misleads a QC decision.
+struct SourceFacts {
+    // Terse, one line each: they sit in the Inspector's fixed-height rows.
+    QString source;      // who renders the pixels, and how they are handed over
+    QString transport;   // how they reach QCView
+    QString pixels;      // what arrives
+    QString colour;      // what the values mean
+    QString alpha;       // what the fourth channel means
+    QString note;        // one wrapped sentence of consequence for the user
+};
+
+inline SourceFacts facts(const QString &url)
+{
+    const QString h = hostOf(url);
+    SourceFacts f;
+    f.transport = QStringLiteral("Shared memory · %1").arg(ringName(url));
+    f.pixels    = QStringLiteral("RGBA16F · top-down · never clamped");
+    f.colour    = QStringLiteral("Host working space · untransformed");
+    // "Sends", not "renders": an 8 or 16 bpc project renders at its own
+    // depth and the host up-converts to the 32f the device requests.
+    f.note      = QStringLiteral("The host sends 32-bit float; it arrives IEEE-rounded "
+                                 "to half, with inf and NaN passed through and flagged. "
+                                 "Set QCView's OCIO input to the host's working space.");
+    if (h == QLatin1String("ae")) {
+        f.source = QStringLiteral("After Effects · Mercury Transmit");
+        f.alpha  = QStringLiteral("Opaque · flattened over comp background");
+    } else if (h == QLatin1String("premiere")) {
+        f.source = QStringLiteral("Premiere Pro · Mercury Transmit");
+        f.alpha  = QStringLiteral("Straight · from the sequence");
+    } else if (h == QLatin1String("probe")) {
+        f.source = QStringLiteral("QCBridgeAE qcbae-probe produce");
+        f.pixels = QStringLiteral("RGBA16F · top-down · synthetic pattern");
+        f.colour = QStringLiteral("Synthetic · ramp runs past 1.0");
+        f.alpha  = QStringLiteral("Opaque");
+        f.note   = QStringLiteral("A test signal for checking QCView without an Adobe host.");
+    } else {
+        return {};
+    }
+    return f;
 }
 
 } // namespace qcv::hostbridge
