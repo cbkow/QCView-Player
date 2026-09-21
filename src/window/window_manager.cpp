@@ -1231,6 +1231,16 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
 
 WindowManager::~WindowManager()
 {
+    // Join the live source's worker first. It calls the frame callback,
+    // which holds a raw pointer to the renderer, after every frame, and
+    // publishes into m_videoDecoder's slot. Left to member destruction it
+    // was still running after the renderer shut down below (seen in the
+    // quit log: "renderer: shut down", then "HostBridgeSource: closed").
+    // close() only, not stopLiveStream(): that emits liveDecoderChanged /
+    // liveActiveChanged, and QML must not re-evaluate bindings against a
+    // WindowManager mid-destruction.
+    if (m_liveDecoder) m_liveDecoder->close();
+
     // Phase 7.5 B.7: shut down the native renderer's threads BEFORE
     // our member destructors run. The render thread reads
     // m_safetyOverlay / m_annotator / m_imageSeqCache pointers each
