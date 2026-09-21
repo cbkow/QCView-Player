@@ -632,6 +632,36 @@ FetchContent_Declare(
 | **Build flags** | `OCIO_BUILD_APPS=OFF`, `OCIO_BUILD_TESTS=OFF`, `OCIO_BUILD_PYTHON=OFF`, `OCIO_BUILD_GPU_TESTS=OFF` |
 | **Required for** | Color management (Guide 05), OCIO snapshot in transcode (Guide 11) |
 
+**How the build actually gets it (macOS):** not FetchContent —
+`external/CMakeLists.txt` finds OCIO by `pkg_check_modules(OpenColorIO)`
+(`QCVIEW_USE_SYSTEM_OCIO=ON`; the FetchContent path is a FATAL_ERROR stub),
+and OpenEXR/Imath by `find_package` (`QCVIEW_USE_SYSTEM_OPENEXR=ON`). On
+macOS those resolve from `external/install/`, as **dylibs** that
+`bundle_dylibs.sh` ships. They were built by `scripts/build_macos_deps.sh`,
+which is gitignored and was lost with the old dev machine (2026-09-21). The
+recipe, as rebuilt then — run from repo root, same `PREFIX`/`CM`/SDK setup as
+"macOS: static codec libraries":
+
+```bash
+SH=(-DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_NAME_DIR="$PREFIX/lib")   # absolute ids, like FFmpeg's
+# Imath — not pinned before 2026-09-21; latest 3.x then
+git clone --depth 1 --branch v3.2.3 https://github.com/AcademySoftwareFoundation/Imath.git "$SRC/imath" && cd "$SRC/imath"
+cmake -S . -B build "${CM[@]}" "${SH[@]}" -DBUILD_TESTING=OFF -DPYTHON=OFF && cmake --build build && cmake --install build
+# OpenEXR (libdeflate fetched internally)
+git clone --depth 1 --branch v3.4.7 https://github.com/AcademySoftwareFoundation/openexr.git "$SRC/openexr" && cd "$SRC/openexr"
+cmake -S . -B build "${CM[@]}" "${SH[@]}" -DBUILD_TESTING=OFF -DOPENEXR_BUILD_TOOLS=OFF \
+  -DOPENEXR_BUILD_EXAMPLES=OFF -DOPENEXR_INSTALL_EXAMPLES=OFF -DOPENEXR_INSTALL_DOCS=OFF -DOPENEXR_BUILD_PYTHON=OFF
+cmake --build build && cmake --install build
+# OCIO — yaml-cpp, pystring, minizip-ng, zlib fetched and linked in statically
+git clone --depth 1 --branch v2.5.0 https://github.com/AcademySoftwareFoundation/OpenColorIO.git "$SRC/ocio" && cd "$SRC/ocio"
+cmake -S . -B build "${CM[@]}" "${SH[@]}" -DOCIO_INSTALL_EXT_PACKAGES=MISSING -DOCIO_BUILD_APPS=OFF \
+  -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF -DOCIO_BUILD_PYTHON=OFF -DOCIO_BUILD_DOCS=OFF -DOCIO_BUILD_OPENFX=OFF
+cmake --build build && cmake --install build
+```
+
+Verify: `otool -L external/install/lib/libOpenColorIO.dylib` lists only
+`external/install` Imath, `/usr/lib` and system frameworks — no Homebrew.
+
 ### OpenEXR
 
 ```cmake
@@ -787,6 +817,28 @@ FetchContent_Declare(
 | **Used by** | `.qcvproj` v2 schema (Guide 07 §9), shortcuts.json (Guide 02), color-presets.json (Guide 05), transcode-queue.json (Guide 11), every other JSON-backed settings file |
 | **Build flags** | `JSON_BuildTests=OFF`, `JSON_Install=OFF` |
 | **Alternative** | Qt 6 has built-in JSON support (`QJsonDocument`). Decision: use Qt's JSON for QML-bound model data; nlohmann for fixed-schema files where a real C++ type is preferable. |
+
+---
+
+### Sparkle (macOS auto-update)
+
+| | Value |
+|---|---|
+| **Pin** | **2.9.2** — `Sparkle-2.9.2.tar.xz`, SHA-256 `1cb340cbbef04c6c0d162078610c25e2221031d794a3449d89f2f56f4df77c95` |
+| **License** | MIT |
+| **Where** | `external/Sparkle/` (gitignored): `Sparkle.framework` + `bin/{generate_keys,sign_update,…}`. `src/window/CMakeLists.txt` fails configure if it is missing. |
+
+Vendored by `scripts/fetch_sparkle.sh`, which is gitignored (lost with the old
+machine, 2026-09-21). Equivalent:
+
+```bash
+curl -fsSL -o /tmp/Sparkle-2.9.2.tar.xz https://github.com/sparkle-project/Sparkle/releases/download/2.9.2/Sparkle-2.9.2.tar.xz
+shasum -a 256 /tmp/Sparkle-2.9.2.tar.xz   # must equal the pin above — stop if not
+mkdir -p external/Sparkle && tar -xJf /tmp/Sparkle-2.9.2.tar.xz -C external/Sparkle
+```
+
+Signing releases also needs the EdDSA private key (Keychain + vault backup),
+which does not come with a checkout.
 
 ---
 
@@ -953,6 +1005,6 @@ If the bump touches OCIO's profile version, update Guide 05 §12's
 | 2026-08-20 | Windows FFmpeg: BtbN prebuilt `n8.1.2-20260624` → **self-built BtbN-recipe** `n8.1.2-44-g7c533d0f86-20260820` (WSL2+Docker, same toolchain image/flags/DLL majors) so Windows carries the two local patches (`external/patches/ffmpeg/`: DNxHR 444 ACT + untagged-limited convention, MXF RGBA range). Patches must be re-applied on every refresh — recipe in §Windows above. See `dependencies-changelog.md`. | Chris |
 | 2026-09-08 | FFmpeg 9.0 investigated on branch `ffmpeg-9` (NOT adopted; pin stays `n8.1.2`): all library majors bump (61/63/63/63/12/10/7); app needed one source change (`av_opt_set_int_list` → `av_opt_set_array`, dual-version safe) + DLL names derived from pkg-config; patch 0001 regenerated to sync `sw_pix_fmt` (9.0 probe-label interaction); `n9.0.1` built into `external/install-ff9/` and the app built/linked via new `QCV_FFMPEG_PREFIX`. Details + remaining steps in §2 "FFmpeg 9.0 — migration status". | Claude |
 | 2026-09-09 | **FFmpeg `n8.1.2` → `n9.0.1` on both platforms** (Windows 2.3.0 shipped 2026-09-08 on the BtbN-recipe 9.0.1 build with patches 0001–0003; macOS `external/install/` rebuilt 2026-09-09, 8.1.2 parked). All sonames/DLL majors change (63/61/63/12/63/7/10). New patch 0003 (ProRes RAW Bayer patterns). See §2 "FFmpeg 9.0 — migration status" and `dependencies-changelog.md`. | Chris (Win) / Claude (mac) |
-| 2026-09-21 | **macOS `external/install/` rebuilt from source on a new dev machine** (the old one, and its pre-built codec archives, are gone). Static codec libs now have pins and a recipe for the first time — x264 stable@b35605ac, x265 4.2, dav1d 1.5.4, libvpx v1.17.0, LAME 3.100, opus v1.6.1, SVT-AV1 v4.2.0 (§2 "macOS: static codec libraries"); mbedTLS 3.6.7 + libsrt 1.5.6 and FFmpeg `n9.0.1` + patches 0001–0003 per the existing recipes. Toolchain note for a CLT whose newest SDK outruns its linker. Patch *decode* verification (CW ACT clip framemd5) pending — clip not on this machine. | Claude |
+| 2026-09-21 | **macOS `external/install/` rebuilt from source on a new dev machine** (the old one, and its pre-built codec archives, are gone). Static codec libs now have pins and a recipe for the first time — x264 stable@b35605ac, x265 4.2, dav1d 1.5.4, libvpx v1.17.0, LAME 3.100, opus v1.6.1, SVT-AV1 v4.2.0 (§2 "macOS: static codec libraries"); mbedTLS 3.6.7 + libsrt 1.5.6 and FFmpeg `n9.0.1` + patches 0001–0003 per the existing recipes. Also rebuilt from new recipes: OCIO v2.5.0, OpenEXR v3.4.7, Imath v3.2.3 (dylibs; the docs had said FetchContent — the build finds them installed) and Sparkle 2.9.2 (SHA-256 verified); both had been produced by gitignored scripts. Toolchain note for a CLT whose newest SDK outruns its linker. Patch *decode* verification (CW ACT clip framemd5) pending — clip not on this machine. | Claude |
 
 (Append future bumps here.)
