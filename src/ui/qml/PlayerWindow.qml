@@ -68,7 +68,12 @@ Window {
                 // which QFile rejects with "does not exist").
                 const path = WindowManager.urlToOsPath(drop.urls[i]);
                 if (!path) continue;
-                const id = WindowManager.project.addMediaFile(path);
+                // A live source's URL (dragged from the Live bin, or an
+                // srt:// / qcbae:// link) is not a file: addMediaFile's
+                // existence check would reject it.
+                const id = path.indexOf("://") >= 0
+                    ? WindowManager.project.addLiveStream(path, "")
+                    : WindowManager.project.addMediaFile(path);
                 if (id) lastId = id;
             }
             if (lastId) WindowManager.project.setActiveItem(lastId);

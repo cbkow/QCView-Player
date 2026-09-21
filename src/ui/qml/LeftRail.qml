@@ -640,6 +640,9 @@ Rectangle {
                     // naturally.
                     const _toFileUri = (p) => {
                         if (!p) return "";
+                        // Live items (srt://, qcbae://) already are URIs;
+                        // prefixing built "file://srt://…".
+                        if (p.indexOf("://") >= 0) return p;
                         const fwd = p.replace(/\\/g, "/");
                         if (Qt.platform.os === "windows")
                             return fwd.startsWith("/")
