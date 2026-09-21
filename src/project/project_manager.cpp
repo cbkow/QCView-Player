@@ -1,6 +1,7 @@
 #include "project_manager.h"
 
 #include "decode/exr_image_loader.h"
+#include "decode/qcbae/host_bridge_url.h"
 #include "metadata_service.h"
 #include "project_io.h"
 
@@ -712,6 +713,10 @@ QString ProjectManager::addLiveStream(const QString &url, const QString &name)
     item.type = MediaType::LiveStream;
     if (!name.trimmed().isEmpty()) {
         item.name = name.trimmed();
+    } else if (hostbridge::isUrl(trimmed)) {
+        // qcbae://ae → "After Effects": the host part alone would read "ae".
+        const QString label = hostbridge::label(trimmed);
+        item.name = label.isEmpty() ? trimmed : label;
     } else {
         // Default display name: host:port, falling back to the raw
         // URL when parsing can't produce one (QUrl handles srt://

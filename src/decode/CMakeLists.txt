@@ -22,6 +22,7 @@ qt_add_library(qcv_decode STATIC
     seek_compat.h
     sws_rgba_image.h
     live_source.h
+    qcbae/host_bridge_url.h
     live_stream_decoder.cpp
     live_stream_decoder.h
     scrub_frame_cache.cpp
@@ -52,7 +53,17 @@ qt_add_library(qcv_decode STATIC
 if(APPLE)
     target_sources(qcv_decode PRIVATE
         frame_handle.mm
+        # QCBridgeAE After Effects / Premiere live source. The vendored ring
+        # is POSIX shared memory; the Windows port (named file mapping) is
+        # QCBridgeAE phase A5, so this is macOS-only until then.
+        # QCV_HAS_HOST_BRIDGE gates the qcbae:// routing and menu items.
+        host_bridge_source.cpp
+        host_bridge_source.h
+        qcbae/frame_desc.h
+        qcbae/shared_ring.cpp
+        qcbae/shared_ring.h
     )
+    target_compile_definitions(qcv_decode PUBLIC QCV_HAS_HOST_BRIDGE=1)
     target_link_libraries(qcv_decode PRIVATE
         "-framework CoreVideo"
     )

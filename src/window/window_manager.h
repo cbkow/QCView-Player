@@ -286,6 +286,9 @@ class WindowManager : public QObject
     Q_PROPERTY(bool liveActive READ liveActive NOTIFY liveActiveChanged)
     Q_PROPERTY(qcv::LiveSource *liveDecoder READ liveDecoder
                NOTIFY liveDecoderChanged)
+    // QCBridgeAE After Effects / Premiere live view is built in (macOS
+    // until the Windows ring port). Gates the File-menu Connect actions.
+    Q_PROPERTY(bool hostBridgeAvailable READ hostBridgeAvailable CONSTANT)
     // Phase 7.4.b.4 — pull-model: the cache itself, exposed to QML
     // so the PlayerWindow.qml binding can forward it to
     // PlayerRhiItem::imageSeqCache. Renderer pulls pixels from
@@ -450,6 +453,18 @@ public:
     // QStringList args carry a single path too (pass [path]).
     Q_INVOKABLE void openMediaPaths(const QStringList &paths);
     Q_INVOKABLE void addMediaPaths(const QStringList &paths);
+    // File ▸ Connect to After Effects / Premiere Pro: adds the fixed
+    // qcbae://<host> live item (deduped by URL) and activates it; it waits
+    // for the host's Transmit device if that isn't publishing yet.
+    // host: "ae" or "premiere" ("probe" for QCBridgeAE's test producer).
+    Q_INVOKABLE void connectHostBridge(const QString &host);
+    bool hostBridgeAvailable() const {
+#ifdef QCV_HAS_HOST_BRIDGE
+        return true;
+#else
+        return false;
+#endif
+    }
     Q_INVOKABLE void openProjectPath(const QString &path);
 
     VideoDecoder *videoDecoder()  const { return m_videoDecoder;  }

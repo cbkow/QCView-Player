@@ -15,6 +15,10 @@
 #include "decode/image_sequence_cache.h"
 #include "decode/scrub_decoder.h"
 #include "decode/video_decoder.h"
+#include "decode/qcbae/host_bridge_url.h"
+#ifdef QCV_HAS_HOST_BRIDGE
+#include "decode/host_bridge_source.h"
+#endif
 #include "dual/dual_image_seq_source.h"
 #include "dual/dual_playback_controller.h"
 #include "dual/dual_playback_timer.h"
@@ -2721,6 +2725,22 @@ void WindowManager::addMediaPaths(const QStringList &paths)
     });
 }
 
+void WindowManager::connectHostBridge(const QString &host)
+{
+    if (!m_project) return;
+    const QString url = QStringLiteral("qcbae://") + host.trimmed().toLower();
+    if (hostbridge::ringName(url).isEmpty()) {
+        qWarning("connectHostBridge: unknown host '%s'", qPrintable(host));
+        return;
+    }
+    // Same path as a qcview://stream deep link: addLiveStream dedupes by
+    // URL and names the item ("After Effects"); setActiveItem loads it via
+    // loadRequested -> startLiveStream, which picks HostBridgeSource.
+    const QString id = m_project->addLiveStream(url);
+    if (id.isEmpty()) return;
+    m_project->setActiveItem(id);
+}
+
 void WindowManager::openProjectPath(const QString &path)
 {
     if (!m_project || path.isEmpty()) return;
@@ -3911,7 +3931,24 @@ void WindowManager::startLiveStream(const MediaItem &item)
     if (m_videoDecoder->rangeOverride() != 0)
         m_videoDecoder->setRangeOverride(0);
 
+    // qcbae:// is the QCBridgeAE After Effects / Premiere feed over shared
+    // memory; everything else with "://" is a network stream for FFmpeg.
+    const bool hostBridge = hostbridge::isUrl(item.path);
+#ifdef QCV_HAS_HOST_BRIDGE
+    if (hostBridge)
+        m_liveDecoder = std::make_unique<HostBridgeSource>();
+    else
+        m_liveDecoder = std::make_unique<LiveStreamDecoder>();
+#else
+    // FFmpeg would retry qcbae:// for ever; say what is actually wrong.
+    if (hostBridge) {
+        setViewportNotice(QStringLiteral(
+            "After Effects / Premiere live view is not available on this "
+            "platform yet"));
+        return;
+    }
     m_liveDecoder = std::make_unique<LiveStreamDecoder>();
+#endif
     m_liveDecoder->setSink(m_videoDecoder);
 
     // Per-frame renderer nudge. Metal's present loop free-runs and

@@ -168,6 +168,13 @@ ApplicationWindow {
         }
         return p;
     }
+    // QCBridgeAE live view. On the root context for the same reason as
+    // the recents callbacks: addLiveStream emits mediaFileAdded, which
+    // rebuilds the recents menu synchronously.
+    function connectHostBridge(host) {
+        if (!WindowManager.project) return;
+        WindowManager.connectHostBridge(host);
+    }
     function loadRecentMedia(path) {
         if (!WindowManager.project || !path) return;
         WindowManager.openMediaPaths([_fixWindowsPath(path)]);
@@ -402,6 +409,18 @@ ApplicationWindow {
             Action {
                 text: qsTr("Open Stream…")
                 onTriggered: openStreamModal.opened = true
+            }
+            // QCBridgeAE: the After Effects / Premiere Transmit device's
+            // frames, over shared memory on this machine.
+            Action {
+                text: qsTr("Connect to After Effects")
+                enabled: WindowManager.hostBridgeAvailable
+                onTriggered: root.connectHostBridge("ae")
+            }
+            Action {
+                text: qsTr("Connect to Premiere Pro")
+                enabled: WindowManager.hostBridgeAvailable
+                onTriggered: root.connectHostBridge("premiere")
             }
             ThemedMenu {
                 id: recentMediaMenu
