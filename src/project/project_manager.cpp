@@ -421,6 +421,15 @@ QString ProjectManager::createPlaylist(const QStringList &paths,
                      qPrintable(p));
             continue;
         }
+        // Live sources have no duration and no frames to address — the
+        // playlist timeline cannot hold them. (addMediaFile rejects URLs
+        // today, so this is the explicit form of an accidental guard.)
+        if (const MediaItem *added = findItem(mediaId);
+            added && added->type == MediaType::LiveStream) {
+            qWarning("createPlaylist: live sources not allowed in "
+                     "playlists — skipping '%s'", qPrintable(p));
+            continue;
+        }
         PlaylistEntry entry;
         entry.mediaId = mediaId;
         // Default trim: -1 = use full clip duration. The decoder /
@@ -459,11 +468,13 @@ bool ProjectManager::replacePlaylistItems(const QString      &playlistId,
         const QVariantMap m = v.toMap();
         const QString mediaId = m.value(QStringLiteral("mediaId")).toString();
         if (mediaId.isEmpty()) continue;
-        // Same audio rejection as createPlaylist — see comment there.
+        // Same audio and live rejections as createPlaylist — see there.
         if (const MediaItem *referenced = findItem(mediaId);
-            referenced && referenced->type == MediaType::Audio) {
-            qWarning("replacePlaylistItems: audio media not allowed in "
+            referenced && (referenced->type == MediaType::Audio
+                           || referenced->type == MediaType::LiveStream)) {
+            qWarning("replacePlaylistItems: %s media not allowed in "
                      "playlists — skipping id '%s'",
+                     referenced->type == MediaType::Audio ? "audio" : "live",
                      qPrintable(mediaId));
             continue;
         }
@@ -559,6 +570,15 @@ void ProjectManager::setBSourceMediaId(const QString &id)
         // the path-based setter.
         if (m_mediaPool[idx].type == MediaType::Audio) {
             qWarning("ProjectManager::setBSourceMediaId — audio media "
+                     "not allowed as B-source (id=%s)",
+                     qPrintable(id));
+            return;
+        }
+        // Live is blocked from dual view (WindowManager::setBSource
+        // rejects "://" paths); a hand-edited or older project's
+        // b_source_media_id must not smuggle one in either.
+        if (m_mediaPool[idx].type == MediaType::LiveStream) {
+            qWarning("ProjectManager::setBSourceMediaId — live sources "
                      "not allowed as B-source (id=%s)",
                      qPrintable(id));
             return;
