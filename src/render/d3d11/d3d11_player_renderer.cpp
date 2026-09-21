@@ -943,13 +943,18 @@ bool D3D11PlayerRenderer::consumeLatestVideoFrame()
     if (img.isNull()) return false;
 
     // Phase J.1 — 16-bit CPU frames (QImage::Format_RGBA64, 4 × uint16)
-    // upload verbatim as R16G16B16A16_UNORM; everything else becomes
-    // RGBA8888 → R8G8B8A8_UNORM. Both sample as 0..1 floats, so the
-    // video pixel shader and OCIO need no change.
+    // upload verbatim as R16G16B16A16_UNORM; half-float frames
+    // (Format_RGBA16FPx4 — the QCBridgeAE After Effects / Premiere live
+    // feed, scene-linear, may exceed 1.0 or carry inf/NaN) verbatim as
+    // R16G16B16A16_FLOAT; everything else becomes RGBA8888 →
+    // R8G8B8A8_UNORM. All sample as float4, so the video pixel shader
+    // and OCIO need no change.
     QImage frame = img;
     DXGI_FORMAT wantFmt = DXGI_FORMAT_R8G8B8A8_UNORM;
     if (frame.format() == QImage::Format_RGBA64) {
         wantFmt = DXGI_FORMAT_R16G16B16A16_UNORM;
+    } else if (frame.format() == QImage::Format_RGBA16FPx4) {
+        wantFmt = DXGI_FORMAT_R16G16B16A16_FLOAT;
     } else if (frame.format() != QImage::Format_RGBA8888) {
         frame = frame.convertToFormat(QImage::Format_RGBA8888);
     }

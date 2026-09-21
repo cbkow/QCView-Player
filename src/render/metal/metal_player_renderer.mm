@@ -79,13 +79,20 @@ static id<MTLTexture> uploadCpuFrameRgba(
     if (w <= 0 || h <= 0) return nil;
 
     // Format_RGBA64 → RGBA16Unorm (Phase J.1 deep sources);
+    // Format_RGBA16FPx4 → RGBA16Float (scene-linear live sources — the
+    // QCBridgeAE After Effects / Premiere feed: values above 1.0,
+    // negatives, inf and NaN must reach OCIO as sent, so no conversion);
     // Format_RGBA8888 → RGBA8Unorm. Anything else is converted to
     // RGBA8888 defensively in case some other path sneaks in.
-    const bool sixteen = (img.format() == QImage::Format_RGBA64);
-    const MTLPixelFormat wantFmt = sixteen ? MTLPixelFormatRGBA16Unorm
-                                           : MTLPixelFormatRGBA8Unorm;
-    QImage src = (sixteen || img.format() == QImage::Format_RGBA8888)
-                 ? img : img.convertToFormat(QImage::Format_RGBA8888);
+    const QImage::Format f = img.format();
+    const MTLPixelFormat wantFmt =
+        f == QImage::Format_RGBA64      ? MTLPixelFormatRGBA16Unorm
+      : f == QImage::Format_RGBA16FPx4  ? MTLPixelFormatRGBA16Float
+                                        : MTLPixelFormatRGBA8Unorm;
+    const bool native = f == QImage::Format_RGBA64
+                     || f == QImage::Format_RGBA16FPx4
+                     || f == QImage::Format_RGBA8888;
+    QImage src = native ? img : img.convertToFormat(QImage::Format_RGBA8888);
 
     if (cachedTex == nil || cachedW != w || cachedH != h
         || cachedTex.pixelFormat != wantFmt) {
