@@ -735,7 +735,8 @@ int DualPlaybackController::translateMasterToSourceFrame(int masterFrame,
 {
     // Identity when no timeline is wired — preserves Phase 7.7
     // behavior so tests/early-stage paths still work.
-    if (!m_timeline) return masterFrame;
+    const auto tl = timelineSnapshot();
+    if (!tl) return masterFrame;
     if (masterFrame < 0) return -1;
 
     const double fps = (m_masterFps > 0.0) ? m_masterFps : 24.0;
@@ -745,7 +746,7 @@ int DualPlaybackController::translateMasterToSourceFrame(int masterFrame,
         ? QStringLiteral("A") : QStringLiteral("B");
 
     const Clip *clip = TimelineFlattener::visibleClipOnTrack(
-        m_timeline->timeline(), trackId, masterSec);
+        *tl, trackId, masterSec);
     if (!clip) return -1;   // gap → caller renders transparent
 
     const double sourceSec = (masterSec - clip->startTime) + clip->sourceIn;
@@ -779,7 +780,8 @@ int DualPlaybackController::translateMasterToSourceFrame(int masterFrame,
 int DualPlaybackController::nextClipSourceFrame(int masterFrame,
                                                     char trackSide) const
 {
-    if (!m_timeline) return -1;
+    const auto tl = timelineSnapshot();
+    if (!tl) return -1;
     const QString trackId = (trackSide == 'A')
         ? QStringLiteral("A") : QStringLiteral("B");
     const double fps = (m_masterFps > 0.0) ? m_masterFps : 24.0;
@@ -790,7 +792,7 @@ int DualPlaybackController::nextClipSourceFrame(int masterFrame,
     // would have returned a valid frame already and we wouldn't be
     // calling this; here we only care about clips strictly ahead.)
     const Clip *next = nullptr;
-    for (const Track &track : m_timeline->timeline().tracks) {
+    for (const Track &track : tl->tracks) {
         if (track.id != trackId) continue;
         for (const Clip &c : track.clips) {
             if (c.isGap) continue;
@@ -819,11 +821,12 @@ int DualPlaybackController::nextClipSourceFrame(int masterFrame,
 
 int DualPlaybackController::firstClipSourceFrame(char trackSide) const
 {
-    if (!m_timeline) return -1;
+    const auto tl = timelineSnapshot();
+    if (!tl) return -1;
     const QString trackId = (trackSide == 'A')
         ? QStringLiteral("A") : QStringLiteral("B");
     const Clip *first = nullptr;
-    for (const Track &track : m_timeline->timeline().tracks) {
+    for (const Track &track : tl->tracks) {
         if (track.id != trackId) continue;
         for (const Clip &c : track.clips) {
             if (c.isGap) continue;
@@ -840,9 +843,25 @@ int DualPlaybackController::firstClipSourceFrame(char trackSide) const
     return std::max(0, static_cast<int>(std::lround(first->sourceIn * srcFps)));
 }
 
+std::shared_ptr<const qcv::Timeline> DualPlaybackController::timelineSnapshot() const
+{
+    std::lock_guard<std::mutex> lk(m_timelineSnapMutex);
+    return m_timelineSnap;
+}
+
+void DualPlaybackController::publishTimelineSnapshot()
+{
+    auto snap = m_timeline
+        ? std::make_shared<const qcv::Timeline>(m_timeline->timeline())
+        : std::shared_ptr<const qcv::Timeline>();
+    std::lock_guard<std::mutex> lk(m_timelineSnapMutex);
+    m_timelineSnap = std::move(snap);
+}
+
 void DualPlaybackController::setTimeline(qcv::TimelineController *t)
 {
     m_timeline = t;
+    publishTimelineSnapshot();
     if (t) {
         // Bump the generation on every timeline mutation so the
         // compositor drops its stale cached MTLTextures. Direct
@@ -850,6 +869,9 @@ void DualPlaybackController::setTimeline(qcv::TimelineController *t)
         // signal; atomic counter is thread-safe.
         QObject::connect(t, &qcv::TimelineController::timelineChanged,
                           this, [this, t]() {
+            // Publish before bumping the generation: a reader that
+            // sees the new generation then reads the new timeline.
+            publishTimelineSnapshot();
             m_timelineGeneration.fetch_add(1,
                 std::memory_order_acq_rel);
 
@@ -893,12 +915,11 @@ bool DualPlaybackController::aPastEnd(int masterFrame) const
     // before/after/between clips all render transparent on that
     // side. Falls back to source-frameCount when no timeline is
     // wired (Phase 7.7 behavior, identity translation).
-    if (m_timeline) {
+    if (const auto tl = timelineSnapshot()) {
         const double fps = (m_masterFps > 0.0) ? m_masterFps : 24.0;
         const double sec = static_cast<double>(masterFrame) / fps;
         return TimelineFlattener::visibleClipOnTrack(
-                   m_timeline->timeline(),
-                   QStringLiteral("A"), sec) == nullptr;
+                   *tl, QStringLiteral("A"), sec) == nullptr;
     }
     const int count = m_sourceA->frameCount();
     return count > 0 && masterFrame >= count;
@@ -907,12 +928,11 @@ bool DualPlaybackController::aPastEnd(int masterFrame) const
 bool DualPlaybackController::bPastEnd(int masterFrame) const
 {
     if (!m_sourceB) return true;
-    if (m_timeline) {
+    if (const auto tl = timelineSnapshot()) {
         const double fps = (m_masterFps > 0.0) ? m_masterFps : 24.0;
         const double sec = static_cast<double>(masterFrame) / fps;
         return TimelineFlattener::visibleClipOnTrack(
-                   m_timeline->timeline(),
-                   QStringLiteral("B"), sec) == nullptr;
+                   *tl, QStringLiteral("B"), sec) == nullptr;
     }
     const int count = m_sourceB->frameCount();
     return count > 0 && masterFrame >= count;

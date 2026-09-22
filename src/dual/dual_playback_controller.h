@@ -30,7 +30,7 @@
 #include <mutex>
 #include <thread>
 
-namespace qcv { class TimelineController; }
+namespace qcv { class TimelineController; struct Timeline; }
 
 namespace qcv::dual {
 
@@ -331,11 +331,26 @@ private:
     double m_masterFps        = 0.0;
 
     // Phase 7.8 — set by WindowManager after timeline rebuild for
-    // per-side master→source translation. Read on the pump thread;
-    // for v1 there's no mutex (timeline mutations only happen on
-    // dual entry / exit, not mid-playback). Edit ops in Stages C+
-    // will introduce serialization.
+    // per-side master→source translation. GUI thread only: the pump
+    // and render threads never touch it, they read m_timelineSnap.
     qcv::TimelineController *m_timeline = nullptr;
+
+    // An immutable copy of the timeline for the pump and render
+    // threads. The GUI thread edits the live timeline (set B, slip,
+    // trim, split, undo) while those threads walk its tracks and hold
+    // Clip pointers into them; a ThreadSanitizer run caught the list
+    // reallocating under a reader. setTimeline and every
+    // timelineChanged publish a new copy (every mutation path in
+    // TimelineController ends in that signal, audited 2026-09-22).
+    // Readers take the shared_ptr once and keep it for the whole
+    // lookup, so a Clip pointer outlives any publish. Copies are
+    // cheap: Qt's implicit sharing means the GUI-side edit detaches
+    // and the snapshot keeps the old data. Null = no timeline wired
+    // (identity translation).
+    mutable std::mutex                    m_timelineSnapMutex;
+    std::shared_ptr<const qcv::Timeline>  m_timelineSnap;
+    std::shared_ptr<const qcv::Timeline> timelineSnapshot() const;
+    void publishTimelineSnapshot();
 
     // Generation counter (see timelineGeneration() above). Bumped
     // by the slot connected to m_timeline's timelineChanged signal.
