@@ -234,6 +234,7 @@ Pane {
     readonly property color kSignifierColorA: "#446a90"
     readonly property color kSignifierColorB: "#a0664a"
     readonly property string trackASignifier: {
+        if (WindowManager.dualLiveA) return "L";   // free-running live side
         if (dualActive)     return "A";
         if (playlistActive) return "P";
         if (WindowManager.imageSeqActive) return "I";

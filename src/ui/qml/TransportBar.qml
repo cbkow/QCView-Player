@@ -81,12 +81,15 @@ Pane {
     }
 
     // ---- Helpers --------------------------------------------------
+    // Two live sides have no clock: the transport would offer to seek
+    // something that only ever shows its newest frame.
     readonly property bool hasMedia:
-        WindowManager.dualController
+        WindowManager.dualSeekable
+        && (WindowManager.dualController
         || WindowManager.imageSeqActive
         || WindowManager.audioActive
         || (WindowManager.videoDecoder
-            && WindowManager.videoDecoder.state !== 0)
+            && WindowManager.videoDecoder.state !== 0))
 
     readonly property bool isPlaying: {
         if (WindowManager.dualController) {

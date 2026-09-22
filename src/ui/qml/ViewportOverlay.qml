@@ -51,20 +51,22 @@ Pane {
     readonly property bool playlistActive:
         WindowManager.timeline
         && WindowManager.timeline.sourceMode === 1
-    // Live sources (srt://, QCBridge qcbae://) are blocked from dual view
-    // in C++ (setCompositorMode / setBSource refuse them) — the controls
-    // hid nothing and a click was silently refused. Same treatment as a
-    // playlist: only the A chip remains. Keyed on the active item being a
-    // stream (MediaType::LiveStream = 6), not only on a running session:
-    // liveActive is set only once the stream opens, so a stream that
-    // failed to open (or a qcbae:// item where the bridge isn't built)
-    // brought the B chip and the dual buttons back.
-    readonly property bool streamActive:
-        WindowManager.liveActive
-        || (WindowManager.project && WindowManager.project.activeItem
-            && WindowManager.project.activeItem.type === 6)
-    readonly property bool dualUnavailable:
-        playlistActive || streamActive
+    // A live source can be either side of dual now (the island opens its own
+    // receiver for it), so only a playlist hides the pairing controls.
+    readonly property bool dualUnavailable: playlistActive
+
+    // The status dot on a chip tracks that side's receiver: in dual it is the
+    // island's (per side), in single view the session's. Colours and the
+    // status numbers match LiveStrip.qml (2 = Live).
+    function liveFor(side) {
+        if (WindowManager.compositorMode !== 0) {
+            return side === "A" ? WindowManager.dualLiveA : WindowManager.dualLiveB;
+        }
+        return side === "A" ? WindowManager.liveDecoder : null;
+    }
+    function liveDotColor(live) {
+        return live && live.status === 2 ? "#e5484d" : "#e6a23c";
+    }
 
     function autoSaveName() {
         const proj = WindowManager.project;
@@ -173,6 +175,18 @@ Pane {
                 anchors.rightMargin: Theme.spacing
                 spacing: Theme.spacing
 
+                Rectangle {
+                    id: aLiveDot
+                    readonly property var live: root.liveFor("A")
+                    visible: !!live
+                    Layout.preferredWidth: 7
+                    Layout.preferredHeight: 7
+                    radius: 3.5
+                    color: root.liveDotColor(live)
+                    ToolTip.visible: aChipMa.containsMouse && !!live
+                    ToolTip.text: live && live.statusDetail !== ""
+                                  ? live.statusDetail : qsTr("Live source")
+                }
                 Text {
                     text: qsTr("A")
                     color: root.sideAColor
@@ -355,6 +369,18 @@ Pane {
                 anchors.rightMargin: Theme.spacing
                 spacing: Theme.spacing
 
+                Rectangle {
+                    id: bLiveDot
+                    readonly property var live: root.liveFor("B")
+                    visible: !!live
+                    Layout.preferredWidth: 7
+                    Layout.preferredHeight: 7
+                    radius: 3.5
+                    color: root.liveDotColor(live)
+                    ToolTip.visible: bChipMa.containsMouse && !!live
+                    ToolTip.text: live && live.statusDetail !== ""
+                                  ? live.statusDetail : qsTr("Live source")
+                }
                 Text {
                     text: qsTr("B")
                     color: root.sideBColor
@@ -366,7 +392,7 @@ Pane {
                     Layout.fillWidth: true
                     text: bChip.bLoaded
                           ? sourceFilenameOf(bChip.bDisplayPath)
-                          : qsTr("(drop a video or sequence…)")
+                          : qsTr("(drop a video, sequence or stream…)")
                     color: bChip.bLoaded ? Theme.textPrimary : Theme.textMuted
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall

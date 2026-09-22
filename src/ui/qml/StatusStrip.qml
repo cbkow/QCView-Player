@@ -121,9 +121,14 @@ Pane {
             text: {
                 const a = root.v   ? root.dimsLabel(root.v)  : "";
                 const b = root.vB  ? root.dimsLabel(root.vB) : "";
-                const aName = root.v
-                              ? (root.v.sourcePath || "").split("/").pop()
-                              : "";
+                let aName = root.v
+                            ? (root.v.sourcePath || "").split("/").pop()
+                            : "";
+                if (!aName && WindowManager.project
+                    && WindowManager.project.activeItem) {
+                    // A live A never opens the decoder; name it from the item.
+                    aName = WindowManager.project.activeItem.name || "";
+                }
                 const bName = root.vB
                               ? (root.vB.sourcePath || "").split("/").pop()
                               : "";

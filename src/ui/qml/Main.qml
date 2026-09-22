@@ -786,11 +786,15 @@ ApplicationWindow {
     readonly property bool fxRightRail:   rightRailVisible   && !inFullscreen
     // Live mode swaps the timeline/transport rows for the LiveStrip —
     // nothing to scrub, no frame count; a disabled transport would
-    // read as broken rather than live.
+    // read as broken rather than live. In dual the same holds only when
+    // BOTH sides are live (dualSeekable false): with one clocked side the
+    // timeline and transport belong to it.
     readonly property bool fxTimeline:    timelineVisible    && !inFullscreen
                                           && !WindowManager.liveActive
+                                          && WindowManager.dualSeekable
     readonly property bool fxTransport:   transportVisible   && !inFullscreen
                                           && !WindowManager.liveActive
+                                          && WindowManager.dualSeekable
     readonly property bool fxLiveStrip:   WindowManager.liveActive
                                           && !inFullscreen
     readonly property bool fxStatusStrip: statusStripVisible && !inFullscreen
@@ -1418,8 +1422,10 @@ ApplicationWindow {
             Layout.fillWidth: true
             // Thin readout row (matches the bottom StatusStrip's 22px).
             Layout.preferredHeight:
-                (root.inFullscreen || WindowManager.liveActive) ? 0 : 22
+                (root.inFullscreen || WindowManager.liveActive
+                 || !WindowManager.dualSeekable) ? 0 : 22
             visible: !root.inFullscreen && !WindowManager.liveActive
+                     && WindowManager.dualSeekable
         }
 
         // ---- Bottom band (live mode): the LiveStrip replaces the
