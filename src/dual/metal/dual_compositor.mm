@@ -5,6 +5,7 @@
 #include "dual/dual_playback_controller.h"
 #include "dual/i_dual_pixbuf_converter.h"
 #include "render/metal/metal_device_manager.h"
+#include "render/metal/metal_upload_ring.h"
 
 #import <Metal/Metal.h>
 #include <QImage>
@@ -250,42 +251,9 @@ struct CachedSideTexture {
     id<MTLTexture> texture = nil;
     int  width  = 0;
     int  height = 0;
-    // Tracks the Metal pixel format the cache was created at. When
-    // a Cpu-kind frame's QImage format changes (e.g. SDR PNG ↔ EXR
-    // FP16), we recreate the texture at the matching format so the
-    // replaceRegion bytes line up.
+    // The last-good texture's pixel format (Cpu-kind frames upload
+    // through Impl::uploadCpu).
     MTLPixelFormat format = MTLPixelFormatRGBA8Unorm;
-
-    bool fits(int w, int h, MTLPixelFormat fmt) const {
-        return texture && width == w && height == h && format == fmt;
-    }
-
-    void recreate(id<MTLDevice> device, int w, int h, MTLPixelFormat fmt) {
-        MTLTextureDescriptor *desc = [MTLTextureDescriptor
-            texture2DDescriptorWithPixelFormat:fmt
-                                          width:w
-                                         height:h
-                                      mipmapped:NO];
-        desc.usage       = MTLTextureUsageShaderRead;
-        desc.storageMode = MTLStorageModeShared;
-        texture = [device newTextureWithDescriptor:desc];
-        width   = w;
-        height  = h;
-        format  = fmt;
-    }
-
-    // QImage byte layout matches Metal pixel format 1:1 here:
-    //   Format_RGBA8888    → MTLPixelFormatRGBA8Unorm    (4 B/px)
-    //   Format_RGBA16FPx4  → MTLPixelFormatRGBA16Float   (8 B/px)
-    void uploadFromQImage(const QImage &img) {
-        if (!texture || img.isNull()) return;
-        const int rowBytes = static_cast<int>(img.bytesPerLine());
-        MTLRegion region = MTLRegionMake2D(0, 0, img.width(), img.height());
-        [texture replaceRegion:region
-                   mipmapLevel:0
-                     withBytes:img.constBits()
-                   bytesPerRow:rowBytes];
-    }
 };
 
 // Texture format for a Cpu-kind DualFrame. Byte-identical layouts:
@@ -310,6 +278,35 @@ struct DualCompositor::Impl {
 
     CachedSideTexture cachedA;
     CachedSideTexture cachedB;
+
+    // Cpu-kind frames are uploaded through these, never into a texture a
+    // frame in flight still samples (metal_upload_ring.h). The key is the
+    // uploaded QImage's cacheKey: the controller hands back the same
+    // buffered frame every vsync until the next one, and re-uploading
+    // identical pixels ~60 times a second was pure copying.
+    MetalUploadRing ringA{"dual A"};
+    MetalUploadRing ringB{"dual B"};
+    qint64 uploadedKeyA = 0;
+    qint64 uploadedKeyB = 0;
+
+    // Uploads a Cpu-kind frame for a side, or returns the texture that
+    // already holds it. Records it as the side's last-good texture.
+    id<MTLTexture> uploadCpu(int slot, id<MTLDevice> device, const QImage &img,
+                             CachedSideTexture &cache)
+    {
+        MetalUploadRing &ring = slot == 0 ? ringA : ringB;
+        qint64 &key = slot == 0 ? uploadedKeyA : uploadedKeyB;
+        id<MTLTexture> tex = (key != 0 && key == img.cacheKey()) ? ring.current() : nil;
+        if (!tex) {
+            tex = ring.upload(device, img, metalFormatForQImage(img));
+            key = tex ? img.cacheKey() : 0;
+        }
+        cache.texture = tex;
+        cache.width   = img.width();
+        cache.height  = img.height();
+        cache.format  = metalFormatForQImage(img);
+        return tex;
+    }
 
     // Set by prepareFrames(); read by renderFrame(). Caches the
     // textures that will actually be bound to the composite draw.
@@ -513,6 +510,9 @@ void DualCompositor::setController(DualPlaybackController *c)
         m_impl->cachedA.width = m_impl->cachedA.height = 0;
         m_impl->cachedB.texture = nil;
         m_impl->cachedB.width = m_impl->cachedB.height = 0;
+        m_impl->ringA.reset();
+        m_impl->ringB.reset();
+        m_impl->uploadedKeyA = m_impl->uploadedKeyB = 0;
     }
 }
 
@@ -528,6 +528,8 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
         (__bridge id<MTLCommandBuffer>)cmdBufferPtr;
     id<MTLDevice> device = cb ? cb.device : nil;
     if (!device) return;
+    m_impl->ringA.beginFrame(cb);
+    m_impl->ringB.beginFrame(cb);
 
     const int masterFrame = m_controller->currentFrame();
 
@@ -605,12 +607,7 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
             // RGBA16Unorm for Phase J.1's Format_RGBA64 >8-bit /
             // Bayer video — 4 × uint16, uploaded as is; mapping it to
             // RGBA8Unorm pushed 8 bytes/px into a 4-byte texture).
-            const MTLPixelFormat mfmt = metalFormatForQImage(*f->rgba);
-            if (!cache.fits(outW, outH, mfmt)) {
-                cache.recreate(device, outW, outH, mfmt);
-            }
-            cache.uploadFromQImage(*f->rgba);
-            outTex = cache.texture;
+            outTex = m_impl->uploadCpu(slot, device, *f->rgba, cache);
             break;
         }
         case DualFrame::Kind::Metal: {
@@ -707,24 +704,13 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
         auto fB = m_controller->pullFrameB(masterFrame);
         const bool aPastEnd = m_controller->aPastEnd(masterFrame);
         const bool bPastEnd = m_controller->bPastEnd(masterFrame);
-        auto formatFor = [](const QImage &img) {
-            return metalFormatForQImage(img);
-        };
         if (!aPastEnd && fA && fA->valid()
             && fA->kind == DualFrame::Kind::Cpu) {
-            const MTLPixelFormat mfmt = formatFor(*fA->rgba);
-            if (!m_impl->cachedA.fits(fA->width, fA->height, mfmt)) {
-                m_impl->cachedA.recreate(device, fA->width, fA->height, mfmt);
-            }
-            m_impl->cachedA.uploadFromQImage(*fA->rgba);
+            m_impl->uploadCpu(0, device, *fA->rgba, m_impl->cachedA);
         }
         if (!bPastEnd && fB && fB->valid()
             && fB->kind == DualFrame::Kind::Cpu) {
-            const MTLPixelFormat mfmt = formatFor(*fB->rgba);
-            if (!m_impl->cachedB.fits(fB->width, fB->height, mfmt)) {
-                m_impl->cachedB.recreate(device, fB->width, fB->height, mfmt);
-            }
-            m_impl->cachedB.uploadFromQImage(*fB->rgba);
+            m_impl->uploadCpu(1, device, *fB->rgba, m_impl->cachedB);
         }
         m_impl->preparedA        = aPastEnd ? nil : m_impl->cachedA.texture;
         m_impl->preparedB        = bPastEnd ? nil : m_impl->cachedB.texture;

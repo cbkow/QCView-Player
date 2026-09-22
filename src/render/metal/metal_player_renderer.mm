@@ -18,6 +18,7 @@
 #include "metal_compositor.h"
 #include "metal_device_manager.h"
 #include "metal_hdr_swapchain.h"
+#include "metal_upload_ring.h"
 #include "metal_ocio_renderer.h"
 #include "metal_texture_pool.h"
 #include "metal_yuv_renderer.h"
@@ -63,15 +64,13 @@ inline int parThumbW(int w, int num, int den)
 // uploads as is and the compositor samples it exactly like the 8-bit
 // slot (both are unorm → float in the shader); the extra depth
 // survives into the RGBA16F OCIO pass instead of being crushed to 8
-// bits on the CPU. The cached texture is recreated only when the
-// frame dims or pixel format change; otherwise replaceRegion uploads
-// new pixels in place. Returns the cached texture on success, nil if
-// anything went wrong.
+// bits on the CPU. The upload goes into a ring of textures so it never
+// overwrites one a frame in flight is still sampling (metal_upload_ring.h).
+// Returns the uploaded texture on success, nil if anything went wrong.
 static id<MTLTexture> uploadCpuFrameRgba(
     id<MTLDevice> device,
     const QImage &img,
-    __strong id<MTLTexture> &cachedTex,
-    int &cachedW, int &cachedH)
+    MetalUploadRing &ring)
 {
     if (!device || img.isNull()) return nil;
     const int w = img.width();
@@ -94,25 +93,7 @@ static id<MTLTexture> uploadCpuFrameRgba(
                      || f == QImage::Format_RGBA8888;
     QImage src = native ? img : img.convertToFormat(QImage::Format_RGBA8888);
 
-    if (cachedTex == nil || cachedW != w || cachedH != h
-        || cachedTex.pixelFormat != wantFmt) {
-        MTLTextureDescriptor *desc =
-            [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:
-                wantFmt
-                width:w height:h mipmapped:NO];
-        desc.storageMode = MTLStorageModeShared;
-        desc.usage = MTLTextureUsageShaderRead;
-        cachedTex = [device newTextureWithDescriptor:desc];
-        cachedW = w;
-        cachedH = h;
-    }
-    if (!cachedTex) return nil;
-
-    [cachedTex replaceRegion:MTLRegionMake2D(0, 0, w, h)
-                 mipmapLevel:0
-                   withBytes:src.constBits()
-                 bytesPerRow:src.bytesPerLine()];
-    return cachedTex;
+    return ring.upload(device, src, wantFmt);
 }
 
 } // namespace
@@ -195,12 +176,8 @@ struct MetalPlayerRenderer::Impl {
     // RGBA8Unorm textures sized to the frame; replaceRegion on
     // each fetch. One slot per source so A and B don't clobber
     // each other.
-    id<MTLTexture>       cpuFrameTexA = nil;
-    int                  cpuFrameAW   = 0;
-    int                  cpuFrameAH   = 0;
-    id<MTLTexture>       cpuFrameTexB = nil;
-    int                  cpuFrameBW   = 0;
-    int                  cpuFrameBH   = 0;
+    MetalUploadRing      cpuRingA{"single A"};
+    MetalUploadRing      cpuRingB{"single B"};
 
     // Atomic-pair gate (Guide 01 §5). Each draw, fetchLatest stores
     // freshly-published FrameHandles into these pendings (replacing
@@ -681,9 +658,7 @@ void MetalPlayerRenderer::clearSourceAState()
     m_impl->videoFrameH       = 0;
     m_impl->videoHandle       = FrameHandle{};
     m_impl->pendingHandleA    = FrameHandle{};
-    m_impl->cpuFrameTexA      = nil;
-    m_impl->cpuFrameAW        = 0;
-    m_impl->cpuFrameAH        = 0;
+    m_impl->cpuRingA.reset();
     m_impl->lastSourceTexture = nil;
     m_impl->lastSourceW       = 0;
     m_impl->lastSourceH       = 0;
@@ -697,9 +672,7 @@ void MetalPlayerRenderer::clearSourceBState()
     m_impl->videoFrameHB      = 0;
     m_impl->videoHandleB      = FrameHandle{};
     m_impl->pendingHandleB    = FrameHandle{};
-    m_impl->cpuFrameTexB      = nil;
-    m_impl->cpuFrameBW        = 0;
-    m_impl->cpuFrameBH        = 0;
+    m_impl->cpuRingB.reset();
 }
 void MetalPlayerRenderer::setViewportAnnotator(ViewportAnnotator *a){ m_annotator = a; }
 void MetalPlayerRenderer::setSafetyOverlay(SafetyOverlay *s)        { m_safety    = s; }
@@ -1338,6 +1311,10 @@ void MetalPlayerRenderer::drawFrame()
     // at the end of drawFrame; vsync pacing happens at the
     // presentDrawable: backpressure (3-drawable max).
     id<MTLCommandBuffer> cb = [m_impl->commandQueue commandBuffer];
+    // Stamp this frame on the CPU upload rings; its completion frees
+    // their textures for reuse (metal_upload_ring.h).
+    m_impl->cpuRingA.beginFrame(cb);
+    m_impl->cpuRingB.beginFrame(cb);
 
     // Phase 7.5 B.6.2: if an image-sequence cache is set, ask the
     // upload thread for the playhead's GPU texture. If ready, render
@@ -1434,8 +1411,7 @@ void MetalPlayerRenderer::drawFrame()
     auto uploadHandle = [this, cb](const FrameHandle &h,
                                     __strong id<MTLTexture> &outRgba,
                                     int &outW, int &outH,
-                                    __strong id<MTLTexture> &cpuCache,
-                                    int &cpuCacheW, int &cpuCacheH,
+                                    MetalUploadRing &cpuRing,
                                     int rangeOverride) {
         if (h.kind() == FrameHandle::Kind::Metal) {
             CvPixbufMetalBridge::PlaneSet planes;
@@ -1477,8 +1453,7 @@ void MetalPlayerRenderer::drawFrame()
         } else if (h.kind() == FrameHandle::Kind::Cpu) {
             const QImage &img = h.cpuImage();
             id<MTLTexture> tex = uploadCpuFrameRgba(
-                m_impl->device, img,
-                cpuCache, cpuCacheW, cpuCacheH);
+                m_impl->device, img, cpuRing);
             if (tex) {
                 outRgba = tex;
                 outW    = img.width();
@@ -1498,8 +1473,7 @@ void MetalPlayerRenderer::drawFrame()
         uploadHandle(m_impl->pendingHandleA,
                      m_impl->videoFrameRgba,
                      m_impl->videoFrameW, m_impl->videoFrameH,
-                     m_impl->cpuFrameTexA,
-                     m_impl->cpuFrameAW, m_impl->cpuFrameAH,
+                     m_impl->cpuRingA,
                      rangeOvA);
         m_impl->videoHandle = std::move(m_impl->pendingHandleA);
         m_impl->pendingHandleA = FrameHandle{};
@@ -1515,8 +1489,7 @@ void MetalPlayerRenderer::drawFrame()
         uploadHandle(m_impl->pendingHandleB,
                      m_impl->videoFrameRgbaB,
                      m_impl->videoFrameWB, m_impl->videoFrameHB,
-                     m_impl->cpuFrameTexB,
-                     m_impl->cpuFrameBW, m_impl->cpuFrameBH,
+                     m_impl->cpuRingB,
                      rangeOvB);
         m_impl->videoHandleB = std::move(m_impl->pendingHandleB);
         m_impl->pendingHandleB = FrameHandle{};
