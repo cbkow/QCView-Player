@@ -8,18 +8,19 @@
 // CPU-decoded source went through it: FFV1 / DNxHR / ProRes RAW in software,
 // EXR FP16 in dual, the QCBridge live feed.
 //
-// Each frame's command buffer gets a serial, and its completion handler
-// records the newest finished one. A slot remembers the last serial that
-// sampled it; an upload picks a slot whose last user has finished, and only
-// if none has does it wait (bounded, logged). With three slots and at most
-// three frames in flight, that wait should essentially never happen.
+// A slot remembers the command buffer that last sampled it, and Metal
+// reports that buffer's own status: an upload picks a slot whose last user
+// has finished, and only if none has does it wait on that buffer. With three
+// slots and at most three frames in flight, that wait should essentially
+// never happen. (No completion handlers: a block capturing shared state is
+// heap-copied per frame, which ThreadSanitizer flagged against an earlier
+// handler still reading the reused block.)
 //
 // QCV_UPLOAD_SLOTS sets the slot count (default 3). 1 reproduces the old
 // behaviour for measurement: it overwrites regardless and counts each time
 // the texture it overwrote was still in flight.
 //
-// Render thread only, apart from the completion handlers, which touch only
-// the shared completion state.
+// Render thread only.
 
 #pragma once
 
@@ -30,11 +31,7 @@
 #include <QtLogging>
 
 #include <algorithm>
-#include <chrono>
-#include <condition_variable>
 #include <cstdint>
-#include <memory>
-#include <mutex>
 #include <vector>
 
 namespace qcv {
@@ -46,24 +43,18 @@ public:
         : m_name(name), m_slots(static_cast<size_t>(slotsFromEnv())) {}
 
     // Once per frame, with the frame's command buffer, before upload() and
-    // before current() is sampled. The buffer must be committed (its
-    // completion is what frees slots; a wait for it times out otherwise).
+    // before current() is sampled. The buffer must be committed: its
+    // completion is what frees slots again.
     void beginFrame(id<MTLCommandBuffer> cb)
     {
-        const uint64_t serial = ++m_serial;
-        auto shared = m_shared;
-        [cb addCompletedHandler:^(id<MTLCommandBuffer>) {
-            std::lock_guard<std::mutex> lk(shared->m);
-            shared->completed = std::max(shared->completed, serial);
-            shared->cv.notify_all();
-        }];
+        m_frameCb = cb;
         // The current texture is sampled again this frame. Keep the previous
-        // stamp: an upload before this buffer commits is safe for this frame,
-        // so only earlier frames count as users.
+        // user: an upload before this buffer commits is safe for this frame,
+        // so only earlier frames count.
         if (m_current >= 0) {
             Slot &cur = m_slots[static_cast<size_t>(m_current)];
-            cur.prevUse = cur.lastUse;
-            cur.lastUse = serial;
+            cur.prevUser = cur.lastUser;
+            cur.lastUser = cb;
         }
     }
 
@@ -76,7 +67,7 @@ public:
         int pick = -1;
         if (n == 1) {
             pick = 0;
-            if (m_slots[0].prevUse > completed()) ++m_hazards;   // the old behaviour
+            if (inFlight(m_slots[0].prevUser)) ++m_hazards;   // the old behaviour
         } else {
             pick = freeSlot();
             if (pick < 0) {
@@ -102,8 +93,8 @@ public:
                  mipmapLevel:0
                    withBytes:img.constBits()
                  bytesPerRow:img.bytesPerLine()];
-        s.prevUse = s.lastUse;
-        s.lastUse = m_serial;   // sampled by the frame being encoded
+        s.prevUser = s.lastUser;
+        s.lastUser = m_frameCb;   // sampled by the frame being encoded
         m_current = pick;
 
         if (++m_uploads % 240 == 0) {
@@ -127,6 +118,7 @@ public:
     {
         for (auto &s : m_slots) s = Slot{};
         m_current = -1;
+        m_frameCb = nil;
     }
 
 private:
@@ -134,14 +126,19 @@ private:
         id<MTLTexture> tex = nil;
         int w = 0, h = 0;
         MTLPixelFormat fmt = MTLPixelFormatInvalid;
-        uint64_t lastUse = 0;   // newest frame that samples it
-        uint64_t prevUse = 0;   // the one before (for the 1-slot measurement)
+        id<MTLCommandBuffer> lastUser = nil;   // newest frame that samples it
+        id<MTLCommandBuffer> prevUser = nil;   // the one before (1-slot measurement)
     };
-    struct Shared {
-        std::mutex m;
-        std::condition_variable cv;
-        uint64_t completed = 0;
-    };
+
+    // A buffer that has not finished on the GPU. nil (never used) and the
+    // two terminal states are free; anything else is still in flight.
+    static bool inFlight(id<MTLCommandBuffer> cb)
+    {
+        if (!cb) return false;
+        const MTLCommandBufferStatus st = cb.status;
+        return st != MTLCommandBufferStatusCompleted
+            && st != MTLCommandBufferStatusError;
+    }
 
     static int slotsFromEnv()
     {
@@ -150,54 +147,33 @@ private:
         return ok ? std::clamp(v, 1, 8) : 3;
     }
 
-    uint64_t completed() const
-    {
-        std::lock_guard<std::mutex> lk(m_shared->m);
-        return m_shared->completed;
-    }
-
-    // A slot, other than the current one, whose last user has finished;
-    // the least recently used such slot. -1 if none.
+    // A slot, other than the current one, whose last user has finished.
+    // Oldest first, so a slot gets the longest possible rest.
     int freeSlot() const
     {
-        const uint64_t done = completed();
-        int best = -1;
-        for (int i = 0; i < static_cast<int>(m_slots.size()); ++i) {
-            if (i == m_current) continue;
-            const Slot &s = m_slots[static_cast<size_t>(i)];
-            if (s.lastUse > done) continue;
-            if (best < 0 || s.lastUse < m_slots[static_cast<size_t>(best)].lastUse) best = i;
+        for (int i = 1; i <= static_cast<int>(m_slots.size()); ++i) {
+            const int idx = (m_current + i) % static_cast<int>(m_slots.size());
+            if (idx == m_current) continue;
+            if (!inFlight(m_slots[static_cast<size_t>(idx)].lastUser)) return idx;
         }
-        return best;
+        return -1;
     }
 
-    // Blocks until the least recently used non-current slot's last user
-    // completes, bounded so an uncommitted buffer can't hang the render
-    // thread (then that slot is overwritten anyway).
+    // Every other slot is still in flight: wait for the one after the
+    // current, which is the oldest.
     int waitForSlot()
     {
-        int lru = -1;
-        for (int i = 0; i < static_cast<int>(m_slots.size()); ++i) {
-            if (i == m_current) continue;
-            if (lru < 0 || m_slots[static_cast<size_t>(i)].lastUse
-                               < m_slots[static_cast<size_t>(lru)].lastUse) lru = i;
-        }
-        const uint64_t need = m_slots[static_cast<size_t>(lru)].lastUse;
-        std::unique_lock<std::mutex> lk(m_shared->m);
-        if (!m_shared->cv.wait_for(lk, std::chrono::milliseconds(100),
-                                   [&] { return m_shared->completed >= need; })) {
-            qWarning("MetalUploadRing[%s]: waited 100 ms for a slot; overwriting it",
-                     m_name);
-        }
-        return lru;
+        const int idx = (m_current + 1) % static_cast<int>(m_slots.size());
+        id<MTLCommandBuffer> user = m_slots[static_cast<size_t>(idx)].lastUser;
+        if (user) [user waitUntilCompleted];
+        return idx;
     }
 
     const char *m_name;
     std::vector<Slot> m_slots;
     int m_current = -1;
-    uint64_t m_serial = 0;
+    id<MTLCommandBuffer> m_frameCb = nil;
     uint64_t m_uploads = 0, m_hazards = 0, m_waits = 0;
-    std::shared_ptr<Shared> m_shared = std::make_shared<Shared>();
 };
 
 } // namespace qcv
