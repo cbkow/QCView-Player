@@ -4,18 +4,22 @@
 // On a network volume (LucidLink, SMB shares) an uncached frame costs a
 // round trip per read, and a decoder reads one frame at a time: 8K ProRes
 // arrived at about one frame a second, while the same file played in real
-// time once cached. This reads the next frames' exact byte ranges, from the
-// container's index, into a scratch buffer and throws them away. The OS and
-// the volume keep the data, so the decoder's own read is then a cache hit.
-// Nothing is held in the app: one 2 MB buffer and a table of frame offsets.
+// time once cached. This touches the next frames' exact byte ranges, from
+// the container's index: one byte per volume cache page (LucidLink's page is
+// 1 MiB; QCV_READAHEAD_PAGE_KB). A byte read anywhere in a page makes the
+// volume download and keep the whole page, so the decoder's own read is then
+// served from the volume's local cache (measured: LucidLink's on-disk cache
+// grew by the file's size). Nothing is held in the app: a table of frame
+// offsets. A plain SMB share has no such page cache, so there a touch leaves
+// nothing behind; LucidLink is the case this is for.
 //
 // It runs for every video file. Telling a network volume from a local one
 // isn't reliable (symlinks, firmlinks, SMB loopback gateways, File Provider
 // mounts), so instead it is kept cheap: one background thread for the whole
 // app, utility QoS and utility I/O priority (the decoder's reads win), no
 // locks shared with decode or render, asleep when there is nothing to warm.
-// On a local disk it reads the bytes the decoder would read anyway, just
-// earlier, so disk I/O doesn't grow.
+// On a local disk a touch costs one small page read per MiB, next to
+// nothing.
 //
 // Driven by read position, not the playhead: each decoder reports the first
 // frame it hasn't read yet (after a decoded frame, or on a seek), and the

@@ -19,6 +19,7 @@ extern "C" {
 }
 
 #if defined(__APPLE__)
+#include <fcntl.h>
 #include <pthread/qos.h>
 #include <sys/resource.h>
 #elif defined(_WIN32)
@@ -29,8 +30,8 @@ namespace qcv {
 
 namespace {
 
-constexpr int64_t kChunk   = 2 << 20;   // matches the SMB client's I/O size
 constexpr int64_t kGapFill = 4 << 20;   // interleaved audio between video samples
+constexpr int     kDefaultPageKB  = 1024; // LucidLink's cache page (`lucid3 cache`)
 constexpr double  kDefaultSeconds = 2.0;
 constexpr int64_t kDefaultCapMB   = 512;
 constexpr uint32_t kNoGen = UINT32_MAX;
@@ -40,6 +41,13 @@ double secondsFromEnv()
     bool ok = false;
     const double v = qEnvironmentVariable("QCV_READAHEAD_SECONDS").toDouble(&ok);
     return ok ? std::max(0.0, v) : kDefaultSeconds;
+}
+
+int64_t pageBytesFromEnv()
+{
+    bool ok = false;
+    const int v = qEnvironmentVariableIntValue("QCV_READAHEAD_PAGE_KB", &ok);
+    return int64_t(ok && v > 0 ? v : kDefaultPageKB) << 10;
 }
 
 int64_t capBytesFromEnv()
@@ -77,6 +85,7 @@ struct Client {
     std::unique_ptr<QFile> file;
     Clock::time_point windowStart;
     int64_t  windowBytes  = 0;
+    int64_t  lastPage     = -1;   // frames share boundary pages; touch once
     bool     windowLogged = true;
     int      windowLogs   = 0;
     int64_t  bytes = 0, lastLogBytes = 0;
@@ -87,6 +96,7 @@ struct Client {
 struct ReadAhead::Impl {
     const double  seconds  = secondsFromEnv();
     const int64_t capBytes = capBytesFromEnv();
+    const int64_t pageBytes = pageBytesFromEnv();
 
     std::mutex mutex;
     std::condition_variable cv;
@@ -98,7 +108,7 @@ struct ReadAhead::Impl {
 
     void run();
     bool prepare(Client &c);
-    void warmOne(Client &c, std::vector<char> &buf);
+    void warmOne(Client &c);
     static void logStats(const Client &c, const char *when);
 };
 
@@ -111,9 +121,10 @@ ReadAhead &ReadAhead::instance()
 ReadAhead::ReadAhead() : d(std::make_unique<Impl>())
 {
     if (d->seconds > 0.0) {
-        qInfo("ReadAhead: %.1f s window, %lld MB cap "
-              "(QCV_READAHEAD_SECONDS / QCV_READAHEAD_MB)",
-              d->seconds, static_cast<long long>(d->capBytes >> 20));
+        qInfo("ReadAhead: %.1f s window, %lld MB cap, 1 byte per %lld KB page "
+              "(QCV_READAHEAD_SECONDS / _MB / _PAGE_KB)",
+              d->seconds, static_cast<long long>(d->capBytes >> 20),
+              static_cast<long long>(d->pageBytes >> 10));
         d->thread = std::thread([this] { d->run(); });
     } else {
         qInfo("ReadAhead: off (QCV_READAHEAD_SECONDS=0)");
@@ -233,8 +244,6 @@ void ReadAhead::Impl::run()
     // Background mode lowers both CPU and I/O priority for this thread.
     SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
 #endif
-    std::vector<char> buf(static_cast<size_t>(kChunk));
-
     std::unique_lock<std::mutex> lk(mutex);
     while (!stop) {
         workPending = false;
@@ -252,7 +261,7 @@ void ReadAhead::Impl::run()
             const int lead = c->frontier - c->position.load(std::memory_order_acquire);
             if (lead < bestLead) { bestLead = lead; best = c.get(); }
         }
-        if (best) warmOne(*best, buf);
+        if (best) warmOne(*best);
 
         lk.lock();
         if (!best) {
@@ -275,6 +284,7 @@ bool ReadAhead::Impl::prepare(Client &c)
         c.windowStart  = Clock::now();
         c.windowBytes  = 0;
         c.windowLogged = false;
+        c.lastPage     = -1;
     }
     if (c.frontier < pos) c.frontier = pos;   // the decoder got there first
 
@@ -305,9 +315,12 @@ bool ReadAhead::Impl::prepare(Client &c)
     return false;
 }
 
-// Worker only. Reads one frame's span in chunks, abandoning it on a jump or
-// a detach (the frontier then stays put and prepare() restarts it).
-void ReadAhead::Impl::warmOne(Client &c, std::vector<char> &buf)
+// Worker only. Touches one frame's span: one byte in every page it covers,
+// which makes the volume fetch and cache each page (measured on LucidLink,
+// whose cache page is 1 MiB: its on-disk cache grew by the file's size).
+// Abandoned on a jump or a detach; the frontier then stays put and
+// prepare() restarts it.
+void ReadAhead::Impl::warmOne(Client &c)
 {
     if (!c.file) {
         c.file = std::make_unique<QFile>(c.path);
@@ -317,26 +330,32 @@ void ReadAhead::Impl::warmOne(Client &c, std::vector<char> &buf)
             c.failed = true;
             return;
         }
+#if defined(__APPLE__)
+        // The point is the volume's cache, not ours: keep macOS from
+        // holding the touched pages in RAM.
+        fcntl(c.file->handle(), F_NOCACHE, 1);
+#endif
     }
     const FrameSpan span = c.spans[static_cast<size_t>(c.frontier)];
     const uint32_t g = c.seenGen;
-    int64_t off = span.pos;
-    int64_t remaining = span.pos >= 0 ? span.len : 0;
-    while (remaining > 0) {
-        if (c.detached.load(std::memory_order_acquire)
-            || c.gen.load(std::memory_order_acquire) != g) {
-            return;
+    if (span.pos >= 0 && span.len > 0) {
+        const int64_t first = span.pos / pageBytes;
+        const int64_t last  = (span.pos + span.len - 1) / pageBytes;
+        for (int64_t p = first; p <= last; ++p) {
+            if (p == c.lastPage) continue;
+            if (c.detached.load(std::memory_order_acquire)
+                || c.gen.load(std::memory_order_acquire) != g) {
+                return;
+            }
+            char b;
+            const auto t = Clock::now();
+            const bool ok = c.file->seek(p * pageBytes) && c.file->read(&b, 1) == 1;
+            c.readSecs += secondsSince(t);
+            if (!ok) break;
+            c.lastPage = p;
         }
-        const int64_t n = std::min(remaining, kChunk);
-        const auto t = Clock::now();
-        if (!c.file->seek(off)) break;
-        const qint64 r = c.file->read(buf.data(), n);
-        c.readSecs += secondsSince(t);
-        if (r <= 0) break;
-        off += r;
-        remaining -= r;
-        c.bytes += r;
-        c.windowBytes += r;
+        c.bytes       += span.len;
+        c.windowBytes += span.len;
     }
     ++c.frontier;
 
@@ -348,7 +367,7 @@ void ReadAhead::Impl::warmOne(Client &c, std::vector<char> &buf)
 
 void ReadAhead::Impl::logStats(const Client &c, const char *when)
 {
-    qInfo("ReadAhead: %s — %s %.0f MB warmed, %.1f MB/s while reading, %d restarts",
+    qInfo("ReadAhead: %s — %s %.0f MB touched, %.1f MB/s while touching, %d restarts",
           qPrintable(c.name), when, c.bytes / 1e6,
           c.readSecs > 0 ? c.bytes / 1e6 / c.readSecs : 0.0, c.restarts);
 }
