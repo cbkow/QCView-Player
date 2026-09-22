@@ -900,7 +900,8 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         if (m_compositorMode != 0) {
             const bool aDualCapable =
                 (item.type == MediaType::Video ||
-                 item.type == MediaType::ImageSequence);
+                 item.type == MediaType::ImageSequence ||
+                 item.type == MediaType::LiveStream);
             const bool bValid = m_project &&
                 m_project->findItem(m_project->bSourceMediaId()) != nullptr;
             preserveDual = aDualCapable && bValid;
@@ -967,11 +968,11 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             return;
         }
         if (item.type == MediaType::LiveStream) {
-            // Live is never dual-capable A in v1 (preserveDual is false
-            // here — the type check above excludes it, so any dual
-            // island was already torn down). No timeline, no audio
-            // path; the receiver feeds m_videoDecoder's publish slot.
+            // Single view: the receiver feeds m_videoDecoder's publish slot.
+            // finishLoad re-enters dual when we came from it, where the
+            // island opens its own receiver instead (DualLiveSource).
             startLiveStream(item);
+            finishLoad();
             return;
         }
         if (!m_videoDecoder) return;
@@ -1865,6 +1866,10 @@ qcv::dual::DualImageSeqSource *dualImageSeqSide(
 
 void WindowManager::teardownSingleFlowForDual()
 {
+    // The dual island opens its own receiver for a live side (DualLiveSource),
+    // so the single-view session must end here: two readers of one ring, and
+    // frames published into a slot nothing fetches in dual.
+    stopLiveStream();
     if (m_videoDecoder && m_videoDecoder->state() != qcv::VideoDecoder::Idle) {
         m_videoDecoder->close();
     }
@@ -1911,6 +1916,11 @@ void WindowManager::rebuildSingleFlowFromActiveItem()
 
     if (item->type == MediaType::ImageSequence) {
         startImageSequence(*item);
+        return;
+    }
+    if (item->type == MediaType::LiveStream) {
+        // Its URL is not something VideoDecoder can open.
+        startLiveStream(*item);
         return;
     }
     if (m_videoDecoder) {
@@ -1971,17 +1981,6 @@ void WindowManager::tearDownDualIslandToSingleState()
 void WindowManager::setCompositorMode(int mode)
 {
     if (m_compositorMode == mode) return;
-    // Live A is not dual-capable in v1 — see the setBSource guard.
-    // Checked on the active item too, not only a running session: a
-    // stream that failed to open leaves m_liveActive false.
-    const MediaItem *activeA =
-        m_project ? m_project->findItem(m_project->activeItemId()) : nullptr;
-    if (mode != 0 && (m_liveActive
-                      || (activeA && activeA->type == MediaType::LiveStream))) {
-        qWarning("setCompositorMode: dual modes unavailable while a "
-                 "live stream is active (v1)");
-        return;
-    }
     const bool wasSingle = (m_compositorMode == 0);
     const bool nowSingle = (mode == 0);
     m_compositorMode = mode;
@@ -2005,12 +2004,16 @@ void WindowManager::setCompositorMode(int mode)
         // Single → Dual cold transition. Snapshot paths, tear down
         // single-flow state, spin up the dual island.
         QString pathA;
-        if (m_videoDecoder && !m_videoDecoder->sourcePath().isEmpty()) {
+        const MediaItem *activeItemA =
+            m_project ? m_project->findItem(m_project->activeItemId()) : nullptr;
+        if (activeItemA && activeItemA->type == MediaType::LiveStream) {
+            // A live session never opens the single-flow decoder, so its
+            // sourcePath is empty; the URL only exists on the item.
+            pathA = activeItemA->path;
+        } else if (m_videoDecoder && !m_videoDecoder->sourcePath().isEmpty()) {
             pathA = m_videoDecoder->sourcePath();
-        } else if (m_imageSeqActive && m_project) {
-            const MediaItem *item =
-                m_project->findItem(m_project->activeItemId());
-            if (item) pathA = item->path;
+        } else if (m_imageSeqActive && activeItemA) {
+            pathA = activeItemA->path;
         }
         // B path: prefer Project::bSource (Stage 5 canonical store).
         // Fall back to the legacy m_videoDecoderB only when bSource
@@ -2138,14 +2141,26 @@ void WindowManager::setCompositorMode(int mode)
             // dual sources' metadata. This replaces the (wiped)
             // single-flow timeline state with a proper dual model.
             if (m_timeline && m_project) {
+                // A live side has no rate and no extent, so its lane spans the
+                // clocked side's duration: track A draws a full-width LIVE
+                // lane instead of a zero-length clip (which would read as
+                // "past end" at every frame and render the side transparent).
+                // Two live sides leave both at 0 and the timeline empty.
+                auto extent = [](qcv::dual::IDualSource *s, double &fps, double &dur) {
+                    fps = (s && !s->isLive()) ? s->fps() : 0.0;
+                    const int fc = (s && !s->isLive()) ? s->frameCount() : 0;
+                    dur = (fps > 0.0 && fc > 0) ? double(fc) / fps : 0.0;
+                };
+                double fpsA = 0.0, durA = 0.0, fpsB = 0.0, durB = 0.0;
+                extent(m_dualController->sourceA(), fpsA, durA);
+                extent(m_dualController->sourceB(), fpsB, durB);
+                if (m_dualController->sideIsLive('A')) { fpsA = fpsB; durA = durB; }
+                if (m_dualController->sideIsLive('B')) { fpsB = fpsA; durB = durA; }
                 if (auto *srcA = m_dualController->sourceA()) {
+                    (void)srcA;
                     const MediaItem *itemA =
                         m_project->findItem(m_project->activeItemId());
                     if (itemA) {
-                        const double fpsA = srcA->fps();
-                        const int    fcA  = srcA->frameCount();
-                        const double durA = (fpsA > 0.0 && fcA > 0)
-                            ? static_cast<double>(fcA) / fpsA : 0.0;
                         m_timeline->loadSingleMedia(*itemA, durA, fpsA,
                                                       /*hasAudio=*/false);
                     }
@@ -2155,10 +2170,6 @@ void WindowManager::setCompositorMode(int mode)
                         m_project->findItem(m_project->bSourceMediaId());
                     const QString nameB = itemB ? itemB->name
                                                  : QFileInfo(pathB).fileName();
-                    const double fpsB = srcB->fps();
-                    const int    fcB  = srcB->frameCount();
-                    const double durB = (fpsB > 0.0 && fcB > 0)
-                        ? static_cast<double>(fcB) / fpsB : 0.0;
                     m_timeline->loadSecondarySource(pathB, nameB, durB, fpsB,
                                                      /*hasAudio=*/false);
                 }
@@ -5022,33 +5033,29 @@ bool WindowManager::setBSource(const QString &path)
         return true;
     }
 
-    // Reject audio media. Dual-view compares two visual streams; an
-    // audio-only B-side has no frames to composite and the dual
-    // controller's source machinery doesn't have an audio path.
-    // Audio is still fine in the Audio bin and on playlists.
-    // v1 blocks live streams from dual entirely (both sides): the
-    // dual controller is a synced clock pump over two seekable
-    // sources, and a free-running live source breaks that model.
-    // Revisit as a dedicated compositor-pairing mode (live A +
-    // user-scrubbed B) once the live item has matured.
-    if (path.contains(QLatin1String("://"))) {
-        qWarning("setBSource: live streams are not dual-capable in v1 (%s)",
-                 qPrintable(path));
-        return false;
+    // A live URL (srt://, qcbae://) is a valid B: the dual island opens its
+    // own receiver for it (DualLiveSource) and that side free-runs while the
+    // other one keeps the clock. It has no file to add to the bins.
+    const bool isLiveUrl = path.contains(QLatin1String("://"));
+    if (!isLiveUrl) {
+        // Reject audio media. Dual-view compares two visual streams; an
+        // audio-only B-side has no frames to composite and the dual
+        // controller's source machinery doesn't have an audio path.
+        // Audio is still fine in the Audio bin and on playlists.
+        qcv::MediaType kind = qcv::MediaType::Video;
+        qcv::ProjectManager::detectType(path, &kind);
+        if (kind == qcv::MediaType::Audio) {
+            qWarning("setBSource: audio media not allowed as B-source (%s)",
+                     qPrintable(path));
+            return false;
+        }
     }
 
-    qcv::MediaType kind = qcv::MediaType::Video;
-    qcv::ProjectManager::detectType(path, &kind);
-    if (kind == qcv::MediaType::Audio) {
-        qWarning("setBSource: audio media not allowed as B-source (%s)",
-                 qPrintable(path));
-        return false;
-    }
-
-    // Add to bins (dedupe by path inside ProjectManager::addMediaFile).
-    const QString id = m_project->addMediaFile(path);
+    // Add to bins (both dedupe by path).
+    const QString id = isLiveUrl ? m_project->addLiveStream(path)
+                                 : m_project->addMediaFile(path);
     if (id.isEmpty()) {
-        qWarning("setBSource: addMediaFile failed for %s", qPrintable(path));
+        qWarning("setBSource: could not add %s", qPrintable(path));
         return false;
     }
     m_project->setBSourceMediaId(id);

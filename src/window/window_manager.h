@@ -284,6 +284,12 @@ class WindowManager : public QObject
     // status / dims / codec / received pix_fmt / reconnect count
     // directly; null when live mode is off.
     Q_PROPERTY(bool liveActive READ liveActive NOTIFY liveActiveChanged)
+    // Dual view: the receiver behind a live side (null when that side is a
+    // file), for the chip's status dot; and whether any side keeps a clock —
+    // two live sides have none, so the transport and timeline hide.
+    Q_PROPERTY(qcv::LiveSource *dualLiveA READ dualLiveA NOTIFY dualControllerChanged)
+    Q_PROPERTY(qcv::LiveSource *dualLiveB READ dualLiveB NOTIFY dualControllerChanged)
+    Q_PROPERTY(bool dualSeekable READ dualSeekable NOTIFY dualControllerChanged)
     Q_PROPERTY(qcv::LiveSource *liveDecoder READ liveDecoder
                NOTIFY liveDecoderChanged)
     // QCBridgeAE After Effects / Premiere live view is built in (macOS
@@ -690,6 +696,16 @@ public:
     bool imageSeqActive() const { return m_imageSeqActive; }
     bool liveActive() const { return m_liveActive; }
     LiveSource *liveDecoder() const { return m_liveDecoder.get(); }
+    LiveSource *dualLiveA() const {
+        return m_dualController ? m_dualController->liveSource('A') : nullptr;
+    }
+    LiveSource *dualLiveB() const {
+        return m_dualController ? m_dualController->liveSource('B') : nullptr;
+    }
+    // Single view is always seekable; in dual it takes a clocked side.
+    bool dualSeekable() const {
+        return m_dualController ? m_dualController->hasClockedSide() : true;
+    }
     bool audioActive()    const { return m_audioActive; }
     ImageSequenceCache *imageSeqCache() const { return m_imageSeqCache.get(); }
 

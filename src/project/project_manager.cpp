@@ -574,15 +574,6 @@ void ProjectManager::setBSourceMediaId(const QString &id)
                      qPrintable(id));
             return;
         }
-        // Live is blocked from dual view (WindowManager::setBSource
-        // rejects "://" paths); a hand-edited or older project's
-        // b_source_media_id must not smuggle one in either.
-        if (m_mediaPool[idx].type == MediaType::LiveStream) {
-            qWarning("ProjectManager::setBSourceMediaId — live sources "
-                     "not allowed as B-source (id=%s)",
-                     qPrintable(id));
-            return;
-        }
     }
     m_bSourceMediaId = id;
     markDirty();
