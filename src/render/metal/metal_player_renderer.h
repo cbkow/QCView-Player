@@ -121,8 +121,9 @@ private:
     int                 m_lastCacheGen       = 0;
     VideoDecoder       *m_decoder   = nullptr;
     OCIOConfigManager  *m_ocio      = nullptr;
-    CompositorMode      m_compMode  = CompositorMode::Single;
-    float               m_splitPos  = 0.5f;
+    // Set from the GUI thread, read by the render thread each frame.
+    std::atomic<CompositorMode> m_compMode{CompositorMode::Single};
+    std::atomic<float>          m_splitPos{0.5f};
     BackgroundMode      m_bgMode    = BackgroundMode::Black;
     ViewportAnnotator  *m_annotator = nullptr;
     SafetyOverlay      *m_safety    = nullptr;

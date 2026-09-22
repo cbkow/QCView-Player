@@ -243,6 +243,21 @@ struct MetalPlayerRenderer::Impl {
     // the drawable into a shared-mode RGBA8 texture, packs to a
     // QImage, and signals captureCv. Mutex guards all of these.
     std::mutex              captureMutex;
+
+    // The teardown handshake. The render thread holds this for a whole
+    // frame, from just after nextDrawable to commit (never around
+    // nextDrawable, which can block for a vsync or longer). The GUI
+    // thread takes it in every setter that attaches or detaches a
+    // source the frame reads: source A/B slots, the video decoders,
+    // the image-sequence cache and the dual controller. So when one of
+    // those setters returns, the render thread has finished any frame
+    // that used the old object and will not touch it again, and the
+    // caller can close or destroy it. Found necessary by a
+    // ThreadSanitizer media-switch run (2026-09-22): drawFrame checked
+    // m_cache, then read it again after setImageSeqCache(nullptr).
+    // Order: sourceMutex before captureMutex and before the texture
+    // pool / upload-thread locks, on both threads.
+    std::mutex              sourceMutex;
     std::condition_variable captureCv;
     bool                    capturePending = false;
     QImage                  captureImage;
@@ -578,6 +593,10 @@ void MetalPlayerRenderer::setBrightness(float brightness)
 
 void MetalPlayerRenderer::setImageSeqCache(ImageSequenceCache *c)
 {
+    // Handshake (see Impl::sourceMutex): the caller shuts the old
+    // cache down as soon as this returns.
+    std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+
     // Pointer-change wiping: when the active sequence changes (or
     // unloads to nullptr), drop every GPU texture from the upload
     // thread's map. Otherwise, returning to a previously loaded
@@ -629,15 +648,26 @@ void MetalPlayerRenderer::setImageSeqCache(ImageSequenceCache *c)
     }
     // If !running, init() will rewire when it starts up.
 }
-void MetalPlayerRenderer::setVideoDecoder(VideoDecoder *d)          { m_decoder  = d; }
+void MetalPlayerRenderer::setVideoDecoder(VideoDecoder *d)
+{
+    std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+    m_decoder = d;
+}
 void MetalPlayerRenderer::setVideoDecoderB(VideoDecoder *d)
 {
-    m_decoderB = d;
+    {
+        std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+        m_decoderB = d;
+    }
     if (!d) clearSourceBState();
 }
 
+// The slot clears below run on the GUI thread during media switches.
+// They hold the source mutex so they never overlap a frame that is
+// uploading into or sampling these slots (Impl::sourceMutex).
 void MetalPlayerRenderer::clearSourceAState()
 {
+    std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
     m_impl->videoFrameRgba    = nil;
     m_impl->videoFrameW       = 0;
     m_impl->videoFrameH       = 0;
@@ -650,6 +680,7 @@ void MetalPlayerRenderer::clearSourceAState()
 
 void MetalPlayerRenderer::clearSourceBState()
 {
+    std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
     m_impl->videoFrameRgbaB   = nil;
     m_impl->videoFrameWB      = 0;
     m_impl->videoFrameHB      = 0;
@@ -757,6 +788,10 @@ void MetalPlayerRenderer::setStoredAnnotationStrokes(
 
 void MetalPlayerRenderer::setDualController(void *controllerPtr)
 {
+    // Handshake (see Impl::sourceMutex): tear-down destroys the
+    // controller as soon as this returns with nullptr, so no frame may
+    // still be inside prepareFrames / renderFrame with the old one.
+    std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
     m_dualControllerPtr.store(controllerPtr, std::memory_order_release);
     if (m_impl) {
         auto *c = static_cast<dual::DualPlaybackController *>(controllerPtr);
@@ -818,6 +853,11 @@ void MetalPlayerRenderer::drawFrame()
     const RendererMode mode = static_cast<RendererMode>(
         m_rendererMode.load(std::memory_order_acquire));
     if (mode == RendererMode::DualFlow) {
+        // Source mutex (Impl::sourceMutex) for the whole dual frame,
+        // released only across nextDrawable. The compositor re-init
+        // just below is covered too: setDualController touches the
+        // same compositor state.
+        std::unique_lock<std::mutex> srcLock(m_impl->sourceMutex);
         // Stage 1 of dual OCIO/FP16 — bake the dual compositor's
         // pipeline at RGBA16F and render into a canvas intermediate
         // (compositeRawDual), then present-blit to the drawable via
@@ -835,8 +875,10 @@ void MetalPlayerRenderer::drawFrame()
             m_impl->dualLastPixelFmt = kCanvasFmt;
         }
 
+        srcLock.unlock();
         id<CAMetalDrawable> drawable = [m_impl->layer nextDrawable];
         if (!drawable) return;
+        srcLock.lock();
 
         const int dstW = static_cast<int>(drawable.texture.width);
         const int dstH = static_cast<int>(drawable.texture.height);
@@ -1272,6 +1314,12 @@ void MetalPlayerRenderer::drawFrame()
         return;
     }
 
+    // Source mutex (Impl::sourceMutex) from here to the end of the
+    // frame: source selection, upload, and every pass that samples
+    // the chosen texture through a raw pointer. Taken after
+    // nextDrawable so a GUI setter never waits on a vsync.
+    std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+
     // Single command buffer per frame. YUV-A → YUV-B → composite →
     // OCIO → present all encode into this one cb so Metal's
     // intra-cb dependency tracking keeps reads ordered after writes
@@ -1610,7 +1658,7 @@ void MetalPlayerRenderer::drawFrame()
             sourceTexture, effSourceW, effSourceH,
             srcBTex,        effBW,      effBH,
             m_impl->compositeW, m_impl->compositeH,
-            static_cast<int>(m_compMode), m_splitPos,
+            static_cast<int>(m_compMode.load()), m_splitPos.load(),
             aAct, bAct,
             rotQA, rotQB);
         // Phase 3.H.5 — hover-thumbnail corner overlays. Drawn into

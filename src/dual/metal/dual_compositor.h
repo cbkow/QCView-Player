@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include <atomic>
+
 namespace qcv::dual {
 
 class DualPlaybackController;
@@ -77,7 +79,7 @@ public:
     void prepareFrames(void *cmdBuffer);
 
     // Render parameters — set by the player renderer in response to
-    // user toggles. Cheap atomic-style stores.
+    // user toggles. Atomic stores.
     void setMode(Mode m)              { m_mode = m; }
     void setSplitPos(float p)         { m_splitPos = p; }
     void setSeamHighlight(float h)    { m_seamHighlight = h; }
@@ -146,18 +148,24 @@ public:
 private:
     Impl *m_impl = nullptr;
 
+    // Controller and converter are swapped only under the player
+    // renderer's source mutex, which the render thread holds across a
+    // frame; see MetalPlayerRenderer::setDualController.
     DualPlaybackController *m_controller       = nullptr;
     IDualPixbufConverter   *m_pixbufConverter  = nullptr;
-    Mode  m_mode      = Single;
-    float m_splitPos  = 0.5f;
-    float m_seamHighlight = 0.0f;
-    float m_diffGain  = 1.0f;
-    int   m_parNumA   = 1;
-    int   m_parDenA   = 1;
-    int   m_parNumB   = 1;
-    int   m_parDenB   = 1;
-    int   m_rotQA     = 0;
-    int   m_rotQB     = 0;
+    // Render parameters: set from the GUI thread (a wipe drag sets the
+    // split every mouse move), read by the render thread each frame.
+    // Atomic, not locked, so a drag never waits on a frame.
+    std::atomic<Mode>  m_mode{Single};
+    std::atomic<float> m_splitPos{0.5f};
+    std::atomic<float> m_seamHighlight{0.0f};
+    std::atomic<float> m_diffGain{1.0f};
+    std::atomic<int>   m_parNumA{1};
+    std::atomic<int>   m_parDenA{1};
+    std::atomic<int>   m_parNumB{1};
+    std::atomic<int>   m_parDenB{1};
+    std::atomic<int>   m_rotQA{0};
+    std::atomic<int>   m_rotQB{0};
     LastLayout m_lastLayout;
 };
 
