@@ -479,8 +479,9 @@ public:
     // slot. Atomic-pair sync to A is a follow-up.
     // Phase 7.7 Stage 5 — preferred B-drop entry. Adds the file to
     // the project pool (dedupe by path) AND sets ProjectManager's
-    // bSource ref. If currently in dual mode, hot-swaps B in the
-    // active DualPlaybackController. Returns true on success.
+    // bSource ref. If currently in dual mode, rebuilds the dual
+    // island with the new B (A and B load fresh). Returns true on
+    // success. clearBSource in dual mode returns to single view.
     Q_INVOKABLE bool setBSource(const QString &path);
     Q_INVOKABLE void clearBSource();
 

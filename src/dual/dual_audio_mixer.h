@@ -87,15 +87,6 @@ public:
               int audioStreamCountHintB = -1);
     void close();
 
-    // Hot-swap the B side's audio to a new path (empty = clear B)
-    // WITHOUT touching A — the video-side swapB path. A full open()
-    // would close + reopen A's decoder for an audible blip. The
-    // fresh decoder is flagged in-gap so the next updatePerSide tick
-    // re-seeks it to the current translated position (or the servo's
-    // discontinuity tier catches it). m_pathB updates so the next
-    // shuttle gesture grains the NEW file.
-    void swapSideB(const QString &path, int audioStreamCountHint = -1);
-
     // Transport. play() spins up the decode threads; pause() halts
     // the device callback (ring buffers stay primed). seek(seconds)
     // re-seeks both decoders to the same position — used for the

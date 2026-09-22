@@ -352,109 +352,12 @@ void DualPlaybackController::close()
     m_lastEmittedFrame.store(-1, std::memory_order_release);
 }
 
-bool DualPlaybackController::swapB(const QString &path, DualSourceKind kind)
-{
-    if (!m_open.load(std::memory_order_acquire)) return false;
-
-    // Tear down B's scrub decoder BEFORE the streaming source it
-    // points at (close()-then-reset on the streaming pointer would
-    // leave the scrub worker mid-call into a destroyed object).
-    if (m_scrubB) { m_scrubB->close(); m_scrubB.reset(); }
-
-    // Close existing B (decoder thread join inside its own close()).
-    if (m_sourceB) {
-        m_sourceB->close();
-        m_sourceB.reset();
-    }
-    if (path.isEmpty()) {
-        // Cleared B — render-side will see hasFrame=false and draw
-        // transparent on that side. No scrub decoder rebuild. The
-        // audio mixer's B side clears too — it used to leak the old
-        // decoder here and keep playing the closed source's sound.
-        if (m_audio) m_audio->swapSideB(QString());
-        emit frameCountChanged();
-        emit hwAccelChanged();
-        return true;
-    }
-
-    // swapB replaces B mid-session; force-SW for ProRes on B mirrors
-    // the dual-entry default in open().
-    auto src = makeSource(path, kind, /*exrLayer=*/QString(),
-                           /*imageSeqThreadCount=*/0,
-                           dualProResForcesSoftware());
-    if (!src) {
-        qWarning("DualPlaybackController::swapB: open failed for %s",
-                 qPrintable(path));
-        return false;
-    }
-    m_sourceB = std::move(src);
-
-    // Build a scrub decoder for the new B if it's video. Image-seq
-    // B uses the cache directly for scrub.
-    if (auto *vb = dynamic_cast<DualVideoDecoder *>(m_sourceB.get())) {
-        m_scrubB = makeDualScrubDecoder(vb, this);
-        if (!m_scrubB->open(path)) {
-            qWarning("DualPlaybackController::swapB: scrub B open failed");
-            m_scrubB.reset();
-        }
-    }
-
-    // Keep the audio mixer's B side in lockstep with the video swap.
-    // This was the missing half of swapB: without it the mixer kept
-    // the OLD B file's audio decoder (and stale shuttle path), so a
-    // hot-swapped B played the prior source's sound and its mute
-    // chip appeared to control "A" whenever both sides shared a
-    // soundtrack. Video-kind check mirrors open()'s: only video
-    // sides feed audio; image-seq B clears the audio side.
-    if (m_audio) {
-        const bool bIsVideo =
-            dynamic_cast<DualVideoDecoder *>(m_sourceB.get()) != nullptr;
-        m_audio->swapSideB(bIsVideo ? path : QString());
-    }
-
-    // Recompute master frame count (might extend past prior max).
-    // Per-side counts are in their own fps — must convert via
-    // duration before comparing in master-fps space, otherwise
-    // mixed-fps pairs under-size the master range. See open() for
-    // the full rationale.
-    const double fpsA = m_sourceA ? m_sourceA->fps() : 0.0;
-    const double fpsB = m_sourceB ? m_sourceB->fps() : 0.0;
-    int countA = m_sourceA ? m_sourceA->frameCount() : 0;
-    int countB = m_sourceB ? m_sourceB->frameCount() : 0;
-    const double durA = (fpsA > 0.0) ? countA / fpsA : 0.0;
-    const double durB = (fpsB > 0.0) ? countB / fpsB : 0.0;
-    const double maxDur = std::max(durA, durB);
-    m_masterFrameCount = (maxDur > 0.0 && m_masterFps > 0.0)
-        ? std::max(1, static_cast<int>(std::round(maxDur * m_masterFps)))
-        : 0;
-
-    // Sync the new B to the current playhead so it starts buffering
-    // around where the user is, not at frame 0; and pre-warm its scrub
-    // decoder (if video) so the next scrub gesture is hot.
-    if (m_timer) {
-        const int master = m_timer->currentFrame();
-        m_sourceB->setDecodeTarget(master);
-        if (m_scrubB) {
-            int sf = translateMasterToSourceFrame(master, 'B');
-            if (sf < 0) sf = nextClipSourceFrame(master, 'B');
-            if (sf >= 0) m_scrubB->requestFrame(sf);
-        }
-    }
-
-    emit frameCountChanged();
-    emit hwAccelChanged();
-    qInfo("DualPlaybackController::swapB: now using %s",
-          qPrintable(QFileInfo(path).fileName()));
-    return true;
-}
-
 void DualPlaybackController::applyAdaptiveThreading()
 {
     // Pre-open halving happens in open() now (it has to — image-seq
     // sources spawn their worker pool at open() time, so post-open
     // setThreadCount no-ops). This method is kept for symmetry with
-    // any future post-open adjustments (e.g. swapB into a second
-    // image-seq retroactively halving the pool); today it's a stub.
+    // any future post-open adjustments; today it's a stub.
 }
 
 void DualPlaybackController::play()

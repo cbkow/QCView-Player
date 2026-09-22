@@ -14,7 +14,8 @@
 //     the renderer's pull.
 //
 // Future stages add: audio mixer ownership, safety overlay coupling,
-// MediaItem-aware swap (swapA/swapB), spinner state surface.
+// spinner state surface. There is no source hot-swap: a change of A or B
+// rebuilds the controller (see WindowManager::setBSource).
 
 #pragma once
 
@@ -68,8 +69,8 @@ public:
 
     // ---- Lifecycle ----
     // Open both sides. Pass an empty path / empty kind to leave a
-    // side empty (rendered transparent). Both must be non-null on
-    // first call; later swaps happen via swapA / swapB.
+    // side empty (rendered transparent). Opened once per dual
+    // session: changing A or B rebuilds the controller.
     //
     // exrLayerA / exrLayerB are optional EXR layer / part names —
     // applied via DualImageSeqSource::setLayer() BEFORE the source
@@ -81,14 +82,6 @@ public:
               const QString &exrLayerB = QString());
     void close();
     bool isOpen() const { return m_open.load(std::memory_order_acquire); }
-
-    // Hot-swap B's source while staying in dual mode. Closes the
-    // current B source, factories a new one from `path`, preserves
-    // the master clock + A's source. Returns true on success;
-    // returns false (and leaves B closed) if the new source open
-    // fails. Empty path clears B (transparent in dual render).
-    bool swapB(const QString &path,
-               DualSourceKind kind = DualSourceKind::AutoDetect);
 
     // Phase 7.8 — wire the timeline so the controller can translate
     // master frame → per-side source frame using each track's clip
@@ -319,7 +312,7 @@ private:
     // scrub decoder. Owned by the controller; lifetime nested
     // inside the matching m_sourceA / m_sourceB (closed BEFORE the
     // streaming source — scrub worker holds raw DualVideoDecoder*
-    // for its pts façade calls). Constructed in open() / swapB().
+    // for its pts façade calls). Constructed in open().
     std::unique_ptr<IDualScrubDecoder>  m_scrubA;
     std::unique_ptr<IDualScrubDecoder>  m_scrubB;
     // Gated by beginScrub / endScrub. Read in pullFrameA/B to

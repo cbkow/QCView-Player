@@ -5035,51 +5035,21 @@ bool WindowManager::setBSource(const QString &path)
     }
     m_project->setBSourceMediaId(id);
 
-    // If we're already in dual mode, hot-swap B in the running
-    // controller AND populate the timeline's secondary track.
-    // In single mode B is on the project but NOT in the timeline —
-    // single mode is single-source only.
-    //
-    // Use the dual SOURCE's metadata for the timeline, not the
-    // MediaItem's. The MediaItem's duration/fps come from
-    // MetadataService asynchronously and are 0 right after
-    // addMediaFile; the dual source's open() probes them
-    // synchronously, so they're valid immediately after swapB.
-    if (m_dualController) {
-        m_dualController->swapB(path);
-        // Re-install the render-wake callback on the freshly-created
-        // B source. swapB() constructs a brand-new IDualSource; the
-        // original install only ran for the open()-time sources in
-        // the Single→Dual block. Without this a hot-swapped B never
-        // wakes the render-on-demand loop after an async decode, so
-        // paused seeks leave the B side stuck on a stale frame.
-        if (auto *r = fetchActiveRenderer(m_playerWindow.data())) {
-            if (auto *sb = m_dualController->sourceB()) {
-                sb->setFrameAvailableCallback(
-                    [r] { r->requestUpdate(); });
-            }
-        }
-        // Re-apply the new B item's saved audio routing mode — swapB
-        // rebuilt the mixer's B decoder, which starts at Auto.
-        if (m_dualController->audio()) {
-            if (const MediaItem *itB = m_project->findItem(id)) {
-                m_dualController->audio()->setRoutingModeB(
-                    static_cast<int>(itB->audioRoutingMode));
-            }
-        }
-        if (m_timeline) {
-            if (auto *src = m_dualController->sourceB()) {
-                const double fps = src->fps();
-                const int    fc  = src->frameCount();
-                const double dur = (fps > 0.0 && fc > 0)
-                    ? static_cast<double>(fc) / fps : 0.0;
-                const MediaItem *item = m_project->findItem(id);
-                const QString name = item ? item->name
-                                           : QFileInfo(path).fileName();
-                m_timeline->loadSecondarySource(path, name, dur, fps,
-                                                  /*hasAudio=*/false);
-            }
-        }
+    // In dual, a new B rebuilds the whole island rather than hot-
+    // swapping B inside the running controller: leave dual (tears the
+    // island down, reloads A into single flow) and cold-enter it again
+    // in the same mode, which reads the new B from the project. It's
+    // the same path every dual entry takes, and A changes take it too.
+    // The old hot swap destroyed B's source while the clock pump and
+    // the render thread were still reading it (a use-after-free found
+    // under ThreadSanitizer). A fresh A and B is the accepted cost:
+    // playhead, in/out and track edits start over, and a bound saved
+    // Dual View detaches because the pair has changed.
+    // In single mode B is only recorded on the project.
+    if (m_compositorMode != 0) {
+        const int mode = m_compositorMode;
+        setCompositorMode(0);
+        setCompositorMode(mode);
     }
     qInfo("WindowManager: setBSource -> %s (id=%s)",
           qPrintable(QFileInfo(path).fileName()), qPrintable(id));
@@ -5090,8 +5060,10 @@ void WindowManager::clearBSource()
 {
     if (!m_project) return;
     m_project->clearBSource();
-    if (m_dualController) {
-        m_dualController->swapB(QString());
+    // Dual needs two media: clearing B leaves dual for single view
+    // (see setBSource for why dual is never hot-swapped).
+    if (m_compositorMode != 0) {
+        setCompositorMode(0);
     }
     qInfo("WindowManager: clearBSource");
 }

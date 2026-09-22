@@ -185,38 +185,6 @@ void DualAudioMixer::close()
     emit hasAudioChanged();
 }
 
-void DualAudioMixer::swapSideB(const QString &path, int audioStreamCountHint)
-{
-    if (!m_initialized) return;
-    // Hot-swap B only — A keeps streaming uninterrupted. This is the
-    // audio counterpart of DualPlaybackController::swapB; before it
-    // existed, a video-side B swap leaked the OLD B file's audio
-    // decoder, so the swapped side kept playing the prior source's
-    // sound (and its mute chip read as controlling "A" whenever both
-    // sides shared a soundtrack).
-    if (m_decoderB) m_decoderB->close();
-    m_decoderB.reset();
-    m_pathB = path;
-    if (!path.isEmpty()) {
-        m_decoderB = makeDecoderForPath(path, this, audioStreamCountHint);
-        if (m_decoderB && m_decoderB->open(path)) {
-            m_decoderB->start();
-        } else {
-            m_decoderB.reset();
-            qWarning("DualAudioMixer::swapSideB: open failed for %s",
-                     qPrintable(path));
-        }
-    }
-    // Flag B in-gap so the next updatePerSide tick runs the
-    // gap→clip re-seek at the current translated position (or the
-    // servo's discontinuity tier catches it) — either way the fresh
-    // decoder lands on the playhead within a tick or two instead of
-    // playing from file start.
-    m_inGapB.store(true);
-    reanchorSide(m_syncB, 0.0);
-    emit hasAudioChanged();
-}
-
 void DualAudioMixer::play()
 {
     if (!hasAudioA() && !hasAudioB()) return;
