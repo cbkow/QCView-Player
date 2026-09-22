@@ -345,6 +345,9 @@ private:
     // (currentFrame) and seekToFrame's target PTS computation.
     FrameIndex             m_frameIndex;
     std::atomic<int>       m_currentFrame{-1};
+    // ReadAhead client for this file (0 = none). Set on open, cleared on
+    // close (GUI thread); read by the decode thread.
+    std::atomic<std::uint64_t> m_readAheadId{0};
 
     // (Phase 7.4.b.4 removed m_externalFps + the openExternal/
     // closeExternal/publishExternalFrameByIndex façade — image

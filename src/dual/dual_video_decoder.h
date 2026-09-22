@@ -239,6 +239,8 @@ private:
     // decoder reached EOF with an empty ring and never recovered. Decode
     // thread only; each logs once per episode and resets on seek.
     bool              m_loggedReadEof = false;
+    // ReadAhead client for this file (0 = none); see decode/read_ahead.h.
+    std::atomic<std::uint64_t> m_readAheadId{0};
     bool              m_loggedStall   = false;
 
     // ---- Scrub coordination ----

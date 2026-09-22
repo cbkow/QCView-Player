@@ -1,5 +1,6 @@
 #include "video_decoder.h"
 
+#include "decode/read_ahead.h"
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
 #include "decode/sws_rgba_image.h"  // swsAllocImage
@@ -269,6 +270,17 @@ bool VideoDecoder::open(const QString &path)
 
     emit metadataChanged();
 
+    // Warm the next frames' bytes ahead of the decoder (read_ahead.h).
+    if (m_frameIndex.isValid()) {
+        m_readAheadId.store(ReadAhead::instance().attach(
+            path, ReadAhead::spansFromIndex(
+                      m_fmt, m_videoStreamIdx,
+                      [this](int64_t ts) { return m_frameIndex.frameForPts(ts); },
+                      m_frameIndex.totalFrames()),
+                  m_frameIndex.fps()),
+            std::memory_order_release);
+    }
+
     m_stopRequested.store(false, std::memory_order_release);
     m_publishedSeq.store(0, std::memory_order_release);
     m_lastFetchedSeq.store(0, std::memory_order_relaxed);
@@ -300,6 +312,9 @@ void VideoDecoder::seekToFrame(int frameNo)
     if (total > 0 && frameNo >= total) frameNo = total - 1;
 
     m_pendingSeekTarget.store(frameNo, std::memory_order_release);
+    // The decoder reads frameNo itself; warm from the frame after it.
+    ReadAhead::instance().setPosition(
+        m_readAheadId.load(std::memory_order_acquire), frameNo + 1);
     {
         std::lock_guard<std::mutex> lk(m_seekCondMutex);
     }
@@ -349,6 +364,8 @@ void VideoDecoder::clearErrorState()
 
 void VideoDecoder::close()
 {
+    ReadAhead::instance().detach(
+        m_readAheadId.exchange(0, std::memory_order_acq_rel));
     m_stopRequested.store(true, std::memory_order_release);
     // Emit the play->pause transition (2026-09-01). close() used to
     // clear the flag with a silent store; the subsequent open()'s
@@ -1364,6 +1381,8 @@ void VideoDecoder::publishHandle(FrameHandle handle, int64_t pts, bool pace)
         if (frameNo != m_currentFrame.exchange(frameNo, std::memory_order_acq_rel)) {
             emit currentFrameChanged();
         }
+        ReadAhead::instance().setPosition(
+            m_readAheadId.load(std::memory_order_acquire), frameNo + 1);
     }
 
     emit frameAvailable();

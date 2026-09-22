@@ -11,6 +11,8 @@ qt_add_library(qcv_decode STATIC
     video_decoder.h
     frame_handle.h
     frame_index.cpp
+    read_ahead.cpp
+    read_ahead.h
     frame_index.h
     scrub_decoder.cpp
     scrub_decoder.h

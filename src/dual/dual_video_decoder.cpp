@@ -1,5 +1,6 @@
 #include "dual_video_decoder.h"
 
+#include "decode/read_ahead.h"
 #include "decode/rgb_range.h"
 #include "decode/thread_policy.h"
 #include "decode/sws_rgba_image.h"  // swsAllocImage
@@ -159,6 +160,15 @@ bool DualVideoDecoder::open(const QString &path)
     m_pendingSeekTarget.store(-1, std::memory_order_release);
     m_decodeTarget.store(0, std::memory_order_release);
 
+    // Warm the next frames' bytes ahead of the decoder (read_ahead.h).
+    m_readAheadId.store(ReadAhead::instance().attach(
+        path, ReadAhead::spansFromIndex(
+                  m_fmt, m_streamIdx,
+                  [this](int64_t ts) { return frameNumberForPts(ts); },
+                  m_frameCount),
+        m_fps),
+        std::memory_order_release);
+
     {
         std::lock_guard<std::mutex> lk(m_bufferMutex);
         for (auto &slot : m_ring) slot.reset();
@@ -178,6 +188,8 @@ bool DualVideoDecoder::open(const QString &path)
 
 void DualVideoDecoder::close()
 {
+    ReadAhead::instance().detach(
+        m_readAheadId.exchange(0, std::memory_order_acq_rel));
     if (!m_open.exchange(false, std::memory_order_acq_rel) && !m_thread.joinable()) {
         return;
     }
@@ -982,6 +994,8 @@ void DualVideoDecoder::setFrameAvailableCallback(FrameAvailableCallback cb)
 
 void DualVideoDecoder::addCurrentFrameToBuffer(AVFrame *frame, int frameNumber)
 {
+    ReadAhead::instance().setPosition(
+        m_readAheadId.load(std::memory_order_acquire), frameNumber + 1);
     auto dualFrame = convertFrameToRgba(frame, frameNumber);
     if (!dualFrame) return;
 
@@ -1116,6 +1130,9 @@ void DualVideoDecoder::performSeek(int targetFrame, AVPacket *pkt, AVFrame *fram
 {
     m_loggedReadEof = false;
     m_loggedStall   = false;
+    // This thread reads targetFrame next; warm from the frame after it.
+    ReadAhead::instance().setPosition(
+        m_readAheadId.load(std::memory_order_acquire), targetFrame + 1);
     avcodec_flush_buffers(m_cctx);
 
     {
