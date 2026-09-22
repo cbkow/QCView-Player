@@ -2,6 +2,7 @@
 
 #include "decode/timecode_formatter.h"
 #include "dual_image_seq_source.h"
+#include "dual_live_source.h"
 #include "dual_playback_timer.h"
 #include "i_dual_scrub_decoder.h"
 #include "dual_video_decoder.h"
@@ -77,6 +78,8 @@ DualPlaybackController::~DualPlaybackController()
 DualSourceKind DualPlaybackController::detectKind(const QString &path)
 {
     if (path.isEmpty()) return DualSourceKind::AutoDetect;
+    // Live URLs first: they have no suffix to inspect and no file behind them.
+    if (path.contains(QLatin1String("://"))) return DualSourceKind::Live;
     QFileInfo info(path);
     if (info.isDir()) return DualSourceKind::ImageSequence;
     if (looksLikeVideo(path)) return DualSourceKind::Video;
@@ -122,6 +125,11 @@ DualPlaybackController::makeSource(const QString &path, DualSourceKind kind,
                 src->setThreadCount(imageSeqThreadCount);
             }
             if (!exrLayer.isEmpty()) src->setLayer(exrLayer);
+            if (!src->open(path)) return nullptr;
+            return src;
+        }
+        case DualSourceKind::Live: {
+            auto src = std::make_unique<DualLiveSource>();
             if (!src->open(path)) return nullptr;
             return src;
         }
@@ -204,8 +212,13 @@ bool DualPlaybackController::open(const QString &pathA, DualSourceKind kindA,
     applyAdaptiveThreading();
 
     // Master fps = max of both, falling back to whichever is open.
-    double fpsA = m_sourceA ? m_sourceA->fps() : 0.0;
-    double fpsB = m_sourceB ? m_sourceB->fps() : 0.0;
+    // A live side has no rate and no extent (fps 0, frameCount 0): the clock
+    // belongs to the file side, and with two live sides there is no clock at
+    // all (the pump still ticks at the fallback so the sides keep updating).
+    const bool liveA = m_sourceA && m_sourceA->isLive();
+    const bool liveB = m_sourceB && m_sourceB->isLive();
+    double fpsA = (m_sourceA && !liveA) ? m_sourceA->fps() : 0.0;
+    double fpsB = (m_sourceB && !liveB) ? m_sourceB->fps() : 0.0;
     if (fpsA <= 0.0 && fpsB <= 0.0) {
         m_masterFps = 24.0;
     } else if (fpsA <= 0.0) {
@@ -733,6 +746,12 @@ int DualPlaybackController::parseTimecode(const QString &tc) const
 int DualPlaybackController::translateMasterToSourceFrame(int masterFrame,
                                                            char trackSide) const
 {
+    // A live side ignores the master frame entirely: hand it back unchanged
+    // rather than consulting clips it has none of. Without this its fps of 0
+    // makes the translation refuse and every pull returns nothing.
+    const IDualSource *liveSide = (trackSide == 'A') ? m_sourceA.get() : m_sourceB.get();
+    if (liveSide && liveSide->isLive()) return std::max(0, masterFrame);
+
     // Identity when no timeline is wired — preserves Phase 7.7
     // behavior so tests/early-stage paths still work.
     const auto tl = timelineSnapshot();
@@ -866,6 +885,28 @@ void DualPlaybackController::setReadAheadRange(int masterIn, int masterOut)
     apply(m_sourceB.get(), 'B');
 }
 
+bool DualPlaybackController::sideIsLive(char side) const
+{
+    const IDualSource *s = (side == 'A') ? m_sourceA.get() : m_sourceB.get();
+    return s && s->isLive();
+}
+
+qcv::LiveSource *DualPlaybackController::liveSource(char side) const
+{
+    IDualSource *s = (side == 'A') ? m_sourceA.get() : m_sourceB.get();
+    auto *live = dynamic_cast<DualLiveSource *>(s);
+    return live ? live->live() : nullptr;
+}
+
+// A side the transport can drive: with none (two live sides) there is no
+// clock, and the UI hides the transport and the timeline.
+bool DualPlaybackController::hasClockedSide() const
+{
+    if (m_sourceA && !m_sourceA->isLive()) return true;
+    if (m_sourceB && !m_sourceB->isLive()) return true;
+    return false;
+}
+
 std::shared_ptr<const qcv::Timeline> DualPlaybackController::timelineSnapshot() const
 {
     std::lock_guard<std::mutex> lk(m_timelineSnapMutex);
@@ -933,6 +974,7 @@ std::shared_ptr<DualFrame> DualPlaybackController::pullFrameB() const
 bool DualPlaybackController::aPastEnd(int masterFrame) const
 {
     if (!m_sourceA) return true;
+    if (m_sourceA->isLive()) return false;   // no end to be past
     // Phase 7.8 — "past end" semantics extend to any time master
     // is outside this side's clip range on the timeline. Gaps
     // before/after/between clips all render transparent on that
@@ -951,6 +993,7 @@ bool DualPlaybackController::aPastEnd(int masterFrame) const
 bool DualPlaybackController::bPastEnd(int masterFrame) const
 {
     if (!m_sourceB) return true;
+    if (m_sourceB->isLive()) return false;   // no end to be past
     if (const auto tl = timelineSnapshot()) {
         const double fps = (m_masterFps > 0.0) ? m_masterFps : 24.0;
         const double sec = static_cast<double>(masterFrame) / fps;

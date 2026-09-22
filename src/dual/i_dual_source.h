@@ -147,6 +147,14 @@ public:
     // care don't need to override.
     virtual QString hwAccelName() const { return QString(); }
 
+    // A free-running source with no timeline: it ignores the master frame
+    // and always hands back its latest frame (DualLiveSource). The
+    // controller keeps live sides out of the master clock, skips the
+    // master→source translation for them and never calls them past-end —
+    // with fps() and frameCount() both 0, doing otherwise renders the side
+    // transparent for ever.
+    virtual bool isLive() const { return false; }
+
     // Per-side videoRangeOverride from the source MediaItem (0 = Auto,
     // 1 = Full, 2 = Limited). DualPlaybackController pushes this from
     // its own setRangeOverrideA/B atomics so the source applies it at

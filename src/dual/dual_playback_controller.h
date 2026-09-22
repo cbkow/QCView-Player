@@ -30,7 +30,7 @@
 #include <mutex>
 #include <thread>
 
-namespace qcv { class TimelineController; struct Timeline; }
+namespace qcv { class TimelineController; struct Timeline; class LiveSource; }
 
 namespace qcv::dual {
 
@@ -44,6 +44,7 @@ enum class DualSourceKind {
     AutoDetect,
     Video,
     ImageSequence,
+    Live,            // srt:// or qcbae:// — DualLiveSource, free-running
 };
 
 class DualPlaybackController : public QObject
@@ -91,6 +92,11 @@ public:
     // A and B in the timeline; pump thread reads via raw pointer
     // (no mutex for v1 — edit ops will introduce serialization).
     void setTimeline(TimelineController *t);
+
+    // Live sides (DualLiveSource): free-running, no clock of their own.
+    bool sideIsLive(char side) const;                 // 'A' / 'B'
+    qcv::LiveSource *liveSource(char side) const;     // null when not live
+    bool hasClockedSide() const;                      // false = live + live
 
     // The loop range (inclusive master frames) for each video side's
     // read-ahead to hydrate whole; masterIn < 0 clears. Translated per side

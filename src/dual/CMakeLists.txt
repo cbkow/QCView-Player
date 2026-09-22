@@ -16,6 +16,8 @@ qt_add_library(qcv_dual STATIC
     dual_video_decoder.h
     dual_image_seq_source.cpp
     dual_image_seq_source.h
+    dual_live_source.cpp
+    dual_live_source.h
     dual_playback_timer.cpp
     dual_playback_timer.h
     dual_playback_controller.cpp
