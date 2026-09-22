@@ -738,7 +738,8 @@ int main(int argc, char *argv[])
         // also form a playlist. Each step, at a random 60–600 ms
         // interval, activates a random item, enters dual view with a
         // random B and compositor mode, returns to single view, or
-        // clears B. Dev entry for the media-switch threading dig
+        // clears B; while dual is open each step also rewrites the
+        // timeline (head-trim bursts). Dev entry for the media-switch threading dig
         // (run under a ThreadSanitizer build); the seed is logged so
         // a sequence can be replayed with QCV_SWITCH_SEED.
         const int swIdx = args.indexOf(QStringLiteral("--switch-test"));
@@ -780,12 +781,15 @@ int main(int argc, char *argv[])
                       static_cast<long long>(ids.size()), seconds, seed);
 
                 auto rng   = std::make_shared<QRandomGenerator>(seed);
+                // Timeline edits draw from their own generator so the
+                // step sequence for a given seed is unchanged by them.
+                auto editRng = std::make_shared<QRandomGenerator>(seed + 1);
                 auto steps = std::make_shared<int>(0);
                 auto timer = new QTimer(&windowManager);
                 timer->setSingleShot(true);
                 const qint64 endMs = QDateTime::currentMSecsSinceEpoch() + qint64(seconds) * 1000;
                 QObject::connect(timer, &QTimer::timeout, &windowManager,
-                                 [&windowManager, p, ids, videos, rng, steps, timer, endMs] {
+                                 [&windowManager, p, ids, videos, rng, editRng, steps, timer, endMs] {
                     if (QDateTime::currentMSecsSinceEpoch() >= endMs) {
                         qInfo("--switch-test: done, %d steps", *steps);
                         QCoreApplication::quit();
@@ -811,6 +815,16 @@ int main(int argc, char *argv[])
                     } else {
                         qInfo("--switch-test: step %d clear B", *steps);
                         windowManager.clearBSource();
+                    }
+                    // While dual is open, a burst of head trims on a random
+                    // track: the GUI thread rewrites the timeline the dual
+                    // pump and render threads are reading, as slip / trim
+                    // drags do. Net zero, so the layout stays sane.
+                    if (windowManager.compositorMode() != 0) {
+                        const QString track = editRng->bounded(2) ? QStringLiteral("B")
+                                                                  : QStringLiteral("A");
+                        for (int i = 0; i < 8; ++i)
+                            windowManager.testHeadTrim(track, (i & 1) ? -0.04 : 0.04);
                     }
                     ++*steps;
                     timer->start(60 + int(rng->bounded(540)));
