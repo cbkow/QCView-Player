@@ -24,6 +24,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QRandomGenerator>
 #include <QFileInfo>
 #include <QSet>
 #include <QSGRendererInterface>
@@ -31,6 +32,7 @@
 #include <QTextStream>
 #include <QTimer>
 
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <thread>
@@ -336,6 +338,7 @@ QStringList collectPositionalArgs(const QStringList &args)
     consumeFlag(QStringLiteral("--dual-test"),     2);
     consumeFlag(QStringLiteral("--simulate-user"), 2);
     consumeFlag(QStringLiteral("--playlist-test"), 1);
+    consumeFlag(QStringLiteral("--switch-test"),   2);
     consumeFlag(QStringLiteral("--hdr-mode"),      1);
     consumeFlag(QStringLiteral("--ocio-engage"),   0);
     consumeFlag(QStringLiteral("--sbs"),           0);
@@ -360,6 +363,7 @@ bool hasDevModeFlag(const QStringList &args)
     return args.contains(QStringLiteral("--dual-test"))
         || args.contains(QStringLiteral("--simulate-user"))
         || args.contains(QStringLiteral("--playlist-test"))
+        || args.contains(QStringLiteral("--switch-test"))
         || args.contains(QStringLiteral("--hdr-mode"))
         || args.contains(QStringLiteral("--ocio-engage"));
 }
@@ -725,6 +729,93 @@ int main(int argc, char *argv[])
                     qInfo("--playlist-test: playlist %s active",
                           qPrintable(id));
                 }
+            });
+        }
+
+        // --switch-test SECONDS LISTFILE: hammer media switches for
+        // SECONDS, then quit. LISTFILE holds one path or live URL per
+        // line (qcbae://probe, srt://…); the video files among them
+        // also form a playlist. Each step, at a random 60–600 ms
+        // interval, activates a random item, enters dual view with a
+        // random B and compositor mode, returns to single view, or
+        // clears B. Dev entry for the media-switch threading dig
+        // (run under a ThreadSanitizer build); the seed is logged so
+        // a sequence can be replayed with QCV_SWITCH_SEED.
+        const int swIdx = args.indexOf(QStringLiteral("--switch-test"));
+        if (swIdx >= 0 && swIdx + 2 < args.size()) {
+            const int seconds = args.at(swIdx + 1).toInt();
+            QFile list(args.at(swIdx + 2));
+            QStringList entries;
+            if (list.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                for (const QByteArray &line : list.readAll().split('\n')) {
+                    const QString e = QString::fromUtf8(line).trimmed();
+                    if (!e.isEmpty() && !e.startsWith(QLatin1Char('#'))) entries << e;
+                }
+            }
+            QTimer::singleShot(800, &windowManager,
+                               [&windowManager, seconds, entries] {
+                auto *p = windowManager.project();
+                if (!p || entries.isEmpty()) {
+                    qWarning("--switch-test: nothing to switch between");
+                    return;
+                }
+                QStringList ids, videos;
+                for (const QString &e : entries) {
+                    const bool live = e.contains(QStringLiteral("://"));
+                    const QString id = live ? p->addLiveStream(e) : p->addMediaFile(e);
+                    if (!id.isEmpty()) ids << id;
+                    const QString suffix = QFileInfo(e).suffix().toLower();
+                    if (!live && (suffix == QLatin1String("mov") || suffix == QLatin1String("mp4")
+                                  || suffix == QLatin1String("mkv") || suffix == QLatin1String("mxf")))
+                        videos << e;
+                }
+                if (videos.size() >= 2) {
+                    const QString pl = p->createPlaylist(videos);
+                    if (!pl.isEmpty()) ids << pl;
+                }
+                bool seedOk = false;
+                quint32 seed = qEnvironmentVariable("QCV_SWITCH_SEED").toUInt(&seedOk);
+                if (!seedOk) seed = QRandomGenerator::global()->generate();
+                qInfo("--switch-test: %lld items, %d s, seed %u",
+                      static_cast<long long>(ids.size()), seconds, seed);
+
+                auto rng   = std::make_shared<QRandomGenerator>(seed);
+                auto steps = std::make_shared<int>(0);
+                auto timer = new QTimer(&windowManager);
+                timer->setSingleShot(true);
+                const qint64 endMs = QDateTime::currentMSecsSinceEpoch() + qint64(seconds) * 1000;
+                QObject::connect(timer, &QTimer::timeout, &windowManager,
+                                 [&windowManager, p, ids, videos, rng, steps, timer, endMs] {
+                    if (QDateTime::currentMSecsSinceEpoch() >= endMs) {
+                        qInfo("--switch-test: done, %d steps", *steps);
+                        QCoreApplication::quit();
+                        return;
+                    }
+                    const int roll = int(rng->bounded(100));
+                    if (roll < 70 || videos.isEmpty()) {
+                        const QString id = ids.at(int(rng->bounded(ids.size())));
+                        qInfo("--switch-test: step %d activate %s", *steps, qPrintable(id));
+                        p->setActiveItem(id);
+                    } else if (roll < 85) {
+                        // setBSource only records B; the compositor mode
+                        // is what enters the dual flow (as a click would).
+                        const QString b = videos.at(int(rng->bounded(videos.size())));
+                        const int mode = 1 + int(rng->bounded(3));
+                        qInfo("--switch-test: step %d set B %s, mode %d", *steps,
+                              qPrintable(QFileInfo(b).fileName()), mode);
+                        windowManager.setBSource(b);
+                        windowManager.setCompositorMode(mode);
+                    } else if (roll < 93) {
+                        qInfo("--switch-test: step %d single view", *steps);
+                        windowManager.setCompositorMode(0);
+                    } else {
+                        qInfo("--switch-test: step %d clear B", *steps);
+                        windowManager.clearBSource();
+                    }
+                    ++*steps;
+                    timer->start(60 + int(rng->bounded(540)));
+                });
+                timer->start(0);
             });
         }
 
