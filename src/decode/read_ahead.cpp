@@ -23,6 +23,17 @@ extern "C" {
 #include <pthread/qos.h>
 #include <sys/resource.h>
 #elif defined(_WIN32)
+// windows.h defines min/max as function-like macros, and this file calls
+// std::min/std::max with plain arguments (the std::max<int64_t> ones are
+// immune — the <> suppresses expansion, but four others are not). Every
+// other file here that includes windows.h alongside such calls guards it
+// the same way; this one did not, so the Windows build did not compile.
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
 #include <windows.h>
 #endif
 

@@ -60,8 +60,18 @@ cp -R "$BUILT_APP" "$APP"
 
 # ---- 1. Qt frameworks, plugins and QML -------------------------------------
 echo "==> macdeployqt"
-"$QT_PREFIX/bin/macdeployqt" "$APP" -qmldir="$REPO/src" -verbose=1 \
-    | grep -iE "error|warning: .*(not found|could not)" || true
+# The old form piped straight into grep and ended `|| true`, which quietened
+# grep's "no matches" — and, with pipefail, a macdeployqt FAILURE along with
+# it. Signing then went ahead over an incomplete bundle. Log it, check the
+# status, then grep the log.
+DEPLOY_LOG="$DIST/macdeployqt.log"
+if ! "$QT_PREFIX/bin/macdeployqt" "$APP" -qmldir="$REPO/src" -verbose=1 \
+        > "$DEPLOY_LOG" 2>&1; then
+    echo "macdeployqt failed — $DEPLOY_LOG" >&2
+    grep -iE "error|not found|could not" "$DEPLOY_LOG" | tail -20 >&2 || true
+    exit 1
+fi
+grep -iE "error|warning: .*(not found|could not)" "$DEPLOY_LOG" || true
 
 # ---- 2. our own dylibs (FFmpeg, OCIO, OpenEXR, Imath) ----------------------
 "$REPO/scripts/bundle_dylibs.sh" "$APP"
