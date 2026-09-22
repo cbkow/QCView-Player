@@ -31,29 +31,32 @@ QT_PREFIX="${QT_PREFIX:-$HOME/Qt/6.11.1/macos}"
 PROFILE="${NOTARY_PROFILE:-QCView}"
 IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: Christopher Bialkowski (5Z4S9VHV56)}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP="$REPO/$BUILD_DIR/src/app/qcview.app"
+BUILT_APP="$REPO/$BUILD_DIR/src/app/qcview.app"   # what CMake produces
 ENTITLEMENTS="$REPO/packaging/macos/entitlements.plist"
 DIST="$REPO/$BUILD_DIR/dist"
 DMG="$DIST/QCView-MacOS.dmg"          # stable name: the appcast URL uses it
 
-[ -d "$APP" ] || { echo "no app bundle at $APP — build first" >&2; exit 1; }
+[ -d "$BUILT_APP" ] || { echo "no app bundle at $BUILT_APP — build first" >&2; exit 1; }
 [ -x "$QT_PREFIX/bin/macdeployqt" ] || { echo "no macdeployqt at $QT_PREFIX" >&2; exit 1; }
 security find-identity -v -p codesigning | grep -q "$IDENTITY" \
     || { echo "signing identity not in the keychain: $IDENTITY" >&2; exit 1; }
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-    "$APP/Contents/Info.plist")"
-echo "==> QCView $VERSION  ($APP)"
+    "$BUILT_APP/Contents/Info.plist")"
+echo "==> QCView $VERSION"
 
-# ---- 0. clear what earlier runs and dev launches left behind ---------------
-# Flat dylibs are ours (bundle_dylibs.sh re-copies them); leaving them means
-# shipping whatever an older dependency build put there — a bundle here had
-# FFmpeg 8 and 9 side by side. The app also writes its log next to its own
-# binary during development, and macdeployqt tries to read that as an object
-# file.
-echo "==> clean"
-rm -f "$APP/Contents/Frameworks"/*.dylib
-rm -f "$APP/Contents/MacOS"/*.txt
+# ---- 0. stage a fresh copy -------------------------------------------------
+# Everything below happens on a COPY, never on what CMake built. macdeployqt
+# and install_name_tool rewrite the bundle in place, so deploying twice over
+# the same bundle means the second run starts from the first run's output —
+# which is how an earlier attempt here ended up with Qt's plugins from a
+# previous deploy still inside, and macdeployqt hunting for libraries a
+# clean step had removed. A copy also leaves the dev bundle runnable.
+APP="$DIST/qcview.app"
+echo "==> stage"
+rm -rf "$DIST"
+mkdir -p "$DIST"
+cp -R "$BUILT_APP" "$APP"
 
 # ---- 1. Qt frameworks, plugins and QML -------------------------------------
 echo "==> macdeployqt"
@@ -69,13 +72,24 @@ echo "==> macdeployqt"
 echo "==> codesign"
 sign() { codesign --force --options runtime --timestamp --sign "$IDENTITY" "$@"; }
 
-# Sparkle ships its own nested executables (XPC services + Updater.app) and
-# they must be signed before the framework that contains them.
+# Sparkle ships nested code that arrives signed by the Sparkle project, and
+# notarization rejects anything not signed with THIS Developer ID: the two
+# XPC services, Updater.app, and the bare Autoupdate executable. They must
+# be re-signed innermost-first, before the framework that contains them.
+# (Getting this wrong is silent until Apple answers: the first notarization
+# attempt failed with 12 issues, all of them here.)
 SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
 if [ -d "$SPARKLE" ]; then
-    find "$SPARKLE" \( -name "*.xpc" -o -name "*.app" \) -maxdepth 3 -print0 2>/dev/null \
-        | while IFS= read -r -d '' nested; do sign "$nested"; done
-    sign "$SPARKLE/Versions/B" 2>/dev/null || sign "$SPARKLE"
+    SPV="$SPARKLE/Versions/B"
+    for nested in \
+        "$SPV/XPCServices/Downloader.xpc" \
+        "$SPV/XPCServices/Installer.xpc" \
+        "$SPV/Updater.app" \
+        "$SPV/Autoupdate"
+    do
+        [ -e "$nested" ] && sign "$nested"
+    done
+    sign "$SPV"
 fi
 
 # Dylibs, Qt frameworks, plugins, helper CLIs.
@@ -97,7 +111,7 @@ spctl --assess --type exec -vv "$APP" || true   # unstapled: "rejected" is expec
 echo "==> DMG"
 rm -rf "$DIST/stage" "$DMG"
 mkdir -p "$DIST/stage"
-cp -R "$APP" "$DIST/stage/"
+cp -R "$APP" "$DIST/stage/"   # the staged, signed bundle
 ln -s /Applications "$DIST/stage/Applications"
 hdiutil create -volname "QCView $VERSION" -srcfolder "$DIST/stage" \
     -ov -format UDZO -quiet "$DMG"
