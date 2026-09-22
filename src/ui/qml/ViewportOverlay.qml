@@ -54,9 +54,17 @@ Pane {
     // Live sources (srt://, QCBridge qcbae://) are blocked from dual view
     // in C++ (setCompositorMode / setBSource refuse them) — the controls
     // hid nothing and a click was silently refused. Same treatment as a
-    // playlist: only the A chip remains.
+    // playlist: only the A chip remains. Keyed on the active item being a
+    // stream (MediaType::LiveStream = 6), not only on a running session:
+    // liveActive is set only once the stream opens, so a stream that
+    // failed to open (or a qcbae:// item where the bridge isn't built)
+    // brought the B chip and the dual buttons back.
+    readonly property bool streamActive:
+        WindowManager.liveActive
+        || (WindowManager.project && WindowManager.project.activeItem
+            && WindowManager.project.activeItem.type === 6)
     readonly property bool dualUnavailable:
-        playlistActive || WindowManager.liveActive
+        playlistActive || streamActive
 
     function autoSaveName() {
         const proj = WindowManager.project;
@@ -286,8 +294,9 @@ Pane {
         }
 
         // Small gap between the A and B chips so they read as
-        // distinct slots rather than a single continuous bar.
-        Item { width: Theme.spacingLoose }
+        // distinct slots rather than a single continuous bar. Goes
+        // with the B chip when dual is unavailable.
+        Item { width: Theme.spacingLoose; visible: !root.dualUnavailable }
 
         Rectangle {
             id: bChip

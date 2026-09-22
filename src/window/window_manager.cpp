@@ -1972,7 +1972,12 @@ void WindowManager::setCompositorMode(int mode)
 {
     if (m_compositorMode == mode) return;
     // Live A is not dual-capable in v1 — see the setBSource guard.
-    if (mode != 0 && m_liveActive) {
+    // Checked on the active item too, not only a running session: a
+    // stream that failed to open leaves m_liveActive false.
+    const MediaItem *activeA =
+        m_project ? m_project->findItem(m_project->activeItemId()) : nullptr;
+    if (mode != 0 && (m_liveActive
+                      || (activeA && activeA->type == MediaType::LiveStream))) {
         qWarning("setCompositorMode: dual modes unavailable while a "
                  "live stream is active (v1)");
         return;
