@@ -82,15 +82,13 @@ qcview-log.prev.txt
 # Generic scratch dir for one-off captures during debugging.
 TEMP/
 
-# Per-machine build / signing scripts. They reference local dev-cert
-# subjects, Homebrew paths, vendored-deps layouts, etc. — not useful
-# to share via git, and the signing ones contain the developer identity
-# string (CN / Team ID) baked into the codesign default. Each build
-# machine keeps its own copies in scripts/ locally. The release runbook
-# (scripts/RELEASE.md) lives with them — it documents the local scripts +
-# machine-specific paths/identity, so it's kept local too.
-scripts/*.sh
-scripts/*.md
+# scripts/ IS tracked (2026-09-22). It used to be ignored, on the reasoning
+# that the scripts hold a developer identity string and machine paths — and
+# the whole release flow died with the old dev machine because of it. The
+# identity (CN + Team ID) is public: it is stamped into every signed build
+# and every notarization ticket. Real secrets are elsewhere and stay there:
+# the Sparkle private key in the login keychain, notarization credentials in
+# a keychain profile. Paths are overridable by environment variable.
 
 # Vendored deps tree produced by scripts/build_macos_deps.sh —
 # 70+ MB of FFmpeg / OCIO / OpenEXR / etc. built for deployment

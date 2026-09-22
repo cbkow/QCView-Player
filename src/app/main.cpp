@@ -131,12 +131,41 @@ void fileLoggerMessageHandler(QtMsgType type,
     }
 }
 
+// Where the log goes. NOT next to the executable, which is where this used
+// to write (2026-09-22): inside a signed .app that adds an unsealed file to
+// Contents/MacOS, so `codesign --verify` fails and Sparkle can refuse to
+// apply an update to an app whose signature no longer checks out. It is also
+// unwritable for anyone who isn't the admin who installed it, and on Windows
+// Program Files is never writable — released builds simply had no log, which
+// is exactly when a user is trying to report something.
+//
+// Per-user, conventional, and visible in Console.app on macOS. QCV_LOG_DIR
+// overrides it (test harnesses, dev builds). Built explicitly rather than
+// through QStandardPaths for the same reason writeToolboxManifest does:
+// predictable, documentable paths.
+//   macOS:   ~/Library/Logs/QCView/
+//   Windows: %LOCALAPPDATA%/QCView/logs
+QString logDirectory()
+{
+    const QString override = qEnvironmentVariable("QCV_LOG_DIR");
+    if (!override.isEmpty()) return override;
+#if defined(Q_OS_MACOS)
+    return QDir::homePath() + QStringLiteral("/Library/Logs/QCView");
+#elif defined(Q_OS_WIN)
+    const QString local = qEnvironmentVariable("LOCALAPPDATA");
+    if (!local.isEmpty()) return local + QStringLiteral("/QCView/logs");
+    return QCoreApplication::applicationDirPath();
+#else
+    return QDir::homePath() + QStringLiteral("/.local/state/QCView");
+#endif
+}
+
 void installFileLogger()
 {
-    const QString logPath = QCoreApplication::applicationDirPath()
-                          + QStringLiteral("/qcview-log.txt");
-    const QString prevPath = QCoreApplication::applicationDirPath()
-                           + QStringLiteral("/qcview-log.prev.txt");
+    const QString logDir = logDirectory();
+    QDir().mkpath(logDir);
+    const QString logPath  = logDir + QStringLiteral("/qcview-log.txt");
+    const QString prevPath = logDir + QStringLiteral("/qcview-log.prev.txt");
     // Rotate the previous session's log to qcview-log.prev.txt before
     // we truncate. Without this, a crash followed by a re-launch
     // wipes the crashing session's log — exactly when we need it
@@ -147,6 +176,7 @@ void installFileLogger()
     }
     auto *f = new QFile(logPath);
     if (!f->open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        qWarning("File logger: cannot write %s", qPrintable(logPath));
         delete f;
         return;
     }
