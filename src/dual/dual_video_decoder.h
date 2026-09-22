@@ -235,6 +235,12 @@ private:
     // decode loop when the source can't keep up with the playhead.
     bool              m_intraOnly = false;
 
+    // Diagnostics for a stall seen on a network volume (LucidLink): the
+    // decoder reached EOF with an empty ring and never recovered. Decode
+    // thread only; each logs once per episode and resets on seek.
+    bool              m_loggedReadEof = false;
+    bool              m_loggedStall   = false;
+
     // ---- Scrub coordination ----
     // m_scrubActive: when true, decode thread's primary CV wait
     // predicate skips needsMoreFrames(). The flag is set by

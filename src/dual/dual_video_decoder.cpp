@@ -12,6 +12,7 @@
 #include <QSettings>
 #include <QtLogging>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 extern "C" {
@@ -1041,8 +1042,39 @@ bool DualVideoDecoder::decodeOneFrame(AVFrame *frame, AVPacket *packet)
         const int recvErr = avcodec_receive_frame(m_cctx, frame);
         if (recvErr == AVERROR(EAGAIN)) {
             // Need more packets.
+            const auto readStart = std::chrono::steady_clock::now();
             const int rc = av_read_frame(m_fmt, packet);
+            const auto readMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - readStart).count();
+            if (readMs > 250) {
+                qInfo("DualVideoDecoder: slow read %lld ms (rc=%d) at byte %lld of %lld, "
+                      "target %d",
+                      static_cast<long long>(readMs), rc,
+                      static_cast<long long>(m_fmt->pb ? avio_tell(m_fmt->pb) : -1),
+                      static_cast<long long>(m_fmt->pb ? avio_size(m_fmt->pb) : -1),
+                      m_decodeTarget.load(std::memory_order_relaxed));
+            }
             if (rc == AVERROR_EOF) {
+                // A real EOF sits at the end of the file; a premature one
+                // (a network read returning 0 bytes?) sits well short of
+                // it. The codec is put into drain here and stays there
+                // until performSeek flushes it.
+                if (!m_loggedReadEof) {
+                    m_loggedReadEof = true;
+                    int ring = 0;
+                    {
+                        std::lock_guard<std::mutex> lk(m_bufferMutex);
+                        ring = m_ringCount;
+                    }
+                    qInfo("DualVideoDecoder: read EOF at byte %lld of %lld "
+                          "(eof_reached=%d, pb error=%d), target %d of %d frames, ring %d",
+                          static_cast<long long>(m_fmt->pb ? avio_tell(m_fmt->pb) : -1),
+                          static_cast<long long>(m_fmt->pb ? avio_size(m_fmt->pb) : -1),
+                          m_fmt->pb ? m_fmt->pb->eof_reached : -1,
+                          m_fmt->pb ? m_fmt->pb->error : 0,
+                          m_decodeTarget.load(std::memory_order_relaxed),
+                          m_frameCount, ring);
+                }
                 avcodec_send_packet(m_cctx, nullptr);
                 continue;
             }
@@ -1082,6 +1114,8 @@ bool DualVideoDecoder::decodeOneFrame(AVFrame *frame, AVPacket *packet)
 
 void DualVideoDecoder::performSeek(int targetFrame, AVPacket *pkt, AVFrame *frame)
 {
+    m_loggedReadEof = false;
+    m_loggedStall   = false;
     avcodec_flush_buffers(m_cctx);
 
     {
@@ -1206,6 +1240,23 @@ void DualVideoDecoder::decodeThreadFunc()
         // ---- Decode one frame (no wall-clock pacing; the master timer
         // controls when the renderer pulls).
         if (!decodeOneFrame(frame, pkt)) {
+            // An empty ring here is the stall: nothing below issues a seek
+            // while the ring is empty (setDecodeTarget, targetStrandedAhead
+            // and chase mode all need a buffered frame), so the codec stays
+            // drained and the side stays blank.
+            if (!m_loggedStall) {
+                int ring = 0;
+                {
+                    std::lock_guard<std::mutex> lk(m_bufferMutex);
+                    ring = m_ringCount;
+                }
+                if (ring == 0) {
+                    m_loggedStall = true;
+                    qInfo("DualVideoDecoder: stalled — decode returned no frame with an "
+                          "empty ring (target %d); waiting for a seek",
+                          m_decodeTarget.load(std::memory_order_relaxed));
+                }
+            }
             // EOF or error — idle on the CV until shutdown / seek.
             std::unique_lock<std::mutex> lk(m_decodeCvMutex);
             m_decodeCv.wait_for(lk, std::chrono::milliseconds(50), [this] {
