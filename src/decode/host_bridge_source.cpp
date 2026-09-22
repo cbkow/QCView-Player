@@ -53,7 +53,7 @@ bool HostBridgeSource::open(const QString &url)
 {
     if (m_thread.joinable()) close();
     if (!m_sink) {
-        qWarning("HostBridgeSource: no sink VideoDecoder set — refusing open");
+        qWarning("HostBridgeSource: no sink set — refusing open");
         return false;
     }
     m_ringName = hostbridge::ringName(url);
@@ -251,7 +251,7 @@ void HostBridgeSource::workerLoop()
             ? int64_t(double(d.time_value) * 1e6 / double(d.time_scale))
             : int64_t(steadyMs() - sessionStartMs) * 1000;
 
-        if (VideoDecoder *sink = m_sink) {
+        if (LiveFrameSink *sink = m_sink) {
             sink->publishExternalFrame(FrameHandle::cpu(*img, ptsUs), ptsUs);
         }
         m_framesReceived.fetch_add(1, std::memory_order_acq_rel);

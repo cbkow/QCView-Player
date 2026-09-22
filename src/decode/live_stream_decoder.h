@@ -71,7 +71,7 @@ public:
     explicit LiveStreamDecoder(QObject *parent = nullptr);
     ~LiveStreamDecoder() override;
 
-    void setSink(VideoDecoder *sink) override { m_sink = sink; }
+    void setSink(LiveFrameSink *sink) override { m_sink = sink; }
 
     // WindowManager installs the renderer's requestUpdate here (see
     // LiveSource). Same cross-thread contract as the dual sources'
@@ -129,7 +129,7 @@ private:
 
     static int interruptCb(void *opaque);
 
-    VideoDecoder         *m_sink = nullptr;
+    LiveFrameSink        *m_sink = nullptr;
     QString               m_url;
 
     std::thread           m_thread;

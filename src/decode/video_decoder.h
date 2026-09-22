@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "decode/live_source.h"   // LiveFrameSink
 #include "frame_handle.h"
 #include "frame_index.h"
 #include "timecode_formatter.h"
@@ -41,7 +42,7 @@ struct SwsContext;
 
 namespace qcv {
 
-class VideoDecoder : public QObject
+class VideoDecoder : public QObject, public LiveFrameSink
 {
     Q_OBJECT
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
@@ -201,7 +202,7 @@ public:
     // into this decoder's slot without the streaming context having
     // produced it. Bypasses FPS pacing (scrub frames must appear
     // immediately). Updates currentFrame and emits frameAvailable.
-    void publishExternalFrame(FrameHandle handle, int64_t pts);
+    void publishExternalFrame(FrameHandle handle, int64_t pts) override;
 
     // Drops whatever sits in the publish slot, unconsumed. For external
     // publishers that stop without close(): a live source's final frame

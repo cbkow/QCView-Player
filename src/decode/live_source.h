@@ -1,7 +1,7 @@
 // LiveSource — the surface every live source shows the UI.
 //
-// A live source feeds the main VideoDecoder's latest-wins publish slot via
-// publishExternalFrame() (see live_stream_decoder.h for why) and exposes
+// A live source feeds a latest-wins publish slot via publishExternalFrame()
+// (see live_stream_decoder.h for why) and exposes
 // connection state and a few facts for LiveStrip and the LeftRail dot.
 // WindowManager owns exactly one at a time and hands QML this base type,
 // so QML is written once for every kind:
@@ -14,13 +14,24 @@
 
 #pragma once
 
+#include "frame_handle.h"
+
 #include <QObject>
 #include <QString>
+#include <cstdint>
 #include <functional>
 
 namespace qcv {
 
-class VideoDecoder;
+// Where a live source publishes its frames. The single view's VideoDecoder
+// is one (its slot feeds the renderer); the dual island's DualLiveSource is
+// the other. Both are latest-wins: a consumer that falls behind skips frames.
+class LiveFrameSink
+{
+public:
+    virtual ~LiveFrameSink() = default;
+    virtual void publishExternalFrame(FrameHandle handle, int64_t pts) = 0;
+};
 
 class LiveSource : public QObject
 {
@@ -52,8 +63,9 @@ public:
     ~LiveSource() override = default;
 
     // Must be set before open(). The sink must outlive this object's
-    // close() — WindowManager owns both and tears down in that order.
-    virtual void setSink(VideoDecoder *sink) = 0;
+    // close() — the owner (WindowManager for single view, DualLiveSource in
+    // dual) owns both and tears down in that order.
+    virtual void setSink(LiveFrameSink *sink) = 0;
 
     // Invoked from the worker thread after every published frame, so the
     // D3D11 render-on-demand loop wakes (Metal free-runs).

@@ -100,7 +100,7 @@ bool LiveStreamDecoder::open(const QString &url)
         close();
     }
     if (!m_sink) {
-        qWarning("LiveStreamDecoder: no sink VideoDecoder set — refusing open");
+        qWarning("LiveStreamDecoder: no sink set — refusing open");
         return false;
     }
     m_url = url;
@@ -484,7 +484,7 @@ void LiveStreamDecoder::publishFrame(AVFrame *frame, AVCodecContext *cctx,
                                      SwsContext **sws, const AVRational &tb,
                                      const char *srcLabel)
 {
-    VideoDecoder *sink = m_sink;
+    LiveFrameSink *sink = m_sink;
     if (!sink) return;
 
     const int64_t pts = (frame->best_effort_timestamp != AV_NOPTS_VALUE)

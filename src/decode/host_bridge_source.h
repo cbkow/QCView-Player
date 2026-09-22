@@ -56,7 +56,7 @@ public:
     explicit HostBridgeSource(QObject *parent = nullptr);
     ~HostBridgeSource() override;
 
-    void setSink(VideoDecoder *sink) override { m_sink = sink; }
+    void setSink(LiveFrameSink *sink) override { m_sink = sink; }
     void setFrameCallback(std::function<void()> cb) override;
     bool open(const QString &url) override;
     void close() override;
@@ -92,7 +92,7 @@ private:
     static QString sentence(const QString &text);   // capitalise the first letter
     QImage *takePoolImage(int w, int h);
 
-    VideoDecoder         *m_sink = nullptr;
+    LiveFrameSink        *m_sink = nullptr;
     QString               m_url;
     QString               m_ringName;
     QString               m_hostApp;     // "After Effects" — who to wait for
