@@ -144,7 +144,11 @@ find_package(Qt6 6.11 REQUIRED COMPONENTS
     ShaderToolsPrivate      # rhi/qshaderbaker.h — Phase 2 OCIO → QShader pipeline
     Network
     Concurrent
-    Multimedia
+    # No Multimedia: QCView decodes with its own FFmpeg and plays audio
+    # through CoreAudio / WASAPI directly. Asking for the module made
+    # macdeployqt ship Qt's multimedia plugin and, with it, a SECOND
+    # FFmpeg (libavcodec.61, libswresample.5 …) beside our 9.x — ~40 MB
+    # of DMG and a set of dylibs nothing loads.
 )
 
 qt_standard_project_setup(REQUIRES 6.11)
