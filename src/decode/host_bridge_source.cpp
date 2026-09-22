@@ -145,6 +145,13 @@ void HostBridgeSource::workerLoop()
     bool loggedFirst = false;
     uint32_t loggedPid = 0;   // log a ring (re)open once per producer, not per poll
 
+    // Throughput, logged every kStatWindow frames: the cost this reader adds
+    // (the copy out of the ring, on this thread) and the rate frames arrive.
+    constexpr int kStatWindow = 240;
+    int     statFrames = 0;
+    double  statCopySum = 0, statCopyMax = 0;
+    auto    statStart = std::chrono::steady_clock::now();
+
     while (!m_stopRequested.load(std::memory_order_acquire)) {
         if (!ring.valid()) {
             if (!ring.open(ringName)) {
@@ -216,12 +223,27 @@ void HostBridgeSource::workerLoop()
         }
 
         const int w = int(d.width), h = int(d.height);
+        const auto copyStart = std::chrono::steady_clock::now();
         QImage *img = takePoolImage(w, h);
         const auto *src = static_cast<const uint8_t *>(pixels);
         const size_t rowBytes = size_t(w) * 8u;
         for (int y = 0; y < h; ++y)
             std::memcpy(img->scanLine(y), src + size_t(y) * d.bytes_per_row, rowBytes);
         ring.release();
+        const double copyMs = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - copyStart).count();
+        statCopySum += copyMs;
+        if (copyMs > statCopyMax) statCopyMax = copyMs;
+        if (++statFrames == kStatWindow) {
+            const double secs = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - statStart).count();
+            qInfo("HostBridgeSource: %d frames %dx%d in %.2f s = %.2f fps; "
+                  "ring copy mean %.3f max %.3f ms",
+                  statFrames, w, h, secs, secs > 0 ? statFrames / secs : 0.0,
+                  statCopySum / statFrames, statCopyMax);
+            statFrames = 0; statCopySum = 0; statCopyMax = 0;
+            statStart = std::chrono::steady_clock::now();
+        }
 
         // Microseconds, as the SRT source passes. The device sends the host's
         // time when it has one (Premiere) and -1 for "immediate" (AE's viewer).
