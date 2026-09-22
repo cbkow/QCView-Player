@@ -280,6 +280,20 @@ struct D3D11PlayerRenderer::Impl {
     // Metal uses (m_impl->captureAnnotations vs m_impl->annotations).
     std::atomic<bool>                screenshotPending{false};
     std::mutex                       screenshotMutex;
+
+    // The teardown handshake (mirrors MetalPlayerRenderer's). The
+    // render thread holds this while it consumes the latest source
+    // frame and for a whole draw, released just before Present (which
+    // blocks for vsync). The GUI thread takes it in every setter that
+    // attaches or detaches a source the frame reads: the source-A
+    // slot, the video decoders, the image-sequence cache and the dual
+    // controller / frame source. So when one of those setters returns,
+    // no frame is still using the old object and the caller can close
+    // or destroy it. The D3D11 context keeps its own references to the
+    // resources it has bound, so releasing before Present is safe.
+    // Order: sourceMutex before screenshotMutex and before the texture
+    // pool / upload-thread locks, on both threads.
+    std::mutex                       sourceMutex;
     std::condition_variable          screenshotCv;
     QImage                           screenshotResult;
     ComPtr<ID3D11Texture2D>          captureSourceRgba16f;
@@ -763,7 +777,11 @@ void D3D11PlayerRenderer::renderThreadProc()
         // Pull the latest decoded frame each iteration. fetchLatest
         // returns false if nothing's new; cheap when there's no
         // playback in progress. If we got a new frame, force a draw.
-        const bool gotNewFrame = consumeLatestVideoFrame();
+        bool gotNewFrame = false;
+        {
+            std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+            gotNewFrame = consumeLatestVideoFrame();
+        }
 
         // OCIO chain-gen polling — the user can change view/look/LUT
         // while playback is paused. With no decoded frame arriving
@@ -1049,6 +1067,10 @@ void D3D11PlayerRenderer::drawFrame()
         drawDualFrame();
         return;
     }
+
+    // Source mutex (Impl::sourceMutex) for the draw, released just
+    // before Present so a GUI setter never waits on a vsync.
+    std::unique_lock<std::mutex> srcLock(m_impl->sourceMutex);
 
     // Phase F.2.8 — HDR mode pivot. If the user toggled the HDR mode
     // since the last frame, hdrSwapchain may have recreated the
@@ -1490,6 +1512,7 @@ void D3D11PlayerRenderer::drawFrame()
     // not baked into screenshots, and last so it's on top of content.
     drawLoadingSpinner(ctx, rtv);
 
+    srcLock.unlock();
     swapchain->Present(1 /*sync to vsync*/, 0);
 }
 
@@ -1505,6 +1528,10 @@ void D3D11PlayerRenderer::drawFrame()
 // rendering is verified). See guide 23 §1.5.
 void D3D11PlayerRenderer::drawDualFrame()
 {
+    // Source mutex (Impl::sourceMutex) for the dual draw, released
+    // just before Present.
+    std::unique_lock<std::mutex> srcLock(m_impl->sourceMutex);
+
     // HDR mode pivot — same handling as single-flow. Re-init the
     // annotation renderer if the swapchain format flipped.
     if (m_impl->hdrSwapchain.applyPendingOnRenderThread()) {
@@ -1894,6 +1921,7 @@ void D3D11PlayerRenderer::drawDualFrame()
     // Loading spinner overlay (dual path) — same as single flow.
     drawLoadingSpinner(ctx, rtv);
 
+    srcLock.unlock();
     swapchain->Present(1 /*sync to vsync*/, 0);
 }
 
@@ -2147,6 +2175,10 @@ void D3D11PlayerRenderer::setBrightness(float brightness)
 
 void D3D11PlayerRenderer::setImageSeqCache(ImageSequenceCache *c)
 {
+    // Handshake (see Impl::sourceMutex): the caller shuts the old
+    // cache down as soon as this returns.
+    std::unique_lock<std::mutex> srcLock(m_impl->sourceMutex);
+
     // Mirrors MetalPlayerRenderer::setImageSeqCache. On pointer
     // change, wipe the upload thread's texture map + drop the
     // image-seq slot — otherwise returning to a previously loaded
@@ -2206,18 +2238,34 @@ void D3D11PlayerRenderer::setImageSeqCache(ImageSequenceCache *c)
 
     requestUpdate();
 }
-void D3D11PlayerRenderer::setVideoDecoder(VideoDecoder *d)       { m_decoder = d; requestUpdate(); }
-void D3D11PlayerRenderer::setVideoDecoderB(VideoDecoder *d)      { m_decoderB = d; requestUpdate(); }
+void D3D11PlayerRenderer::setVideoDecoder(VideoDecoder *d)
+{
+    {
+        std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+        m_decoder = d;
+    }
+    requestUpdate();
+}
+void D3D11PlayerRenderer::setVideoDecoderB(VideoDecoder *d)
+{
+    {
+        std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+        m_decoderB = d;
+    }
+    requestUpdate();
+}
 // Drop the cached source-A texture so the next present shows the
 // background (not a stale previous clip) — e.g. behind the viewport
 // notice for ARRIRAW/unsupported media. Mirrors
 // MetalPlayerRenderer::clearSourceAState (which nils videoFrameRgba);
 // the D3D11 compositor's renderSingle already no-ops on a null SRV.
-// Direct GUI-thread reset matches the established pattern in
-// setImageSeqCache (the render thread only ever rebinds the slot from
-// a live decoder/cache, both of which the caller tears down first).
+// Held under the source mutex (Impl::sourceMutex) so the reset never
+// overlaps a frame that is binding or sampling the slot. (The earlier
+// comment called the unlocked reset an established pattern; ordering
+// the teardown did not stop the render thread reading mid-reset.)
 void D3D11PlayerRenderer::clearSourceAState()
 {
+    std::unique_lock<std::mutex> srcLock(m_impl->sourceMutex);
     m_impl->videoA.srv.Reset();
     m_impl->videoA.texture.Reset();
     m_impl->videoA.width  = 0;
@@ -2322,9 +2370,18 @@ void D3D11PlayerRenderer::setSafetyOverlay(SafetyOverlay *s) { m_safety = s; req
 void D3D11PlayerRenderer::setRendererMode(RendererMode m) {
     m_rendererMode.store(static_cast<int>(m)); requestUpdate();
 }
-void D3D11PlayerRenderer::setDualController(void *p)      { m_dualControllerPtr.store(p); }
+void D3D11PlayerRenderer::setDualController(void *p)
+{
+    std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+    m_dualControllerPtr.store(p);
+}
+// Handshake (see Impl::sourceMutex): WindowManager drops the adapter
+// behind the old source as soon as this returns with nullptr.
 void D3D11PlayerRenderer::setDualFrameSource(IDualFrameSource *s) {
-    m_dualFrameSource.store(s, std::memory_order_release);
+    {
+        std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+        m_dualFrameSource.store(s, std::memory_order_release);
+    }
     requestUpdate();
 }
 void D3D11PlayerRenderer::setHoverThumbnail(unsigned long long h, int w, int hh) {

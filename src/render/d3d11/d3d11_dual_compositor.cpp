@@ -7,6 +7,7 @@
 #include "render/iplayer_renderer.h"   // CompositorMode enum
 
 #include <array>
+#include <atomic>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -323,18 +324,21 @@ struct D3D11DualCompositor::Impl {
 
     IDualFrameSource *source = nullptr;
 
-    int   mode     = 0;     // Single by default
-    float splitPos = 0.5f;
-    float seamHighlight = 0.0f;   // split seam: 0 grey at rest, 1 white on hover/drag
-    float diffGain = 1.0f;        // Difference mode: amplify abs(A-B)
+    // Render parameters: set from the GUI thread (a wipe drag sets
+    // the split every mouse move), read by the render thread each
+    // frame. Atomic, not locked, so a drag never waits on a frame.
+    std::atomic<int>   mode{0};     // Single by default
+    std::atomic<float> splitPos{0.5f};
+    std::atomic<float> seamHighlight{0.0f};   // split seam: 0 grey at rest, 1 white on hover/drag
+    std::atomic<float> diffGain{1.0f};        // Difference mode: amplify abs(A-B)
     // Per-side pixel aspect (anamorphic un-squeeze). Widens the
     // effective srcSize fed to the shader; 1/1 = square (default).
-    int   parNumA = 1, parDenA = 1;
-    int   parNumB = 1, parDenB = 1;
+    std::atomic<int>   parNumA{1}, parDenA{1};
+    std::atomic<int>   parNumB{1}, parDenB{1};
     // Per-side display rotation in quarter-turns CW {0..3}. Swaps the
     // effective srcSize for odd quarters; the shader inverse-rotates
     // its sampling to match.
-    int   rotQA = 0, rotQB = 0;
+    std::atomic<int>   rotQA{0}, rotQB{0};
 
     // Prepare → render handoff state. Set in prepareFrames, consumed
     // (and cleared) in renderFrame.
