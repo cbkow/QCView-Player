@@ -271,7 +271,7 @@ bool VideoDecoder::open(const QString &path)
 
     m_stopRequested.store(false, std::memory_order_release);
     m_publishedSeq.store(0, std::memory_order_release);
-    m_lastFetchedSeq = 0;
+    m_lastFetchedSeq.store(0, std::memory_order_relaxed);
     m_paceBaselineSet = false;
     m_loggedMetalFormat     = false;
     m_loggedCpuFormat       = false;
@@ -427,7 +427,7 @@ void VideoDecoder::close()
         m_publishedFrame.reset();
     }
     m_publishedSeq.store(0, std::memory_order_release);
-    m_lastFetchedSeq = 0;
+    m_lastFetchedSeq.store(0, std::memory_order_relaxed);
     m_pendingSeekTarget.store(-1, std::memory_order_release);
     m_currentFrame.store(-1, std::memory_order_release);
     m_frameIndex = FrameIndex();
@@ -482,13 +482,13 @@ void VideoDecoder::close()
 bool VideoDecoder::fetchLatest(FrameHandle *out)
 {
     const uint64_t latest = m_publishedSeq.load(std::memory_order_acquire);
-    if (latest == m_lastFetchedSeq) {
+    if (latest == m_lastFetchedSeq.load(std::memory_order_relaxed)) {
         return false;
     }
 
     std::lock_guard<std::mutex> lk(m_publishMutex);
     if (!m_publishedFrame.isValid()) {
-        m_lastFetchedSeq = latest;
+        m_lastFetchedSeq.store(latest, std::memory_order_relaxed);
         return false;
     }
     if (out) {
@@ -496,7 +496,7 @@ bool VideoDecoder::fetchLatest(FrameHandle *out)
     } else {
         m_publishedFrame.reset();
     }
-    m_lastFetchedSeq = latest;
+    m_lastFetchedSeq.store(latest, std::memory_order_relaxed);
     return true;
 }
 

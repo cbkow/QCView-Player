@@ -336,7 +336,9 @@ private:
     mutable std::mutex     m_publishMutex;
     FrameHandle            m_publishedFrame;
     std::atomic<uint64_t>  m_publishedSeq{0};
-    uint64_t               m_lastFetchedSeq = 0;
+    // Consumer-side dedupe: read and written by the render thread in
+    // fetchLatest, reset by open()/close() on the GUI thread.
+    std::atomic<uint64_t>  m_lastFetchedSeq{0};
 
     // FrameIndex — built at open() from stream metadata. Drives
     // PTS↔frame conversion for both the published-frame number

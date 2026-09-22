@@ -279,7 +279,12 @@ struct MetalPlayerRenderer::Impl {
     // path render the source 1:1 at native resolution (skipping
     // the window-sized canvas + its letterbox bars) and then run
     // OCIO at source resolution.
-    void                   *lastSourceTexture = nullptr;
+    // Strong reference: the source texture can be released (media
+    // switch, pool eviction) before a later frame services a
+    // screenshot, and a raw pointer would then name a freed texture.
+    // Cleared with the source-A slot so a capture never shows the
+    // previous media.
+    id<MTLTexture>          lastSourceTexture = nil;
     int                     lastSourceW       = 0;
     int                     lastSourceH       = 0;
 
@@ -507,7 +512,7 @@ void MetalPlayerRenderer::shutdown()
     m_impl->lastGoodImageSeqW        = 0;
     m_impl->lastGoodImageSeqH        = 0;
     m_impl->lastDisplayTexture       = nullptr;
-    m_impl->lastSourceTexture        = nullptr;
+    m_impl->lastSourceTexture        = nil;
     m_impl->lastSourceW              = 0;
     m_impl->lastSourceH              = 0;
     m_impl->captureSourceRgba16f     = nil;
@@ -609,6 +614,9 @@ void MetalPlayerRenderer::setImageSeqCache(ImageSequenceCache *c)
         m_impl->lastGoodImageSeqTexture = nil;
         m_impl->lastGoodImageSeqW = 0;
         m_impl->lastGoodImageSeqH = 0;
+        m_impl->lastSourceTexture = nil;   // no capture of the old sequence
+        m_impl->lastSourceW = 0;
+        m_impl->lastSourceH = 0;
     }
 
     m_cache = c;
@@ -676,6 +684,9 @@ void MetalPlayerRenderer::clearSourceAState()
     m_impl->cpuFrameTexA      = nil;
     m_impl->cpuFrameAW        = 0;
     m_impl->cpuFrameAH        = 0;
+    m_impl->lastSourceTexture = nil;
+    m_impl->lastSourceW       = 0;
+    m_impl->lastSourceH       = 0;
 }
 
 void MetalPlayerRenderer::clearSourceBState()
@@ -1744,7 +1755,7 @@ void MetalPlayerRenderer::drawFrame()
         m_impl->lastDrawnSourceW   = m_impl->compositeW;
         m_impl->lastDrawnSourceH   = m_impl->compositeH;
         m_impl->lastDisplayTexture = compositeCorrected;
-        m_impl->lastSourceTexture  = sourceTexture;
+        m_impl->lastSourceTexture  = (__bridge id<MTLTexture>)sourceTexture;
         m_impl->lastSourceW        = sourceW;
         m_impl->lastSourceH        = sourceH;
     }
@@ -2025,7 +2036,7 @@ void MetalPlayerRenderer::drawFrame()
                     // orientation texture.
                     m_impl->compositor.renderSource(
                         (__bridge void *)p1Enc,
-                        m_impl->lastSourceTexture,
+                        (__bridge void *)m_impl->lastSourceTexture,
                         srcW, srcH, srcW, srcH,
                         MetalCompositor::Single, 0.5f,
                         capRotQ);
