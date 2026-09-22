@@ -66,6 +66,10 @@ echo "==> macdeployqt"
 # ---- 2. our own dylibs (FFmpeg, OCIO, OpenEXR, Imath) ----------------------
 "$REPO/scripts/bundle_dylibs.sh" "$APP"
 
+# ---- 2b. drop what QCView never loads --------------------------------------
+# Before signing: pruning a signed bundle invalidates it.
+"$REPO/scripts/prune_bundle.sh" "$APP"
+
 # ---- 3. sign, inside-out ---------------------------------------------------
 # Nested code first; the app bundle last. Everything gets the hardened
 # runtime and a secure timestamp, which notarization requires.
