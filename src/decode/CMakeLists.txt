@@ -83,6 +83,10 @@ target_include_directories(qcv_decode
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
+# Static libpng / libtiff need zlib explicitly (the shared Homebrew builds
+# carried it implicitly).
+find_package(ZLIB REQUIRED)
+
 target_link_libraries(qcv_decode
     PUBLIC
         Qt6::Core
@@ -92,6 +96,9 @@ target_link_libraries(qcv_decode
         PNG::PNG
         TIFF::TIFF
         JPEG::JPEG
+        # Static libpng / libtiff pull in zlib themselves; with the shared
+        # Homebrew builds it came along implicitly.
+        ZLIB::ZLIB
         OpenEXR::OpenEXR
         Imath::Imath
 )

@@ -74,6 +74,18 @@ if(APPLE AND EXISTS "${QCV_VENDOR_PREFIX}/lib")
     else()
         set(ENV{PKG_CONFIG_PATH} "${QCV_VENDOR_PREFIX}/lib/pkgconfig")
     endif()
+    # Point the image-library find modules at the vendored prefix. Without
+    # this they resolve to Homebrew, whose libpng / libjpeg / libtiff are
+    # built for a much newer minimum macOS than QCView targets (13.0): the
+    # app would load them only because the old release script rewrote their
+    # load commands, which silenced the loader without making the calls
+    # inside safe. The vendored ones are static and built at 13.0.
+    # (libtiff's installed CMake config is deliberately not kept — it
+    # exports a CMath::CMath target it doesn't ship — so CMake's own
+    # FindTIFF picks up the static library instead. See dependencies.md.)
+    set(PNG_ROOT  "${QCV_VENDOR_PREFIX}")
+    set(JPEG_ROOT "${QCV_VENDOR_PREFIX}")
+    set(TIFF_ROOT "${QCV_VENDOR_PREFIX}")
     message(STATUS "Using vendored deps from ${QCV_VENDOR_PREFIX}")
 endif()
 

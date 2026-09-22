@@ -856,8 +856,56 @@ binaries.
 | **libjpeg-turbo** | 3.0.0+ | 3.1.3 ✓ | BSD-3-Clause | JPEG sequence loader |
 | **libtiff** | 4.5.0+ | 4.7.1_1 ✓ | libtiff license (BSD-like) | TIFF sequence loader |
 
+**macOS: vendored, static, in-tree (2026-09-22).** Homebrew's builds are
+compiled for a much newer minimum macOS than QCView targets (13.0) — as of
+this date `libtiff.6.dylib` reports `minos 26.0`. The old release script
+rewrote their load commands with `vtool` so they would load on older systems,
+which silenced the loader without making the calls inside safe. They are now
+built from source into `external/install/`, static, arm64, `minos 13.0`,
+alongside the codec libraries; nothing is left to bundle or sign, and the
+13.0 floor in the appcast is honest.
+
+| Lib | Pin | SHA-256 of the tarball |
+|---|---|---|
+| libpng | 1.6.55 | `71a2c5b1218f60c4c6d2f1954c7eb20132156cae90bdb90b566c24db002782a6` |
+| libjpeg-turbo | 3.1.3 | `3a13a5ba767dc8264bc40b185e41368a80d5d5f945944d1dbaa4b2fb0099f4e5` |
+| libtiff | 4.7.1 | `f698d94f3103da8ca7438d84e0344e453fe0ba3b7486e04c5bf7a9a3fabe9b69` |
+
+```bash
+# from repo root; same SDK pin as every other macOS build here
+export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
+INSTALL="$PWD/external/install"
+COMMON="-DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$INSTALL \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DCMAKE_OSX_SYSROOT=$SDKROOT \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_SHARED_LIBS=OFF"
+cd external/source
+curl -fsSLO https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.1.3.tar.gz
+curl -fsSLO https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.55.tar.gz
+curl -fsSLO https://download.osgeo.org/libtiff/tiff-4.7.1.tar.gz   # verify the SHAs above
+tar xzf 3.1.3.tar.gz && tar xzf v1.6.55.tar.gz && tar xzf tiff-4.7.1.tar.gz
+cmake -S libjpeg-turbo-3.1.3 -B bld-jpeg ${=COMMON} -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_TURBOJPEG=OFF
+cmake --build bld-jpeg -j"$(sysctl -n hw.ncpu)" && cmake --install bld-jpeg
+# PNG_FRAMEWORK=OFF: libpng otherwise also installs lib/png.framework, which
+# CMake's FindPNG prefers over the static library.
+cmake -S libpng-1.6.55 -B bld-png ${=COMMON} -DPNG_SHARED=OFF -DPNG_STATIC=ON \
+  -DPNG_FRAMEWORK=OFF -DPNG_TESTS=OFF -DPNG_TOOLS=OFF
+cmake --build bld-png -j"$(sysctl -n hw.ncpu)" && cmake --install bld-png
+cmake -S tiff-4.7.1 -B bld-tiff ${=COMMON} -DCMAKE_PREFIX_PATH="$INSTALL" \
+  -Dtiff-tools=OFF -Dtiff-tests=OFF -Dtiff-docs=OFF \
+  -Dlzma=OFF -Dzstd=OFF -Dwebp=OFF -Djbig=OFF -Dlerc=OFF
+cmake --build bld-tiff -j"$(sysctl -n hw.ncpu)" && cmake --install bld-tiff
+# libtiff's installed CMake config exports a CMath::CMath target it does not
+# ship, which fails any consumer; drop it so CMake's own FindTIFF is used.
+rm -rf "$INSTALL/lib/cmake/tiff"
+```
+
+The root `CMakeLists.txt` sets `PNG_ROOT` / `JPEG_ROOT` / `TIFF_ROOT` to the
+vendored prefix so the find modules don't fall back to Homebrew. If a build
+still links `/opt/homebrew/...` for these, the build dir has stale cache
+entries: reconfigure with `-U "PNG_*" -U "JPEG_*" -U "TIFF_*"`.
+
 Not vendored as FetchContent because:
-- Universally available via system packages.
+- Universally available via system packages (Windows / Linux dev builds).
 - Qt 6 already links these for `QImage`.
 - ABI is stable across patch versions.
 
