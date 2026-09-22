@@ -1923,6 +1923,13 @@ void WindowManager::rebuildSingleFlowFromActiveItem()
         startLiveStream(*item);
         return;
     }
+    if (item->type == MediaType::Playlist) {
+        // A playlist has no path of its own; without this the decoder was
+        // handed an empty one ("File not found:") and single view came back
+        // empty after leaving dual.
+        startPlaylist(*item);
+        return;
+    }
     if (m_videoDecoder) {
         if (m_videoDecoder->open(item->path)) {
             // Same first-frame nudge as the loadRequested handler —
@@ -2053,6 +2060,15 @@ void WindowManager::setCompositorMode(int mode)
         // zero. Without this, the handler wipes the timeline (including
         // the B track that setBSource populated). Reset after the
         // dual-side timeline is rebuilt below.
+        // Entering dual with no A leaves a side that can never produce a
+        // frame: makeSource("") returns null and the open still succeeds.
+        if (pathA.isEmpty()) {
+            qWarning("setCompositorMode: no source A to pair; staying single");
+            m_compositorMode = 0;
+            emit compositorModeChanged();
+            return;
+        }
+
         m_suppressTimelineRebuild = true;
 
         teardownSingleFlowForDual();
