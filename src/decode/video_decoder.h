@@ -94,6 +94,9 @@ public:
     // published; on inter-frame codecs the keyframe at-or-before
     // is sought first and intermediate frames are decoded silently.
     Q_INVOKABLE void seekToFrame(int frameNo);
+    // Hydrate [first, last] on a network volume after the playhead window
+    // (the loop range under review); first < 0 clears. See read_ahead.h.
+    void setReadAheadRange(int first, int last);
 
     // Play/pause. Decoder default is "playing" once a file is open;
     // pause() blocks the decode thread on the same condvar that

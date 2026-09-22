@@ -2465,6 +2465,19 @@ void WindowManager::pushInOutToTimer()
         pushToSeq(m_dualController->sourceA());
         pushToSeq(m_dualController->sourceB());
     }
+
+    // Network read-ahead: with loop on and in/out set, hydrate the whole
+    // range under review, not just the playhead window (read_ahead.h). Not
+    // looping, or looping the whole file, keeps the window only: a feature
+    // film must not be pulled down in full. Playlists span several files.
+    const bool hydrate = m_loopEnabled && hasInOutRange() && !m_playlistActive;
+    if (m_dualController) {
+        m_dualController->setReadAheadRange(hydrate ? m_inPoint : -1,
+                                            hydrate ? m_outPoint : -1);
+    } else if (m_videoDecoder) {
+        m_videoDecoder->setReadAheadRange(hydrate ? m_inPoint : -1,
+                                          hydrate ? m_outPoint : -1);
+    }
 }
 
 void WindowManager::setLoopEnabled(bool on)

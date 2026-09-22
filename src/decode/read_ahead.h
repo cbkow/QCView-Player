@@ -82,6 +82,12 @@ public:
     // unknown or detached ids are ignored.
     void setPosition(Id id, int nextFrame);
 
+    // A loop range (inclusive frames) to hydrate whole, after the playhead
+    // window is warm: the part of the file the user is reviewing. first < 0
+    // clears it. Capped by QCV_READAHEAD_LOOP_GB (default 16) so an in/out
+    // spanning a whole feature can't flood the volume's cache. Any thread.
+    void setRange(Id id, int firstFrame, int lastFrame);
+
     ~ReadAhead();
 
 private:

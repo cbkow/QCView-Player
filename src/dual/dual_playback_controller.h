@@ -92,6 +92,12 @@ public:
     // (no mutex for v1 — edit ops will introduce serialization).
     void setTimeline(TimelineController *t);
 
+    // The loop range (inclusive master frames) for each video side's
+    // read-ahead to hydrate whole; masterIn < 0 clears. Translated per side
+    // through the timeline, so slipped / offset clips hydrate the source
+    // frames the range actually shows. GUI thread.
+    void setReadAheadRange(int masterIn, int masterOut);
+
     // Adaptive thread halving for image-seq sources. Called by open()
     // automatically — exposed for tests.
     void applyAdaptiveThreading();

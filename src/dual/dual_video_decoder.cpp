@@ -218,6 +218,12 @@ void DualVideoDecoder::close()
     m_intraOnly = false;
 }
 
+void DualVideoDecoder::setReadAheadRange(int first, int last)
+{
+    ReadAhead::instance().setRange(
+        m_readAheadId.load(std::memory_order_acquire), first, last);
+}
+
 void DualVideoDecoder::setDecodeTarget(int frameNumber)
 {
     if (!m_open.load(std::memory_order_acquire)) return;

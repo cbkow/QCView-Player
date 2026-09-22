@@ -304,6 +304,12 @@ bool VideoDecoder::open(const QString &path)
     return true;
 }
 
+void VideoDecoder::setReadAheadRange(int first, int last)
+{
+    ReadAhead::instance().setRange(
+        m_readAheadId.load(std::memory_order_acquire), first, last);
+}
+
 void VideoDecoder::seekToFrame(int frameNo)
 {
     if (!m_frameIndex.isValid()) return;

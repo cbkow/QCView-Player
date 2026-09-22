@@ -843,6 +843,29 @@ int DualPlaybackController::firstClipSourceFrame(char trackSide) const
     return std::max(0, static_cast<int>(std::lround(first->sourceIn * srcFps)));
 }
 
+void DualPlaybackController::setReadAheadRange(int masterIn, int masterOut)
+{
+    auto apply = [&](IDualSource *src, char side) {
+        auto *v = dynamic_cast<DualVideoDecoder *>(src);
+        if (!v) return;   // image sequences have their own loop-range cache
+        if (masterIn < 0 || masterOut < masterIn) {
+            v->setReadAheadRange(-1, -1);
+            return;
+        }
+        int first = translateMasterToSourceFrame(masterIn, side);
+        if (first < 0) first = nextClipSourceFrame(masterIn, side);
+        int last = translateMasterToSourceFrame(masterOut, side);
+        if (last < 0) last = v->frameCount() - 1;   // out lands past this side's end
+        if (first < 0 || last < first) {
+            v->setReadAheadRange(-1, -1);   // the range shows nothing of this side
+            return;
+        }
+        v->setReadAheadRange(first, last);
+    };
+    apply(m_sourceA.get(), 'A');
+    apply(m_sourceB.get(), 'B');
+}
+
 std::shared_ptr<const qcv::Timeline> DualPlaybackController::timelineSnapshot() const
 {
     std::lock_guard<std::mutex> lk(m_timelineSnapMutex);

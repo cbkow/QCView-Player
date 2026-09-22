@@ -70,6 +70,9 @@ public:
     bool isOpen() const override { return m_open.load(std::memory_order_acquire); }
 
     void setDecodeTarget(int frameNumber) override;
+    // Hydrate [first, last] (source frames) after the read-ahead window;
+    // first < 0 clears. See decode/read_ahead.h.
+    void setReadAheadRange(int first, int last);
     void seekTo(int frameNumber) override;
 
     std::shared_ptr<DualFrame> getBufferedFrame(int frameNumber) const override;

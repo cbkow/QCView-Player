@@ -50,6 +50,13 @@ int64_t pageBytesFromEnv()
     return int64_t(ok && v > 0 ? v : kDefaultPageKB) << 10;
 }
 
+int64_t loopCapBytesFromEnv()
+{
+    bool ok = false;
+    const int v = qEnvironmentVariableIntValue("QCV_READAHEAD_LOOP_GB", &ok);
+    return int64_t(ok && v > 0 ? v : 16) << 30;
+}
+
 int64_t capBytesFromEnv()
 {
     bool ok = false;
@@ -77,6 +84,10 @@ struct Client {
     std::atomic<int>      position{0};
     std::atomic<uint32_t> gen{0};       // bumped on a jump
     std::atomic<bool>     detached{false};
+    // The loop range to hydrate whole, or first < 0 for none.
+    std::atomic<int>      rangeFirst{-1};
+    std::atomic<int>      rangeLast{-1};
+    std::atomic<uint32_t> rangeGen{0};
 
     // Worker thread only.
     uint32_t seenGen  = kNoGen;
@@ -91,12 +102,21 @@ struct Client {
     int64_t  bytes = 0, lastLogBytes = 0;
     double   readSecs = 0.0;
     int      restarts = 0;
+    // Loop-range pass (worker only).
+    uint32_t rangeSeenGen   = kNoGen;
+    int      rangeFrontier  = 0;
+    int      rangeEnd       = 0;     // one past the last frame, 0 = none
+    int64_t  rangeLastPage  = -1;
+    int64_t  rangeBytes     = 0;
+    Clock::time_point rangeStart;
+    bool     rangeLogged    = true;
 };
 
 struct ReadAhead::Impl {
     const double  seconds  = secondsFromEnv();
     const int64_t capBytes = capBytesFromEnv();
     const int64_t pageBytes = pageBytesFromEnv();
+    const int64_t loopCapBytes = loopCapBytesFromEnv();
 
     std::mutex mutex;
     std::condition_variable cv;
@@ -108,7 +128,12 @@ struct ReadAhead::Impl {
 
     void run();
     bool prepare(Client &c);
+    bool prepareRange(Client &c);
+    bool openFile(Client &c);
+    bool touchFrame(Client &c, int frame, int64_t &lastPage,
+                    const std::function<bool()> &abandon);
     void warmOne(Client &c);
+    void warmRangeOne(Client &c);
     static void logStats(const Client &c, const char *when);
 };
 
@@ -235,6 +260,26 @@ void ReadAhead::setPosition(Id id, int nextFrame)
     d->cv.notify_one();
 }
 
+void ReadAhead::setRange(Id id, int firstFrame, int lastFrame)
+{
+    if (id == 0) return;
+    {
+        std::lock_guard<std::mutex> lk(d->mutex);
+        auto it = d->clients.find(id);
+        if (it == d->clients.end()) return;
+        Client &c = *it->second;
+        const bool none = firstFrame < 0 || lastFrame < firstFrame;
+        const int f = none ? -1 : firstFrame;
+        const int l = none ? -1 : lastFrame;
+        if (c.rangeFirst.load() == f && c.rangeLast.load() == l) return;
+        c.rangeFirst.store(f, std::memory_order_relaxed);
+        c.rangeLast.store(l, std::memory_order_relaxed);
+        c.rangeGen.fetch_add(1, std::memory_order_release);
+        d->workPending = true;
+    }
+    d->cv.notify_one();
+}
+
 void ReadAhead::Impl::run()
 {
 #if defined(__APPLE__)
@@ -261,7 +306,17 @@ void ReadAhead::Impl::run()
             const int lead = c->frontier - c->position.load(std::memory_order_acquire);
             if (lead < bestLead) { bestLead = lead; best = c.get(); }
         }
-        if (best) warmOne(*best);
+        if (best) {
+            warmOne(*best);
+        } else {
+            // Windows are all warm: spend idle time hydrating loop ranges.
+            for (auto &c : snapshot) {
+                if (!prepareRange(*c)) continue;
+                best = c.get();
+                warmRangeOne(*best);
+                break;
+            }
+        }
 
         lk.lock();
         if (!best) {
@@ -315,54 +370,126 @@ bool ReadAhead::Impl::prepare(Client &c)
     return false;
 }
 
+// Worker only. Applies a pending loop-range change and says whether any of
+// the range is still to be touched.
+bool ReadAhead::Impl::prepareRange(Client &c)
+{
+    if (c.failed || c.detached.load(std::memory_order_acquire)) return false;
+    const uint32_t g = c.rangeGen.load(std::memory_order_acquire);
+    if (g != c.rangeSeenGen) {
+        c.rangeSeenGen = g;
+        const int first = c.rangeFirst.load(std::memory_order_relaxed);
+        const int last  = c.rangeLast.load(std::memory_order_relaxed);
+        const int n     = static_cast<int>(c.spans.size());
+        if (first < 0 || first >= n) {
+            c.rangeEnd = 0;
+        } else {
+            c.rangeFrontier = first;
+            c.rangeEnd      = std::min(last, n - 1) + 1;
+        }
+        c.rangeLastPage = -1;
+        c.rangeBytes    = 0;
+        c.rangeStart    = Clock::now();
+        c.rangeLogged   = false;
+    }
+    if (c.rangeFrontier < c.rangeEnd && c.rangeBytes < loopCapBytes) return true;
+
+    if (!c.rangeLogged && c.rangeBytes > 0) {
+        c.rangeLogged = true;
+        const double s = secondsSince(c.rangeStart);
+        if (c.rangeFrontier < c.rangeEnd) {
+            qInfo("ReadAhead: %s — loop range stopped at the %lld GB cap "
+                  "(QCV_READAHEAD_LOOP_GB), frame %d",
+                  qPrintable(c.name), static_cast<long long>(loopCapBytes >> 30),
+                  c.rangeFrontier);
+        } else {
+            qInfo("ReadAhead: %s — loop range %d-%d touched, %.1f MB in %.2f s "
+                  "(%.1f MB/s)",
+                  qPrintable(c.name), c.rangeFirst.load(), c.rangeLast.load(),
+                  c.rangeBytes / 1e6, s, s > 0 ? c.rangeBytes / 1e6 / s : 0.0);
+        }
+    }
+    c.rangeLogged = true;
+    return false;
+}
+
+bool ReadAhead::Impl::openFile(Client &c)
+{
+    if (c.file) return true;
+    c.file = std::make_unique<QFile>(c.path);
+    if (!c.file->open(QIODevice::ReadOnly | QIODevice::Unbuffered)) {
+        qWarning("ReadAhead: %s — cannot open (%s); read-ahead off for it",
+                 qPrintable(c.name), qPrintable(c.file->errorString()));
+        c.failed = true;
+        return false;
+    }
+#if defined(__APPLE__)
+    // The point is the volume's cache, not ours: keep macOS from
+    // holding the touched pages in RAM.
+    fcntl(c.file->handle(), F_NOCACHE, 1);
+#endif
+    return true;
+}
+
 // Worker only. Touches one frame's span: one byte in every page it covers,
 // which makes the volume fetch and cache each page (measured on LucidLink,
 // whose cache page is 1 MiB: its on-disk cache grew by the file's size).
-// Abandoned on a jump or a detach; the frontier then stays put and
-// prepare() restarts it.
+// Returns false if abandoned partway (a jump, a range change, a detach).
+bool ReadAhead::Impl::touchFrame(Client &c, int frame, int64_t &lastPage,
+                                 const std::function<bool()> &abandon)
+{
+    const FrameSpan span = c.spans[static_cast<size_t>(frame)];
+    if (span.pos < 0 || span.len <= 0) return true;
+    const int64_t first = span.pos / pageBytes;
+    const int64_t last  = (span.pos + span.len - 1) / pageBytes;
+    for (int64_t p = first; p <= last; ++p) {
+        if (p == lastPage) continue;
+        if (c.detached.load(std::memory_order_acquire) || abandon()) return false;
+        char b;
+        const auto t = Clock::now();
+        const bool ok = c.file->seek(p * pageBytes) && c.file->read(&b, 1) == 1;
+        c.readSecs += secondsSince(t);
+        if (!ok) break;
+        lastPage = p;
+    }
+    c.bytes += span.len;
+    return true;
+}
+
+// Worker only. The playhead window: next frame from the frontier.
 void ReadAhead::Impl::warmOne(Client &c)
 {
-    if (!c.file) {
-        c.file = std::make_unique<QFile>(c.path);
-        if (!c.file->open(QIODevice::ReadOnly | QIODevice::Unbuffered)) {
-            qWarning("ReadAhead: %s — cannot open (%s); read-ahead off for it",
-                     qPrintable(c.name), qPrintable(c.file->errorString()));
-            c.failed = true;
-            return;
-        }
-#if defined(__APPLE__)
-        // The point is the volume's cache, not ours: keep macOS from
-        // holding the touched pages in RAM.
-        fcntl(c.file->handle(), F_NOCACHE, 1);
-#endif
-    }
-    const FrameSpan span = c.spans[static_cast<size_t>(c.frontier)];
+    if (!openFile(c)) return;
     const uint32_t g = c.seenGen;
-    if (span.pos >= 0 && span.len > 0) {
-        const int64_t first = span.pos / pageBytes;
-        const int64_t last  = (span.pos + span.len - 1) / pageBytes;
-        for (int64_t p = first; p <= last; ++p) {
-            if (p == c.lastPage) continue;
-            if (c.detached.load(std::memory_order_acquire)
-                || c.gen.load(std::memory_order_acquire) != g) {
-                return;
-            }
-            char b;
-            const auto t = Clock::now();
-            const bool ok = c.file->seek(p * pageBytes) && c.file->read(&b, 1) == 1;
-            c.readSecs += secondsSince(t);
-            if (!ok) break;
-            c.lastPage = p;
-        }
-        c.bytes       += span.len;
-        c.windowBytes += span.len;
+    if (!touchFrame(c, c.frontier, c.lastPage, [&] {
+            return c.gen.load(std::memory_order_acquire) != g;
+        })) {
+        return;   // the frontier stays put; prepare() restarts it
     }
+    c.windowBytes += std::max<int64_t>(0, c.spans[static_cast<size_t>(c.frontier)].len);
     ++c.frontier;
 
     if (c.bytes - c.lastLogBytes >= (512LL << 20)) {
         c.lastLogBytes = c.bytes;
         logStats(c, "so far");
     }
+}
+
+// Worker only. The loop range: next frame from the range frontier. Yields
+// to the window after every frame (run() checks windows first).
+void ReadAhead::Impl::warmRangeOne(Client &c)
+{
+    if (!openFile(c)) return;
+    const uint32_t rg = c.rangeSeenGen;
+    const uint32_t wg = c.seenGen;
+    if (!touchFrame(c, c.rangeFrontier, c.rangeLastPage, [&] {
+            return c.rangeGen.load(std::memory_order_acquire) != rg
+                || c.gen.load(std::memory_order_acquire) != wg;
+        })) {
+        return;
+    }
+    c.rangeBytes += std::max<int64_t>(0, c.spans[static_cast<size_t>(c.rangeFrontier)].len);
+    ++c.rangeFrontier;
 }
 
 void ReadAhead::Impl::logStats(const Client &c, const char *when)
