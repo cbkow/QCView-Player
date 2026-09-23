@@ -74,6 +74,7 @@ cbuffer Constants : register(b0) {
     int    bActive;       // 48
     float  seamHighlight; // 52 — split seam: 0 = faint grey, 1 = white
     float  diffGain;      // 56 — Difference mode: amplify abs(A-B)
+    int    dropSide;      // 60 — drag-drop target highlight: 0 none, 1 A, 2 B
 };
 
 Texture2D    srcA : register(t0);
@@ -170,6 +171,15 @@ float4 PSMain(VsOut input) : SV_TARGET
                         dstSize, srcSizeA, rotA);
     }
 
+    if (dropSide != 0) {
+        bool inZone = true;
+        if (mode == 1)      inZone = (dstPx.x < dstSize.x * 0.5) == (dropSide == 1);
+        else if (mode == 2) inZone = (uv.x < splitPos) == (dropSide == 1);
+        if (inZone) {
+            color = float4(lerp(color.rgb, float3(0.9, 0.9, 0.9), 0.22), 1.0);
+        }
+    }
+
     if (color.a == 0.0) discard;
     return color;
 }
@@ -204,7 +214,8 @@ struct DualCB {
     int   bActive;        // 44 : 48
     float seamHighlight;  // 48 : 52
     float diffGain;       // 52 : 56
-    float pad1[2];        // 56 : 64
+    int   dropSide;       // 56 : 60 — drag-drop target highlight
+    float pad1;           // 60 : 64
 };
 static_assert(sizeof(DualCB) == 64,
               "DualCB must match HLSL packing exactly.");
@@ -330,6 +341,7 @@ struct D3D11DualCompositor::Impl {
     std::atomic<int>   mode{0};     // Single by default
     std::atomic<float> splitPos{0.5f};
     std::atomic<float> seamHighlight{0.0f};   // split seam: 0 grey at rest, 1 white on hover/drag
+    std::atomic<int>   dropSide{0};           // drag-drop target highlight: 0 none, 1 A, 2 B
     std::atomic<float> diffGain{1.0f};        // Difference mode: amplify abs(A-B)
     // Per-side pixel aspect (anamorphic un-squeeze). Widens the
     // effective srcSize fed to the shader; 1/1 = square (default).
@@ -506,6 +518,12 @@ void D3D11DualCompositor::setSplitPos(float pos)
 {
     if (!m_impl) return;
     m_impl->splitPos = std::clamp(pos, 0.0f, 1.0f);
+}
+
+void D3D11DualCompositor::setDropHighlight(int side)
+{
+    if (!m_impl) return;
+    m_impl->dropSide = std::clamp(side, 0, 2);
 }
 
 void D3D11DualCompositor::setSeamHighlight(float h)
@@ -750,6 +768,7 @@ void D3D11DualCompositor::renderFrame(void *ctxVoid, int dstW, int dstH)
     cb.bActive     = m_impl->bActive ? 1 : 0;
     cb.seamHighlight = m_impl->seamHighlight;
     cb.diffGain    = m_impl->diffGain;
+    cb.dropSide    = m_impl->dropSide;
     std::memcpy(mapped.pData, &cb, sizeof(cb));
     ctx->Unmap(m_impl->cbuf.Get(), 0);
 

@@ -10,7 +10,7 @@ Unlike QCView v1, Dual Views are now a prominent part of the UI and are always a
 
 ![A and B chips above the viewport](images/qcv035.jpg)
 
-Dual view is a state that sticks: loading a new A source (from the Open button, File menu, a bin, or a drag into the viewport) **swaps the A side and keeps B** along with its track edits, rather than dropping you back to single view. Dual view exits to single only when you choose Single mode, load a playlist, or start/open a different project.
+Dual view is a state that sticks: loading a new A source (from the Open button, File menu, a bin, or a drag into the viewport) **swaps the A side and keeps B** along with its track edits, rather than dropping you back to single view. A file dragged onto the viewport in Side-by-Side or Split-Wipe loads the side you drop it on: the left of the divider (or seam) replaces A, the right replaces B, and the side lights up under the drag so you can see where it will land. Dual view exits to single only when you choose Single mode, load a playlist, or start/open a different project.
 
 ## View modes
 

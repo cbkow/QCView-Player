@@ -1453,21 +1453,27 @@ bool WindowManager::createPlayerWindow()
         setSplitPos(static_cast<qreal>(normalizedX));
     });
 
-    // Phase 7.5 B.7: route file drops onto the player surface to
-    // the same handler the QML DropArea uses
-    // (ProjectManager::addMediaFile + setActiveItem).
+    // Phase 7.5 B.7: route file drops onto the player surface through
+    // the same side-aware handler the QML DropArea uses. A hovering
+    // drag lights the side it would land on.
     connect(nativePlayer, &qcv::PlayerWindow::filesDropped,
-            this, [this](const QList<QUrl> &urls) {
-        if (!m_project || urls.isEmpty()) return;
-        QString lastId;
+            this, [this](const QList<QUrl> &urls, const QPointF &norm) {
+        QStringList paths;
         for (const QUrl &u : urls) {
-            const QString path = u.toLocalFile();
-            if (path.isEmpty()) continue;
-            const QString id = m_project->addMediaFile(path);
-            if (!id.isEmpty()) lastId = id;
+            // Local files by path; anything else (srt://, qcbae://)
+            // as the URL string, which openMediaPaths / setBSource
+            // already recognise.
+            const QString p = u.isLocalFile() ? u.toLocalFile() : u.toString();
+            if (!p.isEmpty()) paths.append(p);
         }
-        if (!lastId.isEmpty()) m_project->setActiveItem(lastId);
+        dropMediaAt(paths, norm.x(), norm.y());
     });
+    connect(nativePlayer, &qcv::PlayerWindow::dragHovered,
+            this, [this](const QPointF &norm) {
+        setDropHighlightSide(dropSideAt(norm.x(), norm.y()));
+    });
+    connect(nativePlayer, &qcv::PlayerWindow::dragLeft,
+            this, [this] { setDropHighlightSide(0); });
 #else
     // Load the Player window from QML.
     QQmlComponent component(m_engine, QUrl(QStringLiteral("qrc:/qt/qml/Qcv/PlayerWindow.qml")));
@@ -2790,6 +2796,44 @@ void WindowManager::openMediaPaths(const QStringList &paths)
         if (!lastId.isEmpty()) m_project->setActiveItem(lastId);
         setLoadingActive(false);
     });
+}
+
+int WindowManager::dropSideAt(qreal nx, qreal ny) const
+{
+    Q_UNUSED(ny);   // both dual layouts split on x; kept for a future
+                    // top/bottom layout
+    if (!m_dualController) return 1;
+    switch (m_compositorMode) {
+        case 1:  return nx < 0.5 ? 1 : 2;           // side-by-side
+        case 2:  return nx < m_splitPos ? 1 : 2;    // wipe
+        default: return 1;                          // single, difference
+    }
+}
+
+void WindowManager::setDropHighlightSide(int side)
+{
+    if (side == m_dropHighlightSide) return;
+    m_dropHighlightSide = side;
+#ifdef QCV_NATIVE_PLAYER
+    if (auto *pw = qobject_cast<qcv::PlayerWindow *>(m_playerWindow.data())) {
+        if (auto *r = pw->renderer()) r->setDropHighlight(side);
+    }
+#endif
+}
+
+void WindowManager::dropMediaAt(const QStringList &paths, qreal nx, qreal ny)
+{
+    setDropHighlightSide(0);
+    if (!m_project || paths.isEmpty()) return;
+    const int side = dropSideAt(nx, ny);
+    if (side == 2) {
+        // The first path becomes B (setBSource adds it to the bins and
+        // rebuilds the dual island); the rest just join the bins.
+        setBSource(paths.first());
+        if (paths.size() > 1) addMediaPaths(paths.mid(1));
+        return;
+    }
+    openMediaPaths(paths);
 }
 
 void WindowManager::addMediaPaths(const QStringList &paths)

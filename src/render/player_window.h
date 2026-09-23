@@ -16,6 +16,7 @@
 #pragma once
 
 #include <QList>
+#include <QPointF>
 #include <QUrl>
 #include <QWindow>
 
@@ -80,15 +81,25 @@ public:
     // The renderer's IDropTarget calls this on drop to re-emit the
     // same filesDropped signal macOS already wires through QWindow's
     // event() override, keeping WindowManager's handler shared.
-    void notifyFilesDropped(const QList<QUrl> &urls);
+    // `normPos` is the drop point normalized to the surface, x and y
+    // in [0, 1]; WindowManager reads the dual-view side off it.
+    void notifyFilesDropped(const QList<QUrl> &urls, const QPointF &normPos);
+    // Drag hover over the surface (enter + move) and leave, same
+    // normalized coordinates. WindowManager lights the target side.
+    void notifyDragHover(const QPointF &normPos);
+    void notifyDragLeave();
 
 Q_SIGNALS:
     // Phase 7.5 B.7 — file drag-drop. Native QWindow sits above the
     // UI window's centerStage in z-order, so QML DropArea overlays
     // can't see the drop. WindowManager connects this signal and
-    // routes URLs through ProjectManager::addMediaFile (matches the
-    // existing QML path).
-    void filesDropped(const QList<QUrl> &urls);
+    // routes the URLs by the side they landed on (dual view) or to
+    // the active item (single). `normPos` is the drop point
+    // normalized to the surface, x and y in [0, 1].
+    void filesDropped(const QList<QUrl> &urls, const QPointF &normPos);
+    // A file drag is hovering the surface at `normPos` / has left it.
+    void dragHovered(const QPointF &normPos);
+    void dragLeft();
 
     // Fired during a split-wipe seam drag. `normalizedX` is the new
     // splitPos in [0, 1] derived from the cursor location. WindowManager
@@ -113,6 +124,9 @@ protected:
     bool event(QEvent *e) override;
 
 private:
+    // Surface-local logical point → [0, 1] × [0, 1].
+    QPointF normalizedPos(const QPointF &local) const;
+
     // Returns true and emits splitWipeSeamDragged if (mode == 2 && the
     // cursor at `xLogical` is inside the seam grab strip). Caller uses
     // the bool to decide whether to also forward to the annotator.

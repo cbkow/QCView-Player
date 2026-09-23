@@ -700,6 +700,12 @@ void MetalPlayerRenderer::setSplitSeamHighlight(float h)
 {
     if (m_impl) m_impl->dualCompositor.setSeamHighlight(h);
 }
+void MetalPlayerRenderer::setDropHighlight(int side)
+{
+    if (m_impl) m_impl->dualCompositor.setDropHighlight(side);
+    // A paused dual session repaints only on request.
+    requestUpdate();
+}
 void MetalPlayerRenderer::setLoadingActive(bool on)
 {
     m_loadingActive.store(on);

@@ -66,6 +66,9 @@ public:
     // Wipe split-seam highlight: 0 = faint grey (rest), 1 = white
     // (hover/drag of the seam handle). Ignored unless mode == Wipe.
     void setSeamHighlight(float h);
+    // Drag-drop target highlight: 0 none, 1 = A's zone, 2 = B's zone.
+    // The shader lifts that zone toward white while a file drag hovers.
+    void setDropHighlight(int side);
     // Difference-mode amplification (1.0 = raw abs(A-B)). Ignored unless
     // mode == Difference.
     void setDiffGain(float g);

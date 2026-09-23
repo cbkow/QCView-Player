@@ -83,6 +83,9 @@ public:
     void setMode(Mode m)              { m_mode = m; }
     void setSplitPos(float p)         { m_splitPos = p; }
     void setSeamHighlight(float h)    { m_seamHighlight = h; }
+    // Drag-drop target highlight: 0 none, 1 = A's zone, 2 = B's zone.
+    // The shader lifts that zone toward white while a file drag hovers.
+    void setDropHighlight(int side)   { m_dropSide = side; }
     void setDiffGain(float g)         { m_diffGain = g; }   // Difference amplify
     // Per-side pixel aspect (anamorphic un-squeeze). Applied display-
     // only: the effective source width fed to the compositor UBO
@@ -159,6 +162,7 @@ private:
     std::atomic<Mode>  m_mode{Single};
     std::atomic<float> m_splitPos{0.5f};
     std::atomic<float> m_seamHighlight{0.0f};
+    std::atomic<int>   m_dropSide{0};
     std::atomic<float> m_diffGain{1.0f};
     std::atomic<int>   m_parNumA{1};
     std::atomic<int>   m_parDenA{1};

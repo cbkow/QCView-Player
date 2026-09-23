@@ -255,10 +255,30 @@ void PlayerWindow::mouseReleaseEvent(QMouseEvent *e)
     }
 }
 
-void PlayerWindow::notifyFilesDropped(const QList<QUrl> &urls)
+QPointF PlayerWindow::normalizedPos(const QPointF &local) const
+{
+    const qreal w = width();
+    const qreal h = height();
+    if (w <= 0 || h <= 0) return QPointF(0.5, 0.5);
+    return QPointF(std::clamp(local.x() / w, 0.0, 1.0),
+                   std::clamp(local.y() / h, 0.0, 1.0));
+}
+
+void PlayerWindow::notifyFilesDropped(const QList<QUrl> &urls,
+                                      const QPointF &normPos)
 {
     if (urls.isEmpty()) return;
-    emit filesDropped(urls);
+    emit filesDropped(urls, normPos);
+}
+
+void PlayerWindow::notifyDragHover(const QPointF &normPos)
+{
+    emit dragHovered(normPos);
+}
+
+void PlayerWindow::notifyDragLeave()
+{
+    emit dragLeft();
 }
 
 bool PlayerWindow::event(QEvent *e)
@@ -271,6 +291,7 @@ bool PlayerWindow::event(QEvent *e)
             auto *de = static_cast<QDragEnterEvent *>(e);
             if (de->mimeData()->hasUrls()) {
                 de->acceptProposedAction();
+                emit dragHovered(normalizedPos(de->position()));
                 return true;
             }
             break;
@@ -279,14 +300,20 @@ bool PlayerWindow::event(QEvent *e)
             auto *dm = static_cast<QDragMoveEvent *>(e);
             if (dm->mimeData()->hasUrls()) {
                 dm->acceptProposedAction();
+                emit dragHovered(normalizedPos(dm->position()));
                 return true;
             }
             break;
         }
+        case QEvent::DragLeave: {
+            emit dragLeft();
+            return true;
+        }
         case QEvent::Drop: {
             auto *dr = static_cast<QDropEvent *>(e);
             if (dr->mimeData()->hasUrls()) {
-                emit filesDropped(dr->mimeData()->urls());
+                emit filesDropped(dr->mimeData()->urls(),
+                                  normalizedPos(dr->position()));
                 dr->acceptProposedAction();
                 return true;
             }

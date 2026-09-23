@@ -63,6 +63,7 @@ public:
     void setCompositorMode(CompositorMode mode) override;
     void setSplitPos(float pos) override;
     void setSplitSeamHighlight(float h) override;
+    void setDropHighlight(int side) override;
     void setDiffGain(float g) override;
     void setLoadingActive(bool on) override;
     void setBackgroundMode(BackgroundMode mode) override;
@@ -165,6 +166,7 @@ private:
     std::atomic<int>           m_compMode  {static_cast<int>(CompositorMode::Single)};
     std::atomic<float>         m_splitPos  {0.5f};
     std::atomic<float>         m_splitSeamHighlight {0.0f};
+    std::atomic<int>           m_dropHighlight {0};
     std::atomic<float>         m_diffGain  {1.0f};
     std::atomic<bool>          m_loadingActive {false};
     // Per-side pixel aspect (anamorphic un-squeeze). Widens the

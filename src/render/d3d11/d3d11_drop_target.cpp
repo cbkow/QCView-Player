@@ -62,8 +62,11 @@ QList<QUrl> extractFileUrls(IDataObject *pDataObj)
 
 } // namespace
 
-D3D11DropTarget::D3D11DropTarget(DropCallback cb)
-    : m_callback(std::move(cb))
+D3D11DropTarget::D3D11DropTarget(DropCallback drop, HoverCallback hover,
+                                 LeaveCallback leave)
+    : m_callback(std::move(drop))
+    , m_hover(std::move(hover))
+    , m_leave(std::move(leave))
 {
 }
 
@@ -97,41 +100,45 @@ ULONG STDMETHODCALLTYPE D3D11DropTarget::Release()
 
 HRESULT STDMETHODCALLTYPE D3D11DropTarget::DragEnter(IDataObject *pDataObj,
                                                       DWORD /*grfKeyState*/,
-                                                      POINTL /*pt*/,
+                                                      POINTL pt,
                                                       DWORD *pdwEffect)
 {
     if (!pdwEffect) return E_INVALIDARG;
     m_acceptDrop = dataObjectHasFiles(pDataObj);
     *pdwEffect = m_acceptDrop ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+    if (m_acceptDrop && m_hover) m_hover(pt);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DropTarget::DragOver(DWORD /*grfKeyState*/,
-                                                     POINTL /*pt*/,
+                                                     POINTL pt,
                                                      DWORD *pdwEffect)
 {
     if (!pdwEffect) return E_INVALIDARG;
     *pdwEffect = m_acceptDrop ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+    if (m_acceptDrop && m_hover) m_hover(pt);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DropTarget::DragLeave()
 {
+    if (m_acceptDrop && m_leave) m_leave();
     m_acceptDrop = false;
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DropTarget::Drop(IDataObject *pDataObj,
                                                  DWORD /*grfKeyState*/,
-                                                 POINTL /*pt*/,
+                                                 POINTL pt,
                                                  DWORD *pdwEffect)
 {
     if (!pdwEffect) return E_INVALIDARG;
     const QList<QUrl> urls = extractFileUrls(pDataObj);
     if (!urls.isEmpty() && m_callback) {
-        m_callback(urls);
+        m_callback(urls, pt);
         *pdwEffect = DROPEFFECT_COPY;
     } else {
+        if (m_leave) m_leave();
         *pdwEffect = DROPEFFECT_NONE;
     }
     m_acceptDrop = false;

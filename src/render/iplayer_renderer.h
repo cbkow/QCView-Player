@@ -123,6 +123,10 @@ public:
     // Wipe split-seam highlight (0 grey / 1 white on hover/drag).
     // Default no-op so platforms that don't draw a seam can ignore it.
     virtual void setSplitSeamHighlight(float /*h*/) {}
+    // Drag-drop target highlight while a file drag hovers the viewport:
+    // 0 none, 1 = A's zone, 2 = B's zone (dual flow only; single flow
+    // has no zones to light). Default no-op.
+    virtual void setDropHighlight(int /*side*/) {}
     // Difference-mode amplification gain (1.0 = raw abs(A-B)). Default
     // no-op for platforms without the dual difference shader.
     virtual void setDiffGain(float /*g*/) {}

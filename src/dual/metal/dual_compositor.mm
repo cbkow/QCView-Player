@@ -39,6 +39,7 @@ struct UBO {
     float  diffGain;       // Difference mode: amplify abs(A-B)
     int    rotA;           // per-side display rotation, quarter-turns
     int    rotB;           //   CW {0..3}; srcSize arrives display-swapped
+    int    dropSide;       // drag-drop target highlight: 0 none, 1 A, 2 B
 };
 
 struct VsOut {
@@ -166,6 +167,15 @@ fragment float4 dual_fs(VsOut in [[stage_in]],
             : sampleFit(srcA, smp, dstPx,
                         float2(0.0, 0.0),
                         u.dstSize, u.srcSizeA, u.rotA);
+    }
+
+    if (u.dropSide != 0) {
+        bool inZone = true;
+        if (u.mode == 1)      inZone = (dstPx.x < u.dstSize.x * 0.5) == (u.dropSide == 1);
+        else if (u.mode == 2) inZone = (uv.x < u.splitPos) == (u.dropSide == 1);
+        if (inZone) {
+            color = float4(mix(color.rgb, float3(0.9, 0.9, 0.9), 0.22), 1.0);
+        }
     }
 
     if (color.a == 0.0) discard_fragment();
@@ -760,6 +770,7 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
         float diffGain;
         int   rotA;
         int   rotB;
+        int   dropSide;
     };
     UBO ubo;
     ubo.dstSize[0]  = static_cast<float>(dstWidth);
@@ -796,6 +807,7 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
     ubo.bActive     = bActive ? 1 : 0;
     ubo.seamHighlight = m_seamHighlight;
     ubo.diffGain    = m_diffGain;
+    ubo.dropSide    = m_dropSide;
 
     // Geometry snapshot for the present pass's media-bounds fill.
     // Only overwrite a side's dims while it actually has a texture;

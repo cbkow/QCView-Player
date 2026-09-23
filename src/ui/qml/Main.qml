@@ -1220,16 +1220,15 @@ ApplicationWindow {
                             objectName: "centerStage"
                             anchors.fill: parent
 
-                            // Phase F.2.3 (Windows): drag-drop into the
-                            // centerStage. The D3D11 child HWND uses
-                            // HTTRANSPARENT in WM_NCHITTEST, so native
-                            // OS drops fall through to Qt's UI HWND →
-                            // QML scene → this DropArea. macOS already
-                            // covers drag-drop via PlayerWindow's
-                            // filesDropped signal (it owns the surface
-                            // HWND on macOS), so this DropArea is the
-                            // Windows-equivalent path. Harmless on
-                            // macOS where it sits under the PlayerWindow.
+                            // Drag-drop into the centerStage while the
+                            // native surface is hidden (a modal or the
+                            // unsupported-media notice). With the surface
+                            // up, the drop never gets here: on macOS the
+                            // child QWindow takes it, on Windows the D3D11
+                            // child HWND's IDropTarget does (OLE drops do
+                            // not fall through HTTRANSPARENT). All three
+                            // route through dropMediaAt, which picks the
+                            // dual-view side from the drop point.
                             DropArea {
                                 anchors.fill: parent
                                 onDropped: (drop) => {
@@ -1241,7 +1240,10 @@ ApplicationWindow {
                                         if (path) paths.push(path);
                                     }
                                     if (paths.length > 0)
-                                        WindowManager.openMediaPaths(paths);
+                                        WindowManager.dropMediaAt(
+                                            paths,
+                                            width  > 0 ? drop.x / width  : 0.5,
+                                            height > 0 ? drop.y / height : 0.5);
                                     drop.accept();
                                 }
                             }

@@ -459,6 +459,13 @@ public:
     // QStringList args carry a single path too (pass [path]).
     Q_INVOKABLE void openMediaPaths(const QStringList &paths);
     Q_INVOKABLE void addMediaPaths(const QStringList &paths);
+    // A drop onto the viewport at a normalized point (x, y in [0, 1]).
+    // In dual view the side under the point decides: A's side loads
+    // like any open (openMediaPaths), B's side becomes the new B
+    // (setBSource; extra paths go to the bins). Single and Difference
+    // have one zone, A. Both native surfaces and the QML DropArea
+    // route here.
+    Q_INVOKABLE void dropMediaAt(const QStringList &paths, qreal nx, qreal ny);
     // File ▸ Connect to After Effects / Premiere Pro: adds the fixed
     // qcbae://<host> live item (deduped by URL) and activates it; it waits
     // for the host's Transmit device if that isn't publishing yet.
@@ -1269,6 +1276,15 @@ private:
     double sourceDurationB() const;
     void   applyMasterDuration();
     void   pushSourceActivity();
+
+    // Drop-zone side under a normalized viewport point: 1 = A, 2 = B.
+    // Side-by-side splits at half, wipe at splitPos; every other mode
+    // is A. Only a live dual session has a B side.
+    int  dropSideAt(qreal nx, qreal ny) const;
+    // Push the drag-hover highlight (0 none / 1 A / 2 B) to the
+    // renderer; no-op when unchanged.
+    void setDropHighlightSide(int side);
+    int  m_dropHighlightSide = 0;
 
 private:
     QQmlApplicationEngine *m_engine;

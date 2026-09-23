@@ -32,9 +32,13 @@ namespace qcv {
 
 class D3D11DropTarget : public IDropTarget {
 public:
-    using DropCallback = std::function<void(const QList<QUrl> &)>;
+    // All points are the screen-space POINTL OLE hands us; the renderer
+    // maps them into its child HWND (it knows the HWND, we do not).
+    using DropCallback  = std::function<void(const QList<QUrl> &, POINTL)>;
+    using HoverCallback = std::function<void(POINTL)>;
+    using LeaveCallback = std::function<void()>;
 
-    explicit D3D11DropTarget(DropCallback cb);
+    D3D11DropTarget(DropCallback drop, HoverCallback hover, LeaveCallback leave);
 
     // IUnknown
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppv) override;
@@ -58,6 +62,8 @@ public:
 private:
     std::atomic<LONG> m_refCount{1};
     DropCallback      m_callback;
+    HoverCallback     m_hover;
+    LeaveCallback     m_leave;
     bool              m_acceptDrop = false;   // set in DragEnter for the in-flight drag
 };
 

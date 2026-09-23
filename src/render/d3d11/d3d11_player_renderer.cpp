@@ -38,9 +38,11 @@
 
 #include <QColorSpace>
 #include <QImage>
+#include <QPointF>
 #include <QWindow>
 #include <QtLogging>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <utility>
@@ -385,9 +387,30 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
         if (olehr == S_OK || olehr == S_FALSE) {
             m_impl->oleInitialized = (olehr == S_OK);
             PlayerWindow *pw = window;
+            // OLE hands us screen-space points; map them into the
+            // child HWND's client rect and normalize, which is the
+            // coordinate WindowManager reads the dual side off.
+            const HWND child = m_impl->childHwnd;
+            auto normalize = [child](POINTL pt) -> QPointF {
+                POINT p{pt.x, pt.y};
+                RECT rc{};
+                if (!child || !ScreenToClient(child, &p) || !GetClientRect(child, &rc))
+                    return QPointF(0.5, 0.5);
+                const LONG w = rc.right - rc.left;
+                const LONG h = rc.bottom - rc.top;
+                if (w <= 0 || h <= 0) return QPointF(0.5, 0.5);
+                return QPointF(std::clamp(double(p.x) / w, 0.0, 1.0),
+                               std::clamp(double(p.y) / h, 0.0, 1.0));
+            };
             auto *raw = new D3D11DropTarget(
-                [pw](const QList<QUrl> &urls) {
-                    if (pw) pw->notifyFilesDropped(urls);
+                [pw, normalize](const QList<QUrl> &urls, POINTL pt) {
+                    if (pw) pw->notifyFilesDropped(urls, normalize(pt));
+                },
+                [pw, normalize](POINTL pt) {
+                    if (pw) pw->notifyDragHover(normalize(pt));
+                },
+                [pw] {
+                    if (pw) pw->notifyDragLeave();
                 });
             m_impl->dropTarget.Attach(raw);   // takes the refcount-of-1
             HRESULT rhr = RegisterDragDrop(m_impl->childHwnd,
@@ -1589,6 +1612,8 @@ void D3D11PlayerRenderer::drawDualFrame()
     m_impl->dualCompositor.setSplitPos(m_splitPos.load(std::memory_order_acquire));
     m_impl->dualCompositor.setSeamHighlight(
         m_splitSeamHighlight.load(std::memory_order_acquire));
+    m_impl->dualCompositor.setDropHighlight(
+        m_dropHighlight.load(std::memory_order_acquire));
     m_impl->dualCompositor.setDiffGain(m_diffGain.load(std::memory_order_acquire));
 
     const int W = m_impl->currentW;
@@ -2309,6 +2334,7 @@ void D3D11PlayerRenderer::setCompositorMode(CompositorMode m) {
 }
 void D3D11PlayerRenderer::setSplitPos(float p)            { m_splitPos.store(p); requestUpdate(); }
 void D3D11PlayerRenderer::setSplitSeamHighlight(float h)  { m_splitSeamHighlight.store(h); requestUpdate(); }
+void D3D11PlayerRenderer::setDropHighlight(int side)      { m_dropHighlight.store(side); requestUpdate(); }
 void D3D11PlayerRenderer::setDiffGain(float g)            { m_diffGain.store(g); requestUpdate(); }
 void D3D11PlayerRenderer::setLoadingActive(bool on)       { m_loadingActive.store(on); requestUpdate(); }
 
