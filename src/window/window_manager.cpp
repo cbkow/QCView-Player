@@ -2844,9 +2844,14 @@ void WindowManager::setDropHighlightSide(int side)
 void WindowManager::dropMediaAt(const QStringList &paths, qreal nx, qreal ny)
 {
     setDropHighlightSide(0);
+    dropMediaOnSide(paths, dropSideAt(nx, ny) == 2 ? QStringLiteral("B")
+                                                    : QStringLiteral("A"));
+}
+
+void WindowManager::dropMediaOnSide(const QStringList &paths, const QString &side)
+{
     if (!m_project || paths.isEmpty()) return;
-    const int side = dropSideAt(nx, ny);
-    if (side == 2) {
+    if (side == QLatin1String("B")) {
         // The first path becomes B (setBSource adds it to the bins and
         // rebuilds the dual island); the rest just join the bins.
         setBSource(paths.first());

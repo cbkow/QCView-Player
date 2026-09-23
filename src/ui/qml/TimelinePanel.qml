@@ -46,6 +46,21 @@ Pane {
     // dragging media in.
     signal playlistContentDropped()
 
+    // Lane drop (2026-09-23): a file dropped on lane A opens as A
+    // (dual is kept), on lane B becomes B — the same routing the
+    // viewport halves use (WindowManager.dropMediaOnSide). Finder
+    // and bin-row drags both arrive as URLs.
+    function dropOnLane(drop, side) {
+        if (!drop.hasUrls || !WindowManager.project) return;
+        let paths = [];
+        for (let i = 0; i < drop.urls.length; ++i) {
+            const p = WindowManager.urlToOsPath(drop.urls[i]);
+            if (p) paths.push(p);
+        }
+        if (paths.length > 0) WindowManager.dropMediaOnSide(paths, side);
+        drop.accept();
+    }
+
     readonly property var ctl:   WindowManager.timeline
     readonly property var timer: ctl ? ctl.timer : null
 
@@ -158,8 +173,8 @@ Pane {
     // lanes draw as drop targets while the ruler ticks, playheads and
     // overview stay blank — a ruler would claim a length nothing has.
     readonly property bool   hasClips:
-        (trackAData && trackAData.clips && trackAData.clips.length > 0)
-        || (trackBData && trackBData.clips && trackBData.clips.length > 0)
+        !!((trackAData && trackAData.clips && trackAData.clips.length > 0)
+           || (trackBData && trackBData.clips && trackBData.clips.length > 0))
 
     // Phase 7.8 Stage B — per-track edit mode. A and B can be in
     // edit mode independently. Drag handles + cursor changes (Stage
@@ -1331,7 +1346,7 @@ Pane {
                 text: root.playlistActive
                       ? qsTr("Drop media here to add to the playlist")
                       : (loaded && !hasClips)
-                      ? qsTr("Drop media onto a side of the viewport to compare")
+                      ? qsTr("Drop media onto a lane, or a side of the viewport, to compare")
                       : qsTr("Open a video to enable the timeline.")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
@@ -1713,6 +1728,58 @@ Pane {
                     border.width: 2
                     radius: 2
                     z: 23
+                }
+            }
+
+            // Lane drop zones — lane A and lane B are drop targets like
+            // the viewport halves. Off in playlist mode, where
+            // playlistDropArea owns the drag. Left at z 0 and declared
+            // before scrubArea so pointer handling is untouched; drag
+            // events go to the topmost *enabled* DropArea regardless.
+            // In single view lane A spans the whole track area.
+            DropArea {
+                id: laneDropA
+                x: 0; y: 0
+                width: parent.width
+                height: hasTrackB ? kRowHA : parent.height
+                enabled: !root.playlistActive
+                onEntered: (drag) => { drag.accepted = drag.hasUrls; }
+                onDropped: (drop) => { root.dropOnLane(drop, "A"); }
+                Rectangle {
+                    anchors.fill: parent
+                    visible: laneDropA.containsDrag
+                    color: root.kSignifierColorA
+                    opacity: 0.35
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    visible: laneDropA.containsDrag
+                    color: "transparent"
+                    border.color: Theme.accent
+                    border.width: 2
+                }
+            }
+            DropArea {
+                id: laneDropB
+                x: 0; y: kRowHA
+                width: parent.width
+                height: kRowHB
+                visible: hasTrackB
+                enabled: !root.playlistActive && hasTrackB
+                onEntered: (drag) => { drag.accepted = drag.hasUrls; }
+                onDropped: (drop) => { root.dropOnLane(drop, "B"); }
+                Rectangle {
+                    anchors.fill: parent
+                    visible: laneDropB.containsDrag
+                    color: root.kSignifierColorB
+                    opacity: 0.35
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    visible: laneDropB.containsDrag
+                    color: "transparent"
+                    border.color: Theme.accent
+                    border.width: 2
                 }
             }
 

@@ -51,6 +51,10 @@ For video files with embedded timecode, that timecode will be used. The Inspecto
 
 ---
 
+## Dropping media on the timeline
+
+The track lanes are drop targets. Drop a file (or a bin item) on lane A to load it as the A source, or on lane B to load it as B; the lane lights up under the drag. In single view the one lane loads the active source. In playlist mode the drop inserts into the playlist instead.
+
 ## Zoom and Pan
 
 | Action | macOS | Windows |

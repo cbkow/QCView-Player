@@ -466,6 +466,11 @@ public:
     // have one zone, A. Both native surfaces and the QML DropArea
     // route here.
     Q_INVOKABLE void dropMediaAt(const QStringList &paths, qreal nx, qreal ny);
+    // The same routing with the side named outright ("A" or "B"):
+    // the timeline lanes are drop zones too, and a lane knows its
+    // side. "B" outside a dual session records B on the project the
+    // way the B chip does (setBSource); anything else is A.
+    Q_INVOKABLE void dropMediaOnSide(const QStringList &paths, const QString &side);
     // File ▸ Connect to After Effects / Premiere Pro: adds the fixed
     // qcbae://<host> live item (deduped by URL) and activates it; it waits
     // for the host's Transmit device if that isn't publishing yet.
