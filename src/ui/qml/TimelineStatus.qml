@@ -24,10 +24,11 @@ import Qcv
 Rectangle {
     id: root
 
-    // Tone plus a faint top edge (below) separate the strip from the
-    // viewport — the bottom-band framing pass added the edge over
-    // the earlier tone-only rule (borders pass, 2026-07-07).
-    color: Theme.bgAlt
+    // Toolbar tone, the same as the transport row and the timeline
+    // gutters, plus a faint top edge (below) against the viewport —
+    // the bottom-band framing pass added the edge over the earlier
+    // tone-only rule (borders pass, 2026-07-07).
+    color: Theme.toolbar
 
     // Phase 3.H.3 — playlist mode shows seconds-based readouts;
     // frame counters and SMPTE timecode hide because the playlist
@@ -66,24 +67,8 @@ Rectangle {
         opacity: 0.5
     }
 
-    // Gutter caps — continue the timeline's toolbar-toned side
-    // columns up through this row so the three bottom bands frame
-    // as one unit (see TransportBar's matching caps). No edge lines:
-    // the tone step is the separation.
-    Rectangle {
-        anchors.left:   parent.left
-        anchors.top:    parent.top
-        anchors.bottom: parent.bottom
-        width: Theme.gutterWidth
-        color: Theme.toolbar
-    }
-    Rectangle {
-        anchors.right:  parent.right
-        anchors.top:    parent.top
-        anchors.bottom: parent.bottom
-        width: Theme.gutterWidth
-        color: Theme.toolbar
-    }
+    // (The gutter columns need no caps here: the whole strip is the
+    // gutters' toolbar tone.)
 
     RowLayout {
         anchors.fill: parent
@@ -105,7 +90,9 @@ Rectangle {
             Layout.preferredWidth: 160
             Layout.preferredHeight: 18
             radius: Theme.radiusSmall
-            color: Theme.surfaceRecess
+            // Same tone as the strip; the hover border is what marks
+            // the well as a control.
+            color: Theme.toolbar
             border.width: 1
             border.color: frameWellMa.containsMouse
                           ? Theme.divider : "transparent"
@@ -178,7 +165,7 @@ Rectangle {
             Layout.preferredWidth: 130
             Layout.preferredHeight: 18
             radius: Theme.radiusSmall
-            color: Theme.surfaceRecess
+            color: Theme.toolbar
             Text {
                 anchors.fill: parent
                 anchors.leftMargin: 6
