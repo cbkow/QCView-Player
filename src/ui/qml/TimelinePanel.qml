@@ -681,7 +681,10 @@ Pane {
             anchors.centerIn: parent
             name: "pencil-simple"
             size: Theme.iconSizeToolbar
-            color: Theme.textBright
+            // Faded at rest so a row of idle pencils does not shout;
+            // full brightness on hover and while editing.
+            color: (editToggle.editing || toggleMa.containsMouse)
+                   ? Theme.textBright : Theme.textMuted
         }
         MouseArea {
             id: toggleMa
@@ -1115,6 +1118,13 @@ Pane {
             id: trackSignifierGutter
             Layout.preferredWidth: kGutterW
             Layout.fillHeight: true
+
+            // Toolbar tone, same register as the ruler row, so the
+            // gutter reads as chrome beside the track area.
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.toolbar
+            }
 
             // Right-edge divider against the track area.
             Rectangle {
@@ -3002,6 +3012,12 @@ Pane {
             id: trackHeaderGutter
             Layout.preferredWidth: kGutterW
             Layout.fillHeight: true
+
+            // Toolbar tone — mirrors the signifier gutter on the left.
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.toolbar
+            }
 
             // Empty space above tracks (matches ruler height).
             Item {
