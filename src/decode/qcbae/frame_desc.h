@@ -1,4 +1,4 @@
-// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT) at e979480,
+// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT) at 5057e96,
 // src/common/protocol/frame_desc.h. The wire contract between the QCBridgeAE Transmit device
 // and QCView. Keep in sync by re-copying, never by editing here:
 // SharedRing::open() rejects a ring whose version != kFrameDescVersion, so

@@ -32,6 +32,9 @@
 #include <memory>
 #include <mutex>
 
+struct AVFrame;
+struct SwsContext;
+
 namespace qcv::dual {
 
 class DualLiveSource : public IDualSource, public qcv::LiveFrameSink
@@ -84,6 +87,18 @@ private:
 
     mutable std::mutex      m_callbackMutex;
     FrameAvailableCallback  m_onFrameAvailable;
+
+#if defined(Q_OS_WIN)
+    // A D3D11VA-decoded live frame (an SRT stream through D3D11VA) has no
+    // DualFrame kind of its own; it is brought to the CPU and converted
+    // the way DualVideoDecoder brings a D3D11VA file side, so the
+    // compositor sees a Cpu frame. Receiver thread only.
+    std::shared_ptr<DualFrame> publishD3D11(const qcv::FrameHandle &handle);
+    AVFrame    *m_swFrame  = nullptr;
+    SwsContext *m_sws      = nullptr;
+    int         m_swsSrcW  = 0, m_swsSrcH = 0, m_swsSrcFmt = -1, m_swsDstFmt = -1;
+    bool        m_loggedD3D11 = false;
+#endif
 };
 
 } // namespace qcv::dual

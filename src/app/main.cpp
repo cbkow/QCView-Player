@@ -713,15 +713,21 @@ int main(int argc, char *argv[])
         if (simIdx >= 0 && simIdx + 2 < args.size()) {
             const QString pathA = args.at(simIdx + 1);
             const QString pathB = args.at(simIdx + 2);
+            // A may be a live URL (srt://, qcbae://): it goes in as a stream
+            // item, and B waits long enough for it to reach LIVE first —
+            // the case that froze a D3D11VA-decoded side in dual.
+            const bool liveA = pathA.contains(QLatin1String("://"));
             QTimer::singleShot(800, &windowManager,
-                               [&windowManager, pathA, pathB] {
+                               [&windowManager, pathA, pathB, liveA] {
                 qInfo("--simulate-user: drop A=%s",
-                      qPrintable(QFileInfo(pathA).fileName()));
+                      qPrintable(liveA ? pathA.section(QLatin1Char('?'), 0, 0)
+                                       : QFileInfo(pathA).fileName()));
                 if (auto *p = windowManager.project()) {
-                    const QString id = p->addMediaFile(pathA);
+                    const QString id = liveA ? p->addLiveStream(pathA)
+                                             : p->addMediaFile(pathA);
                     if (!id.isEmpty()) p->setActiveItem(id);
                 }
-                QTimer::singleShot(800, &windowManager,
+                QTimer::singleShot(liveA ? 6000 : 800, &windowManager,
                                     [&windowManager, pathB] {
                     qInfo("--simulate-user: drop B=%s",
                           qPrintable(QFileInfo(pathB).fileName()));

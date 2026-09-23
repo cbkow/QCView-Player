@@ -28,6 +28,16 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 #include <libswscale/swscale.h>
 #if defined(Q_OS_WIN)
+// hwcontext_vulkan.h reaches <windows.h> through vulkan_win32.h, and without
+// NOMINMAX its min/max macros break the plain std::max call further down
+// (MSVC C2589; found building main on Windows, 2026-09-23). Same guard idiom
+// as read_ahead.cpp and the D3D11 renderers.
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
 // Phase F.2.4.2 — Vulkan hwaccel on Windows. The renderer is D3D11;
 // the only reason this decode unit reaches into Vulkan is the
 // AVVulkanDeviceContext shared-device handoff (we hand FFmpeg the

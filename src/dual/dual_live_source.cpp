@@ -15,7 +15,15 @@ extern "C" void dualCvPixelBufferRelease(void *cvPix);
 
 extern "C" {
 #include <libavutil/frame.h>
+#include <libavutil/hwcontext.h>
+#include <libswscale/swscale.h>
 }
+
+#if defined(Q_OS_WIN)
+#include "decode/rgb_range.h"
+#include "decode/sws_rgba_image.h"
+#include "decode/sws_threaded.h"
+#endif
 
 namespace qcv::dual {
 
@@ -23,6 +31,10 @@ DualLiveSource::DualLiveSource() = default;
 
 DualLiveSource::~DualLiveSource()
 {
+#if defined(Q_OS_WIN)
+    if (m_sws) { sws_freeContext(m_sws); m_sws = nullptr; }
+    if (m_swFrame) av_frame_free(&m_swFrame);
+#endif
     close();
 }
 
@@ -169,9 +181,17 @@ void DualLiveSource::publishExternalFrame(qcv::FrameHandle handle, int64_t)
         break;
     }
 #endif
+#if defined(Q_OS_WIN)
+    case qcv::FrameHandle::Kind::D3D11: {
+        auto cpu = publishD3D11(handle);
+        if (!cpu) return;
+        out = std::move(cpu);
+        break;
+    }
+#endif
     default:
-        // Anything else (D3D11-decoded live on Windows) would need its own
-        // DualFrame kind; the side holds its previous frame until then.
+        // Anything else would need its own DualFrame kind; the side holds
+        // its previous frame until then.
         return;
     }
 
@@ -187,5 +207,72 @@ void DualLiveSource::publishExternalFrame(qcv::FrameHandle handle, int64_t)
     }
     if (cb) cb();   // wakes D3D11's render-on-demand loop; Metal free-runs
 }
+
+#if defined(Q_OS_WIN)
+// The D3D11VA slice comes down to the CPU (av_hwframe_transfer_data into
+// NV12/P010) and through swscale to RGBA8 or RGBA64, the same route and
+// the same depth rule (rgb_range.h) as DualVideoDecoder's D3D11VA file
+// side. One readback per frame; a D3D11 DualFrame kind would be the
+// zero-copy version of this, and until it exists a moving picture beats a
+// frozen one. Found on the Windows machine 2026-09-23 with a QCBridge
+// stream on one side of dual.
+std::shared_ptr<DualFrame> DualLiveSource::publishD3D11(const qcv::FrameHandle &handle)
+{
+    AVFrame *frame = handle.d3d11AvFrame();
+    if (!frame) return nullptr;
+    if (!m_swFrame) m_swFrame = av_frame_alloc();
+    if (!m_swFrame) return nullptr;
+    av_frame_unref(m_swFrame);
+    if (int err = av_hwframe_transfer_data(m_swFrame, frame, 0); err < 0) {
+        qWarning("DualLiveSource: av_hwframe_transfer_data failed (%d); frame dropped", err);
+        return nullptr;
+    }
+    m_swFrame->colorspace      = frame->colorspace;
+    m_swFrame->color_range     = frame->color_range;
+    m_swFrame->color_primaries = frame->color_primaries;
+    m_swFrame->color_trc       = frame->color_trc;
+    const AVFrame *src = m_swFrame;
+
+    const AVPixelFormat dstFmt = qcv::cpuPublishPixelFormat(src->format);
+    if (!(m_sws && m_swsSrcW == src->width && m_swsSrcH == src->height
+          && m_swsSrcFmt == src->format && m_swsDstFmt == dstFmt)) {
+        if (m_sws) sws_freeContext(m_sws);
+        m_sws = qcv::swsCreateThreaded();
+        if (!m_sws) return nullptr;
+        m_swsSrcW = src->width; m_swsSrcH = src->height;
+        m_swsSrcFmt = src->format; m_swsDstFmt = dstFmt;
+    }
+    const bool sixteen = (dstFmt == AV_PIX_FMT_RGBA64LE);
+    if (!m_loggedD3D11) {
+        m_loggedD3D11 = true;
+        qInfo("DualLiveSource: D3D11VA live frames brought to the CPU for dual (%dx%d, %s)",
+              src->width, src->height, sixteen ? "RGBA64" : "RGBA8");
+    }
+    auto out = std::make_shared<DualFrame>();
+    out->frameNumber = -1;
+    out->width  = src->width;
+    out->height = src->height;
+    out->kind   = DualFrame::Kind::Cpu;
+    out->rgba   = std::make_shared<QImage>(
+        qcv::swsAllocImage(src->width, src->height,
+                           sixteen ? QImage::Format_RGBA64 : QImage::Format_RGBA8888));
+    if (qcv::swsConvertToBuffer(m_sws, src, dstFmt, out->rgba->bits(),
+                                static_cast<int>(out->rgba->bytesPerLine()), 0) < 0) {
+        qWarning("DualLiveSource: sws_scale_frame failed; frame dropped");
+        return nullptr;
+    }
+    if (qcv::rgbFrameNeedsLegalExpansion(src, 0)) {
+        if (sixteen) {
+            qcv::expandRgba16LegalToFull(reinterpret_cast<uint16_t *>(out->rgba->bits()),
+                                         src->width, src->height,
+                                         static_cast<int>(out->rgba->bytesPerLine()));
+        } else {
+            qcv::expandRgba8LegalToFull(out->rgba->bits(), src->width, src->height,
+                                        static_cast<int>(out->rgba->bytesPerLine()));
+        }
+    }
+    return out;
+}
+#endif
 
 } // namespace qcv::dual

@@ -34,7 +34,9 @@ param(
     # (vcpkg's applocal step never deploys Qt -- Qt is not a vcpkg package).
     [Parameter()]          [string] $WinDeployQt = "",
     [Parameter()]          [string] $QmlDir      = "",
-    [Parameter()]          [string] $Config      = "release"
+    [Parameter()]          [string] $Config      = "release",
+    # Keep everything windeployqt deploys (see the prune step below).
+    [Parameter()]          [switch] $NoPrune
 )
 
 $ErrorActionPreference = "Stop"
@@ -87,7 +89,9 @@ if (-not (Test-Path $ImagesDir)) {
 # won't launch.
 if ($WinDeployQt -and (Test-Path $WinDeployQt)) {
     Write-Host "Deploying Qt runtime via $WinDeployQt ..."
-    $wdqArgs = @("--$Config", "--no-translations", "--compiler-runtime")
+    # --no-opengl-sw: the scene graph runs on Vulkan here and the renderer
+    # is D3D11; the 20 MB software-GL fallback is never loaded.
+    $wdqArgs = @("--$Config", "--no-translations", "--compiler-runtime", "--no-opengl-sw")
     if ($QmlDir -and (Test-Path $QmlDir)) { $wdqArgs += @("--qmldir", $QmlDir) }
     $wdqArgs += $exe
     # Retry loop: windeployqt occasionally fails to overwrite a just-written
@@ -135,6 +139,55 @@ foreach ($subdir in @("assets", "platforms", "imageformats", "tls", "iconengines
     if (Test-Path $src) {
         Copy-Item -Recurse -Path $src -Destination (Join-Path $staging $subdir)
     }
+}
+
+# --- Prune what windeployqt deploys and QCView never loads -----------------
+# The Windows twin of scripts/prune_bundle.sh (macOS). Measured on the
+# 2.3.4 package, 2026-09-23: 466 MB uncompressed, ~80 MB of it never
+# touched at run time. Every entry is something the app was started and
+# exercised without after removal; -NoPrune keeps the full deployment
+# when that ever needs checking again.
+#   dxcompiler/dxil       DXC, for Qt's D3D12 backend; Quick runs on Vulkan here
+#   Qt6Pdf + QtQuick/Pdf  not linked, not imported (PDF export is QPdfWriter in Gui)
+#   Qt6Quick3DUtils       no Quick 3D anywhere
+#   Controls styles       QQuickStyle is "Fusion", QML imports Controls.Basic:
+#                         Basic + Fusion stay, the other five styles go
+#   NativeStyle           the Windows style's backend, gone with that style
+#   Particles/Timeline/VectorImage/LocalStorage   QML modules nothing imports
+#   qmltooling, QtQuick/tooling   QML debugger and designer support
+#   assets/exiftool/lib + exiftool   the Perl-distribution copy; Windows runs
+#                         exiftool.exe with exiftool_files/ (adobe_metadata_extractor.cpp)
+if (-not $NoPrune) {
+    $prune = @(
+        "dxcompiler.dll", "dxil.dll", "Qt6Pdf.dll", "Qt6Quick3DUtils.dll",
+        "Qt6QuickControls2FluentWinUI3StyleImpl.dll",
+        "Qt6QuickControls2Imagine.dll", "Qt6QuickControls2ImagineStyleImpl.dll",
+        "Qt6QuickControls2Material.dll", "Qt6QuickControls2MaterialStyleImpl.dll",
+        "Qt6QuickControls2Universal.dll", "Qt6QuickControls2UniversalStyleImpl.dll",
+        "Qt6QuickControls2WindowsStyleImpl.dll",
+        "qmltooling", "qml\QtQuick\tooling", "qml\QtQuick\Pdf",
+        "qml\QtQuick\Particles", "qml\QtQuick\Timeline", "qml\QtQuick\VectorImage",
+        "qml\QtQuick\LocalStorage", "qml\QtQuick\NativeStyle",
+        "qml\QtQuick\Controls\FluentWinUI3", "qml\QtQuick\Controls\Imagine",
+        "qml\QtQuick\Controls\Material", "qml\QtQuick\Controls\Universal",
+        "qml\QtQuick\Controls\Windows",
+        "assets\exiftool\lib", "assets\exiftool\exiftool"
+    )
+    $removed = 0L
+    foreach ($rel in $prune) {
+        $p = Join-Path $staging $rel
+        if (Test-Path $p) {
+            $item = Get-Item $p
+            if ($item -is [System.IO.DirectoryInfo]) {
+                $sum = (Get-ChildItem -Path $p -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+                if ($sum) { $removed += $sum }
+            } else {
+                $removed += $item.Length
+            }
+            Remove-Item -Recurse -Force $p
+        }
+    }
+    Write-Host ("Pruned {0:N0} MB the app never loads (pass -NoPrune to keep it)" -f ($removed / 1MB))
 }
 
 # Manifest + tile images.

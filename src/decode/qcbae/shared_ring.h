@@ -1,4 +1,4 @@
-// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT) at e979480,
+// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT) at 5057e96,
 // src/common/surface/shared_ring.h. The wire contract between the QCBridgeAE Transmit device
 // and QCView. Keep in sync by re-copying, never by editing here:
 // SharedRing::open() rejects a ring whose version != kFrameDescVersion, so
@@ -51,7 +51,12 @@ inline constexpr uint32_t kMinSlots     = 3u;
 inline constexpr uint32_t kDefaultSlots = 3u;
 
 // macOS caps shm_open names at 31 bytes including the leading slash, which is
-// tighter than anyone expects. Names are validated at create/open.
+// tighter than anyone expects. Names are validated at create/open. Windows
+// has no such cap, but the same rule applies there so a name that works on
+// one platform works on the other: the ring is `Local\` + the name with its
+// leading slash removed, a session-local page-file-backed file mapping (AE
+// and QCView run in the same logon session, so `Global\` and its privilege
+// are not needed).
 inline constexpr size_t kMaxShmName = 31u;
 
 // `latest` carries (sequence, slot) in one word so a consumer never has to
@@ -191,7 +196,11 @@ private:
     void*       base_       = nullptr;
     size_t      size_       = 0;
     RingHeader* header_     = nullptr;
+#if defined(_WIN32)
+    void*       mapping_    = nullptr;   // HANDLE from CreateFileMapping / OpenFileMapping
+#else
     int         fd_         = -1;
+#endif
     bool        owner_      = false;
     std::string name_;
     std::string error_;
@@ -203,5 +212,16 @@ private:
     // Consumer bookkeeping
     uint64_t    held_         = 0;
 };
+
+// Is the process that wrote `producer_pid` still running? A dead producer's
+// ring stays readable (neither host unloads the Transmit device on quit), so
+// the pid in the header is the consumer's only truth. POSIX: kill(pid, 0),
+// with EPERM counting as alive. Windows: OpenProcess(SYNCHRONIZE) and a
+// zero-timeout wait; a process we may not open counts as alive, the way
+// EPERM does. Windows recycles pids far faster than macOS, so a consumer
+// polling every few hundred ms can in principle mistake an unrelated new
+// process for the producer; the ring then reads as alive-but-silent until
+// that process exits. Accepted for v1 and noted in lab/results.
+bool process_alive(uint32_t pid);
 
 }  // namespace qcbae
