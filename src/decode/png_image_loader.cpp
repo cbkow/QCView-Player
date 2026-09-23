@@ -1,12 +1,9 @@
 #include "png_image_loader.h"
+#include "utf8_file.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <png.h>
-
-#ifdef _WIN32
-#  include <string>
-#endif
 
 namespace qcv {
 
@@ -18,17 +15,11 @@ namespace PNGLoader {
 
 namespace {
 
-// Cross-platform fopen — Windows path may be UTF-16, but our
-// std::string paths arrive as UTF-8 from QString. _wfopen takes
-// wchar_t; use _wfopen_s with a UTF-8→wide conversion in a future
-// hardening pass. For now match the old app's narrow fopen on win.
+// fopen for a UTF-8 path on every platform (utf8_file.h: _wfopen on
+// Windows, where a narrow fopen could not open a CJK name).
 std::FILE *openBinary(const std::string &path)
 {
-#ifdef _WIN32
-    return std::fopen(path.c_str(), "rb");
-#else
-    return std::fopen(path.c_str(), "rb");
-#endif
+    return utf8file::open(path, "rb");
 }
 
 } // namespace
@@ -180,12 +171,7 @@ std::shared_ptr<PixelData> PNGImageLoader::loadThumbnail(
     // buffer + skip-downsample (no resampling filter — a simple
     // pixel pick). Matches the old app's approach in
     // image_loaders.cpp:765 line range.
-    std::FILE *fp =
-#ifdef _WIN32
-        std::fopen(path.c_str(), "rb");
-#else
-        std::fopen(path.c_str(), "rb");
-#endif
+    std::FILE *fp = utf8file::open(path, "rb");
     if (!fp) return nullptr;
 
     png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING,

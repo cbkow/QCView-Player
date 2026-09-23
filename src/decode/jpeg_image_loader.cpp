@@ -1,4 +1,5 @@
 #include "jpeg_image_loader.h"
+#include "utf8_file.h"
 
 #include <cstdio>
 #include <jpeglib.h>
@@ -26,7 +27,7 @@ void outputNoop(j_common_ptr /*cinfo*/) {}
 bool getInfo(const std::string &path, int &width, int &height,
              int &channels)
 {
-    std::FILE *fp = std::fopen(path.c_str(), "rb");
+    std::FILE *fp = utf8file::open(path, "rb");
     if (!fp) return false;
 
     JpegErrorMgr err{};
@@ -59,7 +60,7 @@ bool load(const std::string &path,
           int &width, int &height,
           PipelineMode &mode)
 {
-    std::FILE *fp = std::fopen(path.c_str(), "rb");
+    std::FILE *fp = utf8file::open(path, "rb");
     if (!fp) return false;
 
     JpegErrorMgr err{};

@@ -116,6 +116,12 @@ AdobeMetadata AdobeMetadataExtractor::extract(const QString &filePath)
 
     QStringList args;
     args << QStringLiteral("-s");        // short tag form, suppress group prefixes
+#ifdef Q_OS_WIN
+    // exiftool on Windows reads file names in the ANSI code page unless
+    // told otherwise; QProcess hands it UTF-8, so say so or a CJK path
+    // is "File not found".
+    args << QStringLiteral("-charset") << QStringLiteral("filename=utf8");
+#endif
     args << kExifTags;
     args << filePath;
 

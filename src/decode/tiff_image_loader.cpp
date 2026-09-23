@@ -1,4 +1,5 @@
 #include "tiff_image_loader.h"
+#include "utf8_file.h"
 
 #include <cstring>
 #include <tiffio.h>
@@ -8,10 +9,25 @@ namespace qcv {
 
 namespace TIFFLoader {
 
+namespace {
+// TIFFOpen for a UTF-8 path: libtiff's TIFFOpenW takes UTF-16 on
+// Windows, where the narrow TIFFOpen cannot open a CJK name.
+TIFF *openTiff(const std::string &path)
+{
+#ifdef _WIN32
+    const std::wstring w = utf8file::toWide(path);
+    if (w.empty()) return nullptr;
+    return TIFFOpenW(w.c_str(), "r");
+#else
+    return TIFFOpen(path.c_str(), "r");
+#endif
+}
+} // namespace
+
 bool getInfo(const std::string &path, int &width, int &height,
              int &channels, int &bit_depth, bool &is_float)
 {
-    TIFF *tif = TIFFOpen(path.c_str(), "r");
+    TIFF *tif = openTiff(path);
     if (!tif) return false;
 
     std::uint32_t w = 0, h = 0;
@@ -37,7 +53,7 @@ bool load(const std::string &path,
           int &width, int &height,
           PipelineMode &mode)
 {
-    TIFF *tif = TIFFOpen(path.c_str(), "r");
+    TIFF *tif = openTiff(path);
     if (!tif) return false;
 
     std::uint32_t w = 0, h = 0;
