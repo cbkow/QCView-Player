@@ -1473,6 +1473,10 @@ bool WindowManager::createPlayerWindow()
     });
     connect(nativePlayer, &qcv::PlayerWindow::dragLeft,
             this, [this] { setDropHighlightSide(0); });
+    // A press that nothing else claimed, dragged past the threshold:
+    // move the window (setting-gated inside startWindowMove).
+    connect(nativePlayer, &qcv::PlayerWindow::windowMoveRequested,
+            this, [this] { startWindowMove(); });
 #else
     // Load the Player window from QML.
     QQmlComponent component(m_engine, QUrl(QStringLiteral("qrc:/qt/qml/Qcv/PlayerWindow.qml")));
@@ -8343,6 +8347,32 @@ void WindowManager::setTimelineHoverThumbsEnabled(bool on)
     s.setValue(QStringLiteral("ui/timelineHoverThumbs"), on);
     if (!on) clearHoverThumbnail();
     emit timelineHoverThumbsEnabledChanged();
+}
+
+bool WindowManager::dragViewportMovesWindow() const
+{
+    QSettings s;
+    return s.value(QStringLiteral("ui/dragViewportMovesWindow"), true).toBool();
+}
+
+void WindowManager::setDragViewportMovesWindow(bool on)
+{
+    QSettings s;
+    const bool prev =
+        s.value(QStringLiteral("ui/dragViewportMovesWindow"), true).toBool();
+    if (prev == on) return;
+    s.setValue(QStringLiteral("ui/dragViewportMovesWindow"), on);
+    emit dragViewportMovesWindowChanged();
+}
+
+bool WindowManager::startWindowMove()
+{
+    if (!m_uiWindow || m_detached) return false;
+    if (!dragViewportMovesWindow()) return false;
+    if (m_modalActive) return false;
+    if (m_uiWindow->visibility() == QWindow::FullScreen) return false;
+    if (isBorderlessFullscreen(m_uiWindow)) return false;
+    return m_uiWindow->startSystemMove();
 }
 
 bool WindowManager::timelineWaveformsEnabled() const

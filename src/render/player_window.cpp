@@ -9,7 +9,9 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QExposeEvent>
+#include <QGuiApplication>
 #include <QMimeData>
+#include <QStyleHints>
 #include <QMouseEvent>
 #include <QResizeEvent>
 #include <QtLogging>
@@ -167,6 +169,13 @@ void PlayerWindow::mousePressEvent(QMouseEvent *e)
         return;
     }
 
+    // Nothing else wants this press when no drawing tool is active:
+    // arm a window move. It fires in mouseMoveEvent past the drag
+    // threshold, so a plain click stays a click.
+    m_movePressArmed = (e->button() == Qt::LeftButton)
+        && !(m_annotator && m_annotator->isAnnotationMode());
+    if (m_movePressArmed) m_movePressPos = e->position();
+
     if (m_annotator) {
         // QMouseEvent::position() is in QWindow logical points; the
         // renderer's viewport rect + drawable are in pixels. Scale
@@ -197,6 +206,17 @@ void PlayerWindow::mouseMoveEvent(QMouseEvent *e)
                         /*isPress=*/false);
         updateSeamHighlight(true);
         return;
+    }
+
+    if (m_movePressArmed) {
+        if (!(e->buttons() & Qt::LeftButton)) {
+            m_movePressArmed = false;
+        } else if ((e->position() - m_movePressPos).manhattanLength()
+                   >= QGuiApplication::styleHints()->startDragDistance()) {
+            m_movePressArmed = false;
+            emit windowMoveRequested();
+            return;
+        }
     }
 
     // Hover-cursor swap + seam highlight: in Wipe mode with a live dual
@@ -237,6 +257,8 @@ void PlayerWindow::mouseReleaseEvent(QMouseEvent *e)
 
     // Modal open — swallow viewport input (seam + annotator).
     if (m_inputGated.load(std::memory_order_acquire)) return;
+
+    if (e->button() == Qt::LeftButton) m_movePressArmed = false;
 
     if (m_seamDragActive && e->button() == Qt::LeftButton) {
         m_seamDragActive = false;

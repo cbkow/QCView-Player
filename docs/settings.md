@@ -19,6 +19,10 @@ Image sequence threading and cache window sizes are already set fairly aggressiv
 
 A default A/V sync offset trim is applied at session start. Here you can customize them to your system. The single-source flow and dual-view flow store separate offsets — your sync trim for compositing two sources doesn't get applied to single-source playback and vice versa.
 
+## Drag Viewport to Move Window
+
+On by default. Click and drag anywhere on the viewport to move the whole window, the way media players do. A plain click still does nothing, and the drag does not move the window while a drawing tool is selected, while you are dragging the Split-Wipe seam, or in fullscreen. Turn it off here if you use a tablet and would rather a press with no tool never moves anything.
+
 ## Hover Thumbnails
 
 Toggle the timeline hover thumbnail preview on or off (low-RAM systems or focus-mode users may prefer it off).

@@ -99,6 +99,13 @@ class WindowManager : public QObject
                READ timelineHoverThumbsEnabled
                WRITE setTimelineHoverThumbsEnabled
                NOTIFY timelineHoverThumbsEnabledChanged)
+    // Dragging the viewport with nothing else claiming the press (no
+    // wipe seam, no drawing tool) moves the whole window, PotPlayer
+    // style. Persisted; default on.
+    Q_PROPERTY(bool dragViewportMovesWindow
+               READ dragViewportMovesWindow
+               WRITE setDragViewportMovesWindow
+               NOTIFY dragViewportMovesWindowChanged)
     Q_PROPERTY(bool timelineWaveformsEnabled
                READ timelineWaveformsEnabled
                WRITE setTimelineWaveformsEnabled
@@ -592,6 +599,17 @@ public:
     bool timelineHoverThumbsEnabled() const;
     void setTimelineHoverThumbsEnabled(bool on);
 
+    bool dragViewportMovesWindow() const;
+    void setDragViewportMovesWindow(bool on);
+    // Hand the current press to the OS as a window move
+    // (QWindow::startSystemMove). Called once the pointer has
+    // travelled past the drag threshold with the button held, by
+    // PlayerWindow on macOS and the centerStage MouseArea on
+    // Windows. Refuses when the setting is off, a modal is up, the
+    // window is fullscreen or the player is detached. Returns
+    // whether the move started.
+    Q_INVOKABLE bool startWindowMove();
+
     // Timeline audio waveform overlay (2026-07-08 experiment).
     // Read live — the strips' `active` gate binds to it, so turning
     // it off hides the strips AND stops all probing immediately.
@@ -1080,6 +1098,7 @@ signals:
     void loopEnabledChanged();
     void reviewSpeedChanged();
     void timelineHoverThumbsEnabledChanged();
+    void dragViewportMovesWindowChanged();
     void timelineWaveformsEnabledChanged();
     void alwaysOpenMinimalChanged();
     void screenshotFormatChanged();

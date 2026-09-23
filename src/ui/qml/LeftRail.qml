@@ -1713,6 +1713,7 @@ Rectangle {
                     readonly property int  kImageSeqAheadDefault:   72
                     readonly property int  kFFmpegThreadsDefault:    0
                     readonly property bool kHoverThumbsDefault:   true
+                    readonly property bool kDragMovesWindowDefault: true
                     readonly property bool kWaveformsDefault:     true
                     readonly property bool kHwDecodeEnabledDefault: true
                     readonly property bool kHwScrubInterDefault:  false
@@ -1790,6 +1791,8 @@ Rectangle {
                                 settingsSection.kScrubCacheMBDefault;
                             WindowManager.timelineHoverThumbsEnabled =
                                 settingsSection.kHoverThumbsDefault;
+                            WindowManager.dragViewportMovesWindow =
+                                settingsSection.kDragMovesWindowDefault;
                             WindowManager.timelineWaveformsEnabled =
                                 settingsSection.kWaveformsDefault;
                             WindowManager.scrubAudioMuted = false;
@@ -2155,6 +2158,25 @@ Rectangle {
                                     onClicked: {
                                         WindowManager.timelineHoverThumbsEnabled =
                                             settingsSection.kHoverThumbsDefault;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel { text: qsTr("Drag viewport to move window") }
+                                SlotSwitch {
+                                    checked: WindowManager.dragViewportMovesWindow
+                                    onToggled: {
+                                        WindowManager.dragViewportMovesWindow = checked;
+                                    }
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.dragViewportMovesWindow
+                                           !== settingsSection.kDragMovesWindowDefault
+                                    onClicked: {
+                                        WindowManager.dragViewportMovesWindow =
+                                            settingsSection.kDragMovesWindowDefault;
                                     }
                                 }
                             }

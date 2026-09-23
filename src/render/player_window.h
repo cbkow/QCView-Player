@@ -101,6 +101,11 @@ Q_SIGNALS:
     void dragHovered(const QPointF &normPos);
     void dragLeft();
 
+    // A left press that neither the wipe seam nor a drawing tool
+    // claimed has been dragged past the drag threshold. WindowManager
+    // turns it into a system window move (setting-gated there).
+    void windowMoveRequested();
+
     // Fired during a split-wipe seam drag. `normalizedX` is the new
     // splitPos in [0, 1] derived from the cursor location. WindowManager
     // listens and writes back to its splitPos Q_PROPERTY (which then
@@ -153,6 +158,10 @@ private:
     std::atomic<bool>  m_dualActive{false};
     bool               m_seamDragActive = false;
     bool               m_seamHighlightOn = false;
+    // Window-move arming: set on an unclaimed left press, fires once
+    // the pointer travels past the threshold with the button held.
+    bool               m_movePressArmed = false;
+    QPointF            m_movePressPos;
     // True while a modal is open — drops all pointer forwarding.
     std::atomic<bool>  m_inputGated{false};
 };

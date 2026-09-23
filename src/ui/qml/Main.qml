@@ -1267,15 +1267,36 @@ ApplicationWindow {
                                 // some tool modes (e.g., eraser hover
                                 // preview). Cheap; one Qt event per move.
                                 hoverEnabled: false
+                                // Window move: a press with no drawing
+                                // tool active arms it; dragging past the
+                                // threshold hands the press to the OS
+                                // (WindowManager.startWindowMove, which
+                                // is setting-gated). PlayerWindow does
+                                // the same on macOS.
+                                property bool  moveArmed: false
+                                property real  movePressX: 0
+                                property real  movePressY: 0
+                                readonly property int kMoveThresholdPx: 8
                                 onPressed: (mouse) => {
+                                    moveArmed = !WindowManager.isAnnotationActive();
+                                    movePressX = mouse.x;
+                                    movePressY = mouse.y;
                                     WindowManager.forwardViewportPointer(
                                         0, mouse.x, mouse.y, Date.now());
                                 }
                                 onPositionChanged: (mouse) => {
+                                    if (moveArmed && pressed
+                                        && (Math.abs(mouse.x - movePressX)
+                                            + Math.abs(mouse.y - movePressY))
+                                           >= kMoveThresholdPx) {
+                                        moveArmed = false;
+                                        if (WindowManager.startWindowMove()) return;
+                                    }
                                     WindowManager.forwardViewportPointer(
                                         1, mouse.x, mouse.y, Date.now());
                                 }
                                 onReleased: (mouse) => {
+                                    moveArmed = false;
                                     WindowManager.forwardViewportPointer(
                                         2, mouse.x, mouse.y, Date.now());
                                 }
