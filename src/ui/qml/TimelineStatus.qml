@@ -66,23 +66,37 @@ Rectangle {
         opacity: 0.5
     }
 
-    // Gutter dividers — continue the timeline's side-column edges up
-    // through this row (the strip is already the timeline's bgAlt
-    // tone, so only the 1px lines are needed; see TransportBar's
-    // gutter caps for the toolbar-toned row below).
+    // Gutter caps — continue the timeline's toolbar-toned side
+    // columns up through this row, with the same 1px inner-edge
+    // divider, so the three bottom bands frame as one unit (see
+    // TransportBar's matching caps).
     Rectangle {
-        x: Theme.gutterWidth - 1
+        anchors.left:   parent.left
         anchors.top:    parent.top
         anchors.bottom: parent.bottom
-        width: 1
-        color: Theme.divider
+        width: Theme.gutterWidth
+        color: Theme.toolbar
+        Rectangle {
+            anchors.right:  parent.right
+            anchors.top:    parent.top
+            anchors.bottom: parent.bottom
+            width: 1
+            color: Theme.divider
+        }
     }
     Rectangle {
-        x: parent.width - Theme.gutterWidth
+        anchors.right:  parent.right
         anchors.top:    parent.top
         anchors.bottom: parent.bottom
-        width: 1
-        color: Theme.divider
+        width: Theme.gutterWidth
+        color: Theme.toolbar
+        Rectangle {
+            anchors.left:   parent.left
+            anchors.top:    parent.top
+            anchors.bottom: parent.bottom
+            width: 1
+            color: Theme.divider
+        }
     }
 
     RowLayout {
