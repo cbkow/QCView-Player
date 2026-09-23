@@ -90,6 +90,19 @@ Pane {
         }
     }
 
+    // The pan delta for an Alt+wheel event. Qt's Windows and X11
+    // backends report Alt+wheel as a *horizontal* rotation
+    // (qwindowspointerhandler.cpp: `keyModifiers & Qt::AltModifier`
+    // → QPoint(delta, 0)); Cocoa leaves it vertical. Reading only
+    // angleDelta.y made Alt+Scroll pan a no-op on Windows. Fold x
+    // into y for the Alt case only, so a bare trackpad horizontal
+    // swipe still does not zoom.
+    function wheelPanDelta(wheel) {
+        const alt = (wheel.modifiers & Qt.AltModifier) !== 0;
+        if (alt && wheel.angleDelta.y === 0) return wheel.angleDelta.x;
+        return wheel.angleDelta.y;
+    }
+
     // Shared wheel logic so multiple MouseAreas (track-area, overview
     // bar, the panel-root catch-all) can route to the same zoom/pan
     // implementation. `viewportX` is the cursor's x in trackArea
@@ -1263,7 +1276,7 @@ Pane {
             color: Theme.bg
             clip: true
 
-            // Mouse-wheel zoom + Ctrl+wheel pan. MouseArea (rather
+            // Mouse-wheel zoom + Alt+wheel pan. MouseArea (rather
             // than WheelHandler) — Qt's WheelHandler refused to fire
             // through the sibling MouseAreas (scrubArea / DropArea /
             // EditTrackMa) covering trackArea. Accept LeftButton so
@@ -1284,7 +1297,7 @@ Pane {
                 onPressed: (mouse) => { mouse.accepted = false; }
                 onWheel: (wheel) => {
                     root.applyWheel(wheel.x,
-                                    wheel.angleDelta.y,
+                                    root.wheelPanDelta(wheel),
                                     (wheel.modifiers
                                      & Qt.AltModifier) !== 0);
                     wheel.accepted = true;
@@ -2959,7 +2972,7 @@ Pane {
                         ? (wheel.x / overviewBar.width) * trackWidth
                         : wheel.x;
                     root.applyWheel(trackX,
-                                    wheel.angleDelta.y,
+                                    root.wheelPanDelta(wheel),
                                     (wheel.modifiers
                                      & Qt.AltModifier) !== 0);
                     wheel.accepted = true;

@@ -56,7 +56,7 @@ For video files with embedded timecode, that timecode will be used. The Inspecto
 | Action | macOS | Windows |
 |---|---|---|
 | Zoom in / out on the timeline | `Wheel` | `Wheel` |
-| Pan the timeline | `⌘ + Wheel` | `Ctrl + Wheel` |
+| Pan the timeline | `⌥ + Wheel` | `Alt + Wheel` |
 
 You can also drag the edges of the overview-bar zoom indicator to adjust the visible range, or grab the indicator's body to scroll. Long-form content (feature films) can be zoomed all the way out to show the entire timeline or zoomed into a tighter view.
 
