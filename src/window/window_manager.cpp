@@ -2347,6 +2347,12 @@ void WindowManager::setCompositorMode(int mode)
         // flow from the active item.
         tearDownDualIslandToSingleState();
         rebuildSingleFlowFromActiveItem();
+        // Nothing to rebuild from (an empty dual): the rebuild returns
+        // early, so drop the dual model ourselves or its two empty
+        // lanes would outlive the mode.
+        if (m_timeline && (!m_project || m_project->activeItemId().isEmpty())) {
+            m_timeline->clear();
+        }
         if (auto *r = fetchActiveRenderer(m_playerWindow.data())) {
             r->requestUpdate();
         }

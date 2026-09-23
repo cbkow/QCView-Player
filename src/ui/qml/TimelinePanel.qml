@@ -153,6 +153,13 @@ Pane {
     readonly property var    trackAData: ctl ? ctl.trackA : null
     readonly property var    trackBData: ctl ? ctl.trackB : null
     readonly property bool   hasTrackB:  ctl ? ctl.hasTrackB : false
+    // An empty dual session has lanes but no clips: its duration is a
+    // nominal placeholder (TimelineController::loadDualEmpty), so the
+    // lanes draw as drop targets while the ruler ticks, playheads and
+    // overview stay blank — a ruler would claim a length nothing has.
+    readonly property bool   hasClips:
+        (trackAData && trackAData.clips && trackAData.clips.length > 0)
+        || (trackBData && trackBData.clips && trackBData.clips.length > 0)
 
     // Phase 7.8 Stage B — per-track edit mode. A and B can be in
     // edit mode independently. Drag handles + cursor changes (Stage
@@ -1190,7 +1197,7 @@ Pane {
                 width: Math.max(parent.width, duration * pps)
 
                 Repeater {
-                    model: rulerRow.tickSeconds > 0 && duration > 0
+                    model: rulerRow.tickSeconds > 0 && duration > 0 && hasClips
                            ? Math.ceil(duration / rulerRow.tickSeconds) + 1 : 0
                     Item {
                         width: 0
@@ -1228,7 +1235,7 @@ Pane {
             // the track playhead below to draw a continuous line.
             Rectangle {
                 id: rulerPlayhead
-                visible: loaded
+                visible: loaded && hasClips
                 width: 1
                 height: parent.height
                 color: Theme.success
@@ -1310,9 +1317,11 @@ Pane {
             // play yet.
             Text {
                 anchors.centerIn: parent
-                visible: !loaded
+                visible: !loaded || !hasClips
                 text: root.playlistActive
                       ? qsTr("Drop media here to add to the playlist")
+                      : (loaded && !hasClips)
+                      ? qsTr("Drop media onto a side of the viewport to compare")
                       : qsTr("Open a video to enable the timeline.")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
@@ -2266,7 +2275,7 @@ Pane {
                 readonly property bool editB:
                     root.editableMode && root.editingB
                 readonly property bool dimmed: editA || editB
-                visible: loaded
+                visible: loaded && hasClips
                 width: 1
                 height: parent.height
                 // Above cacheIndicator (z:1) and its children
@@ -2795,7 +2804,7 @@ Pane {
             Layout.fillWidth: true
             Layout.preferredHeight: kOverviewH
             color: Theme.bgAlt
-            visible: loaded && duration > 0
+            visible: loaded && duration > 0 && hasClips
 
             Rectangle {
                 id: vpIndicator
