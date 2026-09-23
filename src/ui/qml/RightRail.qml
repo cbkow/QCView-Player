@@ -321,6 +321,8 @@ Pane {
                                 { label: "Volume Down",             keys: "↓"               },
                                 { label: "Mute / Unmute",           keys: "M"               },
                                 { label: "Cycle Background",        keys: "B"               },
+                                { label: "Review Speed (cycle)",     keys: "R"               },
+                                { label: "Review Speed to 1×",       keysWin: "Shift+R", keysMac: "⇧R" },
                             ]
                         },
                         {
