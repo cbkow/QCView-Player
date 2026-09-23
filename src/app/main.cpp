@@ -369,6 +369,7 @@ QStringList collectPositionalArgs(const QStringList &args)
     consumeFlag(QStringLiteral("--simulate-user"), 2);
     consumeFlag(QStringLiteral("--playlist-test"), 1);
     consumeFlag(QStringLiteral("--switch-test"),   2);
+    consumeFlag(QStringLiteral("--empty-dual-test"), 2);
     consumeFlag(QStringLiteral("--hdr-mode"),      1);
     consumeFlag(QStringLiteral("--ocio-engage"),   0);
     consumeFlag(QStringLiteral("--sbs"),           0);
@@ -394,6 +395,7 @@ bool hasDevModeFlag(const QStringList &args)
         || args.contains(QStringLiteral("--simulate-user"))
         || args.contains(QStringLiteral("--playlist-test"))
         || args.contains(QStringLiteral("--switch-test"))
+        || args.contains(QStringLiteral("--empty-dual-test"))
         || args.contains(QStringLiteral("--hdr-mode"))
         || args.contains(QStringLiteral("--ocio-engage"));
 }
@@ -728,6 +730,51 @@ int main(int argc, char *argv[])
                                         [&windowManager] {
                         qInfo("--simulate-user: click SBS");
                         windowManager.setCompositorMode(1);
+                    });
+                });
+            });
+        }
+
+        // --empty-dual-test A B: the empty-side sequence (2026-09-23).
+        // Enter side-by-side with nothing loaded, fill B by the drop
+        // path, then A by the drop path, clear B, leave dual, quit.
+        // Every step logs the mode and the two sides; a step that
+        // collapses to single or fails to enter is the regression.
+        const int edIdx = args.indexOf(QStringLiteral("--empty-dual-test"));
+        if (edIdx >= 0 && edIdx + 2 < args.size()) {
+            const QString pathA = args.at(edIdx + 1);
+            const QString pathB = args.at(edIdx + 2);
+            auto report = [&windowManager](const char *step) {
+                auto *p = windowManager.project();
+                qInfo("--empty-dual-test: %s → mode=%d dual=%s A='%s' B='%s'",
+                      step, windowManager.compositorMode(),
+                      windowManager.dualController() ? "yes" : "no",
+                      p ? qPrintable(p->activeItemId()) : "",
+                      p ? qPrintable(p->bSourceMediaId()) : "");
+            };
+            QTimer::singleShot(800, &windowManager, [&windowManager, report, pathA, pathB] {
+                windowManager.setCompositorMode(1);
+                report("SBS with nothing loaded");
+                QTimer::singleShot(800, &windowManager, [&windowManager, report, pathA, pathB] {
+                    windowManager.dropMediaAt({pathB}, 0.75, 0.5);
+                    report("drop B on the right");
+                    QTimer::singleShot(1500, &windowManager, [&windowManager, report, pathA] {
+                        windowManager.dropMediaAt({pathA}, 0.25, 0.5);
+                        report("drop A on the left (deferred open)");
+                        QTimer::singleShot(1500, &windowManager, [&windowManager, report] {
+                            report("after A opened");
+                            windowManager.clearBSource();
+                            report("clear B");
+                            QTimer::singleShot(1200, &windowManager, [&windowManager, report] {
+                                report("settled with empty B");
+                                windowManager.setCompositorMode(0);
+                                report("single view");
+                                QTimer::singleShot(800, &windowManager, [] {
+                                    qInfo("--empty-dual-test: done");
+                                    QCoreApplication::quit();
+                                });
+                            });
+                        });
                     });
                 });
             });

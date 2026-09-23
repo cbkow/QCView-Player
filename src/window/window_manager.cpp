@@ -882,10 +882,11 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
 
         // Dual view is a maintained state: loading a new A while in
         // dual SWAPS A and KEEPS B (re-applying B's track edits),
-        // rather than reverting to single. We preserve dual only when
-        // the new A is itself dual-capable (Video / ImageSequence) and
-        // B is still a valid pool item; a Playlist or Audio A, or a
-        // missing B, falls back to single (the historical behavior).
+        // rather than reverting to single. We preserve dual whenever
+        // the new A is itself dual-capable (Video / ImageSequence /
+        // LiveStream); a Playlist or Audio A falls back to single. A
+        // missing B no longer collapses the mode (2026-09-23): dual
+        // tolerates an empty side, and the right half is a drop target.
         //
         // Either way we tear the dual island down here (so the new A
         // loads cleanly into the single VideoDecoder / ImageSequenceCache
@@ -902,16 +903,14 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
                 (item.type == MediaType::Video ||
                  item.type == MediaType::ImageSequence ||
                  item.type == MediaType::LiveStream);
-            const bool bValid = m_project &&
-                m_project->findItem(m_project->bSourceMediaId()) != nullptr;
-            preserveDual = aDualCapable && bValid;
+            preserveDual = aDualCapable;
             if (preserveDual && m_timeline) {
                 // Capture B's track edits before teardown wipes the
                 // timeline — same one-liner as saveCurrentDualView().
                 clipsB = m_timeline->trackB()
                              .value(QStringLiteral("clips")).toList();
             } else {
-                // Collapsing to single (non-dual-capable A, or B gone):
+                // Collapsing to single (non-dual-capable A):
                 // the user has left the dual session, so any bound
                 // saved view detaches. The preserve branch keeps the
                 // binding so an A swap stays bound.
@@ -2061,20 +2060,23 @@ void WindowManager::setCompositorMode(int mode)
             }
         }
 
+        // An empty side is allowed (2026-09-23): makeSource("") returns
+        // null, the open succeeds, and the controller treats the side
+        // like a live one with no extent — 24 fps fallback, zero
+        // frames, past-end on every pull. The compositor draws the
+        // layout with that side blank, and a drop onto the blank half
+        // fills it (dropMediaAt). Two empty sides are the same shape.
+        if (pathA.isEmpty() && pathB.isEmpty()) {
+            qInfo("setCompositorMode: entering dual with both sides empty");
+        } else if (pathA.isEmpty()) {
+            qInfo("setCompositorMode: entering dual with no A yet");
+        }
+
         // Suppress the metadataChanged-driven loadSingleMedia rebuild
         // that fires when m_videoDecoder->close() resets metadata to
         // zero. Without this, the handler wipes the timeline (including
         // the B track that setBSource populated). Reset after the
         // dual-side timeline is rebuilt below.
-        // Entering dual with no A leaves a side that can never produce a
-        // frame: makeSource("") returns null and the open still succeeds.
-        if (pathA.isEmpty()) {
-            qWarning("setCompositorMode: no source A to pair; staying single");
-            m_compositorMode = 0;
-            emit compositorModeChanged();
-            return;
-        }
-
         m_suppressTimelineRebuild = true;
 
         teardownSingleFlowForDual();
@@ -5145,10 +5147,13 @@ void WindowManager::clearBSource()
 {
     if (!m_project) return;
     m_project->clearBSource();
-    // Dual needs two media: clearing B leaves dual for single view
-    // (see setBSource for why dual is never hot-swapped).
+    // Clearing B empties the right half but keeps the mode: the blank
+    // half stays a drop target. Same cold re-enter as setBSource (dual
+    // is never hot-swapped, see there).
     if (m_compositorMode != 0) {
+        const int mode = m_compositorMode;
         setCompositorMode(0);
+        setCompositorMode(mode);
     }
     qInfo("WindowManager: clearBSource");
 }
@@ -5318,6 +5323,11 @@ QString WindowManager::saveCurrentDualView(const QString &name)
         qWarning("saveCurrentDualView: not in dual mode");
         return {};
     }
+    // loadDualView refuses a pair without an A, so never write one.
+    if (m_project->activeItemId().isEmpty()) {
+        qWarning("saveCurrentDualView: no A source; nothing to save");
+        return {};
+    }
 
     DualPairData data;
     data.mediaIdA = m_project->activeItemId();
@@ -5364,6 +5374,10 @@ bool WindowManager::updateDualView(const QString &dualPairId)
     if (!existing || existing->type != MediaType::DualPair) {
         qWarning("updateDualView: id '%s' not a DualPair",
                  qPrintable(dualPairId));
+        return false;
+    }
+    if (m_project->activeItemId().isEmpty()) {
+        qWarning("updateDualView: no A source; not overwriting");
         return false;
     }
 

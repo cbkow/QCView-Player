@@ -285,6 +285,11 @@ struct DualCompositor::Impl {
     id<MTLRenderPipelineState> pipeline       = nil;
     id<MTLSamplerState>        sampler        = nil;
     int                        targetPixelFmt = 0;
+    // Bound in place of a side that has no texture at all (an empty
+    // dual side, 2026-09-23). Metal's validation refuses a draw with an
+    // unbound texture argument even though dual_fs never samples an
+    // inactive side; D3D11 tolerates a null view. 1×1, never sampled.
+    id<MTLTexture>             placeholder    = nil;
 
     CachedSideTexture cachedA;
     CachedSideTexture cachedB;
@@ -424,6 +429,7 @@ void DualCompositor::shutdown()
         m_impl->pipeline       = nil;
         m_impl->sampler        = nil;
         m_impl->targetPixelFmt = 0;
+        m_impl->placeholder    = nil;
         m_impl->cachedA.texture = nil;
         m_impl->cachedA.width = m_impl->cachedA.height = 0;
         m_impl->cachedB.texture = nil;
@@ -741,16 +747,29 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
     const bool aPastEnd = m_impl->preparedAPastEnd;
     const bool bPastEnd = m_impl->preparedBPastEnd;
 
-    if (!texA && !texB) {
-        if (aPastEnd && bPastEnd) {
-            m_impl->prepared = false;
-            return;
-        }
+    if (!texA && !texB && !(aPastEnd && bPastEnd)) {
+        // A side has a source that has not produced yet: spin.
         if (ensureSpinnerPipeline(*m_impl, device, m_impl->targetPixelFmt)) {
             encodeSpinner(*m_impl, enc, dstWidth, dstHeight);
         }
         m_impl->prepared = false;
         return;
+    }
+    // Both sides past-end (an empty dual, or both past their clips):
+    // still run the pass so the divider / seam and the drop highlight
+    // draw; both sides are inactive so nothing is sampled. D3D11 does
+    // the same with null views.
+    if (!texA && !texB) {
+        if (!m_impl->placeholder) {
+            MTLTextureDescriptor *pd = [MTLTextureDescriptor
+                texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                             width:1 height:1 mipmapped:NO];
+            pd.usage       = MTLTextureUsageShaderRead;
+            pd.storageMode = MTLStorageModePrivate;
+            m_impl->placeholder = [device newTextureWithDescriptor:pd];
+        }
+        texA = texB = m_impl->placeholder;
+        if (!texA) { m_impl->prepared = false; return; }
     }
     if (!texA) texA = texB;
     if (!texB) texB = texA;

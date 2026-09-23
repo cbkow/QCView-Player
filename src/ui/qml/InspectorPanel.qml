@@ -645,7 +645,7 @@ Rectangle {
             // scope id — the active clip's source, playlist-aware).
             readonly property string parTargetItemId: {
                 if (root.dualActive)
-                    return root.displayedItem ? root.displayedItem.id : "";
+                    return root.hasActive ? root.displayedItem.id : "";
                 return WindowManager
                     ? WindowManager.audioRoutingScopeMediaItemId : "";
             }
@@ -986,7 +986,7 @@ Rectangle {
                 // to audio.
                 readonly property string rangeTargetItemId: {
                     if (root.dualActive) {
-                        return root.displayedItem ? root.displayedItem.id : "";
+                        return root.hasActive ? root.displayedItem.id : "";
                     }
                     return WindowManager
                         ? WindowManager.audioRoutingScopeMediaItemId : "";
@@ -1120,7 +1120,7 @@ Rectangle {
             // inspectedSide chain).
             readonly property string routingTargetItemId: {
                 if (root.dualActive) {
-                    return root.displayedItem ? root.displayedItem.id : "";
+                    return root.hasActive ? root.displayedItem.id : "";
                 }
                 return WindowManager
                     ? WindowManager.audioRoutingScopeMediaItemId : "";
