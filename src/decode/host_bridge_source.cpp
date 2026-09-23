@@ -5,10 +5,8 @@
 
 #include <QMetaObject>
 
-#include <cerrno>
 #include <chrono>
 #include <cstring>
-#include <signal.h>
 
 namespace qcv {
 
@@ -25,10 +23,11 @@ qint64 steadyMs()
 
 // AE quits without unloading the Transmit device, so its ring outlives it,
 // readable, with a frozen host state. The producer's pid is the only truth.
+// The check itself is the ring's (kill(pid, 0) on POSIX, OpenProcess +
+// WaitForSingleObject on Windows), vendored with it.
 bool producerAlive(const qcbae::SharedRing &ring)
 {
-    const auto pid = static_cast<pid_t>(ring.header()->producer_pid);
-    return pid > 0 && (::kill(pid, 0) == 0 || errno == EPERM);
+    return qcbae::process_alive(ring.header()->producer_pid);
 }
 
 } // namespace
