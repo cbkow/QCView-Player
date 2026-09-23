@@ -414,6 +414,47 @@ void TimelineController::loadSecondarySource(const QString &mediaPath,
     emit timelineChanged();
 }
 
+void TimelineController::loadDualEmpty(double frameRate, double nominalSeconds)
+{
+    m_timer->pause();
+    m_timer->seek(0.0);
+
+    m_timeline = Timeline{};
+    m_playlistMediaItemId.clear();
+    m_timeline.name      = QStringLiteral("Dual");
+    m_timeline.mode      = SourceMode::SingleMedia;
+    m_timeline.policy    = EditPolicy{};
+    m_timeline.frameRate = (frameRate > 0.0) ? frameRate : 24.0;
+    m_timeline.duration  = (nominalSeconds > 0.0) ? nominalSeconds : 10.0;
+
+    Track a;
+    a.id      = QString::fromLatin1(kTrackIdA);
+    a.name    = QStringLiteral("A");
+    a.isVideo = true;
+    a.visible = true;
+    a.locked  = true;
+    a.zIndex  = 1;
+    m_timeline.tracks.append(a);
+
+    m_timer->setDuration(m_timeline.duration);
+    emit timelineChanged();   // ensureTrackB emits again below
+    ensureTrackB();
+}
+
+void TimelineController::ensureTrackB()
+{
+    if (hasTrackB()) return;
+    Track b;
+    b.id      = QString::fromLatin1(kTrackIdB);
+    b.name    = QStringLiteral("B");
+    b.isVideo = true;
+    b.visible = true;
+    b.locked  = true;
+    b.zIndex  = 0;
+    m_timeline.tracks.append(b);
+    emit timelineChanged();
+}
+
 void TimelineController::clearSecondarySource()
 {
     bool removed = false;

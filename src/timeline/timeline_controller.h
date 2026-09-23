@@ -111,6 +111,16 @@ public:
     // Drop the secondary track. Called from WindowManager.closeSourceB.
     void clearSecondarySource();
 
+    // Dual view with an empty side (2026-09-23). A dual session always
+    // shows two lanes, even before either side has media:
+    //   loadDualEmpty — both sides empty: a fresh model with empty A
+    //     and B tracks and a nominal duration so the panel has a ruler
+    //     to draw (duration 0 reads as "no timeline").
+    //   ensureTrackB — A loaded, B not: append an empty B track so the
+    //     B lane is there to drop onto. No-op when B already exists.
+    void loadDualEmpty(double frameRate, double nominalSeconds);
+    void ensureTrackB();
+
     // Tear down the active timeline. Pauses the timer, clears
     // the model. Used when the user closes the active media.
     void clear();

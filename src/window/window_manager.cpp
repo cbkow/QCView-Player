@@ -2180,16 +2180,26 @@ void WindowManager::setCompositorMode(int mode)
                 extent(m_dualController->sourceB(), fpsB, durB);
                 if (m_dualController->sideIsLive('A')) { fpsA = fpsB; durA = durB; }
                 if (m_dualController->sideIsLive('B')) { fpsB = fpsA; durB = durA; }
-                if (auto *srcA = m_dualController->sourceA()) {
-                    (void)srcA;
+                qcv::dual::IDualSource *srcA = m_dualController->sourceA();
+                qcv::dual::IDualSource *srcB = m_dualController->sourceB();
+                if (srcA) {
                     const MediaItem *itemA =
                         m_project->findItem(m_project->activeItemId());
                     if (itemA) {
                         m_timeline->loadSingleMedia(*itemA, durA, fpsA,
                                                       /*hasAudio=*/false);
                     }
+                } else if (srcB) {
+                    // No A to rebuild the model from: start clean so a
+                    // previous session's tracks (or the empty-dual
+                    // nominal duration) do not linger under B.
+                    m_timeline->clear();
+                } else {
+                    // Both sides empty: two empty lanes with a nominal
+                    // ruler, so the panel is there to drop onto.
+                    m_timeline->loadDualEmpty(m_dualController->fps(), 10.0);
                 }
-                if (auto *srcB = m_dualController->sourceB()) {
+                if (srcB) {
                     const MediaItem *itemB =
                         m_project->findItem(m_project->bSourceMediaId());
                     const QString nameB = itemB ? itemB->name
@@ -2197,6 +2207,8 @@ void WindowManager::setCompositorMode(int mode)
                     m_timeline->loadSecondarySource(pathB, nameB, durB, fpsB,
                                                      /*hasAudio=*/false);
                 }
+                // A dual session always shows the B lane, loaded or not.
+                m_timeline->ensureTrackB();
             }
 
             // Re-enable the metadataChanged handler — single-flow

@@ -755,7 +755,8 @@ int main(int argc, char *argv[])
             QTimer::singleShot(800, &windowManager, [&windowManager, report, pathA, pathB] {
                 windowManager.setCompositorMode(1);
                 report("SBS with nothing loaded");
-                QTimer::singleShot(800, &windowManager, [&windowManager, report, pathA, pathB] {
+                // Long enough to look at the empty two-lane state.
+                QTimer::singleShot(2500, &windowManager, [&windowManager, report, pathA, pathB] {
                     windowManager.dropMediaAt({pathB}, 0.75, 0.5);
                     report("drop B on the right");
                     QTimer::singleShot(1500, &windowManager, [&windowManager, report, pathA] {

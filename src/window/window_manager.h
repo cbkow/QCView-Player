@@ -709,9 +709,16 @@ public:
     LiveSource *dualLiveB() const {
         return m_dualController ? m_dualController->liveSource('B') : nullptr;
     }
-    // Single view is always seekable; in dual it takes a clocked side.
+    // Single view is always seekable. In dual, a clocked side makes it
+    // seekable; two live sides do not (the LiveStrip replaces the
+    // transport and timeline). Empty sides are not live: a dual with
+    // nothing loaded yet keeps its transport and its two lanes, since
+    // they are what the user drops onto (2026-09-23).
     bool dualSeekable() const {
-        return m_dualController ? m_dualController->hasClockedSide() : true;
+        if (!m_dualController) return true;
+        if (m_dualController->hasClockedSide()) return true;
+        return !m_dualController->sideIsLive('A')
+            && !m_dualController->sideIsLive('B');
     }
     bool audioActive()    const { return m_audioActive; }
     ImageSequenceCache *imageSeqCache() const { return m_imageSeqCache.get(); }
