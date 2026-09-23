@@ -1135,19 +1135,11 @@ Pane {
             Layout.fillHeight: true
 
             // Toolbar tone, same register as the ruler row, so the
-            // gutter reads as chrome beside the track area.
+            // gutter reads as chrome beside the track area. No edge
+            // line: the tone step is the separation.
             Rectangle {
                 anchors.fill: parent
                 color: Theme.toolbar
-            }
-
-            // Right-edge divider against the track area.
-            Rectangle {
-                anchors.right:  parent.right
-                anchors.top:    parent.top
-                anchors.bottom: parent.bottom
-                width: 1
-                color: Theme.divider
             }
 
             // Track A signifier — aligned to the A clip body.
@@ -3093,14 +3085,6 @@ Pane {
                 anchors.right: parent.right
                 anchors.top:   parent.top
                 height: 20
-            }
-            // Left-edge divider against the track area.
-            Rectangle {
-                anchors.left:   parent.left
-                anchors.top:    parent.top
-                anchors.bottom: parent.bottom
-                width: 1
-                color: Theme.divider
             }
 
             // Match ClipDelegate's y/height — clips inset 4 top/

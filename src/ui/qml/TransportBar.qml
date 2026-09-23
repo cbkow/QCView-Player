@@ -33,22 +33,15 @@ Pane {
     background: Rectangle {
         color: Theme.toolbar
         // Gutter caps — continue the timeline's side columns up
-        // through this row: the gutters' toolbar tone + the same 1px
-        // inner-edge divider they use, so the three bottom bands
-        // frame as one unit (margins experiment, second step).
+        // through this row in the gutters' toolbar tone, so the three
+        // bottom bands frame as one unit (margins experiment, second
+        // step). No edge lines: the tone step is the separation.
         Rectangle {
             anchors.left:   parent.left
             anchors.top:    parent.top
             anchors.bottom: parent.bottom
             width: Theme.gutterWidth
             color: Theme.toolbar
-            Rectangle {
-                anchors.right:  parent.right
-                anchors.top:    parent.top
-                anchors.bottom: parent.bottom
-                width: 1
-                color: Theme.divider
-            }
         }
         Rectangle {
             anchors.right:  parent.right
@@ -56,13 +49,6 @@ Pane {
             anchors.bottom: parent.bottom
             width: Theme.gutterWidth
             color: Theme.toolbar
-            Rectangle {
-                anchors.left:   parent.left
-                anchors.top:    parent.top
-                anchors.bottom: parent.bottom
-                width: 1
-                color: Theme.divider
-            }
         }
         // Bottom divider — content span only (TimelinePanel draws no
         // top divider and relies on this line). Inset to the gutter

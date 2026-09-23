@@ -67,22 +67,15 @@ Rectangle {
     }
 
     // Gutter caps — continue the timeline's toolbar-toned side
-    // columns up through this row, with the same 1px inner-edge
-    // divider, so the three bottom bands frame as one unit (see
-    // TransportBar's matching caps).
+    // columns up through this row so the three bottom bands frame
+    // as one unit (see TransportBar's matching caps). No edge lines:
+    // the tone step is the separation.
     Rectangle {
         anchors.left:   parent.left
         anchors.top:    parent.top
         anchors.bottom: parent.bottom
         width: Theme.gutterWidth
         color: Theme.toolbar
-        Rectangle {
-            anchors.right:  parent.right
-            anchors.top:    parent.top
-            anchors.bottom: parent.bottom
-            width: 1
-            color: Theme.divider
-        }
     }
     Rectangle {
         anchors.right:  parent.right
@@ -90,13 +83,6 @@ Rectangle {
         anchors.bottom: parent.bottom
         width: Theme.gutterWidth
         color: Theme.toolbar
-        Rectangle {
-            anchors.left:   parent.left
-            anchors.top:    parent.top
-            anchors.bottom: parent.bottom
-            width: 1
-            color: Theme.divider
-        }
     }
 
     RowLayout {
