@@ -228,12 +228,14 @@ Pane {
             onClicked: WindowManager.seekToNextClipStart()
         }
 
-        // Review-speed readout — visible only when playback rate is
-        // not 1x (R cycles presets, Shift+R resets). Click to cycle,
-        // matching the key. Recessed readout chip (shared slider-
-        // readout treatment); accent text keeps the "off-1x" alert.
+        // Review-speed chip — always shown, so the control is there to
+        // find. Muted "1×" at rest; accent when off 1x (the alert it
+        // was before, when the chip only appeared off 1x). Click cycles
+        // the preset ring like R; Shift+click snaps to 1x like Shift+R.
+        // Recessed readout chip (shared slider-readout treatment).
         Rectangle {
-            visible: Math.abs(WindowManager.reviewSpeed - 1.0) > 0.001
+            readonly property bool offUnity:
+                Math.abs(WindowManager.reviewSpeed - 1.0) > 0.001
             Layout.preferredWidth: speedText.implicitWidth + 12
             Layout.preferredHeight: 16
             Layout.leftMargin: Theme.spacingTight
@@ -245,20 +247,27 @@ Pane {
                 anchors.centerIn: parent
                 text: WindowManager.reviewSpeed.toFixed(2)
                           .replace(/\.?0+$/, "") + "×"
-                color: Theme.accent
+                color: parent.offUnity ? Theme.accent
+                     : (speedMa.containsMouse ? Theme.textPrimary
+                                              : Theme.textSecondary)
                 font.family: Theme.monoFamily
                 font.pixelSize: Theme.fontSizeMono
-                font.bold: true
+                font.bold: parent.offUnity
             }
             MouseArea {
                 id: speedMa
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: WindowManager.cycleReviewSpeed()
+                onClicked: (mouse) => {
+                    if (mouse.modifiers & Qt.ShiftModifier)
+                        WindowManager.setReviewSpeed(1.0);
+                    else
+                        WindowManager.cycleReviewSpeed();
+                }
                 FlatToolTip {
                     visible: speedMa.containsMouse
-                    text: qsTr("Review speed — click to cycle (R)")
+                    text: qsTr("Review speed — click to cycle (R), Shift+click for 1× (Shift+R)")
                 }
             }
         }
