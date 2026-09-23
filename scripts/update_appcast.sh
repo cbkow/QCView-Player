@@ -13,7 +13,7 @@
 # file: its bytes are what gets signed and measured.
 #
 # Usage: scripts/update_appcast.sh <version> <path/to/QCView-MacOS.dmg>
-#        scripts/update_appcast.sh 2.3.4 build/dist/QCView-MacOS.dmg
+#        scripts/update_appcast.sh 2.4.0 build/dist/QCView-MacOS.dmg
 set -euo pipefail
 
 VERSION="${1:-}"
