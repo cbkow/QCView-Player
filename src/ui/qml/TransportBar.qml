@@ -31,7 +31,7 @@ Pane {
     signal showLeftRailSection(string name)
 
     background: Rectangle {
-        color: Theme.toolbar
+        color: Theme.surface
         // Gutter caps — continue the timeline's side columns up
         // through this row in the gutters' toolbar tone, so the three
         // bottom bands frame as one unit (margins experiment, second
@@ -41,14 +41,14 @@ Pane {
             anchors.top:    parent.top
             anchors.bottom: parent.bottom
             width: Theme.gutterWidth
-            color: Theme.toolbar
+            color: Theme.surface
         }
         Rectangle {
             anchors.right:  parent.right
             anchors.top:    parent.top
             anchors.bottom: parent.bottom
             width: Theme.gutterWidth
-            color: Theme.toolbar
+            color: Theme.surface
         }
         // Bottom divider — content span only (TimelinePanel draws no
         // top divider and relies on this line). Inset to the gutter

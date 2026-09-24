@@ -1139,7 +1139,7 @@ Pane {
             // line: the tone step is the separation.
             Rectangle {
                 anchors.fill: parent
-                color: Theme.toolbar
+                color: Theme.surface
             }
 
             // Track A signifier — aligned to the A clip body.
@@ -1186,7 +1186,7 @@ Pane {
             // Toolbar tone — the ruler is an interactive scrub strip,
             // same register as the rail headers / panel toolbars
             // (was hardcoded #1c1c1c).
-            color: Theme.toolbar
+            color: Theme.surface
             clip: true
 
             // Tick spacing — adaptive. Pick the largest interval
@@ -3075,7 +3075,7 @@ Pane {
             // Toolbar tone — mirrors the signifier gutter on the left.
             Rectangle {
                 anchors.fill: parent
-                color: Theme.toolbar
+                color: Theme.surface
             }
 
             // Empty space above tracks (matches ruler height).

@@ -28,7 +28,7 @@ Rectangle {
     // gutters, plus a faint top edge (below) against the viewport —
     // the bottom-band framing pass added the edge over the earlier
     // tone-only rule (borders pass, 2026-07-07).
-    color: Theme.toolbar
+    color: Theme.surface
 
     // Phase 3.H.3 — playlist mode shows seconds-based readouts;
     // frame counters and SMPTE timecode hide because the playlist
@@ -92,7 +92,7 @@ Rectangle {
             radius: Theme.radiusSmall
             // Same tone as the strip; the hover border is what marks
             // the well as a control.
-            color: Theme.toolbar
+            color: Theme.surface
             border.width: 1
             border.color: frameWellMa.containsMouse
                           ? Theme.divider : "transparent"
@@ -165,7 +165,7 @@ Rectangle {
             Layout.preferredWidth: 130
             Layout.preferredHeight: 18
             radius: Theme.radiusSmall
-            color: Theme.toolbar
+            color: Theme.surface
             Text {
                 anchors.fill: parent
                 anchors.leftMargin: 6
