@@ -14,7 +14,7 @@ Both ACES 2.0 and the Blender configs are appended with **Linear sRGB EDR** and 
 
 ![Color panel reel grid for OCIO chain steps](images/qcv025.jpg)
 
-Click `Engage OCIO` at the bottom to toggle color correction.
+Use the `OCIO On / Off` switch at the bottom to toggle color correction.
 
 ---
 
