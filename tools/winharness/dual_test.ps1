@@ -2,8 +2,8 @@ param([string]$A, [string]$B, [string]$Label = "dual")
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $sp  = $(if ($env:QCV_HARNESS_DIR) { $env:QCV_HARNESS_DIR } else { $PSScriptRoot })
-$exe = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview.exe"
-$log = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview-log.txt"
+$exe = "$env:USERPROFILE\Documents\GitHub\QCView-Player\build-release\qcview.exe"
+$log = "$env:USERPROFILE\Documents\GitHub\QCView-Player\build-release\qcview-log.txt"
 $sig = '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();'
 if (-not ("X.FG4" -as [type])) { Add-Type -MemberDefinition $sig -Name FG4 -Namespace X | Out-Null }
 $env:QCV_DUMP_FRAME = $null; $env:QCV_SWS_LEGACY = $null; $env:QCV_SWS_THREADS = $null

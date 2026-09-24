@@ -1,6 +1,6 @@
 param([string]$Mode)
 $sp  = $(if ($env:QCV_HARNESS_DIR) { $env:QCV_HARNESS_DIR } else { $PSScriptRoot })
-$exe = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview.exe"
+$exe = "$env:USERPROFILE\Documents\GitHub\QCView-Player\build-release\qcview.exe"
 $clips = @(
   "$sp\fmt9\vvc_420p10_720p.mp4",
   "$sp\fmt9\ffv1_422p10.mkv",
@@ -17,5 +17,5 @@ Start-Sleep 6
 foreach ($c in $clips[1..($clips.Count-1)]) { & $exe "$c"; Start-Sleep 6 }
 Start-Sleep 2
 $p.CloseMainWindow() | Out-Null; Start-Sleep 3
-Get-Content "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview-log.txt" | Select-String "dumping first" | ForEach-Object { $_.Line.Substring(24, [Math]::Min(120, $_.Line.Length - 24)) }
+Get-Content "$env:USERPROFILE\Documents\GitHub\QCView-Player\build-release\qcview-log.txt" | Select-String "dumping first" | ForEach-Object { $_.Line.Substring(24, [Math]::Min(120, $_.Line.Length - 24)) }
 "done $Mode alive=$((Get-Process qcview -ErrorAction SilentlyContinue) -ne $null)"

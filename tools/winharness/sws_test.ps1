@@ -1,8 +1,8 @@
 param([string]$Threads = "")
 Add-Type -AssemblyName System.Windows.Forms
 $sp  = $(if ($env:QCV_HARNESS_DIR) { $env:QCV_HARNESS_DIR } else { $PSScriptRoot })
-$exe = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview.exe"
-$log = "C:\Users\uniongraphics\Documents\GitHub\QCView-Player\build-release\qcview-log.txt"
+$exe = "$env:USERPROFILE\Documents\GitHub\QCView-Player\build-release\qcview.exe"
+$log = "$env:USERPROFILE\Documents\GitHub\QCView-Player\build-release\qcview-log.txt"
 $raw = "C:\Volumes\union-ny-gfx\union-jobs\000000_SYNC\01_A001_09211049_C068.mov"
 $dnx = "C:\Volumes\union-ny-gfx\union-jobs\000000_SYNC\CW  .  BALANCING MACRO AND MICRO CONCERNS.mov"
 if ($Threads -ne "") { $env:QCV_SWS_THREADS = $Threads } else { $env:QCV_SWS_THREADS = $null }

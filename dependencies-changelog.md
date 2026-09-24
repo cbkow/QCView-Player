@@ -111,7 +111,7 @@ in `external/patches/ffmpeg/`:
 macOS has shipped both since v2.2.6/2.2.7 — this brings Windows to
 parity for the 2.2.7 release.
 
-**Build:** WSL2 Ubuntu + Docker on the uniongraphics box; full recipe
+**Build:** WSL2 Ubuntu + Docker on the Windows box; full recipe
 (incl. the build.sh patch-hook injection and the CRLF + WSL-session
 gotchas) in `dependencies.md` §Windows. Patches `git apply --check`
 clean on the `release/8.1` head.
@@ -255,7 +255,7 @@ future size bump. Files live in the repo tree for the build to find but
 are excluded via `.gitignore` (`external/ffmpeg-win64/`); re-fetch
 instructions are in `dependencies.md` §2.
 
-**Verification (uniongraphics box, 2026-06-24):**
+**Verification (the Windows box, 2026-06-24):**
 - `ffmpeg -version` → `ffmpeg version n8.1.2-20260624`
 - `ffmpeg -buildconf` confirms `--enable-vulkan`, `--enable-libshaderc`,
   `--enable-libplacebo` (the reason we use BtbN over vcpkg — ProRes Vulkan

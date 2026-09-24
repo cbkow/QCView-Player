@@ -1,5 +1,5 @@
 param([string]$Exe, [string]$Label)
-Set-Location "C:\Users\uniongraphics\Documents\GitHub\QCView-Player"
+Set-Location "$env:USERPROFILE\Documents\GitHub\QCView-Player"
 $logPath = Join-Path (Split-Path $Exe -Parent) "qcview-log.txt"
 if (Get-Process qcview -ErrorAction SilentlyContinue) { "ALREADY RUNNING"; exit 1 }
 Add-Type -AssemblyName System.Windows.Forms
