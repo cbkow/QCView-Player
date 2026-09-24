@@ -416,6 +416,7 @@ Rectangle {
                 Layout.topMargin: Theme.spacing
                 spacing: 2
                 KvRow { label: qsTr("Colour");    value: bridgeFacts.f.colour || "";    monoValue: false }
+                KvRow { label: qsTr("Range");     value: bridgeFacts.f.range || "";     monoValue: false }
                 KvRow { label: qsTr("Alpha");     value: bridgeFacts.f.alpha || "";     monoValue: false }
                 Text {
                     Layout.fillWidth: true

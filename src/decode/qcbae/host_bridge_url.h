@@ -72,8 +72,11 @@ struct SourceFacts {
     // fourth channel, and the one instruction. Source, transport and pixel
     // layout used to be rows too; the strip carries the format, the
     // item's name carries the host, and the ring name is nobody's business.
+    // One idea per row, few words each: the value column is narrow and
+    // elides anything longer.
     QString source;      // who renders the pixels — the item name says it; kept for callers
     QString colour;      // what the values mean
+    QString range;       // what happens above 1.0
     QString alpha;       // what the fourth channel means
     QString note;        // the one instruction for the user
 };
@@ -82,19 +85,21 @@ inline SourceFacts facts(const QString &url)
 {
     const QString h = hostOf(url);
     SourceFacts f;
-    f.colour = QStringLiteral("Host working space · untransformed · never clamped");
-    f.note   = QStringLiteral("Set QCView's OCIO input to the host's working space.");
+    f.colour = QStringLiteral("Working space, untransformed");
+    f.range  = QStringLiteral("Unclamped float");
+    f.note   = QStringLiteral("Set the OCIO input to the host's working space.");
     if (h == QLatin1String("ae")) {
         f.source = QStringLiteral("After Effects · Mercury Transmit");
-        f.alpha  = QStringLiteral("Opaque · flattened over comp background");
+        f.alpha  = QStringLiteral("Opaque, flattened");
     } else if (h == QLatin1String("premiere")) {
         f.source = QStringLiteral("Premiere Pro · Mercury Transmit");
-        f.alpha  = QStringLiteral("Straight · from the sequence");
+        f.alpha  = QStringLiteral("Straight");
     } else if (h == QLatin1String("probe")) {
         f.source = QStringLiteral("QCBridgeAE qcbae-probe produce");
-        f.colour = QStringLiteral("Synthetic · ramp runs past 1.0");
+        f.colour = QStringLiteral("Synthetic ramp");
+        f.range  = QStringLiteral("Runs past 1.0");
         f.alpha  = QStringLiteral("Opaque");
-        f.note   = QStringLiteral("A test signal for checking QCView without an Adobe host.");
+        f.note   = QStringLiteral("A test signal, no Adobe host needed.");
     } else {
         return {};
     }

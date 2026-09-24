@@ -2917,6 +2917,7 @@ QVariantMap WindowManager::hostBridgeFacts(const QString &url) const
     return {
         {QStringLiteral("source"),    f.source},
         {QStringLiteral("colour"),    f.colour},
+        {QStringLiteral("range"),     f.range},
         {QStringLiteral("alpha"),     f.alpha},
         {QStringLiteral("note"),      f.note},
     };
