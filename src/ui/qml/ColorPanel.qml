@@ -724,9 +724,7 @@ Pane {
                 }
                 Item { Layout.preferredWidth: Theme.padding }
                 Text {
-                    text: engageSwitch.checked
-                          ? qsTr("OCIO Engaged — applying chain live")
-                          : qsTr("Engage OCIO")
+                    text: engageSwitch.checked ? qsTr("OCIO On") : qsTr("OCIO Off")
                     color: engageSwitch.checked ? Theme.success : Theme.textPrimary
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
