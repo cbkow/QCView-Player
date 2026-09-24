@@ -2016,6 +2016,17 @@ void WindowManager::setCompositorMode(int mode)
         r->setCompositorMode(static_cast<qcv::CompositorMode>(mode));
     }
 
+    if (wasSingle && !nowSingle && m_dualController) {
+        // A dual island already runs while the mode still says single:
+        // the --dual-test entry, which opens its two sources outside the
+        // project. The mode push above is the whole change; the cold
+        // transition below would rebuild the island from the (empty)
+        // project and close both live sources. Until 2026-09-23 the
+        // "no source A" gate happened to return here.
+        emit compositorModeChanged();
+        return;
+    }
+
     if (wasSingle && !nowSingle) {
         // Single → Dual cold transition. Snapshot paths, tear down
         // single-flow state, spin up the dual island.
