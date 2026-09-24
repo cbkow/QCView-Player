@@ -1458,6 +1458,10 @@ ApplicationWindow {
             Layout.preferredHeight:
                 root.fxLiveStrip ? Theme.toolStripHeight : 0
             visible: root.fxLiveStrip
+            // The colour panel is as useful live as for a file; same
+            // state and toggle as the TransportBar's button.
+            colorPanelVisible: root.colorPanelVisible
+            onToggleColorPanel: root.colorPanelVisible = !root.colorPanelVisible
         }
 
         // ---- Bottom band 1: Transport
