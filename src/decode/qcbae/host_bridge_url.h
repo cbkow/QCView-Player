@@ -67,26 +67,23 @@ inline QString hostApp(const QString &url)
 // — keep it that way: a wrong statement here misleads a QC decision.
 struct SourceFacts {
     // Terse, one line each: they sit in the Inspector's fixed-height rows.
-    QString source;      // who renders the pixels, and how they are handed over
-    QString transport;   // how they reach QCView
-    QString pixels;      // what arrives
+    // Trimmed 2026-09-24 to what a QC call rests on and the live strip
+    // does not already say: the meaning of the values, the meaning of the
+    // fourth channel, and the one instruction. Source, transport and pixel
+    // layout used to be rows too; the strip carries the format, the
+    // item's name carries the host, and the ring name is nobody's business.
+    QString source;      // who renders the pixels — the item name says it; kept for callers
     QString colour;      // what the values mean
     QString alpha;       // what the fourth channel means
-    QString note;        // one wrapped sentence of consequence for the user
+    QString note;        // the one instruction for the user
 };
 
 inline SourceFacts facts(const QString &url)
 {
     const QString h = hostOf(url);
     SourceFacts f;
-    f.transport = QStringLiteral("Shared memory · %1").arg(ringName(url));
-    f.pixels    = QStringLiteral("RGBA16F · top-down · never clamped");
-    f.colour    = QStringLiteral("Host working space · untransformed");
-    // "Sends", not "renders": an 8 or 16 bpc project renders at its own
-    // depth and the host up-converts to the 32f the device requests.
-    f.note      = QStringLiteral("The host sends 32-bit float; it arrives IEEE-rounded "
-                                 "to half, with inf and NaN passed through and flagged. "
-                                 "Set QCView's OCIO input to the host's working space.");
+    f.colour = QStringLiteral("Host working space · untransformed · never clamped");
+    f.note   = QStringLiteral("Set QCView's OCIO input to the host's working space.");
     if (h == QLatin1String("ae")) {
         f.source = QStringLiteral("After Effects · Mercury Transmit");
         f.alpha  = QStringLiteral("Opaque · flattened over comp background");
@@ -95,7 +92,6 @@ inline SourceFacts facts(const QString &url)
         f.alpha  = QStringLiteral("Straight · from the sequence");
     } else if (h == QLatin1String("probe")) {
         f.source = QStringLiteral("QCBridgeAE qcbae-probe produce");
-        f.pixels = QStringLiteral("RGBA16F · top-down · synthetic pattern");
         f.colour = QStringLiteral("Synthetic · ramp runs past 1.0");
         f.alpha  = QStringLiteral("Opaque");
         f.note   = QStringLiteral("A test signal for checking QCView without an Adobe host.");

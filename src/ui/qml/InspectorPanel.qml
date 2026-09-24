@@ -400,10 +400,13 @@ Rectangle {
                 wrapMode: Text.NoWrap
             }
 
-            // QCBridge source facts (qcbae:// live items) — what the pixels
-            // are, stated plainly because a QC call rests on it. Facts come
-            // from decode/qcbae/host_bridge_url.h, each measured in
-            // QCBridgeAE; nothing here is inferred from the frame.
+            // QCBridge source facts (qcbae:// live items) — what a QC call
+            // rests on and the live strip does not already say: the meaning
+            // of the values, the meaning of the fourth channel, and the one
+            // instruction. Facts come from decode/qcbae/host_bridge_url.h,
+            // each measured in QCBridgeAE; nothing here is inferred from
+            // the frame. (Source, transport and pixel layout were rows too
+            // until 2026-09-24; the strip and the item name carry those.)
             ColumnLayout {
                 id: bridgeFacts
                 readonly property var f: fileCard.isLiveItem && root.hasActive
@@ -412,9 +415,6 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.spacing
                 spacing: 2
-                KvRow { label: qsTr("Source");    value: bridgeFacts.f.source || "";    monoValue: false }
-                KvRow { label: qsTr("Transport"); value: bridgeFacts.f.transport || "" }
-                KvRow { label: qsTr("Pixels");    value: bridgeFacts.f.pixels || "" }
                 KvRow { label: qsTr("Colour");    value: bridgeFacts.f.colour || "";    monoValue: false }
                 KvRow { label: qsTr("Alpha");     value: bridgeFacts.f.alpha || "";     monoValue: false }
                 Text {

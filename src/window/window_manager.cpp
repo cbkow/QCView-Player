@@ -2916,8 +2916,6 @@ QVariantMap WindowManager::hostBridgeFacts(const QString &url) const
     if (f.source.isEmpty()) return {};
     return {
         {QStringLiteral("source"),    f.source},
-        {QStringLiteral("transport"), f.transport},
-        {QStringLiteral("pixels"),    f.pixels},
         {QStringLiteral("colour"),    f.colour},
         {QStringLiteral("alpha"),     f.alpha},
         {QStringLiteral("note"),      f.note},
