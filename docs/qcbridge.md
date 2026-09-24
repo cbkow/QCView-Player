@@ -58,7 +58,7 @@ Open **Edit → Preferences → Add-ons → QC Bridge** on each machine.
 1. Set **Role** to *Host*.
 2. Set **Replica Address** to the replica's IP.
 3. Enter the same **Session Token**.
-4. If host and replica are different platforms sharing network storage, add **Path Mappings** — one row per storage root, e.g. `\\nas\jobs` (or a mapped drive like `J:\jobs`) ↔ `/Volumes/jobs` — so file paths translate between them. **Enter the same row on both machines:** the host uses it to send paths, the replica uses it to find them. If the replica's panel reports unmapped paths, a row is missing on that side.
+4. If host and replica are different platforms sharing network storage, add **Path Mappings** — one row per storage root, e.g. `\\nas\jobs` (or a mapped drive like `J:\jobs`) ↔ `/Volumes/jobs` — so file paths translate between them. Enter the row on the **host**: the agent keeps it and sends it to the replica when the two pair (QCBridge 0.2.0), so the replica needs none of its own. If the replica's panel reports unmapped paths, a root is missing from the host's table.
 
 Windows note: the stream arrives over UDP. If QCView can't connect to the replica, allow the stream port through the replica's firewall (default 9998):
 
