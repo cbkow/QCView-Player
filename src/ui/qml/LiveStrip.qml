@@ -27,6 +27,11 @@ Rectangle {
         color: Theme.divider
     }
 
+    // The colour panel is as useful live as it is for a file; Main.qml
+    // binds the same state the TransportBar toggles.
+    property bool colorPanelVisible: false
+    signal toggleColorPanel()
+
     readonly property var live: WindowManager.liveDecoder
     // Status enum mirror (LiveSource::Status).
     readonly property bool isLive:         live && live.status === 2
@@ -191,6 +196,15 @@ Rectangle {
             Layout.topMargin: 6
             Layout.bottomMargin: 6
             color: Theme.divider
+        }
+
+        // ---- Colour panel — the one panel that matters live -------
+        FlatButton {
+            iconName: "palette"
+            checkable: true
+            checked: root.colorPanelVisible
+            tooltipText: qsTr("Color panel (⌃3)")
+            onClicked: root.toggleColorPanel()
         }
 
         // ---- Screenshots — the transport action that works live --

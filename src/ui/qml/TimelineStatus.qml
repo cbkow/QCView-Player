@@ -55,16 +55,16 @@ Rectangle {
     }
 
     // Faint top edge — encloses the bottom-band unit against the
-    // viewport above. Half-opacity divider tone: a full-strength
-    // line here outweighed the gutter lines it joins (the tone step
-    // used to be the only separation; see borders pass 2026-07-07).
+    // viewport above. Full-strength, the same hairline the live strip
+    // draws, so the two bottom bands meet the viewport the same way
+    // (2026-09-24). It was half opacity while the gutters still drew
+    // edge lines it had to sit beside; those are gone.
     Rectangle {
         anchors.left:  parent.left
         anchors.right: parent.right
         anchors.top:   parent.top
         height: Theme.dividerWidth
         color: Theme.divider
-        opacity: 0.5
     }
 
     // (The gutter columns need no caps here: the whole strip is the
