@@ -1235,14 +1235,34 @@ Pane {
                     }
                 }
             }
-            // Single-edge bottom divider rather than a 4-sided
-            // border to keep the ruler/track seam at 1 px.
+            // Bottom divider — the ruler/track seam at 1 px. The top
+            // edge is the transport bar's bottom divider, which spans
+            // the same content width.
             Rectangle {
                 anchors.left:   parent.left
                 anchors.right:  parent.right
                 anchors.bottom: parent.bottom
-                height: 1
+                height: Theme.dividerWidth
                 color: Theme.divider
+            }
+            // Left and right edges, so the ruler is framed on all four
+            // sides between the gutters (2026-09-25). Ruler height
+            // only: the gutter columns draw no edge lines.
+            Rectangle {
+                anchors.left:   parent.left
+                anchors.top:    parent.top
+                anchors.bottom: parent.bottom
+                width: Theme.dividerWidth
+                color: Theme.divider
+                z: 5
+            }
+            Rectangle {
+                anchors.right:  parent.right
+                anchors.top:    parent.top
+                anchors.bottom: parent.bottom
+                width: Theme.dividerWidth
+                color: Theme.divider
+                z: 5
             }
 
             // Ruler playhead — always visible when loaded so the
