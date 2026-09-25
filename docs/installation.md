@@ -44,13 +44,18 @@ Once installed in **Applications**, QCView keeps itself up to date — it checks
 - Apple Silicon (arm64) — native Metal rendering, no Rosetta.
 - EDR-capable display recommended for HDR workflows.
 
+### Add-ons
+
+See the [QCViewBridge](/qcbridge/) page for installation and usage guides for the Adobe After Effects, Adobe Premiere Pro, and Blender add-ons. They have their own separate installers.
+
 ---
 
 ## Version History
 
 What's new in 2.4.0
 
-- **Live sources from After Effects and Premiere Pro** over Mercury Transmit with the QCViewAE Add-on (separate download).
+- **Live sources from After Effects and Premiere Pro** over Mercury Transmit with the [QCViewBridgeAE](/qcbridge/adobe/) add-on (separate download).
+- The [QCViewBridge for Blender](/qcbridge/blender/) add-on has been upgraded with system tray apps and auto launching Blender on the server systems. (separate download. See the [link](qcbridge-blender.md) for more details.)
 - **Live sources in dual view** — an SRT stream or an Adobe host can be either side, or both.
 - **Dual view with empty sides** — refinement to dual view behavior so that it’s not longer dependent on having a single media-item loaded first. Dual View can be toggled when empty.
 - **Drag the viewport to move the window** ( Can be disabled in Settings → "Drag viewport to move window").
