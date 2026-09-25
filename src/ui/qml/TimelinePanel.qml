@@ -1352,8 +1352,13 @@ Pane {
             // empty playlist needs different copy so the user knows
             // the timeline IS active — they just have nowhere to
             // play yet.
+            // With a B lane the A/B separator crosses the middle of
+            // the track area, so the hint sits centred in the B lane
+            // instead of under the line (2026-09-25).
             Text {
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: hasTrackB ? kRowHA + (kRowHB - height) / 2
+                             : (parent.height - height) / 2
                 visible: !loaded || !hasClips
                 text: root.playlistActive
                       ? qsTr("Drop media here to add to the playlist")
