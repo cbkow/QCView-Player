@@ -121,6 +121,27 @@ echo "==> verify signature"
 codesign --verify --deep --strict --verbose=2 "$APP"
 spctl --assess --type exec -vv "$APP" || true   # unstapled: "rejected" is expected here
 
+# ---- 3b. notarize + staple the app itself ---------------------------------
+# The app gets its own ticket, stapled, BEFORE it goes into the DMG. The
+# DMG's ticket (step 5) covers the app while it is opened from the DMG, but
+# the copy in /Applications, and the copy Sparkle installs, carry only what
+# is stapled to the bundle: without this step they verify online only, and
+# an offline first launch is refused. The 2026-09-22 rewrite of this script
+# had dropped the step; the 2.3.3 DMG, built with the lost original, has the
+# app stapled (checked 2026-09-25).
+if [ "$SKIP_NOTARIZE" -eq 0 ]; then
+    echo "==> notarize app (this waits for Apple; usually a few minutes)"
+    APP_ZIP="$DIST/qcview-notarize.zip"
+    rm -f "$APP_ZIP"
+    ditto -c -k --keepParent "$APP" "$APP_ZIP"
+    xcrun notarytool submit "$APP_ZIP" --keychain-profile "$PROFILE" --wait
+    rm -f "$APP_ZIP"
+    echo "==> staple app"
+    xcrun stapler staple "$APP"
+    xcrun stapler validate "$APP"
+    spctl --assess --type exec -vv "$APP"
+fi
+
 # ---- 4. DMG ----------------------------------------------------------------
 echo "==> DMG"
 rm -rf "$DIST/stage" "$DMG"

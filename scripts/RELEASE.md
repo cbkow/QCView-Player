@@ -36,7 +36,8 @@ cmake --build build -j"$(sysctl -n hw.ncpu)"
 
 # 3. run the app once and do the media matrix (see below)
 
-# 4. stage a copy, deploy Qt, bundle dylibs, prune, sign, DMG, notarize, staple
+# 4. stage a copy, deploy Qt, bundle dylibs, prune, sign, notarize + staple
+#    the app, DMG, notarize + staple the DMG (two notarizations)
 scripts/sign-and-notarize.sh              # --skip-notarize for a dry run
 # → build/dist/QCView-MacOS.dmg  (~124 MB; it was 179 before pruning)
 #
@@ -76,6 +77,11 @@ Per-frame decoder warnings are a failure, not noise. The log is at
   re-signed with this Developer ID, innermost first. It is silent until Apple
   answers — `xcrun notarytool log <id> --keychain-profile QCView` names the
   paths.
+- **The app needs its own staple.** The DMG's ticket covers the app only while
+  it is opened from the DMG; the copy in /Applications and the copy Sparkle
+  installs carry what is stapled to the bundle. The 2026-09-22 rewrite had
+  dropped that step and 2.4.0's first DMG went out of the script without it;
+  restored 2026-09-25 (the shipped 2.3.3 app validates as stapled).
 - **macdeployqt is generous.** One Qt QML plugin linking QtMultimedia dragged
   Qt's whole media stack, and a second FFmpeg, into the DMG.
   `prune_bundle.sh` removes what nothing imports and then garbage-collects
@@ -91,6 +97,7 @@ Per-frame decoder warnings are a failure, not noise. The log is at
 codesign --verify --deep --strict --verbose=2 build/src/app/qcview.app
 spctl --assess --type open --context context:primary-signature -vv build/dist/QCView-MacOS.dmg
 xcrun stapler validate build/dist/QCView-MacOS.dmg
+xcrun stapler validate build/dist/qcview.app   # the app carries its own ticket
 otool -L build/src/app/qcview.app/Contents/MacOS/qcview | grep -c homebrew   # must be 0
 ```
 
