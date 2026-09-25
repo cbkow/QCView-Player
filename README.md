@@ -41,6 +41,7 @@ Signed and notarized `.dmg` available from [GitHub Releases](https://github.com/
 - Dual-view comparison (side-by-side, split-wipe, drag-the-seam), difference mode, with independent A / B controls
 - Title-safety guides for broadcast and social-media deliverables
 - Live background switching for alpha-channel review
+- Live input add-ons for Adobe After Effects and Adobe Premiere Pro via Mercury Transmit and Blender via another computer for rendering + SRT streaming
 
 ### Project Support
 - Custom project files (`.qcvproj`)
