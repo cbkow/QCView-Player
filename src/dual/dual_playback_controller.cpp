@@ -390,6 +390,7 @@ void DualPlaybackController::pause()
 {
     if (!m_open.load(std::memory_order_acquire)) return;
     if (!m_timer->isPlaying()) return;
+    m_seekHoldFrame.store(-1, std::memory_order_release);
     m_timer->pause();
     if (m_audio) m_audio->pause();
     emit isPlayingChanged();
@@ -421,6 +422,20 @@ void DualPlaybackController::seekToFrame(int frameNumber)
         int sf = translateMasterToSourceFrame(frameNumber, 'B');
         if (sf < 0) sf = nextClipSourceFrame(frameNumber, 'B');
         if (sf >= 0) m_sourceB->seekTo(sf);
+    }
+
+    // Playing: hold the clock at this frame until the sides have it, so
+    // playback resumes from the seek frame instead of from wherever the
+    // clock got to while a long-GOP side pre-rolled.
+    if (isPlaying() && !(m_audio && m_audio->shuttleActive())) {
+        const auto now = std::chrono::steady_clock::now().time_since_epoch();
+        m_seekHoldDeadlineMs.store(
+            std::chrono::duration_cast<std::chrono::milliseconds>(now).count() + 2500,
+            std::memory_order_release);
+        m_seekHoldFrame.store(frameNumber, std::memory_order_release);
+        qInfo("DualPlaybackController: seek to %d while playing — holding the clock", frameNumber);
+    } else {
+        m_seekHoldFrame.store(-1, std::memory_order_release);
     }
 
     // Audio mirrors the master playhead, but per-side translated:
@@ -1009,7 +1024,32 @@ void DualPlaybackController::clockPumpLoop()
     constexpr auto kPumpInterval = std::chrono::milliseconds(16);   // ~60 Hz
 
     while (!m_stopRequested.load(std::memory_order_acquire)) {
-        const int target = m_timer->update();
+        int target = m_timer->update();
+
+        // Seek-while-playing hold (see the header): pin the clock at the
+        // seek frame until every clocked side has that frame buffered,
+        // then let it run from there. A deadline bounds the wait when a
+        // side cannot produce the frame at all.
+        if (const int hold = m_seekHoldFrame.load(std::memory_order_acquire); hold >= 0) {
+            auto sideReady = [this, hold](IDualSource *src, char side) {
+                if (!src || src->isLive()) return true;
+                const int sf = translateMasterToSourceFrame(hold, side);
+                return sf < 0 || src->hasFrame(sf);
+            };
+            const bool ready = sideReady(m_sourceA.get(), 'A') && sideReady(m_sourceB.get(), 'B');
+            const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            const bool late = nowMs > m_seekHoldDeadlineMs.load(std::memory_order_acquire);
+            // Pin: the timer's seek restarts its baseline at the hold
+            // frame, so the clock has not moved when the hold lifts.
+            m_timer->seekToFrame(hold);
+            target = hold;
+            if (ready || late || !m_timer->isPlaying()) {
+                m_seekHoldFrame.store(-1, std::memory_order_release);
+                qInfo("DualPlaybackController: seek hold at %d released (%s)", hold,
+                      late ? "deadline" : ready ? "both sides ready" : "paused");
+            }
+        }
 
         // Per-side translation — when a clip's startTime / sourceIn
         // is non-zero (post-edit), the master frame maps to a

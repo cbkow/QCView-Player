@@ -313,6 +313,12 @@ private:
     std::unique_ptr<IDualSource>        m_sourceA;
     std::unique_ptr<IDualSource>        m_sourceB;
     std::unique_ptr<DualPlaybackTimer>  m_timer;
+    // Seek while playing: the clock is pinned at the seek frame until
+    // both sides have decoded it (or a deadline passes), then runs from
+    // there. Without the hold a long-GOP side spent the pre-roll behind a
+    // clock that had already moved on (2026-09-25). -1 = no hold.
+    std::atomic<int>     m_seekHoldFrame{-1};
+    std::atomic<int64_t> m_seekHoldDeadlineMs{0};
     // Phase 7.7 Stage 6 — owns the dual-side audio path. Two
     // AudioDecoders + one CoreAudioDevice, mixed in the render
     // callback. Driven by play/pause/seek calls below + the master

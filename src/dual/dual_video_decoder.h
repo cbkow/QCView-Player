@@ -197,6 +197,16 @@ private:
 
     // Seek handling — called from decode thread when m_seekPending is set
     void performSeek(int targetFrame, AVPacket *pkt, AVFrame *frame);
+    // The keyframe at or before `frame`, from the container index
+    // (-1 when the index cannot say). Decode thread only.
+    int keyframeAtOrBefore(int frame) const;
+    // A requested frame that a forward decode from where this thread
+    // already is will reach sooner than a seek would: the frame is ahead
+    // of the last decoded one and its keyframe is not. A seek there
+    // would go back to that same keyframe and start the pre-roll over —
+    // which is what a seek during playback did, every tick, until the
+    // playhead crossed the next keyframe (2026-09-25). Decode thread only.
+    bool forwardRunReaches(int frame) const;
 
     // ---- Metadata (set in open(), const after) ----
     QString m_path;
@@ -237,6 +247,8 @@ private:
     // keyframe, so a seek costs one decode. Enables chase mode in the
     // decode loop when the source can't keep up with the playhead.
     bool              m_intraOnly = false;
+    // Newest frame this thread decoded since the last flush (-1 = none).
+    int               m_lastDecodedFrame = -1;
 
     // Diagnostics for a stall seen on a network volume (LucidLink): the
     // decoder reached EOF with an empty ring and never recovered. Decode

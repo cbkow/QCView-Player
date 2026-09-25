@@ -1127,15 +1127,49 @@ bool DualVideoDecoder::decodeOneFrame(AVFrame *frame, AVPacket *packet)
         if (frameNo < 0) frameNo = 0;
 
         addCurrentFrameToBuffer(frame, frameNo);
+        m_lastDecodedFrame = frameNo;
         av_frame_unref(frame);
         return true;
     }
+}
+
+int DualVideoDecoder::keyframeAtOrBefore(int frame) const
+{
+    if (!m_fmt || m_streamIdx < 0) return -1;
+    AVStream *st = m_fmt->streams[m_streamIdx];
+    const int idx = av_index_search_timestamp(st, ptsForFrameNumber(frame), AVSEEK_FLAG_BACKWARD);
+    if (idx < 0) return -1;
+    const AVIndexEntry *e = avformat_index_get_entry(st, idx);
+    if (!e) return -1;
+    // The entry's timestamp is the packet's (dts for MP4/MOV), at or
+    // below the frame's pts: the result errs low, which only makes the
+    // "keyframe already behind us" test more conservative. With B-frames
+    // the first keyframe's dts is negative, so clamp: the index found an
+    // entry, and an entry before frame 0 is frame 0.
+    return std::max(0, frameNumberForPts(e->timestamp));
+}
+
+bool DualVideoDecoder::forwardRunReaches(int frame) const
+{
+    if (m_intraOnly) return false;            // a seek there costs one decode
+    if (m_lastDecodedFrame < 0) return false; // nothing decoded since the flush
+    if (frame < m_lastDecodedFrame) return false;
+    const int kf = keyframeAtOrBefore(frame);
+    return kf >= 0 && kf <= m_lastDecodedFrame;
 }
 
 void DualVideoDecoder::performSeek(int targetFrame, AVPacket *pkt, AVFrame *frame)
 {
     m_loggedReadEof = false;
     m_loggedStall   = false;
+    {
+        static std::atomic<int> seekLog{0};
+        if ((seekLog.fetch_add(1) % 8) == 0) {
+            qInfo("DualVideoDecoder: seek to %d (keyframe %d, last decoded %d)",
+                  targetFrame, keyframeAtOrBefore(targetFrame), m_lastDecodedFrame);
+        }
+    }
+    m_lastDecodedFrame = -1;
     // This thread reads targetFrame next; warm from the frame after it.
     ReadAhead::instance().setPosition(
         m_readAheadId.load(std::memory_order_acquire), targetFrame + 1);
@@ -1160,16 +1194,32 @@ void DualVideoDecoder::performSeek(int targetFrame, AVPacket *pkt, AVFrame *fram
     avcodec_flush_buffers(m_cctx);
 
     // Burst-decode forward to the target. For intra codecs this is
-    // ~1 frame; for B-frame H.264 it can be up to GOP_size.
-    constexpr int kBurstMax = 256;
+    // ~1 frame; for B-frame H.264 it can be a whole GOP. The target
+    // follows the live decode target while we burst: during playback the
+    // playhead keeps moving, and stopping at the frame the seek named
+    // would leave us behind it and seeking again. A seek request that
+    // arrives meanwhile and points forward within the run is absorbed;
+    // one pointing backward ends the burst so the loop can honour it.
+    constexpr int kBurstMax = 1024;
     int decoded = 0;
+    int want = targetFrame;
     while (decoded < kBurstMax && !m_stopRequested.load(std::memory_order_acquire)) {
         if (!decodeOneFrame(frame, pkt)) break;
         ++decoded;
 
-        // Stop bursting once target is buffered.
+        int pending = m_pendingSeekTarget.load(std::memory_order_acquire);
+        if (pending >= 0) {
+            if (forwardRunReaches(pending)) {
+                // Absorb: setDecodeTarget/seekTo already moved m_decodeTarget.
+                m_pendingSeekTarget.compare_exchange_strong(pending, -1, std::memory_order_acq_rel);
+            } else {
+                break;
+            }
+        }
+        want = std::max(want, m_decodeTarget.load(std::memory_order_acquire));
+
         std::lock_guard<std::mutex> lk(m_bufferMutex);
-        if (m_frameMap.find(targetFrame) != m_frameMap.end()) break;
+        if (m_frameMap.find(want) != m_frameMap.end()) break;
     }
 }
 
@@ -1187,11 +1237,17 @@ void DualVideoDecoder::decodeThreadFunc()
     const int timeoutMs = adaptiveTimeoutMs(m_fps);
 
     while (!m_stopRequested.load(std::memory_order_acquire)) {
-        // ---- Pending seek wins over all other work.
+        // ---- Pending seek wins over all other work — unless a forward
+        // decode from where we are reaches it first (same GOP, ahead of
+        // the last decoded frame): then it is a new target, not a seek.
         const int seekTarget = m_pendingSeekTarget.exchange(-1, std::memory_order_acq_rel);
         if (seekTarget >= 0) {
-            performSeek(seekTarget, pkt, frame);
-            continue;
+            if (forwardRunReaches(seekTarget)) {
+                m_decodeTarget.store(seekTarget, std::memory_order_release);
+            } else {
+                performSeek(seekTarget, pkt, frame);
+                continue;
+            }
         }
 
         // ---- Deadlock backstop: if the ring has drifted entirely ahead
