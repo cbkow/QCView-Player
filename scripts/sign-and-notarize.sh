@@ -8,7 +8,7 @@
 #
 # Requirements on the machine:
 #   - Developer ID Application certificate in the login keychain
-#     ("Christopher Bialkowski", team 5Z4S9VHV56)
+#     (team 5Z4S9VHV56; the identity is looked up by team ID)
 #   - a notarytool keychain profile (default name: QCView), created once with
 #       xcrun notarytool store-credentials "QCView" \
 #         --apple-id <apple-id> --team-id 5Z4S9VHV56
@@ -29,7 +29,11 @@ done
 
 QT_PREFIX="${QT_PREFIX:-$HOME/Qt/6.11.1/macos}"
 PROFILE="${NOTARY_PROFILE:-QCView}"
-IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: Christopher Bialkowski (5Z4S9VHV56)}"
+TEAM_ID="${CODESIGN_TEAM_ID:-5Z4S9VHV56}"
+# The identity string comes from the keychain, not from this file.
+IDENTITY="${CODESIGN_IDENTITY:-$(security find-identity -v -p codesigning \
+    | sed -n "s/.*\"\(Developer ID Application: .*(${TEAM_ID})\)\".*/\1/p" | head -1)}"
+[ -n "$IDENTITY" ] || { echo "no Developer ID Application identity for team $TEAM_ID in the keychain" >&2; exit 1; }
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILT_APP="$REPO/$BUILD_DIR/src/app/qcview.app"   # what CMake produces
 ENTITLEMENTS="$REPO/packaging/macos/entitlements.plist"
