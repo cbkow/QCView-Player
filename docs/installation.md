@@ -50,17 +50,16 @@ Once installed in **Applications**, QCView keeps itself up to date — it checks
 
 What's new in 2.4.0
 
-- **Live sources from After Effects and Premiere Pro** through the new QCBridgeAE device (File → Connect to After Effects / Premiere Pro): the host's frames arrive as float, unclamped, in its working colour space; inf/NaN are flagged in the live strip.
-- **Live sources in dual view** — an SRT stream or an Adobe host can be either side, or both; the live strip gains the colour panel button.
-- **Dual view with empty sides** — enter dual with nothing loaded, drop media onto the side of the viewport it should land on (the side lights while you hover), drop onto a timeline lane, and keep dual when B is cleared or A swapped.
-- **Drag the viewport to move the window** (Settings → "Drag viewport to move window").
-- **Review speed** — the speed chip on the transport is always shown; R cycles, Shift+R resets to 1×; both listed in Shortcuts.
-- **Network volumes** — read-ahead hydrates the frames under review (and the whole loop range) so LucidLink and SMB playback does not stall on first pass; playback fps and read waits are logged every 2 s.
-- **Inspector** — a QCBridge source shows what a QC call rests on: Colour, Range, Alpha and one instruction; MXF/DNx detail rows from 2.2.x remain.
-- **Timeline and bottom bands** — one surface grey for the gutters, status row and transport; a full hairline against the viewport; faded pencil icons until hovered; Alt+Scroll pans on Windows too.
-- **Dual view fixes** — a seek while playing on a long-GOP side (H.264, HEVC) no longer chases the playhead to the next keyframe: the clock holds at the seek frame until both sides have it; In/Out markers and loop edges land where they belong when the two sides run at different rates; the empty-lane hint sits clear of the lane separator; the ruler is framed on all four sides.
-- **OCIO switch** reads On / Off.
-- **Under the hood** — Metal upload ring (no upload over a texture in flight), the dual-view teardown handshake and timeline snapshot (media switches while dual is open no longer race), audio-only files play again, Chinese and other UTF-8 file names load on Windows, the log lives in ~/Library/Logs/QCView (macOS) and %LOCALAPPDATA%\QCView\logs (Windows), Qt Multimedia dropped and the macOS DMG pruned from 179 to about 125 MB.
+- **Live sources from After Effects and Premiere Pro** over Mercury Transmit with the QCViewAE Add-on (separate download).
+- **Live sources in dual view** — an SRT stream or an Adobe host can be either side, or both.
+- **Dual view with empty sides** — refinement to dual view behavior so that it’s not longer dependent on having a single media-item loaded first. Dual View can be toggled when empty.
+- **Drag the viewport to move the window** ( Can be disabled in Settings → "Drag viewport to move window").
+- **Drag into viewport for Dual Views** - Added support to drag media from file browsers or the project bins into either side of the viewport when in Dual View modes.
+- **Drag into timelines** - Added drop zones in the timeline tracks to drop media from file browsers or project bins.
+- **Review speed** — can speed up or slow down playback.
+- **Streaming File Sync Enhancements** — video items trigger a lightweight read-ahead to force streaming services, like LucidLink, to download frames ahead of the playhead.
+- **Dual view fixes** — fixed playback after seeking for b-frame media when in a Dual View.
+- **App Size** — Builds on macOS and Windows were pruned and file sizes are a bit smaller.
 
 What's new in 2.3.3
 
