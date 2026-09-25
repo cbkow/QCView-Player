@@ -2470,7 +2470,9 @@ void WindowManager::forwardViewportPointer(int phase, qreal x, qreal y,
 void WindowManager::pushInOutToTimer()
 {
     if (m_timeline && m_timeline->timer()) {
-        const double fps = m_timeline->timer()->frameRate();
+        // In/out are frames of the active clock (dual: the master
+        // rate; the timeline timer keeps A's display rate).
+        const double fps = activeClockFps();
         if (fps <= 0.0 || !hasInOutRange()) {
             m_timeline->timer()->setLoopRange(0.0, 0.0);
         } else {

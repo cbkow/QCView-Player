@@ -1859,10 +1859,16 @@ Pane {
                     WindowManager.hasInOutRange
                     && !(WindowManager.timeline
                          && WindowManager.timeline.sourceMode === 1)
+                // In/out are frames of the active clock (dual: the
+                // master rate), not of this side's own rate.
+                readonly property real clockFps:
+                    WindowManager.dualController
+                    && WindowManager.dualController.fps > 0
+                        ? WindowManager.dualController.fps : fps2
                 readonly property real inEdgeX: {
                     if (!hasRange) return 1;
-                    if (fps2 <= 0) return 1;
-                    return timeToX(WindowManager.inPoint / fps2);
+                    if (clockFps <= 0) return 1;
+                    return timeToX(WindowManager.inPoint / clockFps);
                 }
                 readonly property real outEdgeX: {
                     // No-range fallback: full content width (in
@@ -1870,11 +1876,11 @@ Pane {
                     // the timeline was always fit-to-width.
                     const fullW = duration * pps;
                     if (!hasRange) return Math.max(0, fullW - 1);
-                    if (fps2 <= 0) return Math.max(0, fullW - 1);
+                    if (clockFps <= 0) return Math.max(0, fullW - 1);
                     // out is inclusive frame; +1 so the right edge
                     // sits *after* the last frame to match the wrap
                     // semantics on the playback side.
-                    return timeToX((WindowManager.outPoint + 1) / fps2);
+                    return timeToX((WindowManager.outPoint + 1) / clockFps);
                 }
                 readonly property real leftEdge:  inEdgeX
                 readonly property real rightEdge: outEdgeX
@@ -2036,16 +2042,22 @@ Pane {
                     WindowManager.hasInOutRange
                     && !(WindowManager.timeline
                          && WindowManager.timeline.sourceMode === 1)
+                // In/out are frames of the active clock (dual: the
+                // master rate), not of this side's own rate.
+                readonly property real clockFps:
+                    WindowManager.dualController
+                    && WindowManager.dualController.fps > 0
+                        ? WindowManager.dualController.fps : fps2
                 readonly property real inEdgeX: {
                     if (!hasRange) return 1;
-                    if (fps2 <= 0) return 1;
-                    return timeToX(WindowManager.inPoint / fps2);
+                    if (clockFps <= 0) return 1;
+                    return timeToX(WindowManager.inPoint / clockFps);
                 }
                 readonly property real outEdgeX: {
                     const fullW = duration * pps;
                     if (!hasRange) return Math.max(0, fullW - 1);
-                    if (fps2 <= 0) return Math.max(0, fullW - 1);
-                    return timeToX((WindowManager.outPoint + 1) / fps2);
+                    if (clockFps <= 0) return Math.max(0, fullW - 1);
+                    return timeToX((WindowManager.outPoint + 1) / clockFps);
                 }
                 readonly property real leftEdge:  inEdgeX
                 readonly property real rightEdge: outEdgeX
@@ -2128,7 +2140,15 @@ Pane {
                 z: 1   // above clip rect, below playhead
                 readonly property int  inFr:  WindowManager.inPoint
                 readonly property int  outFr: WindowManager.outPoint
+                // In/out are frames of the active clock. In dual that
+                // is the master rate (the faster side), not the
+                // timeline's display rate, which stays at A's: with a
+                // 24 fps A and a 60 fps B the markers otherwise land
+                // 2.5× too far right and run off the end of B.
                 readonly property real fpsLocal: {
+                    if (WindowManager.dualController
+                        && WindowManager.dualController.fps > 0)
+                        return WindowManager.dualController.fps;
                     const t = WindowManager.timeline
                               ? WindowManager.timeline.timer : null;
                     return t ? t.frameRate : frameRate;
