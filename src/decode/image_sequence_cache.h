@@ -1,7 +1,7 @@
 // ImageSequenceCache — Phase 7.4.b.4 (renamed from DirectEXRCache).
 //
 // Faithful port of the old QCView's `direct_exr_cache.{h,cpp}`
-// (~2249 lines, /Users/chris/Documents/GitHub/QCView-Player/src/player/).
+// (~2249 lines, src/player/).
 // The OLD app uses DirectEXRCache for ALL primary image-sequence
 // formats (EXR/TIFF/PNG/JPEG) — see timeline_cache.cpp:330-433. The
 // per-format loader is plugged INTO the cache as IImageLoader. We

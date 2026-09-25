@@ -16,7 +16,7 @@ public static class KBH {
 function Alive { return [bool](Get-Process qcview -ErrorAction SilentlyContinue) }
 function Stamp($m) { "$(Get-Date -Format HH:mm:ss.fff) [$Label] $m" }
 function Wait-Alive($sec) { for ($i=0; $i -lt $sec; $i++) { Start-Sleep 1; if (-not (Alive)) { Stamp "PROCESS GONE at wait second $i"; return $false } }; return $true }
-$dir = "C:\Volumes\union-ny-gfx\union-jobs\261317_Atkins\postings\260831a_resizes"
+$dir = "C:\path\to\a\folder\of\media"
 $p = Start-Process -FilePath $Exe -ArgumentList "--playlist-test", "`"$dir`"" -WorkingDirectory (Split-Path $Exe -Parent) -PassThru
 Stamp "launched pid $($p.Id)"
 if (-not (Wait-Alive 14)) { exit 1 }

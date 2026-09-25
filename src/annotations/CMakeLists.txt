@@ -36,7 +36,7 @@ target_include_directories(qcv_annotations
     PRIVATE
         # ink-stroke-modeler doesn't propagate its include dir as a
         # usage requirement — match the old app's manual add (see
-        # /Users/chris/Documents/GitHub/QCView-Player/CMakeLists.txt:74).
+        # CMakeLists.txt:74).
         ${CMAKE_BINARY_DIR}/_deps/ink_stroke_modeler-src
 )
 

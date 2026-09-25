@@ -546,7 +546,7 @@ amended `dnxhddec.c` so `git apply --check -R` stays true; the installed
 ```bash
 # Trial build against 9.x without disturbing build/ or external/install/
 cmake -S . -B build-ff9 -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_PREFIX_PATH=/Users/chris/Qt/6.11.1/macos \
+  -DCMAKE_PREFIX_PATH=$HOME/Qt/6.11.1/macos \
   -DQCV_FFMPEG_PREFIX="$PWD/external/install-ff9"
 cmake --build build-ff9 -j"$(sysctl -n hw.ncpu)"
 ```

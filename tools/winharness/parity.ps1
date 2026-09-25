@@ -6,8 +6,8 @@ $clips = @(
   "$sp\fmt9\ffv1_422p10.mkv",
   "$sp\fmt9\ffv1_420p8.mov",
   "$sp\fmt9\ffv1_gbrp12.mkv",
-  "C:\Volumes\union-ny-gfx\union-jobs\000000_SYNC\CW  .  BALANCING MACRO AND MICRO CONCERNS.mov",
-  "C:\Volumes\union-ny-gfx\union-jobs\000000_SYNC\01_A001_09211049_C068.mov"
+  "C:\path\to\media\dnxhr_444.mov",
+  "C:\path\to\media\prores_raw.mov"
 )
 $env:QCV_DUMP_FRAME = "$sp\parity\$Mode"
 if ($Mode -eq "legacy") { $env:QCV_SWS_THREADS = "1"; $env:QCV_SWS_LEGACY = "1" } else { $env:QCV_SWS_LEGACY = $null; $env:QCV_SWS_THREADS = $null }
