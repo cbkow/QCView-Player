@@ -76,6 +76,7 @@ struct MetalOcioRenderer::Impl {
     int            outputH   = 0;
 
     int     lastChainGeneration = -1;
+    bool    sdrCapture = false;
     QString lastError;
 };
 
@@ -139,6 +140,12 @@ const QString &MetalOcioRenderer::lastError() const
     return m_impl->lastError;
 }
 
+void MetalOcioRenderer::setSdrCapture(bool on)
+{
+    m_impl->sdrCapture          = on;
+    m_impl->lastChainGeneration = -1;
+}
+
 bool MetalOcioRenderer::rebuild(OCIOConfigManager *ocio)
 {
     if (!ocio || !isInitialized()) return false;
@@ -149,8 +156,14 @@ bool MetalOcioRenderer::rebuild(OCIOConfigManager *ocio)
         return true;
     }
 
+    // The SDR mapping is a pure function of the active chain, so the
+    // generation cache stays valid for the capture instance too.
+    DisplayViewOverride sdr;
+    const bool useSdr = m_impl->sdrCapture
+        && ocio->sdrCaptureDisplayView(&sdr.display, &sdr.view);
     OcioChain chain =
-        OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Msl_2_0);
+        OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Msl_2_0,
+                                useSdr ? &sdr : nullptr);
     if (!chain.ok) {
         m_impl->lastError = chain.errorMessage;
         m_impl->pipeline  = nil;

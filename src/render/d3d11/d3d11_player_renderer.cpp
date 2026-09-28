@@ -162,6 +162,13 @@ struct D3D11PlayerRenderer::Impl {
     // When OCIO is disengaged we bypass the intermediate and the
     // compositor draws directly to the swapchain RTV.
     D3D11OcioRenderer                ocio;
+    // Capture-only chain: SDR sRGB equivalent of the live Display/View
+    // (see D3D11OcioRenderer::setSdrCapture). Compiled in the
+    // background by warmCaptureOcio() whenever the chain changes and
+    // the live display isn't already sRGB.
+    D3D11OcioRenderer                captureOcio;
+    int                              captureSdrGen   = -1;
+    bool                             captureNeedsSdr = false;
     ComPtr<ID3D11Texture2D>          compositeTex;     // RGBA16F at swapchain size
     ComPtr<ID3D11RenderTargetView>   compositeRtv;
     ComPtr<ID3D11ShaderResourceView> compositeSrv;
@@ -504,6 +511,11 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
         // without waiting for the next decoded frame to nudge us.
         m_impl->ocio.setWakeCallback([this]{ requestUpdate(); });
     }
+    m_impl->captureOcio.setSdrCapture(true);
+    if (!m_impl->captureOcio.initialize()) {
+        qWarning("D3D11PlayerRenderer::init: capture OCIO renderer init failed: %s",
+                 qPrintable(m_impl->captureOcio.lastError()));
+    }
 
     // Image-sequence texture pool + GPU upload thread (Phase F.2.6).
     // Pool is a singleton; idempotent initialize(). Upload thread is
@@ -629,6 +641,7 @@ void D3D11PlayerRenderer::shutdown()
     m_impl->vulkanBridge.shutdown();
     m_impl->annotations.shutdown();
     m_impl->ocio.shutdown();
+    m_impl->captureOcio.shutdown();
     m_impl->releaseSingleIntermediates();
     m_impl->compositor.shutdown();
     m_impl->videoA.srv.Reset();
@@ -1148,6 +1161,7 @@ void D3D11PlayerRenderer::drawFrame()
     if (useOcio) {
         useOcio = m_impl->ocio.rebuild(m_ocio);
     }
+    warmCaptureOcio();
 
     const int  W = m_impl->currentW;
     const int  H = m_impl->currentH;
@@ -1710,6 +1724,7 @@ void D3D11PlayerRenderer::drawDualFrame()
         bool useOcio = (m_ocio != nullptr) && m_ocio->engaged() &&
                        m_impl->ocio.isInitialized();
         if (useOcio) useOcio = m_impl->ocio.rebuild(m_ocio);
+        warmCaptureOcio();
 
         if (useOcio) {
             // Lazy-create / resize the OCIO output intermediate at canvas size.
@@ -1950,6 +1965,23 @@ void D3D11PlayerRenderer::drawDualFrame()
     swapchain->Present(1 /*sync to vsync*/, 0);
 }
 
+void D3D11PlayerRenderer::warmCaptureOcio()
+{
+    if (!m_ocio || !m_ocio->engaged() || !m_impl->captureOcio.isInitialized()) {
+        return;
+    }
+    const int gen = m_ocio->activeChainGeneration();
+    if (gen != m_impl->captureSdrGen) {
+        QString display, view;
+        m_impl->captureNeedsSdr = m_ocio->sdrCaptureDisplayView(&display, &view);
+        m_impl->captureSdrGen   = gen;
+    }
+    // Async: spawns the compile worker on a generation change, no-op
+    // otherwise. Skipped when the live chain is already sRGB — the
+    // capture then reuses the live pipeline.
+    if (m_impl->captureNeedsSdr) m_impl->captureOcio.rebuild(m_ocio);
+}
+
 void D3D11PlayerRenderer::serviceScreenshotRequest()
 {
     auto deliver = [this](QImage img) {
@@ -2075,13 +2107,28 @@ void D3D11PlayerRenderer::serviceScreenshotRequest()
     }
 
     // ---- Pass 2: OCIO if engaged, else compositor passthrough ----
-    // Both paths land in captureDstRgba8 (RGBA8 RTV).
+    // Both paths land in captureDstRgba8 (RGBA8 RTV). Captures are
+    // 8-bit sRGB files, so when the live display isn't sRGB (scRGB
+    // linear, HDR10 PQ, P3) use the SDR capture chain instead.
     {
-        const bool useOcio = (m_ocio && m_ocio->engaged() &&
-                              m_impl->ocio.isInitialized() &&
-                              m_impl->ocio.rebuild(m_ocio));
+        D3D11OcioRenderer *capOcio = nullptr;
+        if (m_ocio && m_ocio->engaged()) {
+            warmCaptureOcio();
+            if (m_impl->captureNeedsSdr
+                && m_impl->captureOcio.rebuild(m_ocio)) {
+                capOcio = &m_impl->captureOcio;
+            } else if (m_impl->ocio.isInitialized()
+                       && m_impl->ocio.rebuild(m_ocio)) {
+                if (m_impl->captureNeedsSdr) {
+                    qWarning("D3D11PlayerRenderer: SDR capture chain still "
+                             "compiling — capturing with the live chain");
+                }
+                capOcio = &m_impl->ocio;
+            }
+        }
+        const bool useOcio = capOcio != nullptr;
         if (useOcio) {
-            m_impl->ocio.apply(
+            capOcio->apply(
                 ctx,
                 m_impl->captureSourceRgba16fSrv.Get(),
                 m_impl->captureDstRgba8Rtv.Get(),

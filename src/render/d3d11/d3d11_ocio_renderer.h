@@ -42,6 +42,13 @@ public:
     // Returns true on success.
     bool rebuild(OCIOConfigManager *ocio);
 
+    // Capture instance: build the SDR sRGB equivalent of the active
+    // chain (OCIOConfigManager::sdrCaptureDisplayView) instead of the
+    // live Display/View, so screenshots / note thumbnails stay correct
+    // while the viewport targets scRGB linear, HDR10 PQ or P3.
+    // Set once before the first rebuild().
+    void setSdrCapture(bool on);
+
     // Apply the current pipeline. The caller has prepared:
     //   - `srcSrv`  — RGBA16F SRV of the (compositor-composited) input
     //   - `dstRtv`  — RTV of the destination (the swapchain back buffer)

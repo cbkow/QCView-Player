@@ -11,7 +11,8 @@ namespace qcv {
 OCIO::GroupTransformRcPtr OcioChainBuilder::buildGroupTransform(
     OCIOConfigManager *ocio,
     OCIO::ConstConfigRcPtr cfg,
-    QString *errorOut)
+    QString *errorOut,
+    const DisplayViewOverride *override)
 {
     auto fail = [&](const QString &msg) -> OCIO::GroupTransformRcPtr {
         if (errorOut) *errorOut = msg;
@@ -22,15 +23,16 @@ OCIO::GroupTransformRcPtr OcioChainBuilder::buildGroupTransform(
     if (!cfg)  return fail(QStringLiteral("OcioChainBuilder: null OCIO config"));
 
     const QString inputCs = ocio->activeInput();
-    const QString display = ocio->activeDisplay();
-    const QString view    = ocio->activeView();
+    const QString display = override ? override->display : ocio->activeDisplay();
+    const QString view    = override ? override->view    : ocio->activeView();
     const QString look    = ocio->activeLook();
     if (inputCs.isEmpty() || display.isEmpty() || view.isEmpty()) {
         return fail(QStringLiteral("OcioChainBuilder: active chain incomplete"));
     }
 
     const QString sceneLutPath   = ocio->activeSceneLutPath();
-    const QString displayLutPath = ocio->activeDisplayLutPath();
+    const QString displayLutPath =
+        override ? QString() : ocio->activeDisplayLutPath();
 
     try {
         // Phase 2.5d / Guide 05 D7 chain shape (preserved verbatim from
@@ -98,7 +100,8 @@ OCIO::GroupTransformRcPtr OcioChainBuilder::buildGroupTransform(
     }
 }
 
-OcioChain OcioChainBuilder::build(OCIOConfigManager *ocio, Language language)
+OcioChain OcioChainBuilder::build(OCIOConfigManager *ocio, Language language,
+                                  const DisplayViewOverride *override)
 {
     OcioChain out;
 
@@ -124,7 +127,7 @@ OcioChain OcioChainBuilder::build(OCIOConfigManager *ocio, Language language)
         cfg = OCIO::Config::CreateFromFile(
             ocio->configIdentifier().toUtf8().constData());
 
-        group = buildGroupTransform(ocio, cfg, &out.errorMessage);
+        group = buildGroupTransform(ocio, cfg, &out.errorMessage, override);
         if (!group) {
             return out;  // errorMessage already populated
         }

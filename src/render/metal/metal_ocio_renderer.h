@@ -50,6 +50,13 @@ public:
     // (cached by the chain generation atomic). Returns true on success.
     bool rebuild(OCIOConfigManager *ocio);
 
+    // Capture instance: build the SDR sRGB equivalent of the active
+    // chain (OCIOConfigManager::sdrCaptureDisplayView) instead of the
+    // live Display/View, so screenshots / note thumbnails stay correct
+    // while the viewport targets a linear EDR, PQ/HLG or P3 display.
+    // Set once before the first rebuild().
+    void setSdrCapture(bool on);
+
     // Apply the current pipeline to `sourceMtlTexture` (RGBA16F,
     // already-decoded source frame). Encodes a compute pass on
     // `cmdBuf` (id<MTLCommandBuffer> as void*). On success, returns

@@ -150,6 +150,10 @@ struct MetalPlayerRenderer::Impl {
 
     // Phase 7.5 B.6.4 — OCIO display transform.
     MetalOcioRenderer    ocio;
+    // Capture-only chain: SDR sRGB equivalent of the live Display/View
+    // (see MetalOcioRenderer::setSdrCapture). Separate instance so a
+    // screenshot never rebuilds or overwrites the live pipeline/output.
+    MetalOcioRenderer    captureOcio;
 
     // Phase 7.5 B.6.5 — annotation strokes.
     MetalAnnotationRenderer annotations;
@@ -273,10 +277,10 @@ struct MetalPlayerRenderer::Impl {
     int                     captureSourceRgba16fH = 0;
 
     // Capture-side compositor — second MetalCompositor instance
-    // baked at RGBA8Unorm_sRGB (the swapchain's compositor is
-    // baked at the layer's pixel format, which for HDR is
-    // RGBA16Float and rejects sRGB-encoding writes). Built lazily
-    // on the first screenshot.
+    // baked at plain RGBA8Unorm (the swapchain's compositor is baked
+    // at the layer's pixel format, RGBA16Float for HDR). No hardware
+    // sRGB encode: captureOcio already emits sRGB-encoded SDR values.
+    // Built lazily on the first screenshot.
     MetalCompositor         captureCompositor;
     // Phase 3.H.6 Stage D — separate annotation renderer pinned
     // to RGBA8Unorm (the capture target). Lets the screenshot /
@@ -403,6 +407,10 @@ bool MetalPlayerRenderer::init(PlayerWindow *window)
     if (!m_impl->ocio.initialize()) {
         qWarning("MetalPlayerRenderer: OCIO renderer init failed");
     }
+    m_impl->captureOcio.setSdrCapture(true);
+    if (!m_impl->captureOcio.initialize()) {
+        qWarning("MetalPlayerRenderer: capture OCIO renderer init failed");
+    }
 
     // Phase 7.5 B.6.5: annotation render pipeline at the active
     // pixel format (re-baked when HDR mode flips, same as compositor).
@@ -482,6 +490,7 @@ void MetalPlayerRenderer::shutdown()
     m_impl->yuv.shutdown();
     m_impl->pixbufBridge.shutdown();
     m_impl->ocio.shutdown();
+    m_impl->captureOcio.shutdown();
     m_impl->annotations.shutdown();
     m_impl->videoFrameRgba           = nil;
     m_impl->videoHandle              = FrameHandle{};
@@ -1149,9 +1158,10 @@ void MetalPlayerRenderer::drawFrame()
             [enc endEncoding];
         }
 
-        // Dual-mode screenshot capture. Dump the post-OCIO canvas
-        // (`dualCorrected`, RGBA16F at canvasW × canvasH) directly
-        // into an RGBA8 shared texture via a 1:1 blit. The canvas
+        // Dual-mode screenshot capture. Re-run the pre-OCIO canvas
+        // (`compositeRawDual`) through the SDR capture chain and dump
+        // it into an RGBA8 shared texture via a 1:1 blit (the live
+        // `dualCorrected` may be linear EDR / PQ, wrong stored as sRGB). The canvas
         // size tracks the drawable (capped at 4K), so screenshots
         // come out at viewport resolution. Native-source-resolution
         // capture would need a separate full-res render pass; that
@@ -1183,6 +1193,19 @@ void MetalPlayerRenderer::drawFrame()
                 id<MTLTexture> dstTex =
                     [m_impl->device newTextureWithDescriptor:dstDesc];
 
+                void *capCorrected = (__bridge void *)m_impl->compositeRawDual;
+                if (m_ocio && m_ocio->engaged()) {
+                    m_impl->captureOcio.rebuild(m_ocio);
+                    if (m_impl->captureOcio.hasPipeline()) {
+                        void *ocioOut = m_impl->captureOcio.apply(
+                            (__bridge void *)cb,
+                            (__bridge void *)m_impl->compositeRawDual,
+                            m_impl->compositeRawDualW,
+                            m_impl->compositeRawDualH);
+                        if (ocioOut) capCorrected = ocioOut;
+                    }
+                }
+
                 MTLRenderPassDescriptor *capRpd =
                     [MTLRenderPassDescriptor renderPassDescriptor];
                 capRpd.colorAttachments[0].texture     = dstTex;
@@ -1195,12 +1218,22 @@ void MetalPlayerRenderer::drawFrame()
 
                 m_impl->captureCompositor.renderSource(
                     (__bridge void *)capEnc,
-                    dualCorrected,
+                    capCorrected,
                     canvasW, canvasH, canvasW, canvasH,
                     MetalCompositor::Single, 0.5f);
 
+                // Safety overlay via the RGBA8-baked capture renderer —
+                // the live one is baked at the swapchain format
+                // (RGBA16Float in HDR), which doesn't match dstTex.
+                if (!m_impl->captureAnnotations.isInitialized()
+                    || m_impl->captureAnnotations.targetPixelFormat()
+                        != kCaptureFmt) {
+                    m_impl->captureAnnotations.shutdown();
+                    m_impl->captureAnnotations.initialize(kCaptureFmt);
+                }
+                m_impl->captureAnnotations.beginFrame();
                 if (m_safety && m_safety->isLoaded()
-                    && m_impl->annotations.isInitialized()
+                    && m_impl->captureAnnotations.isInitialized()
                     && m_dualControllerPtr.load(std::memory_order_acquire)) {
                     auto *ctl = static_cast<dual::DualPlaybackController *>(
                         m_dualControllerPtr.load(std::memory_order_acquire));
@@ -1228,7 +1261,7 @@ void MetalPlayerRenderer::drawFrame()
                         const TessellatedMesh m =
                             m_safety->mesh(r.topLeft(), r.size());
                         if (m.vertices.empty()) return;
-                        m_impl->annotations.drawMesh(
+                        m_impl->captureAnnotations.drawMesh(
                             (__bridge void *)capEnc, m, canvasW, canvasH);
                     };
 
@@ -2027,9 +2060,9 @@ void MetalPlayerRenderer::drawFrame()
             void *correctedTex =
                 (__bridge void *)m_impl->captureSourceRgba16f;
             if (m_ocio && m_ocio->engaged()) {
-                m_impl->ocio.rebuild(m_ocio);
-                if (m_impl->ocio.hasPipeline()) {
-                    void *ocioOut = m_impl->ocio.apply(
+                m_impl->captureOcio.rebuild(m_ocio);
+                if (m_impl->captureOcio.hasPipeline()) {
+                    void *ocioOut = m_impl->captureOcio.apply(
                         (__bridge void *)capCb,
                         (__bridge void *)m_impl->captureSourceRgba16f,
                         srcW, srcH);

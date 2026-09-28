@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
+#include <QRegularExpression>
 #include <QtLogging>
 
 #include <cstdlib>
@@ -347,6 +348,92 @@ QStringList OCIOConfigManager::viewsForDisplay(const QString &display) const
         out << QString::fromUtf8(m_impl->config->getView(d.constData(), i));
     }
     return out;
+}
+
+bool OCIOConfigManager::sdrCaptureDisplayView(QString *display, QString *view) const
+{
+    if (!m_impl->config || m_activeDisplay.isEmpty() || m_activeView.isEmpty()) {
+        return false;
+    }
+
+    // Target display: "sRGB" (Blender) / "sRGB - Display" (ACES
+    // studio configs), else the first sRGB-named display that isn't
+    // one of our linear EDR ones.
+    const QStringList allDisplays = displays();
+    QString target;
+    for (const QString &d : allDisplays) {
+        if (d == QLatin1String("sRGB") || d == QLatin1String("sRGB - Display")) {
+            target = d;
+            break;
+        }
+    }
+    if (target.isEmpty()) {
+        for (const QString &d : allDisplays) {
+            if (d.startsWith(QLatin1String("sRGB"), Qt::CaseInsensitive)
+                && !d.contains(QLatin1String("EDR"), Qt::CaseInsensitive)
+                && !d.contains(QLatin1String("Linear"), Qt::CaseInsensitive)) {
+                target = d;
+                break;
+            }
+        }
+    }
+    if (target.isEmpty() || target == m_activeDisplay) return false;
+
+    const QStringList views = viewsForDisplay(target);
+    if (views.isEmpty()) return false;
+
+    const QString &src = m_activeView;
+    const bool srcD60 = src.contains(QLatin1String("D60"));
+    auto pick = [&](const QString &v) {
+        *display = target;
+        *view    = v;
+        return true;
+    };
+
+    // 1. Same view exists on the sRGB display ("Standard", "AgX",
+    //    "Un-tone-mapped", "ACES 2.0 - SDR 100 nits (Rec.709)", "Raw").
+    if (views.contains(src)) return pick(src);
+
+    // 2. Blender naming: drop the HDR/SDR tier or the no-tonemap tag
+    //    ("ACES 2.0 - HDR 1000 nits" → "ACES 2.0",
+    //     "Standard (No Tonemap)" → "Standard").
+    QString base = src;
+    base.remove(QLatin1String(" (No Tonemap)"));
+    for (const char *tier : {" - HDR", " - SDR"}) {
+        const int at = base.indexOf(QLatin1String(tier));
+        if (at > 0) base.truncate(at);
+    }
+    if (views.contains(base)) return pick(base);
+
+    // 3. ACES studio naming: "ACES 2.0 - HDR 1000 nits (P3 D65)" →
+    //    an "ACES 2.0 - SDR 100 nits (...)" view, keeping the D60
+    //    sim choice ("(Rec.709)" vs "(Rec.709 D60 in Rec.709 D65)").
+    // 4. Otherwise any SDR view of the same family ("ACES 1.1 - HDR
+    //    Video (...)" → "ACES 1.0 - SDR Video"), same D60 rule.
+    const QString family = src.section(QLatin1Char(' '), 0, 0);
+    QString sdrPrefix = src;
+    sdrPrefix.replace(QRegularExpression(QStringLiteral("HDR \\d+ nits.*$")),
+                      QStringLiteral("SDR 100 nits"));
+    for (int pass = 0; pass < 2; ++pass) {
+        QString fallback;
+        for (const QString &v : views) {
+            const bool match = (pass == 0)
+                ? (sdrPrefix != src && v.startsWith(sdrPrefix))
+                : (!family.isEmpty() && v.startsWith(family)
+                   && v.contains(QLatin1String("SDR")));
+            if (!match) continue;
+            if (v.contains(QLatin1String("D60")) == srcD60) return pick(v);
+            if (fallback.isEmpty()) fallback = v;
+        }
+        if (!fallback.isEmpty()) return pick(fallback);
+    }
+
+    // 5. The sRGB display's default view.
+    const QByteArray t = target.toUtf8();
+    const char *def = m_impl->config->getDefaultView(t.constData());
+    qWarning("OCIOConfigManager: no SDR capture match for view '%s' — using "
+             "'%s' on '%s'", qPrintable(src), def ? def : "?", t.constData());
+    return pick(def && *def ? QString::fromUtf8(def) : views.first());
 }
 
 QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)

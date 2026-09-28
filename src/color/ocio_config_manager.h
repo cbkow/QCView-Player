@@ -85,6 +85,17 @@ public:
     // safe to call from the QML thread at the default 65³ size.
     Q_INVOKABLE QString exportLut(const QString &outPath, int cubeSize = 65);
 
+    // SDR sRGB equivalent of the active Display/View, for captures
+    // (screenshots, note thumbnails, modal backdrop). Captures are
+    // 8-bit sRGB files, but the live chain may target a linear EDR,
+    // PQ/HLG or P3 display whose output is wrong stored as sRGB.
+    // Resolves the config's sRGB display plus the closest matching
+    // view ("ACES 2.0 - HDR 1000 nits" → "ACES 2.0", "... (P3 D65)" →
+    // "ACES 2.0 - SDR 100 nits (Rec.709)", "Standard (No Tonemap)" →
+    // "Standard"). Returns false when no override is needed (already
+    // on the sRGB display) or the config has no sRGB display.
+    bool sdrCaptureDisplayView(QString *display, QString *view) const;
+
     // Active chain (drives shader cache key in Phase 2.2+).
     QString activeInput()           const { return m_activeInput; }
     QString activeDisplay()         const { return m_activeDisplay; }

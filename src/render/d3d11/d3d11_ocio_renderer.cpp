@@ -157,6 +157,7 @@ struct D3D11OcioRenderer::Impl {
 
     int     lastChainGeneration = -1;
     QString lastError;
+    std::atomic<bool> sdrCapture{false};   // read by the rebuild worker
 
     // --- Async rebuild plumbing -------------------------------------
     // D3DCompile on heavy OCIO chains (AgX with multi-hundred-line
@@ -269,6 +270,12 @@ void D3D11OcioRenderer::setWakeCallback(std::function<void()> cb)
     m_impl->wakeCallback = std::move(cb);
 }
 
+void D3D11OcioRenderer::setSdrCapture(bool on)
+{
+    m_impl->sdrCapture.store(on);
+    m_impl->lastChainGeneration = -1;
+}
+
 bool D3D11OcioRenderer::rebuild(OCIOConfigManager *ocio)
 {
     if (!ocio || !isInitialized()) return false;
@@ -335,8 +342,14 @@ void D3D11OcioRenderer::doRebuildWork(int gen, OCIOConfigManager *ocio)
         if (m_impl->wakeCallback) m_impl->wakeCallback();
     };
 
+    // The SDR mapping is a pure function of the active chain, so the
+    // generation cache stays valid for the capture instance too.
+    DisplayViewOverride sdr;
+    const bool useSdr = m_impl->sdrCapture.load()
+        && ocio->sdrCaptureDisplayView(&sdr.display, &sdr.view);
     OcioChain chain =
-        OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0);
+        OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0,
+                                useSdr ? &sdr : nullptr);
     if (!chain.ok) {
         stageEmpty(chain.errorMessage);
         return;

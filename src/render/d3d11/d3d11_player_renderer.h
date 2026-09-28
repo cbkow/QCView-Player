@@ -121,6 +121,9 @@ private:
     // QImage RGBA8888 (BGRA→RGBA swizzle), stores into
     // Impl::screenshotResult, signals the cv.
     void serviceScreenshotRequest();
+    // Keep the SDR capture chain compiled ahead of time — the GUI only
+    // waits 250 ms for a capture and D3DCompile can take seconds.
+    void warmCaptureOcio();
 
     struct Impl;
     std::unique_ptr<Impl>      m_impl;

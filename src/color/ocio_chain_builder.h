@@ -36,6 +36,14 @@ namespace qcv {
 
 class OCIOConfigManager;
 
+// Replaces the active Display/View (and drops the Display LUT, which is
+// calibrated for the live display). Used for SDR captures — see
+// OCIOConfigManager::sdrCaptureDisplayView.
+struct DisplayViewOverride {
+    QString display;
+    QString view;
+};
+
 struct OcioChain {
     OCIO_NAMESPACE::ConstGpuShaderDescRcPtr desc;
     QString shaderText;    // OCIO's emitted shader function (language depends on call)
@@ -58,7 +66,8 @@ public:
     // already serializes access to `ocio` (the caller is responsible
     // for that; OCIOConfigManager itself is thread-safe to read).
     static OcioChain build(OCIOConfigManager *ocio,
-                           Language language = Language::Glsl_4_0);
+                           Language language = Language::Glsl_4_0,
+                           const DisplayViewOverride *override = nullptr);
 
     // Construct just the OCIO::GroupTransform that mirrors the live
     // render chain (Look → Scene LUT → DisplayView → Display LUT).
@@ -70,7 +79,8 @@ public:
     static OCIO_NAMESPACE::GroupTransformRcPtr buildGroupTransform(
         OCIOConfigManager *ocio,
         OCIO_NAMESPACE::ConstConfigRcPtr cfg,
-        QString *errorOut = nullptr);
+        QString *errorOut = nullptr,
+        const DisplayViewOverride *override = nullptr);
 };
 
 } // namespace qcv
