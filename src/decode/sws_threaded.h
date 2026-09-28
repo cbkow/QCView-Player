@@ -23,7 +23,7 @@
 //   * the YUV matrix and the source range are set on a shallow ref of
 //     the source frame (effectiveMatrix / effectiveSourceRange — the
 //     same rules every site used with sws_setColorspaceDetails: tagged
-//     matrix, else HD→BT.709 / SD→BT.601; Range pill override; RGB
+//     matrix, else BT.709; Range pill override; RGB
 //     sources declare NO range change because rgb_range.h owns the
 //     legal→full expansion);
 //   * the destination is full-range RGB with the SOURCE's primaries and
@@ -83,8 +83,9 @@ inline AVColorSpace effectiveMatrix(const AVFrame *f)
     case AVCOL_SPC_BT2020_CL:
         return f->colorspace;
     default:
-        return (f->width >= 1280 || f->height >= 720) ? AVCOL_SPC_BT709
-                                                      : AVCOL_SPC_SMPTE170M;
+        // Untagged → BT.709 at every size, on every decode path (the GPU
+        // converters use the same rule). Tagged 601 still decodes as 601.
+        return AVCOL_SPC_BT709;
     }
 }
 

@@ -286,7 +286,7 @@ D3D11VaDecodeBridge::consume(const FrameHandle &fh, int rangeOverride)
         case AVCOL_SPC_BT2020_NCL:
         case AVCOL_SPC_BT2020_CL: pc.colorSpace = 2; break;
         case AVCOL_SPC_BT709:     pc.colorSpace = 1; break;
-        default:                  pc.colorSpace = (w >= 1280 || h >= 720) ? 1 : 0; break;
+        default:                  pc.colorSpace = 1; break;   // untagged → BT.709
     }
     pc.codeMax = tenBit ? 65535.0f : 255.0f;   // P010 is MSB-aligned in R16
     pc.levelK  = tenBit ? 256.0f   : 1.0f;
