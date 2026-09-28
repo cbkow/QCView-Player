@@ -119,8 +119,11 @@ private:
     // when the GUI thread set Impl::screenshotPending. Blits the
     // current back buffer to a staging texture, copies bytes to
     // QImage RGBA8888 (BGRA→RGBA swizzle), stores into
-    // Impl::screenshotResult, signals the cv.
-    void serviceScreenshotRequest();
+    // Impl::screenshotResult, signals the cv. `fromDualCanvas` captures
+    // the pre-OCIO dual canvas (canvas resolution, like Metal's dual
+    // capture) instead of the single-flow videoA slot, which is stale in
+    // dual mode.
+    void serviceScreenshotRequest(bool fromDualCanvas = false);
     // Keep the SDR capture chain compiled ahead of time — the GUI only
     // waits 250 ms for a capture and D3DCompile can take seconds.
     void warmCaptureOcio();

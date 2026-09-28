@@ -1955,7 +1955,7 @@ void D3D11PlayerRenderer::drawDualFrame()
     }
 
     if (m_impl->screenshotPending.load(std::memory_order_acquire)) {
-        serviceScreenshotRequest();
+        serviceScreenshotRequest(/*fromDualCanvas=*/true);
     }
 
     // Loading spinner overlay (dual path) — same as single flow.
@@ -1982,7 +1982,7 @@ void D3D11PlayerRenderer::warmCaptureOcio()
     if (m_impl->captureNeedsSdr) m_impl->captureOcio.rebuild(m_ocio);
 }
 
-void D3D11PlayerRenderer::serviceScreenshotRequest()
+void D3D11PlayerRenderer::serviceScreenshotRequest(bool fromDualCanvas)
 {
     auto deliver = [this](QImage img) {
         {
@@ -1999,9 +1999,15 @@ void D3D11PlayerRenderer::serviceScreenshotRequest()
     // Output PNG is at native source dims (not viewport / swapchain
     // dims) so NotesPanel + exports match the on-disk frame.
 
-    if (!m_impl->videoA.srv) { deliver(QImage()); return; }
-    const int rawW = m_impl->videoA.width;
-    const int rawH = m_impl->videoA.height;
+    // Dual flow: the source is the composited pre-OCIO dual canvas
+    // (both sides, the active compositor mode, letterbox alpha 0), at
+    // canvas resolution — mirrors metal_player_renderer.mm's dual
+    // capture. videoA belongs to the single flow and is stale here.
+    ID3D11ShaderResourceView *srcSrv = fromDualCanvas
+        ? m_impl->dualCanvasSrv.Get() : m_impl->videoA.srv.Get();
+    if (!srcSrv) { deliver(QImage()); return; }
+    const int rawW = fromDualCanvas ? m_impl->dualCanvasW : m_impl->videoA.width;
+    const int rawH = fromDualCanvas ? m_impl->dualCanvasH : m_impl->videoA.height;
     if (rawW <= 0 || rawH <= 0) { deliver(QImage()); return; }
     // Capture at display orientation — 90/270 swap the output dims so
     // the PNG is upright (1080×1920 for rotated phone footage). The
@@ -2010,7 +2016,8 @@ void D3D11PlayerRenderer::serviceScreenshotRequest()
     // stale-shaped target. Strokes are normalized to display space
     // (the live viewport rect is display-orientation), so the pass-3
     // bake maps them straight onto the rotated frame.
-    const int rotQ = m_rotQA.load(std::memory_order_relaxed);
+    // The dual canvas is already display-oriented per side.
+    const int rotQ = fromDualCanvas ? 0 : m_rotQA.load(std::memory_order_relaxed);
     const int srcW = (rotQ & 1) ? rawH : rawW;
     const int srcH = (rotQ & 1) ? rawW : rawH;
 
@@ -2098,7 +2105,7 @@ void D3D11PlayerRenderer::serviceScreenshotRequest()
         vp.MinDepth = 0; vp.MaxDepth = 1;
         ctx->RSSetViewports(1, &vp);
         m_impl->compositor.renderSingle(
-            ctx, m_impl->videoA.srv.Get(),
+            ctx, srcSrv,
             srcW, srcH, srcW, srcH,
             /*bgMode=*/0 /*Black — screenshots never need checker*/,
             /*borderPx=*/0.0f, 0.0f, 0.0f, 0.0f,
@@ -2151,8 +2158,9 @@ void D3D11PlayerRenderer::serviceScreenshotRequest()
 
     // ---- Pass 3: bake annotations into captureDstRgba8 ----
     // No safety overlay in the screenshot — mirrors Metal's single-
-    // flow path (safety stays on the live present pass only).
-    if (m_impl->captureAnnotations.isInitialized()) {
+    // flow path (safety stays on the live present pass only). Dual
+    // has no annotations; the stored strokes belong to the single item.
+    if (!fromDualCanvas && m_impl->captureAnnotations.isInitialized()) {
         // Make sure the RTV is bound (OCIO's apply already did this
         // in the useOcio branch; redundant for the passthrough
         // branch but harmless).
