@@ -52,6 +52,13 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.4.1
+
+- **PQ P3-D65 masters** — a new **ST2084-P3-D65** input in the Blender 5.2 OCIO config for HDR deliverables mastered in P3-D65 with the PQ curve (e.g. Resolve's "P3-D65 ST2084"). Previously these could only be read as Rec.2100-PQ, which treats the P3 values as BT.2020 and oversaturates the greens. The ACES 2.0 config already carries it as `ST2084-P3-D65 - Display`.
+- **ST2084-P3 presets** — five new Blender 5.2 presets for PQ P3-D65 masters: sRGB and Rec.1886 (SDR), EDR sRGB (macOS EDR and Windows scRGB), EDR P3 (macOS) and Rec.2100-PQ (Windows HDR10). They convert colorimetrically with no tonemap, so the master is shown as graded; the SDR presets clip above 100 nits.
+- **Screenshots and note images in HDR modes** — screenshots, note thumbnails and exported reports taken while the viewport is in an EDR, scRGB or HDR10 mode are now saved as correct SDR sRGB images, using the SDR version of the active view (e.g. ACES 2.0 HDR 1000 nits → ACES 2.0 SDR). Before, they came out dark and clipped (EDR/scRGB) or flat and washed out (HDR10). Notes captured in an HDR mode before 2.4.1 keep their old images.
+- **10-bit video levels (macOS)** — hardware-decoded 10-bit video now removes the video-range levels at 10-bit precision. Before, neutrals leaned slightly green, most visibly in HDR shadows.
+
 What's new in 2.4.0
 
 - **Live sources from After Effects and Premiere Pro** over Mercury Transmit with the [QCViewBridgeAE](/qcbridge/adobe/) add-on (separate download).
