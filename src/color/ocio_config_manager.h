@@ -46,6 +46,10 @@ class OCIOConfigManager : public QObject
     Q_PROPERTY(QString activeLook READ activeLook WRITE setActiveLook NOTIFY activeChainChanged)
     Q_PROPERTY(QString activeSceneLutPath READ activeSceneLutPath WRITE setActiveSceneLutPath NOTIFY activeChainChanged)
     Q_PROPERTY(QString activeDisplayLutPath READ activeDisplayLutPath WRITE setActiveDisplayLutPath NOTIFY activeChainChanged)
+    // CDL collections (.ccc / .cdl) in the Scene LUT slot: which
+    // correction — its id, or an index; empty = the first. Cleared when
+    // the Scene LUT path changes.
+    Q_PROPERTY(QString activeSceneLutCccId READ activeSceneLutCccId WRITE setActiveSceneLutCccId NOTIFY activeChainChanged)
     // OCIO is something the user deliberately *engages* — default
     // off, so the app boots showing the raw image. Slot-machine
     // selections persist on the manager regardless of engagement;
@@ -125,6 +129,8 @@ public:
     QString activeLook()            const { return m_activeLook; }
     QString activeSceneLutPath()    const { return m_activeSceneLutPath; }
     QString activeDisplayLutPath()  const { return m_activeDisplayLutPath; }
+    QString activeSceneLutCccId()   const { return m_activeSceneLutCccId; }
+    void    setActiveSceneLutCccId(const QString &id);
     bool    engaged()               const { return m_engaged; }
 
     void setActiveInput(const QString &name);
@@ -206,6 +212,7 @@ private:
     QString m_activeLook;
     QString m_activeSceneLutPath;
     QString m_activeDisplayLutPath;
+    QString m_activeSceneLutCccId;
     bool    m_engaged = false;     // default disengaged — see Q_PROPERTY note
     std::atomic<int> m_activeChainGeneration{0};
 

@@ -69,10 +69,12 @@ Pane {
     FileDialog {
         id: lutPicker
         title: qsTr("Choose LUT")
-        nameFilters: [
-            qsTr("LUT files (*.cube *.3dl *.csp)"),
-            qsTr("All files (*)")
-        ]
+        // CDL (.cc / .ccc / .cdl) only for the Scene LUT slot.
+        nameFilters: root.lutPickerTarget === "scene"
+            ? [qsTr("LUT / CDL files (*.cube *.3dl *.csp *.cc *.ccc *.cdl)"),
+               qsTr("All files (*)")]
+            : [qsTr("LUT files (*.cube *.3dl *.csp)"),
+               qsTr("All files (*)")]
         fileMode: FileDialog.OpenFile
         onAccepted: {
             const path = WindowManager.urlToOsPath(selectedFile);
@@ -639,6 +641,10 @@ Pane {
                 onExpandedChanged: lutTileSettings.sceneLutExpanded = expanded
                 onPickRequested: root.pickLut("scene")
                 onClearRequested: WindowManager.ocio.activeSceneLutPath = ""
+                // CDL collections: pick the correction (empty = first).
+                showCccId: /\.(ccc|cdl)$/i.test(path)
+                cccId: WindowManager.ocio ? WindowManager.ocio.activeSceneLutCccId : ""
+                onCccIdEdited: (id) => WindowManager.ocio.activeSceneLutCccId = id
             }
 
             // Highlight Knee — the chain step between the scene side and
@@ -1530,8 +1536,11 @@ Pane {
         property string iconName: "cube"
         property string path: ""
         property bool   expanded: false
+        property bool   showCccId: false
+        property string cccId: ""
         signal pickRequested()
         signal clearRequested()
+        signal cccIdEdited(string id)
 
         Layout.minimumWidth:   tile.expanded ? 130 : 32
         Layout.preferredWidth: tile.expanded ? 160 : 32
@@ -1663,6 +1672,15 @@ Pane {
                     font.pixelSize: Theme.fontSizeSmall
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideMiddle
+                }
+                FlatTextField {
+                    visible: tile.showCccId
+                    Layout.fillWidth: true
+                    Layout.leftMargin: Theme.padding
+                    Layout.rightMargin: Theme.padding
+                    placeholderText: qsTr("Correction ID (first)")
+                    text: tile.cccId
+                    onEditingFinished: tile.cccIdEdited(text)
                 }
                 Text {
                     Layout.alignment: Qt.AlignHCenter

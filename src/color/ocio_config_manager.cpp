@@ -74,6 +74,17 @@ bool isSupportedLutExtension(const QString &path)
         || suffix == QStringLiteral("csp");
 }
 
+// ASC CDL — the grade a dailies colourist sends (.cc single correction,
+// .ccc / .cdl collections). Scene LUT slot only; OCIO's FileTransform
+// reads them natively, the first correction unless a correction ID is set.
+bool isCdlExtension(const QString &path)
+{
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    return suffix == QStringLiteral("cc")
+        || suffix == QStringLiteral("ccc")
+        || suffix == QStringLiteral("cdl");
+}
+
 // Resolve the bundled OCIO assets directory.
 //
 // macOS .app bundle:  applicationDirPath() = qcview.app/Contents/MacOS
@@ -583,14 +594,24 @@ void OCIOConfigManager::setActiveSceneLutPath(const QString &path)
                      qPrintable(path));
             return;
         }
-        if (!isSupportedLutExtension(path)) {
+        if (!isSupportedLutExtension(path) && !isCdlExtension(path)) {
             qWarning("OCIOConfigManager: unsupported Scene LUT extension '%s' "
-                     "(expected .cube / .3dl / .csp)",
+                     "(expected .cube / .3dl / .csp / .cc / .ccc / .cdl)",
                      qPrintable(QFileInfo(path).suffix()));
             return;
         }
     }
     m_activeSceneLutPath = path;
+    m_activeSceneLutCccId.clear();   // a new file starts at its first correction
+    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
+    emit activeChainChanged();
+}
+
+void OCIOConfigManager::setActiveSceneLutCccId(const QString &id)
+{
+    const QString v = id.trimmed();
+    if (m_activeSceneLutCccId == v) return;
+    m_activeSceneLutCccId = v;
     m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
     emit activeChainChanged();
 }

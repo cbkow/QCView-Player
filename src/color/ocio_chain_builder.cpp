@@ -82,6 +82,8 @@ bool resolveParts(OCIOConfigManager *ocio, OCIO::ConstConfigRcPtr cfg,
     if (!sceneLutPath.isEmpty()) {
         out.sceneLut = OCIO::FileTransform::Create();
         out.sceneLut->setSrc(sceneLutPath.toUtf8().constData());
+        // CDL collections: which correction (empty = the first).
+        out.sceneLut->setCCCId(ocio->activeSceneLutCccId().toUtf8().constData());
         out.sceneLut->setInterpolation(OCIO::INTERP_BEST);
         out.sceneLut->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
     }

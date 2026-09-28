@@ -90,6 +90,7 @@ public:
         double  kneeSourceNits = 1000.0;
         double  kneeTargetNits = 1000.0;
         double  kneeStart      = -1.0;
+        QString sceneLutCccId;    // CDL collection correction (empty = first)
     };
 
     // Constructor wires to the OCIOConfigManager that the manager

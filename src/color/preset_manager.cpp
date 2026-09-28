@@ -300,6 +300,7 @@ bool PresetManager::applyPreset(const QString &name)
     m_ocio->setActiveDisplay(p->output);
     m_ocio->setActiveView(p->view);
     m_ocio->setActiveSceneLutPath(p->sceneLutPath);
+    m_ocio->setActiveSceneLutCccId(p->sceneLutCccId);
     m_ocio->setActiveDisplayLutPath(p->displayLutPath);
     m_ocio->setKneeSourceNits(p->kneeSourceNits);
     m_ocio->setKneeTargetNits(p->kneeTargetNits);
@@ -344,6 +345,7 @@ bool PresetManager::currentMatchesPreset(const Preset &p) const
         && m_ocio->activeView()            == p.view
         && m_ocio->activeSceneLutPath()    == p.sceneLutPath
         && m_ocio->activeDisplayLutPath()  == p.displayLutPath
+        && m_ocio->activeSceneLutCccId()   == p.sceneLutCccId
         && m_ocio->kneeEnabled()           == p.kneeEnabled
         // Knee parameters only matter while it's on.
         && (!p.kneeEnabled
@@ -467,6 +469,7 @@ PresetManager::captureCurrentAsPreset(const QString &name) const
         p.view           = m_ocio->activeView();
         p.sceneLutPath   = m_ocio->activeSceneLutPath();
         p.displayLutPath = m_ocio->activeDisplayLutPath();
+        p.sceneLutCccId  = m_ocio->activeSceneLutCccId();
         p.kneeEnabled    = m_ocio->kneeEnabled();
         p.kneeSourceNits = m_ocio->kneeSourceNits();
         p.kneeTargetNits = m_ocio->kneeTargetNits();
@@ -670,6 +673,7 @@ void PresetManager::loadUserPresetsFromDisk()
         p.view           = slotsObj.value(QStringLiteral("view")).toString();
         p.sceneLutPath   = slotsObj.value(QStringLiteral("scene_lut")).toString();
         p.displayLutPath = slotsObj.value(QStringLiteral("display_lut")).toString();
+        p.sceneLutCccId  = slotsObj.value(QStringLiteral("scene_lut_cccid")).toString();
         const QJsonObject kneeObj = slotsObj.value(QStringLiteral("knee")).toObject();
         p.kneeEnabled    = kneeObj.value(QStringLiteral("enabled")).toBool(false);
         p.kneeSourceNits = kneeObj.value(QStringLiteral("source_nits")).toDouble(1000.0);
@@ -706,6 +710,9 @@ bool PresetManager::writeUserPresetsToDisk() const
         slotsObj[QStringLiteral("view")]         = p.view;
         slotsObj[QStringLiteral("scene_lut")]    = p.sceneLutPath;
         slotsObj[QStringLiteral("display_lut")]  = p.displayLutPath;
+        if (!p.sceneLutCccId.isEmpty()) {
+            slotsObj[QStringLiteral("scene_lut_cccid")] = p.sceneLutCccId;
+        }
         if (p.kneeEnabled) {
             QJsonObject kneeObj;
             kneeObj[QStringLiteral("enabled")]     = true;
