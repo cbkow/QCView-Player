@@ -88,6 +88,13 @@ public:
         int   hasAlpha;     // 1 if samplerViews[3] is real alpha
         int   isRgb;        // 1 if planes are G/B/R (GBRP family)
         int   isBiplanar;   // 1 if samplerViews[1] is interleaved UV
+        // Video-range level removal in code values. After bitScale every
+        // layout samples v / (2^depth - 1) — R16 planes via bitScale, the
+        // X6/X4 multiplane views because Vulkan normalizes them over the
+        // component width — so codeMax = 2^depth - 1 and levelK =
+        // 2^(depth - 8). The 8-bit fractions tinted >8-bit neutrals green.
+        float codeMax = 255.0f;
+        float levelK  = 1.0f;
 
         // Phase I.F — FFmpeg AVVkFrame synchronization. One timeline
         // semaphore per source VkImage (AVVkFrame::sem / sem_value):

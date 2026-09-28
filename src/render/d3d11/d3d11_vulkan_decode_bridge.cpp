@@ -25,6 +25,7 @@ extern "C" {
 #include <dxgiformat.h>
 #include <wrl/client.h>
 
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
 
@@ -682,6 +683,11 @@ D3D11VulkanDecodeBridge::consumeAVFrame(AVFrame *avFrame, int rangeOverride)
     else if (bitDepth == 12)      dp.bitScale = 65535.0f / 4095.0f;
     else if (bitDepth == 10)      dp.bitScale = 65535.0f / 1023.0f;
     else                          dp.bitScale = 1.0f;
+    {
+        const int depth = std::clamp(bitDepth, 8, 16);
+        dp.codeMax = static_cast<float>((1 << depth) - 1);
+        dp.levelK  = static_cast<float>(1 << (depth - 8));
+    }
 
     switch (avFrame->colorspace) {
         case AVCOL_SPC_BT470BG:

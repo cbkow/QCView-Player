@@ -29,10 +29,14 @@ namespace qcv {
 
 namespace {
 
-// Mirrors the GLSL in d3d11_vulkan_yuv_compositor.cpp (same constants,
+// Mirrors the GLSL in d3d11_vulkan_yuv_compositor.cpp (same matrices,
 // same range handling) so a clip looks identical whichever decoder
-// produced it. Both planes are sampled as 0..1 UNORM: for P010 the
-// 10-bit sample sits in the top bits, so UNORM16 ≈ v/1023 already.
+// produced it. Both planes are sampled as 0..1 UNORM. Video-range levels
+// are removed in code values: s * codeMax is the stored integer, and the
+// 8-bit levels scale by levelK. NV12 → R8 views (255, 1). P010 → R16
+// views, 10-bit sample MSB-aligned (v << 6), so (65535, 256): the 8-bit
+// fractions there (128/255 = 0.50196 vs 32768/65535 = 0.50001) bias Cb/Cr
+// and tint every neutral green — the macOS fix in 256acca6.
 constexpr const char *kCsHlsl = R"(
 Texture2DArray<float>  lumaTex   : register(t0);
 Texture2DArray<float2> chromaTex : register(t1);
@@ -47,7 +51,9 @@ cbuffer Params : register(b0)
     uint range;        // 0 = limited, 1 = full
     uint texWidth;     // decoder texture-array size (coded size: 1088 /
     uint texHeight;    //  1152 rows for 1080p) — normalize against THIS,
-    uint pad0, pad1;   //  or the padding rows stretch the picture
+                       //  or the padding rows stretch the picture
+    float codeMax;     // sample * codeMax = stored code value
+    float levelK;      // video-range levels = 8-bit levels * levelK
 };
 
 [numthreads(8, 8, 1)]
@@ -59,9 +65,9 @@ void main(uint3 id : SV_DispatchThreadID)
     float2 c  = chromaTex.SampleLevel(samp, float3(uv, 0.0), 0).rg;
     float  u  = c.x, v = c.y;
     if (range == 0) {
-        y = (y - 16.0/255.0) * (255.0/219.0);
-        u = (u - 128.0/255.0) * (255.0/224.0);
-        v = (v - 128.0/255.0) * (255.0/224.0);
+        y = (y * codeMax -  16.0 * levelK) / (219.0 * levelK);
+        u = (u * codeMax - 128.0 * levelK) / (224.0 * levelK);
+        v = (v * codeMax - 128.0 * levelK) / (224.0 * levelK);
     } else {
         u -= 0.5; v -= 0.5;
     }
@@ -85,7 +91,8 @@ void main(uint3 id : SV_DispatchThreadID)
 
 struct ParamsCb {
     uint32_t width, height, colorSpace, range;
-    uint32_t texWidth, texHeight, pad0, pad1;
+    uint32_t texWidth, texHeight;
+    float    codeMax, levelK;
 };
 
 struct SliceViews {
@@ -281,6 +288,8 @@ D3D11VaDecodeBridge::consume(const FrameHandle &fh, int rangeOverride)
         case AVCOL_SPC_BT709:     pc.colorSpace = 1; break;
         default:                  pc.colorSpace = (w >= 1280 || h >= 720) ? 1 : 0; break;
     }
+    pc.codeMax = tenBit ? 65535.0f : 255.0f;   // P010 is MSB-aligned in R16
+    pc.levelK  = tenBit ? 256.0f   : 1.0f;
     if (rangeOverride == 1)      pc.range = 1;
     else if (rangeOverride == 2) pc.range = 0;
     else                         pc.range = (avFrame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;

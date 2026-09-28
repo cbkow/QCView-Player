@@ -48,6 +48,8 @@ layout(push_constant) uniform PC {
     int   hasAlpha;
     int   isRgb;
     int   isBiplanar;
+    float codeMax;     // sample * bitScale * codeMax = stored code value
+    float levelK;      // video-range levels = 8-bit levels * levelK
 };
 
 void main() {
@@ -71,16 +73,16 @@ void main() {
     if (isRgb != 0) {
         g = s0; b = s1; r = s2;
         if (range == 0) {
-            r = (r - 16.0/255.0) * (255.0/219.0);
-            g = (g - 16.0/255.0) * (255.0/219.0);
-            b = (b - 16.0/255.0) * (255.0/219.0);
+            r = (r * codeMax - 16.0 * levelK) / (219.0 * levelK);
+            g = (g * codeMax - 16.0 * levelK) / (219.0 * levelK);
+            b = (b * codeMax - 16.0 * levelK) / (219.0 * levelK);
         }
     } else {
         float y = s0, u = s1, v = s2;
         if (range == 0) {
-            y = (y - 16.0/255.0) * (255.0/219.0);
-            u = (u - 128.0/255.0) * (255.0/224.0);
-            v = (v - 128.0/255.0) * (255.0/224.0);
+            y = (y * codeMax -  16.0 * levelK) / (219.0 * levelK);
+            u = (u * codeMax - 128.0 * levelK) / (224.0 * levelK);
+            v = (v * codeMax - 128.0 * levelK) / (224.0 * levelK);
         } else {
             u -= 0.5; v -= 0.5;
         }
@@ -112,6 +114,8 @@ struct ComputePushConstants {
     int32_t  hasAlpha;
     int32_t  isRgb;
     int32_t  isBiplanar;
+    float    codeMax;
+    float    levelK;
 };
 
 } // namespace
@@ -611,6 +615,8 @@ bool D3D11VulkanYuvCompositor::dispatch(const DispatchParams &params)
     pc.hasAlpha   = params.hasAlpha;
     pc.isRgb      = params.isRgb;
     pc.isBiplanar = params.isBiplanar;
+    pc.codeMax    = params.codeMax;
+    pc.levelK     = params.levelK;
     vkCmdPushConstants(impl.cmdBuf, impl.pipelineLayout,
                         VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pc), &pc);
 
