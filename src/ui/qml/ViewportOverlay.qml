@@ -490,6 +490,46 @@ Pane {
 
         Item { Layout.fillWidth: true }
 
+        // ---- Highlight Knee pill — the picture is not 1:1 while the
+        // knee is compressing highlights (Color panel chain step).
+        Rectangle {
+            id: kneePill
+            readonly property var ocio: WindowManager.ocio
+            visible: !root.saveMode && !!ocio && ocio.engaged
+                     && ocio.kneeEnabled && ocio.kneeAvailable
+            Layout.preferredHeight: Theme.chipHeight
+            Layout.preferredWidth: kneeLabel.implicitWidth + 14
+            radius: Theme.radiusBase
+            color: "transparent"
+            border.width: 1
+            border.color: Theme.warning
+            Text {
+                id: kneeLabel
+                anchors.centerIn: parent
+                text: qsTr("KNEE")
+                color: Theme.warning
+                font.family: Theme.monoFamily
+                font.pixelSize: Theme.fontSizeMono
+                font.bold: true
+            }
+            MouseArea {
+                id: kneePillMa
+                anchors.fill: parent
+                hoverEnabled: true
+                FlatToolTip {
+                    visible: kneePillMa.containsMouse
+                    text: kneePill.ocio
+                          ? qsTr("Highlight Knee on: %1 → %2 nits. Highlights are "
+                                 + "compressed — the picture is not 1:1.")
+                                .arg(Math.round(kneePill.ocio.kneeSourceNits))
+                                .arg(kneePill.ocio.displayIsSdr
+                                     ? 100 : Math.round(kneePill.ocio.kneeTargetNits))
+                          : ""
+                }
+            }
+        }
+        Item { width: Theme.spacing; visible: kneePill.visible }
+
         // ---- Compositor mode toggles — icon-only, checkable.
         // Raised idle + accent-when-checked = segmented control
         // (checked wins over the raised fill in FlatButton's pal).

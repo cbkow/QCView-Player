@@ -83,6 +83,13 @@ public:
         QString displayLutPath;
         bool    builtIn = false;
         Kind    kind    = SdrSrgb;
+        // Highlight Knee chain step (OCIOConfigManager::knee*). Optional
+        // "knee" object in the user-presets file; absent = off. Kept last
+        // so the built-in presets' positional initializers still hold.
+        bool    kneeEnabled    = false;
+        double  kneeSourceNits = 1000.0;
+        double  kneeTargetNits = 1000.0;
+        double  kneeStart      = -1.0;
     };
 
     // Constructor wires to the OCIOConfigManager that the manager

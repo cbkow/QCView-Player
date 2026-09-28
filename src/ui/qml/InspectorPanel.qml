@@ -922,6 +922,23 @@ Rectangle {
                 label: qsTr("Transfer")
                 value: content.vmeta ? content.vmeta.colorTransfer : ""
             }
+            // HDR10 static metadata (container 'clli' / 'mdcv').
+            KvRow {
+                readonly property int cll: content.vmeta ? (content.vmeta.maxCll || 0) : 0
+                readonly property int fall: content.vmeta ? (content.vmeta.maxFall || 0) : 0
+                readonly property real mastering:
+                    content.vmeta ? (content.vmeta.masteringMaxNits || 0) : 0
+                visible: cll > 0 || mastering > 0
+                label: qsTr("HDR metadata")
+                value: {
+                    const parts = [];
+                    if (cll > 0) parts.push(qsTr("MaxCLL %1").arg(cll));
+                    if (fall > 0) parts.push(qsTr("MaxFALL %1").arg(fall));
+                    if (mastering > 0)
+                        parts.push(qsTr("mastering %1 nits").arg(Math.round(mastering)));
+                    return parts.join(" · ");
+                }
+            }
             KvRow {
                 visible: content.vmeta && content.vmeta.nclcTag.length > 0
                 label: qsTr("NCLC tag")

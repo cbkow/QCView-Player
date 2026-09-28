@@ -137,6 +137,9 @@ QJsonObject videoMetadataToJson(const VideoMetadata &v)
     o[QStringLiteral("colorRange")]          = v.colorRange;
     o[QStringLiteral("nclcTag")]             = v.nclcTag;
     o[QStringLiteral("isHdrContent")]        = v.isHdrContent;
+    o[QStringLiteral("maxCll")]              = v.maxCll;
+    o[QStringLiteral("maxFall")]             = v.maxFall;
+    o[QStringLiteral("masteringMaxNits")]    = v.masteringMaxNits;
     o[QStringLiteral("isRgb")]               = v.isRgb;
     o[QStringLiteral("containerRangeTag")]   = v.containerRangeTag;
     o[QStringLiteral("audioCodec")]          = v.audioCodec;
@@ -209,6 +212,9 @@ VideoMetadata videoMetadataFromJson(const QJsonObject &o)
     v.cameraModel         = o.value(QStringLiteral("cameraModel")).toString();
     v.colorspace          = o.value(QStringLiteral("colorspace")).toString();
     v.colorPrimaries      = o.value(QStringLiteral("colorPrimaries")).toString();
+    v.maxCll              = o.value(QStringLiteral("maxCll")).toInt();
+    v.maxFall             = o.value(QStringLiteral("maxFall")).toInt();
+    v.masteringMaxNits    = o.value(QStringLiteral("masteringMaxNits")).toDouble();
     v.colorTransfer       = o.value(QStringLiteral("colorTransfer")).toString();
     v.colorRange          = o.value(QStringLiteral("colorRange")).toString();
     // Pre-field caches: best effort = whatever the effective range was.

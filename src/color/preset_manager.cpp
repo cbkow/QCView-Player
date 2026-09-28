@@ -8,6 +8,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+
+#include <cmath>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QtLogging>
@@ -30,6 +32,9 @@ PresetManager::PresetManager(OCIOConfigManager *ocio, QObject *parent)
                 this, &PresetManager::onActiveChainChanged);
         connect(m_ocio, &OCIOConfigManager::configChanged,
                 this, &PresetManager::onConfigChanged);
+        // The Highlight Knee is part of the chain a preset recalls.
+        connect(m_ocio, &OCIOConfigManager::kneeChanged,
+                this, &PresetManager::onActiveChainChanged);
     }
 }
 
@@ -296,6 +301,10 @@ bool PresetManager::applyPreset(const QString &name)
     m_ocio->setActiveView(p->view);
     m_ocio->setActiveSceneLutPath(p->sceneLutPath);
     m_ocio->setActiveDisplayLutPath(p->displayLutPath);
+    m_ocio->setKneeSourceNits(p->kneeSourceNits);
+    m_ocio->setKneeTargetNits(p->kneeTargetNits);
+    m_ocio->setKneeStart(p->kneeStart);
+    m_ocio->setKneeEnabled(p->kneeEnabled);
 
     // Auto-engage (Phase 2.5e.1.5): the user picking a preset is a
     // deliberate "I want this look" action — it shouldn't require a
@@ -334,7 +343,13 @@ bool PresetManager::currentMatchesPreset(const Preset &p) const
         && m_ocio->activeDisplay()         == p.output
         && m_ocio->activeView()            == p.view
         && m_ocio->activeSceneLutPath()    == p.sceneLutPath
-        && m_ocio->activeDisplayLutPath()  == p.displayLutPath;
+        && m_ocio->activeDisplayLutPath()  == p.displayLutPath
+        && m_ocio->kneeEnabled()           == p.kneeEnabled
+        // Knee parameters only matter while it's on.
+        && (!p.kneeEnabled
+            || (std::abs(m_ocio->kneeSourceNits() - p.kneeSourceNits) < 0.5
+                && std::abs(m_ocio->kneeTargetNits() - p.kneeTargetNits) < 0.5
+                && std::abs(m_ocio->kneeStart() - p.kneeStart) < 1e-4));
 }
 
 void PresetManager::onActiveChainChanged()
@@ -452,6 +467,10 @@ PresetManager::captureCurrentAsPreset(const QString &name) const
         p.view           = m_ocio->activeView();
         p.sceneLutPath   = m_ocio->activeSceneLutPath();
         p.displayLutPath = m_ocio->activeDisplayLutPath();
+        p.kneeEnabled    = m_ocio->kneeEnabled();
+        p.kneeSourceNits = m_ocio->kneeSourceNits();
+        p.kneeTargetNits = m_ocio->kneeTargetNits();
+        p.kneeStart      = m_ocio->kneeStart();
     }
     p.kind = inferKindFromOutput(p.output);
     return p;
@@ -651,6 +670,11 @@ void PresetManager::loadUserPresetsFromDisk()
         p.view           = slotsObj.value(QStringLiteral("view")).toString();
         p.sceneLutPath   = slotsObj.value(QStringLiteral("scene_lut")).toString();
         p.displayLutPath = slotsObj.value(QStringLiteral("display_lut")).toString();
+        const QJsonObject kneeObj = slotsObj.value(QStringLiteral("knee")).toObject();
+        p.kneeEnabled    = kneeObj.value(QStringLiteral("enabled")).toBool(false);
+        p.kneeSourceNits = kneeObj.value(QStringLiteral("source_nits")).toDouble(1000.0);
+        p.kneeTargetNits = kneeObj.value(QStringLiteral("target_nits")).toDouble(1000.0);
+        p.kneeStart      = kneeObj.value(QStringLiteral("start")).toDouble(-1.0);
         p.kind           = inferKindFromOutput(p.output);
         m_presets.append(p);
         ++loaded;
@@ -682,6 +706,14 @@ bool PresetManager::writeUserPresetsToDisk() const
         slotsObj[QStringLiteral("view")]         = p.view;
         slotsObj[QStringLiteral("scene_lut")]    = p.sceneLutPath;
         slotsObj[QStringLiteral("display_lut")]  = p.displayLutPath;
+        if (p.kneeEnabled) {
+            QJsonObject kneeObj;
+            kneeObj[QStringLiteral("enabled")]     = true;
+            kneeObj[QStringLiteral("source_nits")] = p.kneeSourceNits;
+            kneeObj[QStringLiteral("target_nits")] = p.kneeTargetNits;
+            kneeObj[QStringLiteral("start")]       = p.kneeStart;
+            slotsObj[QStringLiteral("knee")]       = kneeObj;
+        }
 
         QJsonObject obj;
         obj[QStringLiteral("name")]       = p.name;

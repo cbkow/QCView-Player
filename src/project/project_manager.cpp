@@ -1462,6 +1462,9 @@ QVariantMap ProjectManager::mediaItemMap(const QString &id) const
         v[QStringLiteral("containerRangeTag")] = it.video.containerRangeTag;
         v[QStringLiteral("nclcTag")]          = it.video.nclcTag;
         v[QStringLiteral("isHdrContent")]     = it.video.isHdrContent;
+        v[QStringLiteral("maxCll")]           = it.video.maxCll;
+        v[QStringLiteral("maxFall")]          = it.video.maxFall;
+        v[QStringLiteral("masteringMaxNits")] = it.video.masteringMaxNits;
         v[QStringLiteral("isRgb")]            = it.video.isRgb;
         v[QStringLiteral("audioCodec")]       = it.video.audioCodec;
         v[QStringLiteral("audioSampleRate")]  = it.video.audioSampleRate;

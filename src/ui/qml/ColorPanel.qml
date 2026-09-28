@@ -60,6 +60,7 @@ Pane {
         property bool sceneLutExpanded: false
         property bool displayLutExpanded: false
         property bool lookExpanded: false        // Phase 2.5 polish: Look collapsed by default
+        property bool kneeExpanded: false
     }
 
     // Shared LUT picker, target-routed.
@@ -640,6 +641,13 @@ Pane {
                 onClearRequested: WindowManager.ocio.activeSceneLutPath = ""
             }
 
+            // Highlight Knee — the chain step between the scene side and
+            // the Display/View (see color/linear_stage.h).
+            KneeColumn {
+                expanded: lutTileSettings.kneeExpanded
+                onExpandedChanged: lutTileSettings.kneeExpanded = expanded
+            }
+
             // Group divider
             Text {
                 text: "→"
@@ -740,14 +748,19 @@ Pane {
             // scale 0.5×–3.0×, default 1.0×. Persisted in QSettings
             // under "display/brightness". WILL clip HDR highlights
             // above the display's headroom — user-responsible.
+            // Brightness is the linear stage's gain inside the OCIO chain
+            // (color/linear_stage.h) — without OCIO there is no stage.
             Text {
                 text: qsTr("Brightness")
+                opacity: brightnessSlider.enabled ? 1.0 : 0.45
                 color: Theme.textSecondary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeTiny
             }
             FlatSlider {
                 id: brightnessSlider
+                enabled: WindowManager.ocio ? WindowManager.ocio.engaged : false
+                opacity: enabled ? 1.0 : 0.45
                 from: 0.5
                 to: 3.0
                 stepSize: 0.05
@@ -1150,6 +1163,316 @@ Pane {
     //
     // Clicking the section header chevron toggles the state. In
     // collapsed state, clicking anywhere on the strip expands.
+    // Highlight Knee chain step — a BT.2390-style shoulder in PQ that
+    // compresses [knee start, source peak] onto [knee start, target
+    // peak] before the Display/View. Deliberate: off by default, every
+    // value set by hand ("Use file MaxCLL" reads the file only when
+    // clicked). Saved in presets and baked into LUT export.
+    component KneeColumn: ColumnLayout {
+        id: knee
+        property bool expanded: false
+        readonly property var ocio: WindowManager.ocio
+        readonly property bool on: !!ocio && ocio.kneeEnabled
+        readonly property bool available: !!ocio && ocio.kneeAvailable
+        readonly property var video: WindowManager.project
+                                     && WindowManager.project.activeItem
+                                     ? WindowManager.project.activeItem.video : null
+        readonly property int fileMaxCll: video ? (video.maxCll || 0) : 0
+        readonly property real fileMastering: video ? (video.masteringMaxNits || 0) : 0
+
+        Layout.minimumWidth:   knee.expanded ? 180 : 32
+        Layout.preferredWidth: knee.expanded ? 200 : 32
+        Layout.fillHeight: true
+        spacing: Theme.spacing
+
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: kneeTitle.implicitHeight
+            Text {
+                id: kneeTitle
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                visible: knee.expanded
+                text: qsTr("Highlight Knee")
+                color: Theme.textMuted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeTiny
+                font.bold: true
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 0.8
+            }
+            Icon {
+                visible: knee.expanded
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                name: "caret-double-left"
+                size: Theme.iconSizeSmall
+                color: kneeCollapseMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+            }
+            MouseArea {
+                id: kneeCollapseMa
+                visible: knee.expanded
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: 22
+                height: 22
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: knee.expanded = false
+                FlatToolTip { visible: kneeCollapseMa.containsMouse; text: qsTr("Collapse") }
+            }
+        }
+
+        // ---- Expanded body
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: knee.expanded
+            color: Theme.surfaceRecess
+            radius: Theme.radiusSmall
+
+            Flickable {
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLoose
+                contentHeight: kneeBody.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+
+                ColumnLayout {
+                    id: kneeBody
+                    width: parent.width
+                    spacing: Theme.spacing
+                    enabled: knee.available
+
+                    RowLayout {
+                        spacing: Theme.spacing
+                        FlatSwitch {
+                            checked: knee.on
+                            onToggled: knee.ocio.kneeEnabled = checked
+                        }
+                        Text {
+                            text: knee.on ? qsTr("On") : qsTr("Off")
+                            color: knee.on ? Theme.warning : Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: knee.on
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    Text {
+                        visible: !knee.available
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTr("Not available for this chain (data view, or the "
+                                   + "config has no interchange role).")
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.italic: true
+                    }
+
+                    // Source peak
+                    Text {
+                        text: qsTr("Source peak")
+                        color: Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                    }
+                    RowLayout {
+                        spacing: Theme.spacing
+                        FlatSpinBox {
+                            id: srcSpin
+                            Layout.fillWidth: true
+                            from: 100
+                            to: 10000
+                            stepSize: 100
+                            editable: true
+                            value: knee.ocio ? Math.round(knee.ocio.kneeSourceNits) : 1000
+                            onValueModified: knee.ocio.kneeSourceNits = value
+                        }
+                        Text {
+                            text: qsTr("nits")
+                            color: Theme.textMuted
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeTiny
+                        }
+                    }
+                    Text {
+                        text: knee.ocio
+                              ? qsTr("+%1 stops over SDR white")
+                                    .arg((Math.log(knee.ocio.kneeSourceNits / 100)
+                                          / Math.LN2).toFixed(1))
+                              : ""
+                        color: Theme.textMuted
+                        font.family: Theme.monoFamily
+                        font.pixelSize: Theme.fontSizeMono
+                    }
+                    FlatButton {
+                        Layout.fillWidth: true
+                        variant: "subtle"
+                        text: knee.fileMaxCll > 0
+                              ? qsTr("Use file MaxCLL (%1)").arg(knee.fileMaxCll)
+                              : (knee.fileMastering > 0
+                                 ? qsTr("Use mastering peak (%1)").arg(Math.round(knee.fileMastering))
+                                 : qsTr("No MaxCLL in file"))
+                        enabled: knee.fileMaxCll > 0 || knee.fileMastering > 0
+                        tooltipText: qsTr("Set the source peak from the file's HDR10 metadata")
+                        onClicked: knee.ocio.kneeSourceNits =
+                            knee.fileMaxCll > 0 ? knee.fileMaxCll : knee.fileMastering
+                    }
+
+                    // Target peak
+                    Text {
+                        text: qsTr("Target peak")
+                        color: Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                    }
+                    Text {
+                        visible: knee.ocio && knee.ocio.displayIsSdr
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTr("100 nits · SDR display")
+                        color: Theme.textPrimary
+                        font.family: Theme.monoFamily
+                        font.pixelSize: Theme.fontSizeMono
+                    }
+                    RowLayout {
+                        visible: knee.ocio && !knee.ocio.displayIsSdr
+                        spacing: Theme.spacing
+                        FlatSpinBox {
+                            Layout.fillWidth: true
+                            from: 100
+                            to: 10000
+                            stepSize: 50
+                            editable: true
+                            value: knee.ocio ? Math.round(knee.ocio.kneeTargetNits) : 1000
+                            onValueModified: knee.ocio.kneeTargetNits = value
+                        }
+                        Text {
+                            text: qsTr("nits")
+                            color: Theme.textMuted
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeTiny
+                        }
+                    }
+
+                    // Knee start
+                    Text {
+                        text: qsTr("Knee start")
+                        color: Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                    }
+                    FlatSlider {
+                        Layout.fillWidth: true
+                        from: 0.0
+                        to: 0.99
+                        stepSize: 0.01
+                        value: knee.ocio ? knee.ocio.kneeStartEffective : 0.5
+                        onMoved: knee.ocio.kneeStart = value
+                        // Double-click returns to BT.2390's default.
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            propagateComposedEvents: true
+                            onPressed: (mouse) => { mouse.accepted = false }
+                            onDoubleClicked: knee.ocio.kneeStart = -1
+                        }
+                    }
+                    RowLayout {
+                        spacing: Theme.spacing
+                        Text {
+                            text: knee.ocio
+                                  ? qsTr("%1 nits").arg(Math.round(knee.ocio.kneeStartNits))
+                                  : ""
+                            color: Theme.textPrimary
+                            font.family: Theme.monoFamily
+                            font.pixelSize: Theme.fontSizeMono
+                        }
+                        Text {
+                            visible: knee.ocio && knee.ocio.kneeStart < 0
+                            text: qsTr("BT.2390")
+                            color: Theme.textMuted
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeTiny
+                        }
+                        Item { Layout.fillWidth: true }
+                        FlatButton {
+                            iconName: "arrow-counter-clockwise"
+                            tooltipText: qsTr("Reset knee start to BT.2390")
+                            enabled: knee.ocio && knee.ocio.kneeStart >= 0
+                            opacity: enabled ? 1 : 0
+                            onClicked: knee.ocio.kneeStart = -1
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- Collapsed body — slim vertical strip (matches LutTileColumn)
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !knee.expanded
+            color: kneeStripMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            radius: Theme.radiusSmall
+
+            MouseArea {
+                id: kneeStripMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: knee.expanded = true
+                FlatToolTip {
+                    visible: kneeStripMa.containsMouse
+                    text: knee.on
+                          ? qsTr("Highlight Knee — on, %1 → %2 nits")
+                                .arg(Math.round(knee.ocio.kneeSourceNits))
+                                .arg(knee.ocio.displayIsSdr
+                                     ? 100 : Math.round(knee.ocio.kneeTargetNits))
+                          : qsTr("Highlight Knee — off, click to expand")
+                }
+            }
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.topMargin: Theme.spacingLoose
+                anchors.bottomMargin: Theme.spacingLoose
+                spacing: Theme.spacingLoose
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Text {
+                        anchors.centerIn: parent
+                        rotation: -90
+                        text: qsTr("Highlight Knee")
+                        color: knee.on ? Theme.textPrimary : Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.bold: true
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8
+                    }
+                }
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    name: "sun-horizon"
+                    size: 20
+                    color: knee.on ? Theme.warning
+                                   : (kneeStripMa.containsMouse ? Theme.accent : Theme.textMuted)
+                }
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    name: "caret-double-right"
+                    size: Theme.iconSizeSmall
+                    color: Theme.textMuted
+                }
+            }
+        }
+    }
+
     component LutTileColumn: ColumnLayout {
         id: tile
         property string title: ""

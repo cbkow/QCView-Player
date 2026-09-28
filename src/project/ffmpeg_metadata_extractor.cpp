@@ -14,6 +14,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/dict.h>
 #include <libavutil/display.h>
+#include <libavutil/mastering_display_metadata.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 }
@@ -634,6 +635,28 @@ void extractVideoStream(AVFormatContext *ctx, VideoMetadata &m)
                                            cp->color_trc,
                                            cp->color_space);
     m.isHdrContent    = isHdrFromTransfer(m.colorTransfer, m.bitDepth);
+
+    // HDR10 static metadata — the Highlight Knee's "Use file MaxCLL" and
+    // the Inspector's HDR row read these.
+    if (const AVPacketSideData *sd = av_packet_side_data_get(
+            cp->coded_side_data, cp->nb_coded_side_data,
+            AV_PKT_DATA_CONTENT_LIGHT_LEVEL)) {
+        if (sd->size >= sizeof(AVContentLightMetadata)) {
+            const auto *cll = reinterpret_cast<const AVContentLightMetadata *>(sd->data);
+            m.maxCll  = static_cast<int>(cll->MaxCLL);
+            m.maxFall = static_cast<int>(cll->MaxFALL);
+        }
+    }
+    if (const AVPacketSideData *sd = av_packet_side_data_get(
+            cp->coded_side_data, cp->nb_coded_side_data,
+            AV_PKT_DATA_MASTERING_DISPLAY_METADATA)) {
+        if (sd->size >= sizeof(AVMasteringDisplayMetadata)) {
+            const auto *md = reinterpret_cast<const AVMasteringDisplayMetadata *>(sd->data);
+            if (md->has_luminance && md->max_luminance.den > 0) {
+                m.masteringMaxNits = av_q2d(md->max_luminance);
+            }
+        }
+    }
 
     QString tc = readEmbeddedTimecode(ctx, stream);
     if (!tc.isEmpty()) {

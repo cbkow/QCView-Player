@@ -237,6 +237,12 @@ struct VideoMetadata {
     QString     containerRangeTag;
     QString     nclcTag;              // "1-1-1" etc.; empty if unset
     bool        isHdrContent = false; // PQ / HLG transfer
+    // HDR10 static metadata from the container (MOV/MP4 'clli' / 'mdcv',
+    // MKV colour elements — FFmpeg's coded side data). 0 = absent (or a
+    // cache that predates the fields). Bitstream-only SEI isn't read.
+    int         maxCll = 0;               // nits
+    int         maxFall = 0;              // nits
+    double      masteringMaxNits = 0.0;   // mastering display peak
     // True when the decoded pixel format is an RGB family (gbrp*,
     // rgb48, …) rather than YCbCr. Drives the Range pill's Auto
     // semantics: Auto = follow the container tag, else the convention

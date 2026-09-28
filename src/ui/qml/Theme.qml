@@ -73,6 +73,9 @@ QtObject {
     readonly property color accentMuted:    "#10395b"
     readonly property color accentSelected: accent
     readonly property color success:        "#4cb050"
+    // "Not 1:1" state markers (Highlight Knee pill) — amber, distinct
+    // from accent (selection) and error.
+    readonly property color warning:        "#d9a441"
     readonly property color warn:           "#f5a623"
     readonly property color error:          "#c04040"
     readonly property color info:           "#9cc9ff"
