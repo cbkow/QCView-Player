@@ -1051,6 +1051,9 @@ void MetalPlayerRenderer::drawFrame()
                     dstW, dstH, tilePixels,
                     (ll.aValid || ll.bValid) ? &bgLayout : nullptr,
                     isLinearHdrMode(m_impl->hdr.appliedMode()));
+                m_impl->presentCompositor.setClampToUnit(
+                    dualCorrected ==
+                    (__bridge void *)m_impl->compositeRawDual);
                 m_impl->presentCompositor.renderSingle(
                     (__bridge void *)enc,
                     dualCorrected,
@@ -1812,6 +1815,9 @@ void MetalPlayerRenderer::drawFrame()
             // 1:1 single-mode aspect-fit of compositeCorrected into
             // the drawable. Lower-than-canvas drawables downsample;
             // higher-than-canvas ones upsample.
+            m_impl->presentCompositor.setClampToUnit(
+                compositeCorrected ==
+                (__bridge void *)m_impl->compositeRaw);
             m_impl->presentCompositor.renderSingle(
                 (__bridge void *)enc, compositeCorrected,
                 m_impl->compositeW, m_impl->compositeH, dstW, dstH);

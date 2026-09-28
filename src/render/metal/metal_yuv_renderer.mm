@@ -92,9 +92,10 @@ kernel void yuv_to_rgba(
         b = y + 1.8556   * cb;
     }
 
-    out_tex.write(float4(clamp(r, 0.0, 1.0),
-                         clamp(g, 0.0, 1.0),
-                         clamp(b, 0.0, 1.0), 1.0), gid);
+    // Unclamped: super-whites, sub-blacks and out-of-gamut triplets ride
+    // into OCIO (RGBA16F holds them). The present pass clamps to 0..1 when
+    // OCIO is bypassed, so the raw view is unchanged.
+    out_tex.write(float4(r, g, b, 1.0), gid);
 }
 
 // Y416 / Y408 layout: A,Y,Cb,Cr packed into RGBA channels of one
@@ -136,9 +137,7 @@ kernel void yuv_interleaved_to_rgba(
         b = y + 1.8556   * cb;
     }
 
-    out_tex.write(float4(clamp(r, 0.0, 1.0),
-                         clamp(g, 0.0, 1.0),
-                         clamp(b, 0.0, 1.0), alpha), gid);
+    out_tex.write(float4(r, g, b, alpha), gid);   // unclamped, see yuv_to_rgba
 }
 )";
 

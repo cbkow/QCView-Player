@@ -73,6 +73,12 @@ public:
     // renderSource / renderSingle call.
     void setBrightness(float brightness);
 
+    // Clamp sampled RGB to 0..1 before brightness. The YUV converters
+    // write unclamped values for OCIO; the present compositor turns this
+    // on when OCIO is bypassed so the raw view keeps its old 0..1 look.
+    // Baked into the UBO like brightness; corner overlays never clamp.
+    void setClampToUnit(bool clamp);
+
     // Two-source render. `encoder` is an active
     // id<MTLRenderCommandEncoder> (passed as void* to keep this
     // header ObjC-clean). `srcATexture` / `srcBTexture` are

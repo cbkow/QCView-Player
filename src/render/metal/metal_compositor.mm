@@ -41,6 +41,7 @@ struct UBO {
     float  borderB;
     int    rotA;         // per-side display rotation, quarter-turns CW
     int    rotB;         //   {0..3}; srcSize arrives display-swapped
+    int    clampRgb;     // 1 = clamp the sample to 0..1 (OCIO bypassed)
 };
 
 struct VsOut {
@@ -178,6 +179,10 @@ fragment float4 fs_main(VsOut in [[stage_in]],
         }
         discard_fragment();
     }
+    // Sources arrive unclamped (super-whites, sub-blacks, out-of-gamut)
+    // for OCIO. With OCIO bypassed the present pass restores the old
+    // 0..1 raw view, so an EDR drawable never shows them as HDR.
+    if (u.clampRgb != 0) color.rgb = clamp(color.rgb, 0.0, 1.0);
     color.rgb *= u.brightness;
     return color;
 }
@@ -472,6 +477,7 @@ struct MetalCompositor::Impl {
     int                        bgPixelFmt      = 0;
 
     float                      brightness      = 1.0f;
+    bool                       clampToUnit     = false;
 };
 
 MetalCompositor::MetalCompositor()
@@ -488,6 +494,11 @@ MetalCompositor::~MetalCompositor()
 void MetalCompositor::setBrightness(float brightness)
 {
     if (m_impl) m_impl->brightness = brightness;
+}
+
+void MetalCompositor::setClampToUnit(bool clamp)
+{
+    if (m_impl) m_impl->clampToUnit = clamp;
 }
 
 bool MetalCompositor::initialize(int targetPixelFormat,
@@ -653,6 +664,7 @@ void MetalCompositor::renderSources(void *encoderPtr,
         float borderPx;
         float borderR, borderG, borderB;
         int   rotA, rotB;
+        int   clampRgb;
     } ubo = {
         static_cast<float>(dstWidth),  static_cast<float>(dstHeight),
         static_cast<float>(srcAW),     static_cast<float>(srcAH),
@@ -664,6 +676,7 @@ void MetalCompositor::renderSources(void *encoderPtr,
         /*borderPx=*/0.0f,
         0.0f, 0.0f, 0.0f,
         rotA & 3, rotB & 3,
+        m_impl->clampToUnit ? 1 : 0,
     };
 
     [enc setRenderPipelineState:m_impl->pipeline];
@@ -745,6 +758,7 @@ void MetalCompositor::renderCornerOverlay(void *encoderPtr,
         float borderPx;
         float borderR, borderG, borderB;
         int   rotA, rotB;
+        int   clampRgb;
     } ubo = {
         boxW, boxH,
         static_cast<float>(thumbW), static_cast<float>(thumbH),
@@ -761,6 +775,7 @@ void MetalCompositor::renderCornerOverlay(void *encoderPtr,
         /*borderPx=*/(corner == 2 ? 0.0f : 2.0f),
         /*borderRGB ≈ #474747=*/0.28f, 0.28f, 0.28f,
         rotQuarters & 3, rotQuarters & 3,
+        /*clampRgb=*/0,
     };
 
     [enc setRenderPipelineState:m_impl->pipeline];
