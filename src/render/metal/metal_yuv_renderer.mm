@@ -29,6 +29,25 @@ struct YUVParams {
     uint subsampling;  // 0=4:2:0, 1=4:2:2, 2=4:4:4
 };
 
+// Video-range level removal. >8-bit planes arrive as 16-bit unorm with the
+// code value MSB-aligned (x420/x422/x444: 10-bit << 6), and the 16-bit
+// video-range formats (sv22/sv44/y416) use the same levels, so both share
+// the 16-bit constants: Y 4096..60160, C 4096..61440, C mid 32768.
+// The 8-bit fractions (128/255 = 0.50196 vs 32768/65535 = 0.50001) would
+// bias Cb/Cr negative and tint every neutral green.
+float3 video_range_to_ycbcr(float y_val, float cb_raw, float cr_raw, uint bit_depth)
+{
+    if (bit_depth > 8) {
+        return float3((y_val  -  4096.0/65535.0) * (65535.0/56064.0),
+                      (cb_raw - 32768.0/65535.0) * (65535.0/57344.0),
+                      (cr_raw - 32768.0/65535.0) * (65535.0/57344.0));
+    }
+    // Video range: Y [16/255, 235/255], UV [16/255, 240/255]
+    return float3((y_val  -  16.0/255.0) * (255.0/219.0),
+                  (cb_raw - 128.0/255.0) * (255.0/224.0),
+                  (cr_raw - 128.0/255.0) * (255.0/224.0));
+}
+
 kernel void yuv_to_rgba(
     texture2d<float, access::read>  y_tex   [[texture(0)]],
     texture2d<float, access::read>  uv_tex  [[texture(1)]],
@@ -56,10 +75,10 @@ kernel void yuv_to_rgba(
         cb = uv_val.x - 0.5;
         cr = uv_val.y - 0.5;
     } else {
-        // Video range: Y [16/255, 235/255], UV [16/255, 240/255]
-        y  = (y_val     - 16.0/255.0)  * (255.0/219.0);
-        cb = (uv_val.x  - 128.0/255.0) * (255.0/224.0);
-        cr = (uv_val.y  - 128.0/255.0) * (255.0/224.0);
+        float3 ycc = video_range_to_ycbcr(y_val, uv_val.x, uv_val.y, params.bit_depth);
+        y  = ycc.x;
+        cb = ycc.y;
+        cr = ycc.z;
     }
 
     float r, g, b;
@@ -100,9 +119,10 @@ kernel void yuv_interleaved_to_rgba(
         cb = cb_raw - 0.5;
         cr = cr_raw - 0.5;
     } else {
-        y  = (y_val  - 16.0/255.0)  * (255.0/219.0);
-        cb = (cb_raw - 128.0/255.0) * (255.0/224.0);
-        cr = (cr_raw - 128.0/255.0) * (255.0/224.0);
+        float3 ycc = video_range_to_ycbcr(y_val, cb_raw, cr_raw, params.bit_depth);
+        y  = ycc.x;
+        cb = ycc.y;
+        cr = ycc.z;
     }
 
     float r, g, b;
