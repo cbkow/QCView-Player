@@ -71,6 +71,7 @@ private:
         // absolute path on disk; preferred image is the annotated
         // sibling when present, falling back to the clean PNG.
         QString imagePath;
+        QString viewerTag;        // viewer aids in the thumbnail, if any
         int     imageWidth        = 0;
         int     imageHeight       = 0;
     };

@@ -51,6 +51,9 @@ struct OcioChain {
     QString shaderText;    // OCIO's emitted shader function (language depends on call)
     QString errorMessage;  // populated when ok == false
     bool    ok = false;
+    // The Display/View's output, for the viewer aids (build() only).
+    OutputEncoding encoding = OutputEncoding::Sdr;
+    int            outputPrimaries = 0;   // 0 = Rec.709, 1 = P3, 2 = Rec.2020
 };
 
 // The chain split around the linear stage (see linear_stage.h):
@@ -65,6 +68,8 @@ struct OcioSplitChain {
     OcioChain       post;
     InterchangeSide side = InterchangeSide::None;
     bool            displayIsSdr = true;   // the Display/View's colourspace encodes SDR
+    OutputEncoding  encoding = OutputEncoding::Sdr;
+    int             outputPrimaries = 0;
     QString         errorMessage;
     bool            ok = false;
 };
@@ -75,6 +80,8 @@ struct OcioSplitTransforms {
     OCIO_NAMESPACE::GroupTransformRcPtr post;
     InterchangeSide side = InterchangeSide::None;
     bool            displayIsSdr = true;
+    OutputEncoding  encoding = OutputEncoding::Sdr;
+    int             outputPrimaries = 0;
 };
 
 class OcioChainBuilder {

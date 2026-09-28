@@ -73,13 +73,14 @@ std::string buildPsHlsl(const std::string &ocioFunction,
     s.reserve(ocioFunction.size() + 512);
     s += "Texture2D    uSrc        : register(t0);\n";
     s += "SamplerState uSrcSampler : register(s0);\n";
+    s += kLinearStageHlsl;     // viewer aids (cbuffer b1) + PQ helpers
     s += "\n";
     s += ocioFunction;
     s += "\n\nstruct VsOut { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };\n";
     s += "float4 PSMain(VsOut input) : SV_TARGET\n";
     s += "{\n";
     s += "    float4 src = uSrc.Sample(uSrcSampler, input.uv);\n";
-    s += "    return " + funcName + "(src);\n";
+    s += "    return qcvViewerApply(" + funcName + "(src));\n";
     s += "}\n";
     return s;
 }
@@ -105,7 +106,7 @@ std::string buildSplitPsHlsl(const std::string &preFunction,
     s += "    float4 c = uSrc.Sample(uSrcSampler, input.uv);\n";
     s += "    c = OCIOPre(c);\n";
     s += "    c = qcvLinearStage(c);\n";
-    s += "    return OCIOPost(c);\n";
+    s += "    return qcvViewerApply(OCIOPost(c));\n";
     s += "}\n";
     return s;
 }
@@ -353,7 +354,11 @@ struct D3D11OcioRenderer::Impl {
     bool                 builtSplit   = false;
     InterchangeSide      side         = InterchangeSide::None;
     bool                 displayIsSdr = true;
+    OutputEncoding       encoding     = OutputEncoding::Sdr;
+    int                  outputPrimaries = 0;
     ComPtr<ID3D11Buffer> stageCb;             // LinearStageGpu at b0
+    ViewerAids           viewer;
+    ComPtr<ID3D11Buffer> viewerCb;            // ViewerGpu at b1
     std::atomic<bool> sdrCapture{false};   // read by the rebuild worker
 
     // --- Async rebuild plumbing -------------------------------------
@@ -378,6 +383,8 @@ struct D3D11OcioRenderer::Impl {
     bool                       pendingBuiltSplit   = false;
     InterchangeSide            pendingSide         = InterchangeSide::None;
     bool                       pendingDisplayIsSdr = true;
+    OutputEncoding             pendingEncoding     = OutputEncoding::Sdr;
+    int                        pendingPrimaries    = 0;
     QString                    pendingError;
 
     // Render-thread wake callback fired from the worker when a fresh
@@ -435,6 +442,11 @@ bool D3D11OcioRenderer::initialize()
         m_impl->lastError = QStringLiteral("D3D11OcioRenderer: stage cbuffer create failed");
         return false;
     }
+    cbd.ByteWidth = sizeof(ViewerGpu);                 // 32
+    if (FAILED(m_impl->device->CreateBuffer(&cbd, nullptr, m_impl->viewerCb.GetAddressOf()))) {
+        m_impl->lastError = QStringLiteral("D3D11OcioRenderer: viewer cbuffer create failed");
+        return false;
+    }
     return true;
 }
 
@@ -457,6 +469,7 @@ void D3D11OcioRenderer::shutdown()
     m_impl->ps.Reset();
     m_impl->srcSampler.Reset();
     m_impl->stageCb.Reset();
+    m_impl->viewerCb.Reset();
     m_impl->luts.clear();
     m_impl->device = nullptr;
     m_impl->lastChainGeneration = -1;
@@ -480,6 +493,11 @@ const QString &D3D11OcioRenderer::lastError() const
 void D3D11OcioRenderer::setWakeCallback(std::function<void()> cb)
 {
     m_impl->wakeCallback = std::move(cb);
+}
+
+void D3D11OcioRenderer::setViewer(const ViewerAids &viewer)
+{
+    m_impl->viewer = viewer;
 }
 
 void D3D11OcioRenderer::setStage(const LinearStageSettings &stage)
@@ -522,6 +540,8 @@ bool D3D11OcioRenderer::rebuild(OCIOConfigManager *ocio)
             m_impl->builtSplit          = m_impl->pendingBuiltSplit;
             m_impl->side                = m_impl->pendingSide;
             m_impl->displayIsSdr        = m_impl->pendingDisplayIsSdr;
+            m_impl->encoding            = m_impl->pendingEncoding;
+            m_impl->outputPrimaries     = m_impl->pendingPrimaries;
             m_impl->lastError           = std::move(m_impl->pendingError);
             m_impl->pendingPs.Reset();
             m_impl->pendingLuts.clear();
@@ -725,6 +745,8 @@ void D3D11OcioRenderer::doRebuildWork(int gen, bool wantSplit, OCIOConfigManager
         m_impl->pendingBuiltSplit   = split.ok;
         m_impl->pendingSide         = split.side;
         m_impl->pendingDisplayIsSdr = split.displayIsSdr;
+        m_impl->pendingEncoding     = split.ok ? split.encoding : chain.encoding;
+        m_impl->pendingPrimaries    = split.ok ? split.outputPrimaries : chain.outputPrimaries;
         m_impl->pendingError.clear();
         m_impl->pendingReady = true;
     }
@@ -793,6 +815,17 @@ void D3D11OcioRenderer::apply(void *ctxPtr,
         }
         ID3D11Buffer *cb = m_impl->stageCb.Get();
         ctx->PSSetConstantBuffers(0, 1, &cb);
+    }
+    if (m_impl->viewerCb) {
+        const ViewerGpu viewer = linear_stage::resolveViewer(
+            m_impl->viewer, m_impl->encoding, m_impl->outputPrimaries);
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        if (SUCCEEDED(ctx->Map(m_impl->viewerCb.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+            std::memcpy(mapped.pData, &viewer, sizeof(viewer));
+            ctx->Unmap(m_impl->viewerCb.Get(), 0);
+        }
+        ID3D11Buffer *cb = m_impl->viewerCb.Get();
+        ctx->PSSetConstantBuffers(1, 1, &cb);
     }
 
     ctx->Draw(3, 0);

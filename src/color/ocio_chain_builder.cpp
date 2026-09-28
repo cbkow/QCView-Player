@@ -104,10 +104,16 @@ OCIO::DisplayViewTransformRcPtr makeDvt(const char *src, const ChainParts &p)
     return dvt;
 }
 
-// SDR unless the Display/View's colourspace says otherwise. Uses the
+// What the Display/View writes: its encoding (for the viewer aids and
+// the knee's SDR target) and primaries family (luma weights). Uses the
 // colourspace `encoding` attribute; configs without it fall back to the
 // name (the bundled configs all set it).
-bool displayViewIsSdr(OCIO::ConstConfigRcPtr cfg, const ChainParts &p)
+struct DisplayOutput {
+    OutputEncoding encoding = OutputEncoding::Sdr;
+    int            primaries = 0;   // 0 = Rec.709, 1 = P3, 2 = Rec.2020
+};
+
+DisplayOutput displayViewOutput(OCIO::ConstConfigRcPtr cfg, const ChainParts &p)
 {
     const char *csName =
         cfg->getDisplayViewColorSpaceName(p.display.constData(), p.view.constData());
@@ -115,12 +121,26 @@ bool displayViewIsSdr(OCIO::ConstConfigRcPtr cfg, const ChainParts &p)
     if (name.isEmpty() || name == "<USE_DISPLAY_NAME>") name = p.display;
     OCIO::ConstColorSpaceRcPtr cs = cfg->getColorSpace(name.constData());
     const QByteArray enc = cs ? QByteArray(cs->getEncoding()) : QByteArray();
-    if (!enc.isEmpty()) return enc == "sdr-video";
-    const QString n = QString::fromUtf8(name);
-    for (const char *hdr : {"PQ", "HLG", "2100", "ST2084", "EDR", "Linear"}) {
-        if (n.contains(QLatin1String(hdr), Qt::CaseInsensitive)) return false;
+    const QString n = QString::fromUtf8(name) + QLatin1Char(' ') + QString::fromUtf8(p.display);
+    auto has = [&n](const char *s) { return n.contains(QLatin1String(s), Qt::CaseInsensitive); };
+
+    DisplayOutput out;
+    if (enc == "sdr-video") {
+        out.encoding = OutputEncoding::Sdr;
+    } else if (enc == "display-linear" || enc == "scene-linear") {
+        out.encoding = OutputEncoding::Linear;
+    } else if (enc == "hdr-video") {
+        out.encoding = has("HLG") ? OutputEncoding::Hlg : OutputEncoding::Pq;
+    } else if (has("HLG")) {
+        out.encoding = OutputEncoding::Hlg;
+    } else if (has("PQ") || has("ST2084") || has("2100")) {
+        out.encoding = OutputEncoding::Pq;
+    } else if (has("EDR") || has("Linear")) {
+        out.encoding = OutputEncoding::Linear;
     }
-    return true;
+    if (has("P3"))                          out.primaries = 1;
+    else if (has("2020") || has("2100"))    out.primaries = 2;
+    return out;
 }
 
 OcioChain extractShader(OCIO::ConstConfigRcPtr cfg,
@@ -240,7 +260,10 @@ bool OcioChainBuilder::buildSplitTransforms(OCIOConfigManager *ocio,
         if (p.displayLut) out.post->appendTransform(p.displayLut);
 
         out.side         = scene ? InterchangeSide::Scene : InterchangeSide::Display;
-        out.displayIsSdr = displayViewIsSdr(cfg, p);
+        const DisplayOutput dout = displayViewOutput(cfg, p);
+        out.encoding        = dout.encoding;
+        out.outputPrimaries = dout.primaries;
+        out.displayIsSdr    = dout.encoding == OutputEncoding::Sdr;
         return true;
     } catch (const OCIO::Exception &e) {
         return fail(QStringLiteral("OCIO build: %1").arg(e.what()));
@@ -261,8 +284,14 @@ OcioChain OcioChainBuilder::build(OCIOConfigManager *ocio, Language language,
         OCIO::GroupTransformRcPtr group =
             buildGroupTransform(ocio, cfg, &out.errorMessage, override);
         if (!group) return out;  // errorMessage already populated
-        return extractShader(cfg, group, toGpuLanguage(language),
-                             "OCIODisplay", "ocio_");
+        out = extractShader(cfg, group, toGpuLanguage(language), "OCIODisplay", "ocio_");
+        ChainParts p;
+        if (out.ok && resolveParts(ocio, cfg, override, p, nullptr)) {
+            const DisplayOutput dout = displayViewOutput(cfg, p);
+            out.encoding        = dout.encoding;
+            out.outputPrimaries = dout.primaries;
+        }
+        return out;
     } catch (const OCIO::Exception &e) {
         out.errorMessage = QStringLiteral("OCIO build: %1").arg(e.what());
         return out;
@@ -292,9 +321,11 @@ OcioSplitChain OcioChainBuilder::buildSplit(OCIOConfigManager *ocio,
             out.errorMessage = !out.pre.ok ? out.pre.errorMessage : out.post.errorMessage;
             return out;
         }
-        out.side         = t.side;
-        out.displayIsSdr = t.displayIsSdr;
-        out.ok           = true;
+        out.side            = t.side;
+        out.displayIsSdr    = t.displayIsSdr;
+        out.encoding        = t.encoding;
+        out.outputPrimaries = t.outputPrimaries;
+        out.ok              = true;
     } catch (const OCIO::Exception &e) {
         out.errorMessage = QStringLiteral("OCIO build: %1").arg(e.what());
     }

@@ -2268,9 +2268,21 @@ void D3D11PlayerRenderer::setBrightness(float brightness)
     requestUpdate();
 }
 
+void D3D11PlayerRenderer::setViewerAids(float gamma, int channel)
+{
+    m_viewerGamma.store(gamma, std::memory_order_relaxed);
+    m_viewerChannel.store(channel, std::memory_order_relaxed);
+    requestUpdate();
+}
+
 bool D3D11PlayerRenderer::rebuildOcio(D3D11OcioRenderer &r)
 {
     r.setStage(m_ocio->linearStageSettings(m_gain.load(std::memory_order_relaxed)));
+    ViewerAids v;
+    v.gamma   = m_viewerGamma.load(std::memory_order_relaxed);
+    v.channel = static_cast<ChannelView>(
+        std::clamp(m_viewerChannel.load(std::memory_order_relaxed), 0, 5));
+    r.setViewer(v);
     return r.rebuild(m_ocio);
 }
 

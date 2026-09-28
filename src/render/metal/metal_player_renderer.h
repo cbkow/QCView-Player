@@ -23,6 +23,7 @@
 #include "iplayer_renderer.h"
 
 #include "annotations/active_stroke.h"
+#include "color/linear_stage.h"
 
 #include <atomic>
 #include <memory>
@@ -50,6 +51,8 @@ public:
 
     void setHdrMode(HdrMode mode) override;
     void setBrightness(float brightness) override;
+    void setViewerAids(float gamma, int channel) override;
+    ViewerAids currentViewerAids() const;
     void setImageSeqCache(ImageSequenceCache *c) override;
     void setVideoDecoder(VideoDecoder *d) override;
     void setVideoDecoderB(VideoDecoder *d) override;
@@ -128,6 +131,8 @@ private:
     // Brightness as linear-stage gain (applied inside the split OCIO
     // chain, before the View — see color/linear_stage.h). 1.0 = identity.
     std::atomic<float>          m_gain{1.0f};
+    std::atomic<float>          m_viewerGamma{1.0f};
+    std::atomic<int>            m_viewerChannel{0};
     BackgroundMode      m_bgMode    = BackgroundMode::Black;
     ViewportAnnotator  *m_annotator = nullptr;
     SafetyOverlay      *m_safety    = nullptr;

@@ -42,13 +42,24 @@ const std::vector<std::array<float, 3>> kValues = {
 
 // CPU reference: unsplit chain for an identity stage, else split + stage.
 void cpuRef(OCIOConfigManager &mgr, OCIO::ConstConfigRcPtr cfg,
-            const LinearStageSettings &st, std::vector<std::array<float, 3>> &out)
+            const LinearStageSettings &st, const ViewerAids &va,
+            std::vector<std::array<float, 3>> &out)
 {
     out = kValues;
+    auto viewer = [&](OutputEncoding enc, int prim) {
+        const ViewerGpu g = linear_stage::resolveViewer(va, enc, prim);
+        for (auto &v : out) {
+            float rgba[4] = {v[0], v[1], v[2], 1.0f};
+            linear_stage::applyViewer(rgba, g);
+            v = {rgba[0], rgba[1], rgba[2]};
+        }
+    };
     if (linear_stage::isIdentity(st)) {
         auto cpu = cfg->getProcessor(OcioChainBuilder::buildGroupTransform(&mgr, cfg))
                        ->getDefaultCPUProcessor();
         for (auto &v : out) cpu->applyRGB(v.data());
+        const OcioChain c = OcioChainBuilder::build(&mgr, OcioChainBuilder::Language::Msl_2_0);
+        viewer(c.encoding, c.outputPrimaries);
         return;
     }
     OcioSplitTransforms t;
@@ -61,6 +72,7 @@ void cpuRef(OCIOConfigManager &mgr, OCIO::ConstConfigRcPtr cfg,
         linear_stage::apply(v.data(), g);
         post->applyRGB(v.data());
     }
+    viewer(t.encoding, t.outputPrimaries);
 }
 
 bool gpuRun(id<MTLDevice> dev, id<MTLCommandQueue> q, MetalOcioRenderer &r,
@@ -127,11 +139,21 @@ int main(int argc, char **argv)
         {"ACES_2.0", "Rec.2100-PQ - Display", "Rec.2100-PQ - Display", "Un-tone-mapped"},
         {"ACES_2.0", "ARRI LogC4", "Rec.1886 Rec.709 - Display", "ACES 2.0 - SDR 100 nits (Rec.709)"},
     };
-    struct Variant { const char *name; LinearStageSettings st; };
+    struct Variant { const char *name; LinearStageSettings st; ViewerAids va; };
     LinearStageSettings gain2;  gain2.gain = 2.0f;
     LinearStageSettings knee;   knee.kneeEnabled = true; knee.kneeSourceNits = 1000.0f;
-    const Variant variants[] = {{"identity", LinearStageSettings{}}, {"gain 2", gain2},
-                                {"knee 1000", knee}};
+    ViewerAids gamma2;   gamma2.gamma = 2.0f;
+    ViewerAids luma;     luma.channel = ChannelView::Luma;
+    ViewerAids alpha;    alpha.channel = ChannelView::Alpha;
+    ViewerAids green;    green.channel = ChannelView::Green;
+    const Variant variants[] = {{"identity", LinearStageSettings{}, ViewerAids{}},
+                                {"gain 2", gain2, ViewerAids{}},
+                                {"knee 1000", knee, ViewerAids{}},
+                                {"gamma 2", LinearStageSettings{}, gamma2},
+                                {"luma", LinearStageSettings{}, luma},
+                                {"alpha", LinearStageSettings{}, alpha},
+                                {"knee+gam", knee, gamma2},
+                                {"green", gain2, green}};
 
     int failures = 0;
     for (const Case &c : cases) {
@@ -146,6 +168,7 @@ int main(int argc, char **argv)
             MetalOcioRenderer r;
             r.initialize();
             r.setStage(v.st);
+            r.setViewer(v.va);
             if (!r.rebuild(&mgr)) {
                 std::printf("FAIL build  %s | %s | %s / %s [%s]: %s\n", c.config, c.input,
                             c.display, c.view, v.name, qPrintable(r.lastError()));
@@ -153,7 +176,7 @@ int main(int argc, char **argv)
                 continue;
             }
             std::vector<std::array<float, 3>> gpu, cpu;
-            cpuRef(mgr, cfg, v.st, cpu);
+            cpuRef(mgr, cfg, v.st, v.va, cpu);
             if (!gpuRun(dev, q, r, gpu)) { ++failures; continue; }
             float worst = 0.0f;
             for (size_t i = 0; i < gpu.size(); ++i) {

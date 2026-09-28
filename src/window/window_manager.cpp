@@ -126,8 +126,9 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     // — m_brightness is read directly by the wiring sites.
     m_brightness = QSettings().value(
         QStringLiteral("display/brightness"), 1.0).toDouble();
-    if (m_brightness < 0.1) m_brightness = 0.1;
-    if (m_brightness > 5.0) m_brightness = 5.0;
+    // ±4 stops (Exposure).
+    if (m_brightness < 0.0625) m_brightness = 0.0625;
+    if (m_brightness > 16.0)   m_brightness = 16.0;
 
     // Phase 3.H.5 — hover-thumbnail cache. Initialized at the
     // timeline's master fps; the worker pool starts immediately so
@@ -1410,6 +1411,7 @@ bool WindowManager::createPlayerWindow()
         // the renderer's compositor + OCIO PSes pick it up before
         // first present.
         r->setBrightness(static_cast<float>(m_brightness));
+        r->setViewerAids(static_cast<float>(m_viewerGamma), m_channelView);
         // Phase B.6.3: wire the VideoDecoder once. The renderer
         // pulls FrameHandles via fetchLatest each present; if there's
         // no source open it just returns false and the renderer
@@ -6808,9 +6810,9 @@ void WindowManager::setHdrMode(int mode)
 
 void WindowManager::setBrightness(double brightness)
 {
-    // Clamp into a sane range. Linear (not stops). 1.0 = identity.
-    if (brightness < 0.1) brightness = 0.1;
-    if (brightness > 5.0) brightness = 5.0;
+    // Linear gain, 1.0 = identity; ±4 stops (the Exposure control).
+    if (brightness < 0.0625) brightness = 0.0625;
+    if (brightness > 16.0)   brightness = 16.0;
     if (std::abs(brightness - m_brightness) < 1e-6) return;
     m_brightness = brightness;
 
@@ -6826,6 +6828,85 @@ void WindowManager::setBrightness(double brightness)
 #endif
 
     emit brightnessChanged();
+    emit viewerAidsChanged();
+}
+
+double WindowManager::exposure() const
+{
+    return std::log2(m_brightness);
+}
+
+void WindowManager::setExposure(double stops)
+{
+    setBrightness(std::pow(2.0, std::clamp(stops, -4.0, 4.0)));
+}
+
+void WindowManager::setViewerGamma(double gamma)
+{
+    gamma = std::clamp(gamma, 0.25, 4.0);
+    if (std::abs(gamma - m_viewerGamma) < 1e-6) return;
+    m_viewerGamma = gamma;
+    pushViewerAids();
+    emit viewerAidsChanged();
+}
+
+void WindowManager::setChannelView(int channel)
+{
+    channel = std::clamp(channel, 0, 5);
+    if (channel == m_channelView) return;
+    m_channelView = channel;
+    pushViewerAids();
+    emit viewerAidsChanged();
+}
+
+void WindowManager::pushViewerAids()
+{
+#ifdef QCV_NATIVE_PLAYER
+    if (auto *pw = qobject_cast<qcv::PlayerWindow *>(m_playerWindow.data())) {
+        if (auto *r = pw->renderer()) {
+            r->setViewerAids(static_cast<float>(m_viewerGamma), m_channelView);
+        }
+    }
+#endif
+}
+
+bool WindowManager::viewerAdjusted() const
+{
+    return std::abs(exposure()) > 0.005
+        || std::abs(m_viewerGamma - 1.0) > 0.005
+        || m_channelView != 0;
+}
+
+void WindowManager::resetViewerAids()
+{
+    setBrightness(1.0);
+    setViewerGamma(1.0);
+    setChannelView(0);
+}
+
+QString WindowManager::viewerAidsTag() const
+{
+    auto *ocio = m_ocio;
+    if (!ocio || !ocio->engaged()) return {};
+    QStringList parts;
+    const double ev = exposure();
+    if (std::abs(ev) > 0.005) {
+        parts << QStringLiteral("%1%2 stops")
+                     .arg(ev > 0 ? QStringLiteral("+") : QStringLiteral("−"))
+                     .arg(std::abs(ev), 0, 'f', 1);
+    }
+    if (std::abs(m_viewerGamma - 1.0) > 0.005) {
+        parts << QStringLiteral("γ %1").arg(m_viewerGamma, 0, 'f', 2);
+    }
+    static const char *kChannels[] = {"", "red", "green", "blue", "alpha", "luma"};
+    if (m_channelView > 0) parts << QString::fromLatin1(kChannels[m_channelView]);
+    if (ocio->kneeEnabled() && ocio->kneeAvailable()) {
+        parts << QStringLiteral("Knee %1→%2")
+                     .arg(qRound(ocio->kneeSourceNits()))
+                     .arg(ocio->displayIsSdr() ? 100 : qRound(ocio->kneeTargetNits()));
+    }
+    if (parts.isEmpty()) return {};
+    return QStringLiteral("Viewer: ") + parts.join(QStringLiteral(" · "));
 }
 
 // ---------------------------------------------------------------------------
@@ -7733,6 +7814,7 @@ QVariantList WindowManager::notesList() const
         m[QStringLiteral("text")]             = n.text;
         m[QStringLiteral("addressed")]        = n.addressed;
         m[QStringLiteral("hasStrokes")]       = !n.annotation_data.isEmpty();
+        m[QStringLiteral("viewerTag")]        = n.viewer_tag;
         // image_path is sidecar-relative ("images/note_<TC>.png");
         // join with the absolute images folder so QML's Image item
         // can load it directly. We expose two paths:
@@ -7854,6 +7936,9 @@ void WindowManager::saveNoteCleanThumbnail(const QString &timecode)
     }
     qInfo("saveNoteCleanThumbnail: %dx%d → %s", img.width(), img.height(),
           qPrintable(abs));
+    // The capture includes the viewer aids (and the knee); say so on the
+    // note, captured with the frame.
+    m_annotationManager->updateNoteViewerTag(timecode, viewerAidsTag());
 
     // Keep the just-captured clean frame in memory so the annotated
     // recomposite (fired ~400 ms later) can proceed even if the async PNG

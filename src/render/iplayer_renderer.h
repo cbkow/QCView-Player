@@ -111,6 +111,10 @@ public:
     // user-responsible. Default no-op so platforms that haven't
     // wired this yet still link.
     virtual void setBrightness(float /*brightness*/) {}
+    // Viewer aids (color/linear_stage.h): gamma (> 1 lifts shadows) and
+    // channel view (0 RGB, 1 R, 2 G, 3 B, 4 A, 5 luma), applied after the
+    // OCIO chain on the live view and in captures. Need OCIO engaged.
+    virtual void setViewerAids(float /*gamma*/, int /*channel*/) {}
     virtual void setImageSeqCache(ImageSequenceCache *c)   = 0;
     virtual void setVideoDecoder(VideoDecoder *d)          = 0;
     // Source B decoder — fed into the compositor's srcB slot for

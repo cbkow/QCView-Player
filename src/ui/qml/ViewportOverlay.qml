@@ -530,6 +530,49 @@ Pane {
         }
         Item { width: Theme.spacing; visible: kneePill.visible }
 
+        // ---- Viewer-adjusted pill — exposure / gamma / channel view are
+        // on (inspection aids, captured and tagged in screenshots). Click
+        // resets them all.
+        Rectangle {
+            id: viewerPill
+            visible: !root.saveMode && !!WindowManager.ocio
+                     && WindowManager.ocio.engaged && WindowManager.viewerAdjusted
+            Layout.preferredHeight: Theme.chipHeight
+            Layout.preferredWidth: viewerLabel.implicitWidth + 14
+            radius: Theme.radiusBase
+            color: viewerPillMa.containsMouse ? Theme.surfaceHover : "transparent"
+            border.width: 1
+            border.color: Theme.warning
+            Text {
+                id: viewerLabel
+                anchors.centerIn: parent
+                text: qsTr("VIEWER")
+                color: Theme.warning
+                font.family: Theme.monoFamily
+                font.pixelSize: Theme.fontSizeMono
+                font.bold: true
+            }
+            MouseArea {
+                id: viewerPillMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: WindowManager.resetViewerAids()
+                FlatToolTip {
+                    visible: viewerPillMa.containsMouse
+                    text: {
+                        // Re-evaluate on every aid change (the tag is a call).
+                        void (WindowManager.exposure + WindowManager.viewerGamma
+                              + WindowManager.channelView);
+                        return WindowManager.viewerAdjusted
+                               ? WindowManager.viewerAidsTag() + qsTr(" — click to reset")
+                               : "";
+                    }
+                }
+            }
+        }
+        Item { width: Theme.spacing; visible: viewerPill.visible }
+
         // ---- Compositor mode toggles — icon-only, checkable.
         // Raised idle + accent-when-checked = segmented control
         // (checked wins over the raised fill in FlatButton's pal).

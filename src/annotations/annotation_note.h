@@ -40,6 +40,11 @@ struct AnnotationNote {
     QString annotation_data;   // JSON string (stroke list); empty if none
     QString text;              // user note (multi-line OK)
     bool    addressed         = false;
+    // Viewer aids in effect when the thumbnail was captured
+    // ("Viewer: −1.5 stops · γ 1.80 · luma · Knee 1000→100"), so a reader
+    // knows the image isn't a 1:1 frame. Empty = none. Optional "viewer"
+    // key on disk.
+    QString viewer_tag;
 
     AnnotationNote() = default;
     AnnotationNote(QString tc, double ts, int f, QString img, QString txt)

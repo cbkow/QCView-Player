@@ -51,6 +51,7 @@ public:
 
     void setHdrMode(HdrMode mode) override;
     void setBrightness(float brightness) override;
+    void setViewerAids(float gamma, int channel) override;
     void setImageSeqCache(ImageSequenceCache *c) override;
     void setVideoDecoder(VideoDecoder *d) override;
     void setVideoDecoderB(VideoDecoder *d) override;
@@ -179,6 +180,8 @@ private:
     // Brightness as linear-stage gain (inside the split OCIO chain, see
     // color/linear_stage.h). 1.0 = identity.
     std::atomic<float>         m_gain      {1.0f};
+    std::atomic<float>         m_viewerGamma   {1.0f};
+    std::atomic<int>           m_viewerChannel {0};
     std::atomic<float>         m_splitSeamHighlight {0.0f};
     std::atomic<int>           m_dropHighlight {0};
     std::atomic<float>         m_diffGain  {1.0f};

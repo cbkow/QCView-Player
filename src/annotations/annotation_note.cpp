@@ -14,6 +14,9 @@ QJsonObject noteToJson(const AnnotationNote &note)
     obj.insert(QStringLiteral("timestamp_seconds"), note.timestamp_seconds);
     obj.insert(QStringLiteral("frame"),             note.frame);
     obj.insert(QStringLiteral("image"),             note.image_path);
+    if (!note.viewer_tag.isEmpty()) {
+        obj.insert(QStringLiteral("viewer"),        note.viewer_tag);
+    }
 
     // annotation_data: in-memory string → on-disk nested object.
     // Empty string serializes as JSON null (matches old app shape).
@@ -49,6 +52,7 @@ bool noteFromJson(const QJsonObject &obj, AnnotationNote &out)
     out.timestamp_seconds = obj.value(QStringLiteral("timestamp_seconds")).toDouble();
     out.frame             = obj.value(QStringLiteral("frame")).toInt();
     out.image_path        = obj.value(QStringLiteral("image")).toString();
+    out.viewer_tag        = obj.value(QStringLiteral("viewer")).toString();
 
     // annotation_data: nested object → string. Null / missing → empty.
     if (obj.contains(QStringLiteral("annotation_data"))) {

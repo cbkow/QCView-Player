@@ -649,6 +649,34 @@ Pane {
                                     border.color: "#000000"
                                     border.width: 1
                                 }
+                                // Viewer aids were on when this thumbnail
+                                // was captured — it isn't a 1:1 frame.
+                                Rectangle {
+                                    visible: (card._live.viewerTag || "").length > 0
+                                    anchors.left:   parent.left
+                                    anchors.bottom: parent.bottom
+                                    anchors.margins: 4
+                                    width: viewerBadgeText.implicitWidth + 8
+                                    height: viewerBadgeText.implicitHeight + 2
+                                    radius: Theme.radiusSmall
+                                    color: "#cc000000"
+                                    border.width: 1
+                                    border.color: Theme.warning
+                                    Text {
+                                        id: viewerBadgeText
+                                        anchors.centerIn: parent
+                                        text: qsTr("VIEWER")
+                                        color: Theme.warning
+                                        font.family: Theme.monoFamily
+                                        font.pixelSize: Theme.fontSizeTiny
+                                        font.bold: true
+                                    }
+                                    HoverHandler { id: viewerBadgeHover }
+                                    FlatToolTip {
+                                        visible: viewerBadgeHover.hovered
+                                        text: card._live.viewerTag || ""
+                                    }
+                                }
                                 MouseArea {
                                     id: cardMa
                                     anchors.fill: parent

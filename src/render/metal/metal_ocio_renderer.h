@@ -63,6 +63,10 @@ public:
     // interchange role, data colourspace / view) the stage is skipped.
     void setStage(const LinearStageSettings &stage);
 
+    // Viewer aids (gamma, channel view) for the next apply(): applied
+    // after the whole chain, split or not. No rebuild — a uniform block.
+    void setViewer(const ViewerAids &viewer);
+
     // Compile off the render thread (see rebuild()). Default off.
     void setAsync(bool on);
 

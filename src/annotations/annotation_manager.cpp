@@ -125,6 +125,21 @@ void AnnotationManager::updateNoteImagePath(const QString &timecode,
     }
 }
 
+void AnnotationManager::updateNoteViewerTag(const QString &timecode, const QString &tag)
+{
+    {
+        QMutexLocker lk(&notes_mutex_);
+        auto it = std::find_if(notes_.begin(), notes_.end(),
+            [&](const AnnotationNote &n) { return n.timecode == timecode; });
+        if (it == notes_.end() || it->viewer_tag == tag) return;
+        it->viewer_tag = tag;
+    }
+    if (!batch_mode_.load()) {
+        saveNotesAsyncLocked();
+        notifyNotesChanged();
+    }
+}
+
 void AnnotationManager::updateNoteAddressed(const QString &timecode, bool addressed)
 {
     {

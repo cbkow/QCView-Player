@@ -31,6 +31,7 @@ namespace {
 //                 shared sampler keeps a split chain (two OCIO functions)
 //                 inside Metal's 16-sampler limit.
 //   buffer(0)   = QcvStage (split chain only)
+//   buffer(1)   = QcvViewer (viewer aids, every kernel)
 // OCIO's emitted MSL function takes its textures + samplers as
 // arguments, so the wrapper is composed at rebuild() time once the LUT
 // inventory is known.
@@ -67,6 +68,8 @@ struct Built {
     bool            split = false;
     InterchangeSide side = InterchangeSide::None;
     bool            displayIsSdr = true;
+    OutputEncoding  encoding = OutputEncoding::Sdr;
+    int             outputPrimaries = 0;
     QString         error;
 };
 
@@ -292,17 +295,21 @@ Built buildPipeline(id<MTLDevice> device, OCIOConfigManager *ocio,
                 + QString::fromUtf8(kKernelMainPrefix)
                 + args
                 + QStringLiteral("    constant QcvStage &qcvStage [[buffer(0)]],\n")
+                + QStringLiteral("    constant QcvViewer &qcvView [[buffer(1)]],\n")
                 + QString::fromUtf8(kKernelMainSuffix)
                 + QStringLiteral("    color = OCIOPre(%1color);\n").arg(preCall)
                 + QStringLiteral("    color = qcvLinearStage(color, qcvStage);\n")
                 + QStringLiteral("    color = OCIOPost(%1color);\n").arg(postCall)
+                + QStringLiteral("    color = qcvViewerApply(color, qcvView);\n")
                 + QString::fromUtf8(kKernelFooter);
             out.pipeline = compileKernel(device, kernel,
                                          chain.pre.shaderText + chain.post.shaderText, out.error);
             if (!out.pipeline) out.luts.clear();
-            out.split        = true;
-            out.side         = chain.side;
-            out.displayIsSdr = chain.displayIsSdr;
+            out.split           = true;
+            out.side            = chain.side;
+            out.displayIsSdr    = chain.displayIsSdr;
+            out.encoding        = chain.encoding;
+            out.outputPrimaries = chain.outputPrimaries;
             return out;
         }
         // No interchange role / data colourspace or view: the stage is
@@ -324,12 +331,17 @@ Built buildPipeline(id<MTLDevice> device, OCIOConfigManager *ocio,
     // OCIODisplay(color), the no-LUT signature OCIO emits.
     const QString kernel =
         QString::fromUtf8(kKernelHeader)
+        + QString::fromUtf8(kLinearStageMsl)     // viewer aids + PQ helpers
         + chain.shaderText
         + QString::fromUtf8(kKernelMainPrefix)
         + args
+        + QStringLiteral("    constant QcvViewer &qcvView [[buffer(1)]],\n")
         + QString::fromUtf8(kKernelMainSuffix)
         + QStringLiteral("    color = OCIODisplay(%1color);\n").arg(call)
+        + QStringLiteral("    color = qcvViewerApply(color, qcvView);\n")
         + QString::fromUtf8(kKernelFooter);
+    out.encoding        = chain.encoding;
+    out.outputPrimaries = chain.outputPrimaries;
     out.pipeline = compileKernel(device, kernel, chain.shaderText, out.error);
     if (!out.pipeline) out.luts.clear();
     return out;
@@ -357,6 +369,7 @@ struct MetalOcioRenderer::Impl {
     bool  jobSplit     = false;
 
     LinearStageSettings stage;
+    ViewerAids          viewer;
     bool  async      = false;
     bool  sdrCapture = false;
 
@@ -464,6 +477,11 @@ void MetalOcioRenderer::setSdrCapture(bool on)
 void MetalOcioRenderer::setStage(const LinearStageSettings &stage)
 {
     m_impl->stage = stage;
+}
+
+void MetalOcioRenderer::setViewer(const ViewerAids &viewer)
+{
+    m_impl->viewer = viewer;
 }
 
 void MetalOcioRenderer::setAsync(bool on)
@@ -587,6 +605,9 @@ void *MetalOcioRenderer::apply(void *cmdBufPtr, void *sourceMtlTexture,
             linear_stage::resolve(m_impl->stage, b.side, b.displayIsSdr);
         [enc setBytes:&stage length:sizeof(stage) atIndex:0];
     }
+    const ViewerGpu viewer =
+        linear_stage::resolveViewer(m_impl->viewer, b.encoding, b.outputPrimaries);
+    [enc setBytes:&viewer length:sizeof(viewer) atIndex:1];
 
     const MTLSize tg   = MTLSizeMake(16, 16, 1);
     const MTLSize grid = MTLSizeMake(width, height, 1);

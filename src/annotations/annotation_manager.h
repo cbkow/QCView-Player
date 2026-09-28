@@ -50,6 +50,9 @@ public:
                                   const QString &annotationData);
     void updateNoteImagePath(const QString &timecode,
                              const QString &imagePath);
+    // Viewer aids in effect for the note's thumbnail (see
+    // AnnotationNote::viewer_tag).
+    void updateNoteViewerTag(const QString &timecode, const QString &tag);
     void updateNoteAddressed(const QString &timecode, bool addressed);
     void deleteNote(const QString &timecode);
 

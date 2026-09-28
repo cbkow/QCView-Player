@@ -336,6 +336,17 @@ class WindowManager : public QObject
     // will clip HDR highlights above the display's headroom — that's
     // a known cost of using this in HDR modes.
     Q_PROPERTY(double brightness READ brightness WRITE setBrightness NOTIFY brightnessChanged)
+    // Viewer aids (color/linear_stage.h) — peek at what's in the source,
+    // not creative choices. Exposure is Brightness in stops (gain =
+    // 2^stops, ±4, the linear stage's gain; persisted via
+    // display/brightness). Gamma (> 1 lifts shadows) and channel view
+    // (0 RGB, 1 R, 2 G, 3 B, 4 A, 5 luma) apply after the OCIO chain and
+    // are not persisted. All need OCIO engaged; all are captured in
+    // screenshots / note thumbnails (tagged via viewerAidsTag()).
+    Q_PROPERTY(double exposure    READ exposure    WRITE setExposure    NOTIFY brightnessChanged)
+    Q_PROPERTY(double viewerGamma READ viewerGamma WRITE setViewerGamma NOTIFY viewerAidsChanged)
+    Q_PROPERTY(int    channelView READ channelView WRITE setChannelView NOTIFY viewerAidsChanged)
+    Q_PROPERTY(bool   viewerAdjusted READ viewerAdjusted NOTIFY viewerAidsChanged)
 
 public:
     // Stroke-history entry — used by the annotation undo/redo
@@ -722,6 +733,17 @@ public:
 
     double brightness() const { return m_brightness; }
     void   setBrightness(double brightness);
+    double exposure() const;
+    void   setExposure(double stops);
+    double viewerGamma() const { return m_viewerGamma; }
+    void   setViewerGamma(double gamma);
+    int    channelView() const { return m_channelView; }
+    void   setChannelView(int channel);
+    bool   viewerAdjusted() const;
+    Q_INVOKABLE void resetViewerAids();
+    // "Viewer: −1.5 stops · γ 1.8 · luma · Knee 1000→100" for the aids
+    // in effect (empty when none, or OCIO is off). Stored on notes.
+    Q_INVOKABLE QString viewerAidsTag() const;
 
     bool imageSeqActive() const { return m_imageSeqActive; }
     bool liveActive() const { return m_liveActive; }
@@ -1134,6 +1156,7 @@ signals:
     void autoUpdateChecksChanged();
     void hdrModeChanged();
     void brightnessChanged();
+    void viewerAidsChanged();
     // Phase 3.H.6 — re-emitted from AnnotationManager.notesChanged
     // for QML bindings, plus fires when the active media swaps to
     // a different sidecar. annotationsAllowedChanged tracks the
@@ -1408,6 +1431,9 @@ private:
     TimelineController    *m_timeline = nullptr;       // owned via QObject parent
     int                    m_hdrMode = SdrSRgb;
     double                 m_brightness = 1.0;
+    double                 m_viewerGamma = 1.0;
+    int                    m_channelView = 0;
+    void                   pushViewerAids();
 
     // Phase 7.5 B.6.5 — annotator owned by WindowManager so its
     // lifetime spans player-window recreates (HDR mode switches).

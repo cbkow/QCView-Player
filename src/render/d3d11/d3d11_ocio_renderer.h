@@ -52,6 +52,10 @@ public:
     // Mirrors MetalOcioRenderer::setStage.
     void setStage(const LinearStageSettings &stage);
 
+    // Viewer aids (gamma, channel view) for the next apply(): applied
+    // after the whole chain, split or not. No rebuild — cbuffer b1.
+    void setViewer(const ViewerAids &viewer);
+
     // True when the active pipeline is split, i.e. the stage applies.
     bool stageActive() const;
 

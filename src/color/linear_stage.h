@@ -19,6 +19,9 @@
 // CIE-XYZ-D65 → PQ display transforms treat 1.0 as 100 cd/m², and the
 // EDR patch lands SDR white at 1.0).
 //
+// The viewer aids (gamma, channel view) sit after the whole chain and
+// are defined here too, sharing the PQ helpers.
+//
 // One definition, three implementations that must agree: the C++ below
 // (LUT export, tests), kLinearStageMsl (Metal) and kLinearStageHlsl
 // (D3D11). The GPU uniform block is all float4 so C++, MSL and HLSL lay
@@ -37,6 +40,33 @@ enum class InterchangeSide : int {
     None    = 0,   // no split (chain not configured, data colourspace, no role)
     Scene   = 1,   // aces_interchange (ACES2065-1, AP0, D60 white)
     Display = 2,   // cie_xyz_d65_interchange (CIE XYZ, D65 white)
+};
+
+// How the Display/View's output is encoded — what gamma and channel
+// view (the viewer aids, below) operate on. From the display
+// colourspace's `encoding` attribute (name heuristics as a fallback).
+enum class OutputEncoding : int {
+    Sdr    = 0,   // sdr-video: gamma-encoded, 1.0 = SDR white
+    Linear = 1,   // display-linear (the EDR displays): 1.0 = 100 nits
+    Pq     = 2,   // hdr-video, ST 2084
+    Hlg    = 3,   // hdr-video, HLG — gamma not applied in v1
+};
+
+// Viewer aids applied after the whole OCIO chain (after the Display
+// LUT): inspection only, never saved in presets or baked into exports,
+// but captured in screenshots / note thumbnails. Exposure is not here —
+// it is the stage's gain (LinearStageSettings::gain).
+enum class ChannelView : int { Rgb = 0, Red = 1, Green = 2, Blue = 3, Alpha = 4, Luma = 5 };
+
+struct ViewerAids {
+    float       gamma   = 1.0f;          // > 1 lifts shadows: c' = c^(1/gamma)
+    ChannelView channel = ChannelView::Rgb;
+};
+
+// GPU uniform block for the viewer aids (all float4, like LinearStageGpu).
+struct ViewerGpu {
+    float p0[4];   // x = 1/gamma, y = channel, z = encoding, w = active (0/1)
+    float p1[4];   // xyz = luma weights of the output primaries
 };
 
 // User settings for the stage, as stored on OCIOConfigManager.
@@ -144,6 +174,56 @@ inline LinearStageGpu resolve(const LinearStageSettings &s,
     return g;
 }
 
+inline bool isIdentity(const ViewerAids &v)
+{
+    return std::abs(v.gamma - 1.0f) < 1e-4f && v.channel == ChannelView::Rgb;
+}
+
+// `wide`: 0 = Rec.709 primaries, 1 = P3, 2 = Rec.2020 — for luma weights.
+inline ViewerGpu resolveViewer(const ViewerAids &v, OutputEncoding enc, int wide)
+{
+    ViewerGpu g{};
+    g.p0[0] = 1.0f / std::clamp(v.gamma, 0.1f, 10.0f);
+    g.p0[1] = static_cast<float>(static_cast<int>(v.channel));
+    g.p0[2] = static_cast<float>(static_cast<int>(enc));
+    g.p0[3] = isIdentity(v) ? 0.0f : 1.0f;
+    if (wide == 2)      setRow(g.p1, 0.2627f, 0.6780f, 0.0593f);
+    else if (wide == 1) setRow(g.p1, 0.2290f, 0.6917f, 0.0793f);
+    else                setRow(g.p1, 0.2126f, 0.7152f, 0.0722f);
+    return g;
+}
+
+// CPU reference of the viewer aids (tests).
+inline void applyViewer(float *rgba, const ViewerGpu &g)
+{
+    if (g.p0[3] < 0.5f) return;
+    const float e = g.p0[0];
+    const int enc = static_cast<int>(g.p0[2]);
+    auto spow = [](float x, float k) { return std::copysign(std::pow(std::abs(x), k), x); };
+    if (std::abs(e - 1.0f) > 1e-5f && enc != static_cast<int>(OutputEncoding::Hlg)) {
+        for (int i = 0; i < 3; ++i) {
+            if (enc == static_cast<int>(OutputEncoding::Pq)) {
+                const float lin = pqDecode(rgba[i]) * 100.0f;   // 1.0 = 100 nits
+                rgba[i] = pqEncode(spow(lin, e) * 0.01f);
+            } else {
+                rgba[i] = spow(rgba[i], e);
+            }
+        }
+    }
+    switch (static_cast<int>(g.p0[1])) {
+        case 1: rgba[1] = rgba[2] = rgba[0]; break;
+        case 2: rgba[0] = rgba[2] = rgba[1]; break;
+        case 3: rgba[0] = rgba[1] = rgba[2]; break;
+        case 4: rgba[0] = rgba[1] = rgba[2] = rgba[3]; rgba[3] = 1.0f; break;
+        case 5: {
+            const float y = g.p1[0] * rgba[0] + g.p1[1] * rgba[1] + g.p1[2] * rgba[2];
+            rgba[0] = rgba[1] = rgba[2] = y;
+            break;
+        }
+        default: break;
+    }
+}
+
 // CPU reference. `rgb` is in the interchange space, 1.0 = 100 nits.
 inline void apply(float *rgb, const LinearStageGpu &g)
 {
@@ -225,6 +305,37 @@ static float4 qcvLinearStage(float4 c, constant QcvStage &s)
     return float4(dot(s.from0.xyz, r), dot(s.from1.xyz, r),
                   dot(s.from2.xyz, r), c.a);
 }
+
+struct QcvViewer {
+    float4 p0;   // x = 1/gamma, y = channel, z = encoding, w = active
+    float4 p1;   // luma weights
+};
+
+static float qcv_spow(float x, float k) { return sign(x) * pow(abs(x), k); }
+
+static float4 qcvViewerApply(float4 c, constant QcvViewer &v)
+{
+    if (v.p0.w < 0.5) return c;
+    float3 rgb = c.rgb;
+    float e = v.p0.x;
+    int enc = int(v.p0.z);
+    if (abs(e - 1.0) > 1e-5 && enc != 3) {
+        if (enc == 2) {
+            rgb = float3(qcv_pq_enc(qcv_spow(qcv_pq_dec(rgb.r) * 100.0, e) * 0.01),
+                         qcv_pq_enc(qcv_spow(qcv_pq_dec(rgb.g) * 100.0, e) * 0.01),
+                         qcv_pq_enc(qcv_spow(qcv_pq_dec(rgb.b) * 100.0, e) * 0.01));
+        } else {
+            rgb = float3(qcv_spow(rgb.r, e), qcv_spow(rgb.g, e), qcv_spow(rgb.b, e));
+        }
+    }
+    int ch = int(v.p0.y);
+    if (ch == 1)      rgb = rgb.rrr;
+    else if (ch == 2) rgb = rgb.ggg;
+    else if (ch == 3) rgb = rgb.bbb;
+    else if (ch == 4) return float4(c.a, c.a, c.a, 1.0);
+    else if (ch == 5) rgb = float3(dot(rgb, v.p1.xyz));
+    return float4(rgb, c.a);
+}
 )";
 
 // D3D11 (SM 5.0). Declares cbuffer `QcvStageCb` at b0 and
@@ -276,6 +387,38 @@ float4 qcvLinearStage(float4 c)
     }
     return float4(dot(qcvFrom0.xyz, r), dot(qcvFrom1.xyz, r),
                   dot(qcvFrom2.xyz, r), c.a);
+}
+
+cbuffer QcvViewerCb : register(b1)
+{
+    float4 qcvViewP0;   // x = 1/gamma, y = channel, z = encoding, w = active
+    float4 qcvViewP1;   // luma weights
+};
+
+float qcv_spow(float x, float k) { return sign(x) * pow(abs(x), k); }
+
+float4 qcvViewerApply(float4 c)
+{
+    if (qcvViewP0.w < 0.5) return c;
+    float3 rgb = c.rgb;
+    float e = qcvViewP0.x;
+    int enc = int(qcvViewP0.z);
+    if (abs(e - 1.0) > 1e-5 && enc != 3) {
+        if (enc == 2) {
+            rgb = float3(qcv_pq_enc(qcv_spow(qcv_pq_dec(rgb.r) * 100.0, e) * 0.01),
+                         qcv_pq_enc(qcv_spow(qcv_pq_dec(rgb.g) * 100.0, e) * 0.01),
+                         qcv_pq_enc(qcv_spow(qcv_pq_dec(rgb.b) * 100.0, e) * 0.01));
+        } else {
+            rgb = float3(qcv_spow(rgb.r, e), qcv_spow(rgb.g, e), qcv_spow(rgb.b, e));
+        }
+    }
+    int ch = int(qcvViewP0.y);
+    if (ch == 1)      rgb = rgb.rrr;
+    else if (ch == 2) rgb = rgb.ggg;
+    else if (ch == 3) rgb = rgb.bbb;
+    else if (ch == 4) return float4(c.a, c.a, c.a, 1.0);
+    else if (ch == 5) rgb = dot(rgb, qcvViewP1.xyz).xxx;
+    return float4(rgb, c.a);
 }
 )";
 

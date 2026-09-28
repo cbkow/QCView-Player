@@ -105,6 +105,7 @@ AnnotationExporter::collectNotes() const
         en.timestampSeconds = n.timestamp_seconds;
         en.text             = n.text;
         en.addressed        = n.addressed;
+        en.viewerTag        = n.viewer_tag;
 
         // Resolve the on-disk PNG. Prefer the annotated sibling
         // when present so the export shows what the user was
@@ -232,6 +233,10 @@ bool AnnotationExporter::exportMarkdown(const QString &outputDir,
             md << QStringLiteral("![%1](%2)")
                   .arg(n.timecode, relImage);
             md << QString();
+            if (!n.viewerTag.isEmpty()) {
+                md << QStringLiteral("*%1*").arg(n.viewerTag);
+                md << QString();
+            }
         }
         if (!n.text.trimmed().isEmpty()) {
             md << n.text;
@@ -336,6 +341,10 @@ QString AnnotationExporter::buildHtmlBody(
             }
         }
 
+        if (!n.viewerTag.isEmpty()) {
+            out += QStringLiteral("<p style='color:#777;font-style:italic;'>%1</p>")
+                       .arg(htmlEscape(n.viewerTag));
+        }
         if (!n.text.trimmed().isEmpty()) {
             out += QStringLiteral("<p>%1</p>").arg(htmlEscape(n.text));
         }
@@ -566,6 +575,10 @@ bool AnnotationExporter::exportPdf(const QString &outputFile)
             }
         }
 
+        if (!n.viewerTag.isEmpty()) {
+            cur.insertBlock(defaultBlock);
+            cur.insertText(n.viewerTag, noteSubFmt);
+        }
         if (!n.text.trimmed().isEmpty()) {
             cur.insertBlock(defaultBlock);
             cur.insertText(n.text, noteBodyFmt);
@@ -909,6 +922,9 @@ bool AnnotationExporter::exportDocx(const QString &outputFile)
                 w.writeEndElement();
             }
 
+            if (!n.viewerTag.isEmpty()) {
+                writePara(w, n.viewerTag);
+            }
             if (!n.text.trimmed().isEmpty()) {
                 writePara(w, n.text);
             }

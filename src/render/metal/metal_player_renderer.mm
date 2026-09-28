@@ -34,6 +34,7 @@
 #include <QImage>
 #include <QWindow>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -576,6 +577,21 @@ void MetalPlayerRenderer::setBrightness(float brightness)
     m_gain.store(brightness, std::memory_order_relaxed);
 }
 
+void MetalPlayerRenderer::setViewerAids(float gamma, int channel)
+{
+    m_viewerGamma.store(gamma, std::memory_order_relaxed);
+    m_viewerChannel.store(channel, std::memory_order_relaxed);
+}
+
+ViewerAids MetalPlayerRenderer::currentViewerAids() const
+{
+    ViewerAids v;
+    v.gamma   = m_viewerGamma.load(std::memory_order_relaxed);
+    v.channel = static_cast<ChannelView>(
+        std::clamp(m_viewerChannel.load(std::memory_order_relaxed), 0, 5));
+    return v;
+}
+
 void MetalPlayerRenderer::setImageSeqCache(ImageSequenceCache *c)
 {
     // Handshake (see Impl::sourceMutex): the caller shuts the old
@@ -997,6 +1013,7 @@ void MetalPlayerRenderer::drawFrame()
         if (m_ocio && m_ocio->engaged()) {
             m_impl->ocio.setStage(m_ocio->linearStageSettings(
                     m_gain.load(std::memory_order_relaxed)));
+                m_impl->ocio.setViewer(currentViewerAids());
                 m_impl->ocio.rebuild(m_ocio);
             if (m_impl->ocio.hasPipeline()) {
                 void *ocioOut = m_impl->ocio.apply(
@@ -1196,6 +1213,7 @@ void MetalPlayerRenderer::drawFrame()
                 if (m_ocio && m_ocio->engaged()) {
                     m_impl->captureOcio.setStage(m_ocio->linearStageSettings(
                     m_gain.load(std::memory_order_relaxed)));
+                m_impl->captureOcio.setViewer(currentViewerAids());
                 m_impl->captureOcio.rebuild(m_ocio);
                     if (m_impl->captureOcio.hasPipeline()) {
                         void *ocioOut = m_impl->captureOcio.apply(
@@ -1751,6 +1769,7 @@ void MetalPlayerRenderer::drawFrame()
         && m_impl->compositeRaw) {
         m_impl->ocio.setStage(m_ocio->linearStageSettings(
                     m_gain.load(std::memory_order_relaxed)));
+                m_impl->ocio.setViewer(currentViewerAids());
                 m_impl->ocio.rebuild(m_ocio);
         if (m_impl->ocio.hasPipeline()) {
             void *ocioOut = m_impl->ocio.apply(
@@ -2068,6 +2087,7 @@ void MetalPlayerRenderer::drawFrame()
             if (m_ocio && m_ocio->engaged()) {
                 m_impl->captureOcio.setStage(m_ocio->linearStageSettings(
                     m_gain.load(std::memory_order_relaxed)));
+                m_impl->captureOcio.setViewer(currentViewerAids());
                 m_impl->captureOcio.rebuild(m_ocio);
                 if (m_impl->captureOcio.hasPipeline()) {
                     void *ocioOut = m_impl->captureOcio.apply(

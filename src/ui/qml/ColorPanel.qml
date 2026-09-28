@@ -742,70 +742,121 @@ Pane {
 
             Item { Layout.fillWidth: true }
 
-            // Phase F.2.8 follow-up — uniform post-OCIO brightness
-            // multiplier. Lives just left of the Display picker
-            // (clusters all display-side controls together). Linear
-            // scale 0.5×–3.0×, default 1.0×. Persisted in QSettings
-            // under "display/brightness". WILL clip HDR highlights
-            // above the display's headroom — user-responsible.
-            // Brightness is the linear stage's gain inside the OCIO chain
-            // (color/linear_stage.h) — without OCIO there is no stage.
-            Text {
-                text: qsTr("Brightness")
-                opacity: brightnessSlider.enabled ? 1.0 : 0.45
-                color: Theme.textSecondary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeTiny
-            }
-            FlatSlider {
-                id: brightnessSlider
+            // Viewer aids (color/linear_stage.h) — inspection only: they
+            // need the OCIO chain, are never saved in presets or baked into
+            // exports, and are captured (and tagged) in screenshots / note
+            // thumbnails. Exposure is the linear stage's gain before the
+            // View; Gamma and Channel apply after the whole chain.
+            RowLayout {
+                id: viewerAids
+                spacing: Theme.spacing
                 enabled: WindowManager.ocio ? WindowManager.ocio.engaged : false
                 opacity: enabled ? 1.0 : 0.45
-                from: 0.5
-                to: 3.0
-                stepSize: 0.05
-                value: WindowManager ? WindowManager.brightness : 1.0
-                implicitWidth: 120
-                onMoved: WindowManager.brightness = value
-                // Double-click anywhere on the slider resets to 1.0×
-                // (no-multiplier identity). Uses propagateComposedEvents
-                // so the slider still receives the press half of the
-                // double-click for normal drag interactions.
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    propagateComposedEvents: true
-                    onPressed: (mouse) => { mouse.accepted = false }
-                    onDoubleClicked: WindowManager.brightness = 1.0
-                }
-            }
-            // Recessed readout chip — same treatment as the Safety
-            // Guides slider readouts.
-            Rectangle {
-                Layout.preferredWidth: 44
-                Layout.preferredHeight: 16
-                radius: Theme.radiusSmall
-                color: Theme.surfaceRecess
+
                 Text {
-                    anchors.centerIn: parent
-                    text: (WindowManager
-                            ? WindowManager.brightness
-                            : 1.0).toFixed(2) + "×"
-                    color: Theme.textPrimary
-                    font.family: Theme.monoFamily
-                    font.pixelSize: Theme.fontSizeMono
+                    text: qsTr("Exposure")
+                    color: Theme.textSecondary
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeTiny
                 }
-            }
-            // Reset fades in only when brightness is off 1.0× —
-            // same only-when-dirty rule as the Settings reverts;
-            // the slot stays reserved so the row never shifts.
-            FlatButton {
-                iconName: "arrow-counter-clockwise"
-                tooltipText: qsTr("Reset brightness to 1.0×")
-                enabled: WindowManager
-                         && Math.abs(WindowManager.brightness - 1.0) > 1e-3
-                opacity: enabled ? 1 : 0
-                onClicked: WindowManager.brightness = 1.0
+                FlatSlider {
+                    id: exposureSlider
+                    from: -4.0
+                    to: 4.0
+                    stepSize: 0.1
+                    value: WindowManager ? WindowManager.exposure : 0.0
+                    implicitWidth: 110
+                    onMoved: WindowManager.exposure = value
+                    // Double-click resets to 0 stops.
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        propagateComposedEvents: true
+                        onPressed: (mouse) => { mouse.accepted = false }
+                        onDoubleClicked: WindowManager.exposure = 0.0
+                    }
+                }
+                Rectangle {
+                    Layout.preferredWidth: 48
+                    Layout.preferredHeight: 16
+                    radius: Theme.radiusSmall
+                    color: Theme.surfaceRecess
+                    Text {
+                        anchors.centerIn: parent
+                        text: {
+                            const ev = WindowManager ? WindowManager.exposure : 0.0;
+                            return (ev > 0.005 ? "+" : (ev < -0.005 ? "−" : ""))
+                                   + Math.abs(ev).toFixed(1) + " st";
+                        }
+                        color: Theme.textPrimary
+                        font.family: Theme.monoFamily
+                        font.pixelSize: Theme.fontSizeMono
+                    }
+                }
+
+                Item { Layout.preferredWidth: Theme.spacing }
+
+                Text {
+                    text: qsTr("Gamma")
+                    color: Theme.textSecondary
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeTiny
+                }
+                FlatSlider {
+                    from: 0.25
+                    to: 4.0
+                    stepSize: 0.05
+                    value: WindowManager ? WindowManager.viewerGamma : 1.0
+                    implicitWidth: 90
+                    onMoved: WindowManager.viewerGamma = value
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        propagateComposedEvents: true
+                        onPressed: (mouse) => { mouse.accepted = false }
+                        onDoubleClicked: WindowManager.viewerGamma = 1.0
+                    }
+                }
+                Rectangle {
+                    Layout.preferredWidth: 40
+                    Layout.preferredHeight: 16
+                    radius: Theme.radiusSmall
+                    color: Theme.surfaceRecess
+                    Text {
+                        anchors.centerIn: parent
+                        text: (WindowManager ? WindowManager.viewerGamma : 1.0).toFixed(2)
+                        color: Theme.textPrimary
+                        font.family: Theme.monoFamily
+                        font.pixelSize: Theme.fontSizeMono
+                    }
+                }
+
+                Item { Layout.preferredWidth: Theme.spacing }
+
+                // Channel view — RGB / R / G / B / A / luma, shown as grey.
+                Repeater {
+                    model: [qsTr("RGB"), "R", "G", "B", "A", "Y"]
+                    FlatChip {
+                        required property int index
+                        required property string modelData
+                        label: modelData
+                        active: WindowManager && WindowManager.channelView === index
+                        minWidth: index === 0 ? 30 : 20
+                        tooltip: [qsTr("All channels"), qsTr("Red"), qsTr("Green"),
+                                  qsTr("Blue"), qsTr("Alpha matte"),
+                                  qsTr("Luma (output primaries)")][index]
+                        onClicked: WindowManager.channelView = index
+                    }
+                }
+
+                // Reset all viewer aids — only while any is active.
+                FlatButton {
+                    iconName: "arrow-counter-clockwise"
+                    tooltipText: qsTr("Reset exposure, gamma and channel")
+                    enabled: WindowManager && WindowManager.viewerAdjusted
+                    opacity: enabled ? 1 : 0
+                    onClicked: WindowManager.resetViewerAids()
+                }
             }
 
             // Phase 2.6.1: HDR mode picker. Lives in the panel's
