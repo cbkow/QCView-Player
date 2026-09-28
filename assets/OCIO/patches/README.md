@@ -2,8 +2,11 @@
 
 QCView ships Blender's stock OCIO configs with a small EDR patch on top
 (2 linear-light display colorspaces + views for macOS EDR output — see
-docs/hdr.md). These .patch files record that delta so the next Blender
-config upgrade is mechanical:
+docs/hdr.md), plus one input colorspace Blender lacks: `ST2084-P3-D65`
+(PQ with P3-D65 primaries — the common Resolve HDR deliverable; aliased
+`ST2084-P3-D65 - Display` so presets resolve identically in the ACES 2.0
+config, which ships it stock). These .patch files record that delta so
+the next Blender config upgrade is mechanical:
 
 ```
 cp -R /Applications/Blender.app/Contents/Resources/<ver>/datafiles/colormanagement assets/OCIO/Blender<ver>

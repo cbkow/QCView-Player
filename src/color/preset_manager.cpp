@@ -106,6 +106,40 @@ void PresetManager::loadBuiltIns()
           QStringLiteral("ACES 2.0 - HDR 1000 nits"),
           Preset::HdrEdrP3),
 
+        // --- Blender 5.2 ST2084-P3 (PQ P3-D65 masters) ---
+        // Display-referred HDR deliverables (Resolve "P3-D65 ST2084").
+        // Standard views are colorimetric — no tonemap: 100 nits lands
+        // on SDR white (brighter clips on the SDR outputs), 1000 nits
+        // on 10.0 in the EDR outputs, and PQ output round-trips.
+        // Names stay unique — applyPreset() looks presets up by name.
+        P(QStringLiteral("ST2084-P3 → sRGB Standard"), secBlender52,
+          QStringLiteral("Blender 5.2"), QStringLiteral("ST2084-P3-D65"),
+          {}, QStringLiteral("sRGB"), QStringLiteral("Standard")),
+
+        P(QStringLiteral("ST2084-P3 → Rec.1886 Standard"), secBlender52,
+          QStringLiteral("Blender 5.2"), QStringLiteral("ST2084-P3-D65"),
+          {}, QStringLiteral("Rec.1886"), QStringLiteral("Standard")),
+
+        // sRGB-primaries variant works on macOS EDR + Windows scRGB.
+        P(QStringLiteral("ST2084-P3 → EDR sRGB"), secBlender52,
+          QStringLiteral("Blender 5.2"), QStringLiteral("ST2084-P3-D65"),
+          {}, QStringLiteral("Linear sRGB EDR"),
+          QStringLiteral("Standard (No Tonemap)"),
+          Preset::HdrEdrSrgb),
+
+        // P3-primaries variant — macOS only.
+        P(QStringLiteral("ST2084-P3 → EDR P3"), secBlender52,
+          QStringLiteral("Blender 5.2"), QStringLiteral("ST2084-P3-D65"),
+          {}, QStringLiteral("Linear P3 EDR"),
+          QStringLiteral("Standard (No Tonemap)"),
+          Preset::HdrEdrP3),
+
+        // HDR10 swapchain — Windows / Linux.
+        P(QStringLiteral("ST2084-P3 → Rec.2100-PQ HDR"), secBlender52,
+          QStringLiteral("Blender 5.2"), QStringLiteral("ST2084-P3-D65"),
+          {}, QStringLiteral("Rec.2100-PQ"), QStringLiteral("Standard"),
+          Preset::HdrPq),
+
         // --- Blender 5.1 SDR ---
         P(QStringLiteral("Rec.709 → sRGB Standard"), secBlender,
           QStringLiteral("Blender 5.1"), QStringLiteral("Rec.1886"),

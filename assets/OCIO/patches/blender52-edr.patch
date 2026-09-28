@@ -25,12 +25,34 @@
  inactive_colorspaces: [Luminance Compensation Rec.2020]
  
  display_colorspaces:
-@@ -224,6 +238,42 @@
-     from_display_reference: !<GroupTransform>
-       children:
-         - !<BuiltinTransform> {style: DISPLAY - CIE-XYZ-D65_to_REC.2100-HLG-1000nit}
+@@ -211,6 +225,23 @@
+         - !<BuiltinTransform> {style: DISPLAY - CIE-XYZ-D65_to_REC.2100-PQ}
+ 
+   - !<ColorSpace>
++    name: ST2084-P3-D65
++    aliases: [pq_p3d65_display, st2084_p3d65_display, ST2084-P3-D65 - Display, P3-D65 PQ]
++    family: Display
++    equalitygroup: ""
++    bitdepth: 32f
++    description: |
++      SMPTE ST 2084 (PQ) with P3-D65 primaries, 10000 nits peak with reference white at 100 nits.
++      Common HDR mastering deliverable (e.g. Resolve "P3-D65 ST2084"); not Rec.2100 — the primaries are P3, not BT.2020.
++    isdata: false
++    encoding: hdr-video
++    allocation: uniform
++    interop_id: pq_p3d65_display
++    from_display_reference: !<GroupTransform>
++      children:
++        - !<BuiltinTransform> {style: DISPLAY - CIE-XYZ-D65_to_ST2084-P3-D65}
 +
 +  - !<ColorSpace>
+     name: Rec.2100-HLG
+     aliases: [hlg_rec2020_display, rec2100_hlg_display, Rec.2100-HLG - Display]
+     family: Display
+@@ -226,6 +257,42 @@
+         - !<BuiltinTransform> {style: DISPLAY - CIE-XYZ-D65_to_REC.2100-HLG-1000nit}
+ 
+   - !<ColorSpace>
 +    name: Linear sRGB EDR
 +    aliases: [lin_srgb_edr_display, lin_rec709_edr_display]
 +    family: Display
@@ -65,6 +87,8 @@
 +    from_display_reference: !<GroupTransform>
 +      children:
 +        - !<ColorSpaceTransform> {src: cie_xyz_d65_interchange, dst: Linear DCI-P3 D65}
- 
-   - !<ColorSpace>
++
++  - !<ColorSpace>
      name: Filmic sRGB
+     family: View Inverse
+     description: |
