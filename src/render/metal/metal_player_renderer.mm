@@ -407,6 +407,10 @@ bool MetalPlayerRenderer::init(PlayerWindow *window)
     if (!m_impl->ocio.initialize()) {
         qWarning("MetalPlayerRenderer: OCIO renderer init failed");
     }
+    // Live chain compiles off the render thread (a Brightness drag
+    // across 1.0 or a knee toggle rebuilds it); the capture twin stays
+    // synchronous — a capture waits for its result anyway.
+    m_impl->ocio.setAsync(true);
     m_impl->captureOcio.setSdrCapture(true);
     if (!m_impl->captureOcio.initialize()) {
         qWarning("MetalPlayerRenderer: capture OCIO renderer init failed");
@@ -562,24 +566,14 @@ void MetalPlayerRenderer::setHdrMode(HdrMode mode)
 
 void MetalPlayerRenderer::setBrightness(float brightness)
 {
-    // Applied in the present-blit (drawable target) compositor —
-    // single difference from D3D11, where one `compositor` does both
-    // the pre-OCIO source draw (single flow) and the post-OCIO present
-    // blit (dual flow). Metal has separate canvas + present compositors,
-    // and the present one is the single pass common to both flows;
-    // routing brightness there lights up the slider in single AND dual
-    // with one apply.
-    //
-    // Correctness: SDR is linear gain commuting with the View transform
-    // (identical to pre-OCIO). HDR on macOS is EDR (extended-linear sRGB
-    // / Display P3 per metal_hdr_swapchain.h:6) — values >1.0 are
-    // scene-referred linear nits, so a scalar multiply IS a real
-    // exposure adjustment with headroom-aware behavior. No PQ on this
-    // path; that caveat only applies to the Windows/Vulkan HDR route.
-    //
-    // Render loop bakes the value into the UBO on the next frame; no
-    // requestUpdate needed (Phase B.2 free-running loop).
-    m_impl->presentCompositor.setBrightness(brightness);
+    // Brightness is the linear stage's gain: applied inside the split
+    // OCIO chain, in linear light before the Display/View (see
+    // color/linear_stage.h), on single, dual and capture chains alike.
+    // It used to multiply the present pass's output, which in SDR modes
+    // scaled display-encoded values. With OCIO off there is no stage and
+    // the UI disables the control. The render loop reads the value each
+    // frame; no requestUpdate needed (free-running loop).
+    m_gain.store(brightness, std::memory_order_relaxed);
 }
 
 void MetalPlayerRenderer::setImageSeqCache(ImageSequenceCache *c)
@@ -1001,7 +995,9 @@ void MetalPlayerRenderer::drawFrame()
         // copy) and the present blit reads from the raw canvas.
         void *dualCorrected = (__bridge void *)m_impl->compositeRawDual;
         if (m_ocio && m_ocio->engaged()) {
-            m_impl->ocio.rebuild(m_ocio);
+            m_impl->ocio.setStage(m_ocio->linearStageSettings(
+                    m_gain.load(std::memory_order_relaxed)));
+                m_impl->ocio.rebuild(m_ocio);
             if (m_impl->ocio.hasPipeline()) {
                 void *ocioOut = m_impl->ocio.apply(
                     (__bridge void *)cb,
@@ -1198,7 +1194,9 @@ void MetalPlayerRenderer::drawFrame()
 
                 void *capCorrected = (__bridge void *)m_impl->compositeRawDual;
                 if (m_ocio && m_ocio->engaged()) {
-                    m_impl->captureOcio.rebuild(m_ocio);
+                    m_impl->captureOcio.setStage(m_ocio->linearStageSettings(
+                    m_gain.load(std::memory_order_relaxed)));
+                m_impl->captureOcio.rebuild(m_ocio);
                     if (m_impl->captureOcio.hasPipeline()) {
                         void *ocioOut = m_impl->captureOcio.apply(
                             (__bridge void *)cb,
@@ -1751,7 +1749,9 @@ void MetalPlayerRenderer::drawFrame()
     void *compositeCorrected = (__bridge void *)m_impl->compositeRaw;
     if (haveSourceTexture && m_ocio && m_ocio->engaged()
         && m_impl->compositeRaw) {
-        m_impl->ocio.rebuild(m_ocio);
+        m_impl->ocio.setStage(m_ocio->linearStageSettings(
+                    m_gain.load(std::memory_order_relaxed)));
+                m_impl->ocio.rebuild(m_ocio);
         if (m_impl->ocio.hasPipeline()) {
             void *ocioOut = m_impl->ocio.apply(
                 (__bridge void *)cb,
@@ -2066,6 +2066,8 @@ void MetalPlayerRenderer::drawFrame()
             void *correctedTex =
                 (__bridge void *)m_impl->captureSourceRgba16f;
             if (m_ocio && m_ocio->engaged()) {
+                m_impl->captureOcio.setStage(m_ocio->linearStageSettings(
+                    m_gain.load(std::memory_order_relaxed)));
                 m_impl->captureOcio.rebuild(m_ocio);
                 if (m_impl->captureOcio.hasPipeline()) {
                     void *ocioOut = m_impl->captureOcio.apply(

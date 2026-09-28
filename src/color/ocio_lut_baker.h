@@ -16,6 +16,8 @@
 
 #include <OpenColorIO/OpenColorIO.h>
 
+#include <functional>
+
 namespace qcv::OcioLutBaker {
 
 // Sample `proc` on a cubeSize³ grid and write a .cube file to outPath.
@@ -24,6 +26,14 @@ namespace qcv::OcioLutBaker {
 //
 // `cubeSize` must be ≥ 2. Caller validates.
 QString writeCube(OCIO_NAMESPACE::ConstCPUProcessorRcPtr proc,
+                  const QString &outPath,
+                  int cubeSize);
+
+// Same, sampling an arbitrary in-place RGB function — used when the
+// chain includes the linear stage (the Highlight Knee), which OCIO
+// can't bake: pre processor → linear_stage::apply → post processor.
+// `sample` may throw OCIO::Exception.
+QString writeCube(const std::function<void(float *rgb)> &sample,
                   const QString &outPath,
                   int cubeSize);
 

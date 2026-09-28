@@ -125,6 +125,9 @@ private:
     // Set from the GUI thread, read by the render thread each frame.
     std::atomic<CompositorMode> m_compMode{CompositorMode::Single};
     std::atomic<float>          m_splitPos{0.5f};
+    // Brightness as linear-stage gain (applied inside the split OCIO
+    // chain, before the View — see color/linear_stage.h). 1.0 = identity.
+    std::atomic<float>          m_gain{1.0f};
     BackgroundMode      m_bgMode    = BackgroundMode::Black;
     ViewportAnnotator  *m_annotator = nullptr;
     SafetyOverlay      *m_safety    = nullptr;

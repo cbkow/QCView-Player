@@ -33,6 +33,8 @@
 
 namespace qcv {
 
+class D3D11OcioRenderer;
+
 class D3D11PlayerRenderer final : public IPlayerRenderer {
 public:
     D3D11PlayerRenderer();
@@ -127,6 +129,9 @@ private:
     // Keep the SDR capture chain compiled ahead of time — the GUI only
     // waits 250 ms for a capture and D3DCompile can take seconds.
     void warmCaptureOcio();
+    // setStage (gain + knee from m_ocio) then rebuild(), for the live and
+    // capture OCIO instances alike.
+    bool rebuildOcio(D3D11OcioRenderer &r);
 
     struct Impl;
     std::unique_ptr<Impl>      m_impl;
@@ -171,6 +176,9 @@ private:
     SafetyOverlay             *m_safety    = nullptr;
     std::atomic<int>           m_compMode  {static_cast<int>(CompositorMode::Single)};
     std::atomic<float>         m_splitPos  {0.5f};
+    // Brightness as linear-stage gain (inside the split OCIO chain, see
+    // color/linear_stage.h). 1.0 = identity.
+    std::atomic<float>         m_gain      {1.0f};
     std::atomic<float>         m_splitSeamHighlight {0.0f};
     std::atomic<int>           m_dropHighlight {0};
     std::atomic<float>         m_diffGain  {1.0f};

@@ -807,6 +807,7 @@ void D3D11PlayerRenderer::renderThreadProc()
 {
     using namespace std::chrono_literals;
     int lastOcioGen = -1;
+    int lastStageGen = -1;
     while (!m_stopRequested.load()) {
         applyPendingResizeIfNeeded();
 
@@ -830,6 +831,13 @@ void D3D11PlayerRenderer::renderThreadProc()
             if (gen != lastOcioGen) {
                 lastOcioGen = gen;
                 ocioBumped  = true;
+            }
+            // Knee edits change only the stage's parameters — no chain
+            // bump — but a paused frame still has to be redrawn.
+            const int sgen = m_ocio->stageGeneration();
+            if (sgen != lastStageGen) {
+                lastStageGen = sgen;
+                ocioBumped   = true;
             }
         }
 
@@ -1159,8 +1167,12 @@ void D3D11PlayerRenderer::drawFrame()
     bool useOcio = (m_ocio != nullptr) && m_ocio->engaged() &&
                    m_impl->ocio.isInitialized();
     if (useOcio) {
-        useOcio = m_impl->ocio.rebuild(m_ocio);
+        useOcio = rebuildOcio(m_impl->ocio);
     }
+    // HDR10: signal the knee's target as the content peak while it
+    // compresses for this display, else the 1000-nit default.
+    m_impl->hdrSwapchain.setContentPeakNits(
+        useOcio ? m_impl->ocio.hdrKneeTargetNits() : 0.0f);
     warmCaptureOcio();
 
     const int  W = m_impl->currentW;
@@ -1723,7 +1735,9 @@ void D3D11PlayerRenderer::drawDualFrame()
     {
         bool useOcio = (m_ocio != nullptr) && m_ocio->engaged() &&
                        m_impl->ocio.isInitialized();
-        if (useOcio) useOcio = m_impl->ocio.rebuild(m_ocio);
+        if (useOcio) useOcio = rebuildOcio(m_impl->ocio);
+        m_impl->hdrSwapchain.setContentPeakNits(
+            useOcio ? m_impl->ocio.hdrKneeTargetNits() : 0.0f);
         warmCaptureOcio();
 
         if (useOcio) {
@@ -1979,7 +1993,7 @@ void D3D11PlayerRenderer::warmCaptureOcio()
     // Async: spawns the compile worker on a generation change, no-op
     // otherwise. Skipped when the live chain is already sRGB — the
     // capture then reuses the live pipeline.
-    if (m_impl->captureNeedsSdr) m_impl->captureOcio.rebuild(m_ocio);
+    if (m_impl->captureNeedsSdr) rebuildOcio(m_impl->captureOcio);
 }
 
 void D3D11PlayerRenderer::serviceScreenshotRequest(bool fromDualCanvas)
@@ -2122,10 +2136,10 @@ void D3D11PlayerRenderer::serviceScreenshotRequest(bool fromDualCanvas)
         if (m_ocio && m_ocio->engaged()) {
             warmCaptureOcio();
             if (m_impl->captureNeedsSdr
-                && m_impl->captureOcio.rebuild(m_ocio)) {
+                && rebuildOcio(m_impl->captureOcio)) {
                 capOcio = &m_impl->captureOcio;
             } else if (m_impl->ocio.isInitialized()
-                       && m_impl->ocio.rebuild(m_ocio)) {
+                       && rebuildOcio(m_impl->ocio)) {
                 if (m_impl->captureNeedsSdr) {
                     qWarning("D3D11PlayerRenderer: SDR capture chain still "
                              "compiling — capturing with the live chain");
@@ -2244,13 +2258,20 @@ void D3D11PlayerRenderer::setHdrMode(HdrMode mode)
 
 void D3D11PlayerRenderer::setBrightness(float brightness)
 {
-    // Phase F.2.9: brightness is applied in the compositor only, in
-    // linear-light pre-OCIO space. Applying it again in the OCIO PS
-    // (the pre-F.2.9 path) double-multiplied on every frame and was
-    // mathematically broken for the PQ output path (PQ values can't
-    // be linearly scaled). One multiplier, one place.
-    m_impl->compositor.setBrightness(brightness);
+    // Brightness is the linear stage's gain: applied inside the split
+    // OCIO chain, in linear light before the Display/View (see
+    // color/linear_stage.h) — on single, dual and capture chains alike.
+    // It used to be multiplied into the source (single flow, encoded
+    // values) or the present pass (dual flow, PQ code values). With OCIO
+    // off there is no stage and the UI disables the control.
+    m_gain.store(brightness, std::memory_order_relaxed);
     requestUpdate();
+}
+
+bool D3D11PlayerRenderer::rebuildOcio(D3D11OcioRenderer &r)
+{
+    r.setStage(m_ocio->linearStageSettings(m_gain.load(std::memory_order_relaxed)));
+    return r.rebuild(m_ocio);
 }
 
 void D3D11PlayerRenderer::setImageSeqCache(ImageSequenceCache *c)

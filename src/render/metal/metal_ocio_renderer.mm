@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
+#include <mutex>
 
 namespace OCIO = OCIO_NAMESPACE;
 
@@ -20,17 +22,18 @@ namespace qcv {
 
 namespace {
 
-// Compute-kernel template that wraps the OCIO function. Bindings:
+// Compute-kernel template that wraps the OCIO function(s). Bindings:
 //   texture(0)  = source (RGBA16F, decoded frame)
 //   texture(1)  = output (RGBA16F, post-OCIO)
-//   texture(2..) = OCIO LUTs (1D promoted to 2D, 2D, 3D), in OCIO's order
-// OCIO's emitted MSL function takes a sampler set as its argument
-// list. We declare all the bindings + samplers in the kernel and
-// call OCIODisplay() with them.
-//
-// The wrapper is constructed at rebuild() time after we know how
-// many LUTs OCIO needs and their types/sampler names. We compose
-// the binding declarations + the call site dynamically.
+//   texture(2..) = OCIO LUTs, in declaration order
+//   sampler(0)  = src_smp (linear, clamp) — also passed for every LUT:
+//                 OCIO's LUT samplers are all linear + clamp, and one
+//                 shared sampler keeps a split chain (two OCIO functions)
+//                 inside Metal's 16-sampler limit.
+//   buffer(0)   = QcvStage (split chain only)
+// OCIO's emitted MSL function takes its textures + samplers as
+// arguments, so the wrapper is composed at rebuild() time once the LUT
+// inventory is known.
 constexpr const char *kKernelHeader = R"(
 #include <metal_stdlib>
 using namespace metal;
@@ -57,27 +60,327 @@ constexpr const char *kKernelFooter = R"(
 }
 )";
 
+// Everything a rebuild produces; swapped in whole.
+struct Built {
+    id<MTLComputePipelineState> pipeline = nil;
+    std::vector<id<MTLTexture>> luts;          // in kernel declaration order
+    bool            split = false;
+    InterchangeSide side = InterchangeSide::None;
+    bool            displayIsSdr = true;
+    QString         error;
+};
+
+// Upload one shader desc's LUTs, append their kernel parameters and the
+// OCIO call's arguments. `nextTex` continues across descs.
+bool gatherLuts(id<MTLDevice> device, const OCIO::ConstGpuShaderDescRcPtr &desc,
+                int &nextTex, std::vector<id<MTLTexture>> &luts,
+                QString &kernelArgs, QString &callArgs, QString &error)
+{
+    // OCIO's emitted function takes its texture + sampler arguments in a
+    // specific order: ALL 3D LUTs first (registration order), then ALL
+    // 1D/2D LUTs, then float4 inPixel. The trailing digits of OCIO's
+    // texName ("ocio_lut3d_2" → 2) give the registration index. Our
+    // [[texture(N)]] order can be arbitrary — Metal resolves by name —
+    // but the call expression MUST follow OCIO's order.
+    struct CallArg { int regIndex; QString tname; };
+    std::vector<CallArg> call3D, call2D;
+    auto parseTrailingInt = [](const QString &s) -> int {
+        const int us = s.lastIndexOf(QLatin1Char('_'));
+        if (us < 0) return 0;
+        bool ok = false;
+        const int n = s.mid(us + 1).toInt(&ok);
+        return ok ? n : 0;
+    };
+
+    // --- 1D + 2D LUTs ---
+    for (unsigned i = 0; i < desc->getNumTextures(); ++i) {
+        const char *texName = nullptr, *smpName = nullptr;
+        unsigned w = 0, h = 0;
+        OCIO::GpuShaderDesc::TextureType chan = OCIO::GpuShaderDesc::TEXTURE_RGB_CHANNEL;
+        OCIO::GpuShaderDesc::TextureDimensions dim = OCIO::GpuShaderDesc::TEXTURE_1D;
+        OCIO::Interpolation interp = OCIO::INTERP_DEFAULT;
+        desc->getTexture(i, texName, smpName, w, h, chan, dim, interp);
+        if (!texName || !*texName) continue;
+
+        const QString tname = QString::fromUtf8(texName);
+        const bool isRgb = (chan == OCIO::GpuShaderDesc::TEXTURE_RGB_CHANNEL);
+        // OCIO emits real `texture1d<float>` parameters for 1D LUTs; the
+        // MTLTexture type must match or OCIODisplay() won't resolve.
+        const bool is1D = (dim == OCIO::GpuShaderDesc::TEXTURE_1D);
+
+        const float *values = nullptr;
+        desc->getTextureValues(i, values);
+        if (!values) continue;
+
+        const int width  = static_cast<int>(w > 0 ? w : 1);
+        const int height = is1D ? 1 : static_cast<int>(h > 0 ? h : 1);
+
+        // Pack to RGBA32Float if RGB (Metal has no RGB32F).
+        MTLTextureDescriptor *td = [MTLTextureDescriptor new];
+        td.pixelFormat = isRgb ? MTLPixelFormatRGBA32Float : MTLPixelFormatR32Float;
+        td.width       = width;
+        td.height      = height;
+        td.depth       = 1;
+        td.textureType = is1D ? MTLTextureType1D : MTLTextureType2D;
+        td.usage       = MTLTextureUsageShaderRead;
+        td.storageMode = MTLStorageModeShared;
+        id<MTLTexture> tex = [device newTextureWithDescriptor:td];
+        if (!tex) {
+            error = QStringLiteral("MetalOcioRenderer: LUT texture create failed");
+            return false;
+        }
+
+        const int n = width * height;
+        const MTLRegion region = is1D ? MTLRegionMake1D(0, width)
+                                      : MTLRegionMake2D(0, 0, width, height);
+        const NSUInteger bpr = is1D
+            ? 0
+            : static_cast<NSUInteger>(width) * (isRgb ? 4u : 1u) * sizeof(float);
+        if (isRgb) {
+            std::vector<float> rgba(static_cast<std::size_t>(n) * 4);
+            for (int p = 0; p < n; ++p) {
+                rgba[p * 4 + 0] = values[p * 3 + 0];
+                rgba[p * 4 + 1] = values[p * 3 + 1];
+                rgba[p * 4 + 2] = values[p * 3 + 2];
+                rgba[p * 4 + 3] = 1.0f;
+            }
+            [tex replaceRegion:region mipmapLevel:0 withBytes:rgba.data() bytesPerRow:bpr];
+        } else {
+            [tex replaceRegion:region mipmapLevel:0 withBytes:values bytesPerRow:bpr];
+        }
+        luts.push_back(tex);
+
+        kernelArgs += QStringLiteral("    %3<float, access::sample> %1 [[texture(%2)]],\n")
+            .arg(tname).arg(nextTex++)
+            .arg(QString::fromUtf8(is1D ? "texture1d" : "texture2d"));
+        call2D.push_back({ parseTrailingInt(tname), tname });
+    }
+
+    // --- 3D LUTs ---
+    for (unsigned i = 0; i < desc->getNum3DTextures(); ++i) {
+        const char *texName = nullptr, *smpName = nullptr;
+        unsigned edgeLen = 0;
+        OCIO::Interpolation interp = OCIO::INTERP_DEFAULT;
+        desc->get3DTexture(i, texName, smpName, edgeLen, interp);
+        if (!texName || !*texName) continue;
+        const float *values = nullptr;
+        desc->get3DTextureValues(i, values);
+        if (!values || edgeLen == 0) continue;
+
+        const int E = static_cast<int>(edgeLen);
+        MTLTextureDescriptor *td = [MTLTextureDescriptor new];
+        td.textureType = MTLTextureType3D;
+        td.pixelFormat = MTLPixelFormatRGBA32Float;
+        td.width  = E;
+        td.height = E;
+        td.depth  = E;
+        td.usage       = MTLTextureUsageShaderRead;
+        td.storageMode = MTLStorageModeShared;
+        id<MTLTexture> tex = [device newTextureWithDescriptor:td];
+        if (!tex) {
+            error = QStringLiteral("MetalOcioRenderer: 3D LUT texture create failed");
+            return false;
+        }
+        // Pack RGB → RGBA per slice.
+        const int sliceTexels = E * E;
+        std::vector<float> slice(static_cast<std::size_t>(sliceTexels) * 4);
+        for (int z = 0; z < E; ++z) {
+            const float *srcV = values + z * sliceTexels * 3;
+            for (int p = 0; p < sliceTexels; ++p) {
+                slice[p * 4 + 0] = srcV[p * 3 + 0];
+                slice[p * 4 + 1] = srcV[p * 3 + 1];
+                slice[p * 4 + 2] = srcV[p * 3 + 2];
+                slice[p * 4 + 3] = 1.0f;
+            }
+            [tex replaceRegion:MTLRegionMake3D(0, 0, z, E, E, 1)
+                   mipmapLevel:0
+                         slice:0
+                     withBytes:slice.data()
+                   bytesPerRow:E * 4 * sizeof(float)
+                 bytesPerImage:0];
+        }
+        luts.push_back(tex);
+
+        const QString tname = QString::fromUtf8(texName);
+        kernelArgs += QStringLiteral("    texture3d<float, access::sample> %1 [[texture(%2)]],\n")
+            .arg(tname).arg(nextTex++);
+        call3D.push_back({ parseTrailingInt(tname), tname });
+    }
+
+    auto byRegIndex = [](const CallArg &a, const CallArg &b) { return a.regIndex < b.regIndex; };
+    std::stable_sort(call3D.begin(), call3D.end(), byRegIndex);
+    std::stable_sort(call2D.begin(), call2D.end(), byRegIndex);
+    for (const auto &c : call3D) callArgs += QStringLiteral("%1, src_smp, ").arg(c.tname);
+    for (const auto &c : call2D) callArgs += QStringLiteral("%1, src_smp, ").arg(c.tname);
+    return true;
+}
+
+void dumpFailure(const QString &kernel, const QString &ocioText)
+{
+    const QString fullPath = QStringLiteral("/tmp/qcv-ocio-kernel-fail.metal");
+    const QString ocioOnly = QStringLiteral("/tmp/qcv-ocio-chain-only.metal");
+    if (QFile f(fullPath); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        f.write(kernel.toUtf8());
+        qInfo("MetalOcioRenderer: dumped failing kernel to %s", qPrintable(fullPath));
+    }
+    if (QFile f(ocioOnly); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        f.write(ocioText.toUtf8());
+        qInfo("MetalOcioRenderer: dumped OCIO chain text to %s", qPrintable(ocioOnly));
+    }
+}
+
+// Compile `kernel` into a compute pipeline. Returns nil (and sets error)
+// on failure.
+id<MTLComputePipelineState> compileKernel(id<MTLDevice> device, const QString &kernel,
+                                          const QString &ocioText, QString &error)
+{
+    NSError *err = nil;
+    NSString *src = [NSString stringWithUTF8String:kernel.toUtf8().constData()];
+    id<MTLLibrary> lib = [device newLibraryWithSource:src options:nil error:&err];
+    if (!lib) {
+        error = QStringLiteral("MetalOcioRenderer: kernel compile failed: %1")
+            .arg(err ? QString::fromUtf8([err.localizedDescription UTF8String])
+                     : QStringLiteral("(no error)"));
+        qWarning("%s", qPrintable(error));
+        dumpFailure(kernel, ocioText);
+        return nil;
+    }
+    id<MTLFunction> fn = [lib newFunctionWithName:@"ocio_apply"];
+    if (!fn) {
+        error = QStringLiteral("MetalOcioRenderer: ocio_apply not found");
+        return nil;
+    }
+    id<MTLComputePipelineState> pso =
+        [device newComputePipelineStateWithFunction:fn error:&err];
+    if (!pso) {
+        error = QStringLiteral("MetalOcioRenderer: pipeline creation failed: %1")
+            .arg(err ? QString::fromUtf8([err.localizedDescription UTF8String])
+                     : QStringLiteral("(no error)"));
+        qWarning("%s", qPrintable(error));
+    }
+    return pso;
+}
+
+// Build a pipeline for the active chain. Pure function of its inputs —
+// safe on a background queue (MTLDevice is thread-safe; the OCIO reads
+// mirror what the D3D11 compile worker already does).
+Built buildPipeline(id<MTLDevice> device, OCIOConfigManager *ocio,
+                    bool sdrCapture, bool wantSplit)
+{
+    Built out;
+    // The SDR mapping is a pure function of the active chain, so the
+    // generation cache stays valid for the capture instance too.
+    DisplayViewOverride sdr;
+    const bool useSdr = sdrCapture && ocio->sdrCaptureDisplayView(&sdr.display, &sdr.view);
+    const DisplayViewOverride *ov = useSdr ? &sdr : nullptr;
+
+    if (wantSplit) {
+        OcioSplitChain chain =
+            OcioChainBuilder::buildSplit(ocio, OcioChainBuilder::Language::Msl_2_0, ov);
+        if (chain.ok) {
+            int nextTex = 2;   // 0 = src, 1 = dst
+            QString args, preCall, postCall;
+            if (!gatherLuts(device, chain.pre.desc, nextTex, out.luts, args, preCall, out.error) ||
+                !gatherLuts(device, chain.post.desc, nextTex, out.luts, args, postCall, out.error)) {
+                return out;
+            }
+            const QString kernel =
+                QString::fromUtf8(kKernelHeader)
+                + QString::fromUtf8(kLinearStageMsl)
+                + chain.pre.shaderText
+                + chain.post.shaderText
+                + QString::fromUtf8(kKernelMainPrefix)
+                + args
+                + QStringLiteral("    constant QcvStage &qcvStage [[buffer(0)]],\n")
+                + QString::fromUtf8(kKernelMainSuffix)
+                + QStringLiteral("    color = OCIOPre(%1color);\n").arg(preCall)
+                + QStringLiteral("    color = qcvLinearStage(color, qcvStage);\n")
+                + QStringLiteral("    color = OCIOPost(%1color);\n").arg(postCall)
+                + QString::fromUtf8(kKernelFooter);
+            out.pipeline = compileKernel(device, kernel,
+                                         chain.pre.shaderText + chain.post.shaderText, out.error);
+            if (!out.pipeline) out.luts.clear();
+            out.split        = true;
+            out.side         = chain.side;
+            out.displayIsSdr = chain.displayIsSdr;
+            return out;
+        }
+        // No interchange role / data colourspace or view: the stage is
+        // unavailable for this chain — run it unsplit.
+        qInfo("MetalOcioRenderer: stage unavailable (%s) — unsplit chain",
+              qPrintable(chain.errorMessage));
+    }
+
+    OcioChain chain = OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Msl_2_0, ov);
+    if (!chain.ok) {
+        out.error = chain.errorMessage;
+        return out;
+    }
+    int nextTex = 2;
+    QString args, call;
+    if (!gatherLuts(device, chain.desc, nextTex, out.luts, args, call, out.error)) return out;
+    // OCIODisplay() takes textures + samplers FIRST, inPixel LAST. With
+    // zero LUTs `call` is empty and the call collapses to
+    // OCIODisplay(color), the no-LUT signature OCIO emits.
+    const QString kernel =
+        QString::fromUtf8(kKernelHeader)
+        + chain.shaderText
+        + QString::fromUtf8(kKernelMainPrefix)
+        + args
+        + QString::fromUtf8(kKernelMainSuffix)
+        + QStringLiteral("    color = OCIODisplay(%1color);\n").arg(call)
+        + QString::fromUtf8(kKernelFooter);
+    out.pipeline = compileKernel(device, kernel, chain.shaderText, out.error);
+    if (!out.pipeline) out.luts.clear();
+    return out;
+}
+
 } // namespace
 
 struct MetalOcioRenderer::Impl {
-    id<MTLDevice>               device   = nil;
-    id<MTLComputePipelineState> pipeline = nil;
-    id<MTLSamplerState>         sampler  = nil;
+    id<MTLDevice>       device  = nil;
+    id<MTLSamplerState> sampler = nil;
 
-    // 1D/2D LUTs (sampler2D in MSL — we promote 1D to 2D Nx1).
-    std::vector<id<MTLTexture>>  lut2dTextures;
-    std::vector<id<MTLSamplerState>> lut2dSamplers;
-    // 3D LUTs (sampler3D).
-    std::vector<id<MTLTexture>>  lut3dTextures;
-    std::vector<id<MTLSamplerState>> lut3dSamplers;
+    Built active;
+    int   activeGen   = -1;   // chain generation the active build (or its failure) is for
+    bool  activeSplit = false; // ... and whether it was asked to split
+
+    // Background compile (async instances). One job at a time; the
+    // result waits in `pending` until the render thread swaps it in.
+    dispatch_queue_t queue = nullptr;
+    std::mutex       pendingMutex;
+    std::unique_ptr<Built> pending;
+    int   pendingGen   = -1;
+    bool  pendingSplit = false;
+    bool  jobRunning   = false;
+    int   jobGen       = -1;
+    bool  jobSplit     = false;
+
+    LinearStageSettings stage;
+    bool  async      = false;
+    bool  sdrCapture = false;
 
     id<MTLTexture> outputTex = nil;
     int            outputW   = 0;
     int            outputH   = 0;
 
-    int     lastChainGeneration = -1;
-    bool    sdrCapture = false;
     QString lastError;
+
+    void install(Built &&b, int gen, bool split)
+    {
+        if (b.pipeline || !active.pipeline) {
+            // A failed build doesn't replace a working pipeline; it is
+            // recorded against its key so it isn't retried every frame
+            // (the next chain change gets a fresh attempt).
+            active = std::move(b);
+        } else {
+            lastError = b.error;
+        }
+        if (active.pipeline) lastError.clear();
+        else                 lastError = active.error;
+        activeGen   = gen;
+        activeSplit = split;
+    }
 };
 
 MetalOcioRenderer::MetalOcioRenderer()
@@ -101,28 +404,35 @@ bool MetalOcioRenderer::initialize()
     }
 
     MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
-    sd.minFilter   = MTLSamplerMinMagFilterLinear;
-    sd.magFilter   = MTLSamplerMinMagFilterLinear;
+    sd.minFilter    = MTLSamplerMinMagFilterLinear;
+    sd.magFilter    = MTLSamplerMinMagFilterLinear;
     sd.sAddressMode = MTLSamplerAddressModeClampToEdge;
     sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
+    sd.rAddressMode = MTLSamplerAddressModeClampToEdge;
     m_impl->sampler = [m_impl->device newSamplerStateWithDescriptor:sd];
+    if (!m_impl->queue) {
+        m_impl->queue = dispatch_queue_create("qcv.ocio.compile", DISPATCH_QUEUE_SERIAL);
+    }
     return m_impl->sampler != nil;
 }
 
 void MetalOcioRenderer::shutdown()
 {
     if (!m_impl) return;
-    m_impl->pipeline      = nil;
-    m_impl->sampler       = nil;
-    m_impl->lut2dTextures.clear();
-    m_impl->lut2dSamplers.clear();
-    m_impl->lut3dTextures.clear();
-    m_impl->lut3dSamplers.clear();
-    m_impl->outputTex     = nil;
-    m_impl->outputW       = 0;
-    m_impl->outputH       = 0;
-    m_impl->device        = nil;
-    m_impl->lastChainGeneration = -1;
+    // Drain a running compile before dropping the device it uses.
+    if (m_impl->queue) dispatch_sync(m_impl->queue, ^{});
+    {
+        std::lock_guard lock(m_impl->pendingMutex);
+        m_impl->pending.reset();
+        m_impl->jobRunning = false;
+    }
+    m_impl->active    = Built{};
+    m_impl->activeGen = -1;
+    m_impl->sampler   = nil;
+    m_impl->outputTex = nil;
+    m_impl->outputW   = 0;
+    m_impl->outputH   = 0;
+    m_impl->device    = nil;
 }
 
 bool MetalOcioRenderer::isInitialized() const
@@ -132,7 +442,12 @@ bool MetalOcioRenderer::isInitialized() const
 
 bool MetalOcioRenderer::hasPipeline() const
 {
-    return m_impl && m_impl->pipeline != nil;
+    return m_impl && m_impl->active.pipeline != nil;
+}
+
+bool MetalOcioRenderer::stageActive() const
+{
+    return m_impl && m_impl->active.pipeline != nil && m_impl->active.split;
 }
 
 const QString &MetalOcioRenderer::lastError() const
@@ -142,334 +457,91 @@ const QString &MetalOcioRenderer::lastError() const
 
 void MetalOcioRenderer::setSdrCapture(bool on)
 {
-    m_impl->sdrCapture          = on;
-    m_impl->lastChainGeneration = -1;
+    m_impl->sdrCapture = on;
+    m_impl->activeGen  = -1;
+}
+
+void MetalOcioRenderer::setStage(const LinearStageSettings &stage)
+{
+    m_impl->stage = stage;
+}
+
+void MetalOcioRenderer::setAsync(bool on)
+{
+    m_impl->async = on;
 }
 
 bool MetalOcioRenderer::rebuild(OCIOConfigManager *ocio)
 {
     if (!ocio || !isInitialized()) return false;
+    Impl &i = *m_impl;
 
-    // Cached on chain generation.
-    const int gen = ocio->activeChainGeneration();
-    if (gen == m_impl->lastChainGeneration && m_impl->pipeline) {
-        return true;
-    }
+    const int  gen       = ocio->activeChainGeneration();
+    const bool wantSplit = !linear_stage::isIdentity(i.stage);
 
-    // The SDR mapping is a pure function of the active chain, so the
-    // generation cache stays valid for the capture instance too.
-    DisplayViewOverride sdr;
-    const bool useSdr = m_impl->sdrCapture
-        && ocio->sdrCaptureDisplayView(&sdr.display, &sdr.view);
-    OcioChain chain =
-        OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Msl_2_0,
-                                useSdr ? &sdr : nullptr);
-    if (!chain.ok) {
-        m_impl->lastError = chain.errorMessage;
-        m_impl->pipeline  = nil;
-        return false;
-    }
-
-    // Gather OCIO's LUT inventory + binding declarations.
-    QString lutDecls;
-    QString kernelArgs;     // declarations in the kernel signature
-
-    auto desc = chain.desc;
-    int nextTexBinding = 2;     // 0 = src, 1 = dst, 2.. = LUTs
-    int nextSmpBinding = 1;     // 0 = src_smp, 1.. = LUT samplers
-
-    std::vector<id<MTLTexture>>     newLut2d;
-    std::vector<id<MTLSamplerState>> newLut2dSmp;
-    std::vector<id<MTLTexture>>     newLut3d;
-    std::vector<id<MTLSamplerState>> newLut3dSmp;
-
-    // OCIO's emitted OCIODisplay() function takes its texture +
-    // sampler arguments in a specific order: ALL 3D LUTs first (in
-    // their registration order within 3D), then ALL 1D/2D LUTs (in
-    // their registration order within 1D/2D), then float4 inPixel.
-    // The trailing digits of OCIO's texName (e.g. "ocio_lut3d_2"
-    // → 2) give the global registration index used to sort within
-    // each kind. Our kernel's [[texture(N)]] declaration order can
-    // stay arbitrary — Metal resolves function arguments by variable
-    // name + type — but the call expression MUST follow OCIO's order.
-    struct CallArg { int regIndex; QString tname; QString sname; };
-    std::vector<CallArg> callArgList3D;       // emitted first
-    std::vector<CallArg> callArgList2D;       // emitted second
-    auto parseTrailingInt = [](const QString &s) -> int {
-        const int us = s.lastIndexOf(QLatin1Char('_'));
-        if (us < 0) return 0;
-        bool ok = false;
-        const int n = s.mid(us + 1).toInt(&ok);
-        return ok ? n : 0;
-    };
-
-    // --- 1D + 2D LUTs ---
-    for (int i = 0; i < desc->getNumTextures(); ++i) {
-        const char *texName = nullptr, *smpName = nullptr;
-        unsigned w = 0, h = 0;
-        OCIO::GpuShaderDesc::TextureType chan =
-            OCIO::GpuShaderDesc::TEXTURE_RGB_CHANNEL;
-        OCIO::GpuShaderDesc::TextureDimensions dim =
-            OCIO::GpuShaderDesc::TEXTURE_1D;
-        OCIO::Interpolation interp = OCIO::INTERP_DEFAULT;
-        desc->getTexture(i, texName, smpName, w, h, chan, dim, interp);
-        if (!texName || !*texName || !smpName || !*smpName) continue;
-
-        // OCIO returns DISTINCT names for the texture vs sampler
-        // (e.g. texName="ocio_lut3d_0", smpName="ocio_lut3d_0Sampler").
-        // The emitted OCIODisplay() function declares its parameters
-        // using exactly these names, so the kernel must declare them
-        // the same way — using smpName for the texture binding name
-        // would not match OCIO's signature and the compile fails with
-        // "no matching function for call to 'OCIODisplay'".
-        const QString tname = QString::fromUtf8(texName);
-        const QString sname = QString::fromUtf8(smpName);
-        const bool isRgb = (chan == OCIO::GpuShaderDesc::TEXTURE_RGB_CHANNEL);
-        // OCIO emits actual `texture1d<float>` declarations for 1D
-        // LUTs. Our kernel arg type and the underlying MTLTexture's
-        // textureType MUST match OCIO's emitted parameter type or
-        // `OCIODisplay()` won't resolve. 2D LUTs (rare; chan=R w/ h>1)
-        // stay on the texture2d path.
-        const bool is1D = (dim == OCIO::GpuShaderDesc::TEXTURE_1D);
-
-        const float *values = nullptr;
-        desc->getTextureValues(i, values);
-        if (!values) continue;
-
-        const int width  = static_cast<int>(w > 0 ? w : 1);
-        const int height = is1D ? 1 : static_cast<int>(h > 0 ? h : 1);
-
-        // Pack to RGBA32Float if RGB (Metal has no RGB32F).
-        const MTLPixelFormat fmt = isRgb ? MTLPixelFormatRGBA32Float
-                                         : MTLPixelFormatR32Float;
-        MTLTextureDescriptor *td = [MTLTextureDescriptor new];
-        td.pixelFormat = fmt;
-        td.width       = width;
-        td.height      = height;
-        td.depth       = 1;
-        td.textureType = is1D ? MTLTextureType1D : MTLTextureType2D;
-        td.usage       = MTLTextureUsageShaderRead;
-        td.storageMode = MTLStorageModeShared;
-        id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
-        if (!tex) {
-            m_impl->lastError = QStringLiteral("MetalOcioRenderer: LUT texture create failed");
-            return false;
-        }
-
-        // Upload pixel data. 1D textures use MTLRegionMake1D and
-        // bytesPerRow = 0 (a single row's worth of bytes; Metal
-        // infers from width × bytesPerPixel).
-        const int n = width * height;
-        const MTLRegion region = is1D
-            ? MTLRegionMake1D(0, width)
-            : MTLRegionMake2D(0, 0, width, height);
-        const NSUInteger bpr = is1D
-            ? 0
-            : static_cast<NSUInteger>(width) *
-              (isRgb ? 4u : 1u) * sizeof(float);
-        if (isRgb) {
-            std::vector<float> rgba(static_cast<std::size_t>(n) * 4);
-            for (int p = 0; p < n; ++p) {
-                rgba[p * 4 + 0] = values[p * 3 + 0];
-                rgba[p * 4 + 1] = values[p * 3 + 1];
-                rgba[p * 4 + 2] = values[p * 3 + 2];
-                rgba[p * 4 + 3] = 1.0f;
+    // 1. A finished background build waiting to be swapped in?
+    if (i.async) {
+        std::unique_ptr<Built> ready;
+        int readyGen = -1;
+        bool readySplit = false;
+        {
+            std::lock_guard lock(i.pendingMutex);
+            if (i.pending) {
+                ready = std::move(i.pending);
+                readyGen = i.pendingGen;
+                readySplit = i.pendingSplit;
             }
-            [tex replaceRegion:region
-                   mipmapLevel:0
-                     withBytes:rgba.data()
-                   bytesPerRow:bpr];
-        } else {
-            [tex replaceRegion:region
-                   mipmapLevel:0
-                     withBytes:values
-                   bytesPerRow:bpr];
         }
-
-        MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
-        sd.minFilter   = MTLSamplerMinMagFilterLinear;
-        sd.magFilter   = MTLSamplerMinMagFilterLinear;
-        sd.sAddressMode = MTLSamplerAddressModeClampToEdge;
-        sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
-        id<MTLSamplerState> smp = [m_impl->device newSamplerStateWithDescriptor:sd];
-
-        newLut2d.push_back(tex);
-        newLut2dSmp.push_back(smp);
-
-        // Kernel argument declaration. Match OCIO's emitted parameter
-        // type (texture1d for 1D LUTs).
-        const char *texMslType = is1D ? "texture1d" : "texture2d";
-        kernelArgs += QStringLiteral(
-            "    %5<float, access::sample> %1 [[texture(%2)]],\n"
-            "    sampler                   %3 [[sampler(%4)]],\n")
-            .arg(tname).arg(nextTexBinding++)
-            .arg(sname).arg(nextSmpBinding++)
-            .arg(QString::fromUtf8(texMslType));
-        callArgList2D.push_back({ parseTrailingInt(tname), tname, sname });
-    }
-
-    // --- 3D LUTs ---
-    for (int i = 0; i < desc->getNum3DTextures(); ++i) {
-        const char *texName = nullptr, *smpName = nullptr;
-        unsigned edgeLen = 0;
-        OCIO::Interpolation interp = OCIO::INTERP_DEFAULT;
-        desc->get3DTexture(i, texName, smpName, edgeLen, interp);
-        if (!texName || !*texName || !smpName || !*smpName) continue;
-
-        const QString tname = QString::fromUtf8(texName);
-        const QString sname = QString::fromUtf8(smpName);
-
-        const float *values = nullptr;
-        desc->get3DTextureValues(i, values);
-        if (!values || edgeLen == 0) continue;
-
-        const int E = static_cast<int>(edgeLen);
-
-        MTLTextureDescriptor *td = [MTLTextureDescriptor new];
-        td.textureType = MTLTextureType3D;
-        td.pixelFormat = MTLPixelFormatRGBA32Float;
-        td.width  = E;
-        td.height = E;
-        td.depth  = E;
-        td.usage       = MTLTextureUsageShaderRead;
-        td.storageMode = MTLStorageModeShared;
-        id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
-        if (!tex) {
-            m_impl->lastError = QStringLiteral("MetalOcioRenderer: 3D LUT texture create failed");
-            return false;
-        }
-
-        // Pack RGB → RGBA per slice.
-        const int sliceTexels = E * E;
-        std::vector<float> slice(static_cast<std::size_t>(sliceTexels) * 4);
-        for (int z = 0; z < E; ++z) {
-            const float *src = values + z * sliceTexels * 3;
-            for (int p = 0; p < sliceTexels; ++p) {
-                slice[p * 4 + 0] = src[p * 3 + 0];
-                slice[p * 4 + 1] = src[p * 3 + 1];
-                slice[p * 4 + 2] = src[p * 3 + 2];
-                slice[p * 4 + 3] = 1.0f;
+        if (ready) {
+            i.install(std::move(*ready), readyGen, readySplit);
+            if (i.active.pipeline) {
+                qInfo("MetalOcioRenderer: swapped in chain gen %d (%s, %zu LUTs)",
+                      readyGen, i.active.split ? "split" : "unsplit", i.active.luts.size());
             }
-            [tex replaceRegion:MTLRegionMake3D(0, 0, z, E, E, 1)
-                   mipmapLevel:0
-                         slice:0
-                     withBytes:slice.data()
-                   bytesPerRow:E * 4 * sizeof(float)
-                 bytesPerImage:0];
         }
-
-        MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
-        sd.minFilter   = MTLSamplerMinMagFilterLinear;
-        sd.magFilter   = MTLSamplerMinMagFilterLinear;
-        sd.sAddressMode = MTLSamplerAddressModeClampToEdge;
-        sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
-        sd.rAddressMode = MTLSamplerAddressModeClampToEdge;
-        id<MTLSamplerState> smp = [m_impl->device newSamplerStateWithDescriptor:sd];
-
-        newLut3d.push_back(tex);
-        newLut3dSmp.push_back(smp);
-
-        kernelArgs += QStringLiteral(
-            "    texture3d<float, access::sample> %1 [[texture(%2)]],\n"
-            "    sampler                          %3 [[sampler(%4)]],\n")
-            .arg(tname).arg(nextTexBinding++)
-            .arg(sname).arg(nextSmpBinding++);
-        callArgList3D.push_back({ parseTrailingInt(tname), tname, sname });
     }
 
-    // OCIO's signature: 3D LUTs (reg-order), then 1D/2D LUTs
-    // (reg-order), then color. Stable-sort each list by reg index;
-    // concatenate 3D before 2D.
-    auto byRegIndex = [](const CallArg &a, const CallArg &b) {
-        return a.regIndex < b.regIndex;
-    };
-    std::stable_sort(callArgList3D.begin(), callArgList3D.end(), byRegIndex);
-    std::stable_sort(callArgList2D.begin(), callArgList2D.end(), byRegIndex);
-    QString callArgs;       // additional arguments to OCIODisplay()
-    for (const auto &c : callArgList3D) {
-        callArgs += QStringLiteral("%1, %2, ").arg(c.tname, c.sname);
-    }
-    for (const auto &c : callArgList2D) {
-        callArgs += QStringLiteral("%1, %2, ").arg(c.tname, c.sname);
+    // 2. Already current?
+    if (gen == i.activeGen && wantSplit == i.activeSplit) {
+        return i.active.pipeline != nil;
     }
 
-    // Compose the full kernel: header + OCIO function + main(...) wrapper.
-    const QString kernel =
-        QString::fromUtf8(kKernelHeader)
-        + chain.shaderText                       // OCIO's MSL function
-        + QString::fromUtf8(kKernelMainPrefix)
-        + kernelArgs
-        + QString::fromUtf8(kKernelMainSuffix)
-        // OCIO's emitted OCIODisplay() takes textures + samplers
-        // FIRST, inPixel LAST. callArgs accumulates "tex, smp, "
-        // pairs with trailing separator so we can splice color in
-        // at the end. With zero LUTs, callArgs is empty and the
-        // call collapses to OCIODisplay(color), which matches the
-        // no-LUT signature OCIO emits in that branch.
-        + QStringLiteral("    color = OCIODisplay(%1color);\n").arg(callArgs)
-        + QString::fromUtf8(kKernelFooter);
-
-    NSError *err = nil;
-    NSString *src = [NSString stringWithUTF8String:kernel.toUtf8().constData()];
-    id<MTLLibrary> lib =
-        [m_impl->device newLibraryWithSource:src options:nil error:&err];
-    if (!lib) {
-        m_impl->lastError = QStringLiteral("MetalOcioRenderer: kernel compile failed: %1")
-            .arg(err ? QString::fromUtf8([err.localizedDescription UTF8String]) : QStringLiteral("(no error)"));
-        qWarning("%s", qPrintable(m_impl->lastError));
-
-        // Dump the failing kernel + OCIO's raw shader text to disk
-        // so we can inspect the OCIODisplay() signature mismatch.
-        const QString tmpDir = QStringLiteral("/tmp");
-        const QString fullPath = tmpDir + QStringLiteral("/qcv-ocio-kernel-fail.metal");
-        const QString ocioOnly = tmpDir + QStringLiteral("/qcv-ocio-chain-only.metal");
-        if (QFile f(fullPath); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            f.write(kernel.toUtf8());
-            qInfo("MetalOcioRenderer: dumped failing kernel to %s",
-                  qPrintable(fullPath));
+    // 3. Synchronous build: capture instances, and the first build of a
+    //    session (nothing to keep showing meanwhile).
+    if (!i.async || !i.active.pipeline) {
+        Built b = buildPipeline(i.device, ocio, i.sdrCapture, wantSplit);
+        i.install(std::move(b), gen, wantSplit);
+        if (i.active.pipeline) {
+            qInfo("MetalOcioRenderer: rebuilt for chain gen %d (%s, %zu LUTs)",
+                  gen, i.active.split ? "split" : "unsplit", i.active.luts.size());
         }
-        if (QFile f(ocioOnly); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            f.write(chain.shaderText.toUtf8());
-            qInfo("MetalOcioRenderer: dumped OCIO chain text to %s",
-                  qPrintable(ocioOnly));
+        return i.active.pipeline != nil;
+    }
+
+    // 4. Background build; keep the current pipeline until it lands.
+    {
+        std::lock_guard lock(i.pendingMutex);
+        if (i.jobRunning && i.jobGen == gen && i.jobSplit == wantSplit) {
+            return true;   // already compiling this key
         }
-
-        m_impl->pipeline = nil;
-        // Mark this gen as failed so we don't retry compiling the
-        // same broken kernel every frame (which thrashes the render
-        // thread and tanks playback). The user's next config change
-        // bumps gen and gives us a fresh shot.
-        m_impl->lastChainGeneration = gen;
-        return false;
+        if (i.jobRunning) {
+            return true;   // one job at a time; re-evaluated when it lands
+        }
+        i.jobRunning = true;
+        i.jobGen     = gen;
+        i.jobSplit   = wantSplit;
     }
-    id<MTLFunction> fn = [lib newFunctionWithName:@"ocio_apply"];
-    if (!fn) {
-        m_impl->lastError = QStringLiteral("MetalOcioRenderer: ocio_apply not found");
-        m_impl->pipeline = nil;
-        return false;
-    }
-    id<MTLComputePipelineState> pso =
-        [m_impl->device newComputePipelineStateWithFunction:fn error:&err];
-    if (!pso) {
-        m_impl->lastError = QStringLiteral("MetalOcioRenderer: pipeline creation failed: %1")
-            .arg(err ? QString::fromUtf8([err.localizedDescription UTF8String]) : QStringLiteral("(no error)"));
-        qWarning("%s", qPrintable(m_impl->lastError));
-        m_impl->pipeline = nil;
-        return false;
-    }
-
-    // Swap in the new pipeline + LUT set; the previous set is dropped
-    // (ARC releases textures + samplers).
-    m_impl->pipeline      = pso;
-    m_impl->lut2dTextures = std::move(newLut2d);
-    m_impl->lut2dSamplers = std::move(newLut2dSmp);
-    m_impl->lut3dTextures = std::move(newLut3d);
-    m_impl->lut3dSamplers = std::move(newLut3dSmp);
-    m_impl->lastChainGeneration = gen;
-    m_impl->lastError.clear();
-
-    qInfo("MetalOcioRenderer: rebuilt for chain gen %d (%zu 2D LUTs, %zu 3D LUTs)",
-          gen, m_impl->lut2dTextures.size(), m_impl->lut3dTextures.size());
+    id<MTLDevice> device = i.device;
+    const bool sdrCapture = i.sdrCapture;
+    Impl *impl = m_impl;
+    dispatch_async(i.queue, ^{
+        auto b = std::make_unique<Built>(buildPipeline(device, ocio, sdrCapture, wantSplit));
+        std::lock_guard lock(impl->pendingMutex);
+        impl->pending      = std::move(b);
+        impl->pendingGen   = gen;
+        impl->pendingSplit = wantSplit;
+        impl->jobRunning   = false;
+    });
     return true;
 }
 
@@ -500,21 +572,20 @@ void *MetalOcioRenderer::apply(void *cmdBufPtr, void *sourceMtlTexture,
     }
     if (!m_impl->outputTex) return nullptr;
 
+    const Built &b = m_impl->active;
     id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
-    [enc setComputePipelineState:m_impl->pipeline];
-    [enc setTexture:source           atIndex:0];
+    [enc setComputePipelineState:b.pipeline];
+    [enc setTexture:source            atIndex:0];
     [enc setTexture:m_impl->outputTex atIndex:1];
     [enc setSamplerState:m_impl->sampler atIndex:0];
-
     int texBind = 2;
-    int smpBind = 1;
-    for (std::size_t i = 0; i < m_impl->lut2dTextures.size(); ++i) {
-        [enc setTexture:m_impl->lut2dTextures[i] atIndex:texBind++];
-        [enc setSamplerState:m_impl->lut2dSamplers[i] atIndex:smpBind++];
+    for (id<MTLTexture> lut : b.luts) {
+        [enc setTexture:lut atIndex:texBind++];
     }
-    for (std::size_t i = 0; i < m_impl->lut3dTextures.size(); ++i) {
-        [enc setTexture:m_impl->lut3dTextures[i] atIndex:texBind++];
-        [enc setSamplerState:m_impl->lut3dSamplers[i] atIndex:smpBind++];
+    if (b.split) {
+        const LinearStageGpu stage =
+            linear_stage::resolve(m_impl->stage, b.side, b.displayIsSdr);
+        [enc setBytes:&stage length:sizeof(stage) atIndex:0];
     }
 
     const MTLSize tg   = MTLSizeMake(16, 16, 1);

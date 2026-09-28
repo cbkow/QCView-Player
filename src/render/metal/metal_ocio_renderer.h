@@ -26,6 +26,8 @@
 
 #include <QString>
 
+#include "color/linear_stage.h"
+
 #include <atomic>
 #include <vector>
 
@@ -46,9 +48,26 @@ public:
     bool isInitialized() const;
 
     // Build / rebuild the compute pipeline + LUT textures from the
-    // active OCIO chain. Idempotent if the chain hasn't changed
-    // (cached by the chain generation atomic). Returns true on success.
+    // active OCIO chain. Idempotent if the chain hasn't changed (cached
+    // by the chain generation and whether the linear stage is identity).
+    // Returns true when a pipeline is usable. With async on (the live
+    // instance) a changed chain compiles on a background queue and the
+    // previous pipeline keeps running until the new one is swapped in on
+    // a later call; the first compile of a session is synchronous.
     bool rebuild(OCIOConfigManager *ocio);
+
+    // Linear-stage settings for the next rebuild() / apply() (gain +
+    // knee, see linear_stage.h). A non-identity stage builds the split
+    // chain (OCIOPre → stage → OCIOPost); identity keeps the unsplit
+    // chain, bit-identical to before. If the chain can't split (no
+    // interchange role, data colourspace / view) the stage is skipped.
+    void setStage(const LinearStageSettings &stage);
+
+    // Compile off the render thread (see rebuild()). Default off.
+    void setAsync(bool on);
+
+    // True when the active pipeline is split, i.e. the stage applies.
+    bool stageActive() const;
 
     // Capture instance: build the SDR sRGB equivalent of the active
     // chain (OCIOConfigManager::sdrCaptureDisplayView) instead of the

@@ -104,6 +104,13 @@ public:
     // capability query (init / mode change / resize).
     float sdrWhiteNits() const;
 
+    // HDR10 content peak for the SetHDRMetaData signal (MaxCLL and the
+    // mastering maximum). 1000 by default; the renderer passes the
+    // Highlight Knee's target while it compresses for an HDR display, so
+    // the display doesn't tone-map the fitted picture again. Re-signals
+    // only when the value changes. <= 0 = default. Render thread.
+    void setContentPeakNits(float nits);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;

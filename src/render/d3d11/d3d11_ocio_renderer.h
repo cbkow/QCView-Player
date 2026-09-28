@@ -18,6 +18,8 @@
 
 #include <QString>
 
+#include "color/linear_stage.h"
+
 #include <functional>
 #include <memory>
 
@@ -41,6 +43,21 @@ public:
     // OCIO chain. Idempotent if the chain generation hasn't changed.
     // Returns true on success.
     bool rebuild(OCIOConfigManager *ocio);
+
+    // Linear-stage settings for the next rebuild() / apply() (gain +
+    // knee, see color/linear_stage.h). A non-identity stage builds the
+    // split chain (OCIOPre → stage → OCIOPost) — same cache key and
+    // background compile as a chain change; identity keeps the unsplit
+    // chain. A chain that can't split runs unsplit (stage skipped).
+    // Mirrors MetalOcioRenderer::setStage.
+    void setStage(const LinearStageSettings &stage);
+
+    // True when the active pipeline is split, i.e. the stage applies.
+    bool stageActive() const;
+
+    // The knee's target in nits while it compresses for an HDR display
+    // (the HDR10 metadata should then say so), else 0.
+    float hdrKneeTargetNits() const;
 
     // Capture instance: build the SDR sRGB equivalent of the active
     // chain (OCIOConfigManager::sdrCaptureDisplayView) instead of the
@@ -78,7 +95,7 @@ private:
     // render thread picks it up on the next rebuild() call. The
     // function only uses thread-safe D3D11 device methods (no
     // immediate-context calls) so it's safe off the render thread.
-    void doRebuildWork(int gen, OCIOConfigManager *ocio);
+    void doRebuildWork(int gen, bool wantSplit, OCIOConfigManager *ocio);
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

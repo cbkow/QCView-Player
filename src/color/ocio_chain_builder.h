@@ -32,6 +32,8 @@
 
 #include <OpenColorIO/OpenColorIO.h>
 
+#include "linear_stage.h"
+
 namespace qcv {
 
 class OCIOConfigManager;
@@ -49,6 +51,30 @@ struct OcioChain {
     QString shaderText;    // OCIO's emitted shader function (language depends on call)
     QString errorMessage;  // populated when ok == false
     bool    ok = false;
+};
+
+// The chain split around the linear stage (see linear_stage.h):
+//   pre  = Input → Look → Scene LUT → interchange role   ("OCIOPre")
+//   post = interchange role → Display/View → Display LUT ("OCIOPost")
+// The interchange role is on the same reference-space side as the
+// colourspace that enters the Display/View (the Look's result, else the
+// Input), so the View sees the same kind of source as in the unsplit
+// chain and the round trip is exact up to float precision.
+struct OcioSplitChain {
+    OcioChain       pre;
+    OcioChain       post;
+    InterchangeSide side = InterchangeSide::None;
+    bool            displayIsSdr = true;   // the Display/View's colourspace encodes SDR
+    QString         errorMessage;
+    bool            ok = false;
+};
+
+// CPU form of the same split, for LUT baking.
+struct OcioSplitTransforms {
+    OCIO_NAMESPACE::GroupTransformRcPtr pre;
+    OCIO_NAMESPACE::GroupTransformRcPtr post;
+    InterchangeSide side = InterchangeSide::None;
+    bool            displayIsSdr = true;
 };
 
 class OcioChainBuilder {
@@ -81,6 +107,23 @@ public:
         OCIO_NAMESPACE::ConstConfigRcPtr cfg,
         QString *errorOut = nullptr,
         const DisplayViewOverride *override = nullptr);
+
+    // Split build (GPU): two shader functions, OCIOPre (prefix
+    // "ocio_pre_") and OCIOPost ("ocio_post_"), for one shader with the
+    // linear stage between them. Fails (ok = false) when the config
+    // lacks the interchange role for the side, or the colourspace
+    // entering the View is a data space — callers then fall back to the
+    // unsplit chain and the stage is unavailable.
+    static OcioSplitChain buildSplit(OCIOConfigManager *ocio,
+                                     Language language,
+                                     const DisplayViewOverride *override = nullptr);
+
+    // Split build (CPU transforms), same shape as buildSplit().
+    static bool buildSplitTransforms(OCIOConfigManager *ocio,
+                                     OCIO_NAMESPACE::ConstConfigRcPtr cfg,
+                                     OcioSplitTransforms &out,
+                                     QString *errorOut = nullptr,
+                                     const DisplayViewOverride *override = nullptr);
 };
 
 } // namespace qcv

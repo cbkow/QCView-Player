@@ -26,6 +26,8 @@
 #include <atomic>
 #include <memory>
 
+#include "linear_stage.h"
+
 namespace qcv {
 
 class OCIOConfigManager : public QObject
@@ -50,6 +52,26 @@ class OCIOConfigManager : public QObject
     // flipping engaged ON is the explicit "apply this chain" action,
     // and once engaged subsequent slot edits live-update.
     Q_PROPERTY(bool engaged READ engaged WRITE setEngaged NOTIFY activeChainChanged)
+    // Highlight Knee — the chain step between Scene LUT and Output (see
+    // linear_stage.h). Changing it never bumps activeChainGeneration: the
+    // renderers key their pipeline on (generation, stage identity) and
+    // read the parameters per frame via linearStageSettings().
+    Q_PROPERTY(bool   kneeEnabled    READ kneeEnabled    WRITE setKneeEnabled    NOTIFY kneeChanged)
+    Q_PROPERTY(double kneeSourceNits READ kneeSourceNits WRITE setKneeSourceNits NOTIFY kneeChanged)
+    Q_PROPERTY(double kneeTargetNits READ kneeTargetNits WRITE setKneeTargetNits NOTIFY kneeChanged)
+    // Fraction of the target peak (PQ-normalized) where the shoulder
+    // starts; < 0 = BT.2390's default for the current peaks.
+    Q_PROPERTY(double kneeStart      READ kneeStart      WRITE setKneeStart      NOTIFY kneeChanged)
+    // Resolved for the active chain: can it split (interchange roles,
+    // not a data colourspace / view), and is the Display/View SDR (the
+    // knee target is then 100 nits, not kneeTargetNits).
+    Q_PROPERTY(bool   kneeAvailable  READ kneeAvailable  NOTIFY activeChainChanged)
+    Q_PROPERTY(bool   displayIsSdr   READ displayIsSdr   NOTIFY activeChainChanged)
+    // Knee start in nits for the current settings, for the UI read-out.
+    Q_PROPERTY(double kneeStartNits  READ kneeStartNits  NOTIFY kneeChanged)
+    // The knee start actually in use, as a fraction (BT.2390's value when
+    // kneeStart < 0) — the slider's position.
+    Q_PROPERTY(double kneeStartEffective READ kneeStartEffective NOTIFY kneeChanged)
 
 public:
     explicit OCIOConfigManager(QObject *parent = nullptr);
@@ -124,10 +146,34 @@ public:
         return m_activeChainGeneration.load(std::memory_order_acquire);
     }
 
+    bool   kneeEnabled()    const { return m_kneeEnabled.load(std::memory_order_acquire); }
+    double kneeSourceNits() const { return m_kneeSourceNits.load(std::memory_order_acquire); }
+    double kneeTargetNits() const { return m_kneeTargetNits.load(std::memory_order_acquire); }
+    double kneeStart()      const { return m_kneeStart.load(std::memory_order_acquire); }
+    void   setKneeEnabled(bool on);
+    void   setKneeSourceNits(double nits);
+    void   setKneeTargetNits(double nits);
+    void   setKneeStart(double fraction);
+    bool   kneeAvailable() const;
+    bool   displayIsSdr() const;
+    double kneeStartNits() const;
+    double kneeStartEffective() const;
+
+    // Render-thread snapshot of the stage settings; `gain` is the
+    // renderer's Brightness. Lock-free.
+    LinearStageSettings linearStageSettings(float gain) const;
+
+    // Bumps on every knee change — the D3D11 render-on-demand loop polls
+    // it (with activeChainGeneration) to know it must redraw.
+    int stageGeneration() const {
+        return m_stageGeneration.load(std::memory_order_acquire);
+    }
+
 signals:
     void configChanged();
     void activeChainChanged();
     void availableConfigsChanged();
+    void kneeChanged();
 
 private:
     void resetActiveDefaults();
@@ -162,6 +208,13 @@ private:
     QString m_activeDisplayLutPath;
     bool    m_engaged = false;     // default disengaged — see Q_PROPERTY note
     std::atomic<int> m_activeChainGeneration{0};
+
+    std::atomic<bool>  m_kneeEnabled{false};
+    std::atomic<float> m_kneeSourceNits{1000.0f};
+    std::atomic<float> m_kneeTargetNits{1000.0f};
+    std::atomic<float> m_kneeStart{-1.0f};
+    std::atomic<int>   m_stageGeneration{0};
+    void bumpStage();
 };
 
 } // namespace qcv

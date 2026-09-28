@@ -15,6 +15,13 @@ QString writeCube(OCIO::ConstCPUProcessorRcPtr proc,
     if (!proc) {
         return QStringLiteral("OcioLutBaker: null CPU processor");
     }
+    return writeCube([&proc](float *rgb) { proc->applyRGB(rgb); }, outPath, cubeSize);
+}
+
+QString writeCube(const std::function<void(float *rgb)> &sample,
+                  const QString &outPath,
+                  int cubeSize)
+{
     if (cubeSize < 2) {
         return QStringLiteral("OcioLutBaker: cubeSize must be ≥ 2");
     }
@@ -55,7 +62,7 @@ QString writeCube(OCIO::ConstCPUProcessorRcPtr proc,
                     rgb[0] = static_cast<float>(r) * step;
                     rgb[1] = static_cast<float>(g) * step;
                     rgb[2] = static_cast<float>(b) * step;
-                    proc->applyRGB(rgb);
+                    sample(rgb);
                     // Negative values are valid for HDR / extended-range
                     // chains (scene-linear can dip below zero through
                     // some looks); .cube readers tolerate them.

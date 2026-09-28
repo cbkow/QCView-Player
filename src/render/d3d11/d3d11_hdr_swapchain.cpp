@@ -15,6 +15,7 @@
 
 #include <QtLogging>
 
+#include <algorithm>
 #include <atomic>
 #include <cwchar>
 #include <mutex>
@@ -83,6 +84,9 @@ struct D3D11HdrSwapchain::Impl {
     ComPtr<IDCompositionVisual>      dcompVisual;
 
     HdrMode                appliedMode = HdrMode::SdrSRgb;
+    // HDR10 content peak signaled in the metadata (setContentPeakNits).
+    UINT16                 contentPeakNits  = 1000;   // kHdr10Default_MaxContentLightLevel
+    UINT16                 signaledPeakNits = 0;
     std::atomic<int>       pendingMode{static_cast<int>(HdrMode::SdrSRgb)};
 
     int                    width  = 0;
@@ -150,7 +154,10 @@ constexpr UINT16 kBt2020_BlueY  = 2300;   // 0.046
 constexpr UINT16 kD65_WhiteX    = 15635;  // 0.3127
 constexpr UINT16 kD65_WhiteY    = 16450;  // 0.3290
 
-void setHdr10MasteringMetadata(IDXGISwapChain1 *swapchain)
+// `peakNits`: the content's peak — 1000 by default, the Highlight
+// Knee's target while it compresses for this display (so a TV or monitor
+// doesn't tone-map the already-fitted picture a second time).
+void setHdr10MasteringMetadata(IDXGISwapChain1 *swapchain, UINT16 peakNits)
 {
     if (!swapchain) return;
     ComPtr<IDXGISwapChain4> sc4;
@@ -168,10 +175,11 @@ void setHdr10MasteringMetadata(IDXGISwapChain1 *swapchain)
     md.BluePrimary[1]             = kBt2020_BlueY;
     md.WhitePoint[0]              = kD65_WhiteX;
     md.WhitePoint[1]              = kD65_WhiteY;
-    md.MaxMasteringLuminance      = kHdr10Default_MaxMasteringLuminance_x10k;
+    md.MaxMasteringLuminance      = static_cast<UINT>(peakNits) * 10000u;
     md.MinMasteringLuminance      = kHdr10Default_MinMasteringLuminance_x10k;
-    md.MaxContentLightLevel       = kHdr10Default_MaxContentLightLevel;
-    md.MaxFrameAverageLightLevel  = kHdr10Default_MaxFrameAverageLightLevel;
+    md.MaxContentLightLevel       = peakNits;
+    md.MaxFrameAverageLightLevel  =
+        std::min<UINT16>(kHdr10Default_MaxFrameAverageLightLevel, peakNits);
     const HRESULT hr = sc4->SetHDRMetaData(DXGI_HDR_METADATA_TYPE_HDR10,
                                               sizeof(md), &md);
     if (FAILED(hr)) {
@@ -506,7 +514,9 @@ bool D3D11HdrSwapchain::applyPendingOnRenderThread()
                     // white at 80 nits, SDR has no HDR signaling).
                     if (SUCCEEDED(setHr) &&
                         target.colorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020) {
-                        setHdr10MasteringMetadata(m_impl->swapchain.Get());
+                        setHdr10MasteringMetadata(m_impl->swapchain.Get(),
+                                                  m_impl->contentPeakNits);
+                        m_impl->signaledPeakNits = m_impl->contentPeakNits;
                     }
                 } else {
                     qWarning("D3D11HdrSwapchain: colorspace %s unsupported on "
@@ -608,5 +618,18 @@ void *D3D11HdrSwapchain::dcompVisual() const
 bool  D3D11HdrSwapchain::isHdrSupported() const  { return m_impl && m_impl->hdrSupported; }
 float D3D11HdrSwapchain::maxHdrHeadroom() const  { return m_impl ? m_impl->maxHeadroom : 1.0f; }
 float D3D11HdrSwapchain::sdrWhiteNits() const    { return m_impl ? m_impl->sdrWhiteNits : 80.0f; }
+
+void D3D11HdrSwapchain::setContentPeakNits(float nits)
+{
+    if (!m_impl) return;
+    const UINT16 v = static_cast<UINT16>(
+        std::clamp(nits <= 0.0f ? 1000.0f : nits, 100.0f, 10000.0f));
+    m_impl->contentPeakNits = v;
+    if (m_impl->appliedMode == HdrMode::Hdr10 && m_impl->swapchain
+        && m_impl->signaledPeakNits != v) {
+        setHdr10MasteringMetadata(m_impl->swapchain.Get(), v);
+        m_impl->signaledPeakNits = v;
+    }
+}
 
 } // namespace qcv

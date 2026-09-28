@@ -1,5 +1,8 @@
 #include "ocio_config_manager.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include "ocio_chain_builder.h"
 #include "ocio_lut_baker.h"
 
@@ -120,6 +123,14 @@ OCIOConfigManager::OCIOConfigManager(QObject *parent)
     //   3. Shipped default (Blender 5.2)
     //   4. OCIO library built-in (last-resort)
     enumerateConfigs();
+
+    // The knee's read-outs (target, start in nits) depend on the active
+    // Display/View; refresh them on chain changes. Signal only — the
+    // renderers poll stageGeneration(), which this does not bump.
+    connect(this, &OCIOConfigManager::activeChainChanged,
+            this, &OCIOConfigManager::kneeChanged);
+    connect(this, &OCIOConfigManager::configChanged,
+            this, &OCIOConfigManager::kneeChanged);
 
     bool loaded = false;
     for (const ConfigSlot &slot : m_configSlots) {
@@ -449,6 +460,37 @@ QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
     }
 
     QString err;
+
+    // With the Highlight Knee on, the export includes it: it is a chain
+    // step, like a Look. Brightness (gain) is a viewing aid and never
+    // baked, so the stage is resolved at gain 1.0.
+    const LinearStageSettings stage = linearStageSettings(1.0f);
+    if (stage.kneeEnabled) {
+        OcioSplitTransforms split;
+        if (OcioChainBuilder::buildSplitTransforms(this, m_impl->config, split, &err)) {
+            try {
+                OCIO::ConstCPUProcessorRcPtr pre = m_impl->config->getProcessor(split.pre)
+                    ->getOptimizedCPUProcessor(OCIO::OPTIMIZATION_DEFAULT);
+                OCIO::ConstCPUProcessorRcPtr post = m_impl->config->getProcessor(split.post)
+                    ->getOptimizedCPUProcessor(OCIO::OPTIMIZATION_DEFAULT);
+                const LinearStageGpu g =
+                    linear_stage::resolve(stage, split.side, split.displayIsSdr);
+                return OcioLutBaker::writeCube(
+                    [&](float *rgb) {
+                        pre->applyRGB(rgb);
+                        linear_stage::apply(rgb, g);
+                        post->applyRGB(rgb);
+                    },
+                    outPath, cubeSize);
+            } catch (const OCIO::Exception &e) {
+                return QStringLiteral("OCIO error: %1").arg(e.what());
+            }
+        }
+        // Knee unavailable for this chain — export it without.
+        qInfo("OCIOConfigManager: export without knee (%s)", qPrintable(err));
+        err.clear();
+    }
+
     OCIO::GroupTransformRcPtr group =
         OcioChainBuilder::buildGroupTransform(this, m_impl->config, &err);
     if (!group) {
@@ -580,6 +622,90 @@ void OCIOConfigManager::setEngaged(bool b)
     m_engaged = b;
     m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
     emit activeChainChanged();
+}
+
+// -------- Highlight Knee --------
+
+void OCIOConfigManager::bumpStage()
+{
+    m_stageGeneration.fetch_add(1, std::memory_order_acq_rel);
+    emit kneeChanged();
+}
+
+void OCIOConfigManager::setKneeEnabled(bool on)
+{
+    if (m_kneeEnabled.load() == on) return;
+    m_kneeEnabled.store(on, std::memory_order_release);
+    bumpStage();
+}
+
+void OCIOConfigManager::setKneeSourceNits(double nits)
+{
+    const float v = static_cast<float>(std::clamp(nits, 100.0, 10000.0));
+    if (std::abs(m_kneeSourceNits.load() - v) < 1e-3f) return;
+    m_kneeSourceNits.store(v, std::memory_order_release);
+    bumpStage();
+}
+
+void OCIOConfigManager::setKneeTargetNits(double nits)
+{
+    const float v = static_cast<float>(std::clamp(nits, 100.0, 10000.0));
+    if (std::abs(m_kneeTargetNits.load() - v) < 1e-3f) return;
+    m_kneeTargetNits.store(v, std::memory_order_release);
+    bumpStage();
+}
+
+void OCIOConfigManager::setKneeStart(double fraction)
+{
+    const float v = fraction < 0.0 ? -1.0f
+                                   : static_cast<float>(std::clamp(fraction, 0.0, 0.99));
+    if (std::abs(m_kneeStart.load() - v) < 1e-5f) return;
+    m_kneeStart.store(v, std::memory_order_release);
+    bumpStage();
+}
+
+LinearStageSettings OCIOConfigManager::linearStageSettings(float gain) const
+{
+    LinearStageSettings s;
+    s.gain           = gain;
+    s.kneeEnabled    = m_kneeEnabled.load(std::memory_order_acquire);
+    s.kneeSourceNits = m_kneeSourceNits.load(std::memory_order_acquire);
+    s.kneeTargetNits = m_kneeTargetNits.load(std::memory_order_acquire);
+    s.kneeStart      = m_kneeStart.load(std::memory_order_acquire);
+    return s;
+}
+
+bool OCIOConfigManager::kneeAvailable() const
+{
+    if (!m_impl->config) return false;
+    OcioSplitTransforms t;
+    return OcioChainBuilder::buildSplitTransforms(
+        const_cast<OCIOConfigManager *>(this), m_impl->config, t);
+}
+
+bool OCIOConfigManager::displayIsSdr() const
+{
+    if (!m_impl->config) return true;
+    OcioSplitTransforms t;
+    if (!OcioChainBuilder::buildSplitTransforms(
+            const_cast<OCIOConfigManager *>(this), m_impl->config, t)) {
+        return true;
+    }
+    return t.displayIsSdr;
+}
+
+double OCIOConfigManager::kneeStartEffective() const
+{
+    const LinearStageGpu g = linear_stage::resolve(
+        linearStageSettings(1.0f), InterchangeSide::Display, displayIsSdr());
+    return g.p0[3] > 0.0f ? g.p1[0] / g.p0[3] : 0.0;
+}
+
+double OCIOConfigManager::kneeStartNits() const
+{
+    const LinearStageGpu g = linear_stage::resolve(
+        linearStageSettings(1.0f), InterchangeSide::Display, displayIsSdr());
+    return linear_stage::kneeStartNits(g.p1[0], m_kneeSourceNits.load());
 }
 
 // -------- private --------
