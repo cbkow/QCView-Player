@@ -688,12 +688,12 @@ Pane {
                                     radius: Theme.radiusSmall
                                     color: "#cc000000"
                                     border.width: 1
-                                    border.color: Theme.viewAccent
+                                    border.color: Theme.borderStrong
                                     Text {
                                         id: ocioBadgeText
                                         anchors.centerIn: parent
                                         text: qsTr("OCIO")
-                                        color: Theme.viewAccent
+                                        color: Theme.textSecondary
                                         font.family: Theme.monoFamily
                                         font.pixelSize: Theme.fontSizeTiny
                                         font.bold: true
