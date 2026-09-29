@@ -50,6 +50,8 @@ struct DualFrame {
         Vulkan,  // avFrame populated (AVFrame* owning AVVkFrame ref)
         D3D11,   // avFrame populated (AVFrame* owning a D3D11VA pool slice,
                  // NV12 / P010, on the renderer's device — Windows)
+        CpuYuv,  // avFrame populated (AVFrame* ref to a software-decoded YUV
+                 // frame; decode/yuv_planar.h) — converted on the GPU, unclamped
     };
 
     int  frameNumber = -1;
@@ -91,6 +93,7 @@ struct DualFrame {
         case Kind::Metal:  return cvPixelBuffer.get() != nullptr;
         case Kind::Vulkan: return avFrame.get() != nullptr;
         case Kind::D3D11:  return avFrame.get() != nullptr;
+        case Kind::CpuYuv: return avFrame.get() != nullptr;
         case Kind::Empty:  return false;
         }
         return false;

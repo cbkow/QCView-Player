@@ -33,6 +33,10 @@
 #include <QTimer>
 
 #include <memory>
+
+#include "decode/scrub_decoder.h"
+#include "decode/video_decoder.h"
+#include "dual/dual_playback_controller.h"
 #include <mutex>
 #include <sstream>
 #include <thread>
@@ -685,6 +689,28 @@ int main(int argc, char *argv[])
             QTimer::singleShot(3000 + 2000 * k, &windowManager, [&windowManager, seconds] {
                 qInfo("QCV_START_SECONDS: seek %.2f", seconds);
                 windowManager.seekToTime(seconds);
+            });
+        }
+    }
+
+    // Dev aid: QCV_SCRUB_FRAMES=<f>[,<f>…] holds a timeline scrub on each
+    // frame in turn (3 s after launch, then every 1 s) and never releases
+    // it, so what's on screen is the scrub decoder's preview — single
+    // view's ScrubDecoder, or the dual controller's per-side scrub path.
+    if (qEnvironmentVariableIsSet("QCV_SCRUB_FRAMES")) {
+        const QStringList frames = qEnvironmentVariable("QCV_SCRUB_FRAMES").split(QLatin1Char(','));
+        auto begun = std::make_shared<bool>(false);
+        for (int k = 0; k < frames.size(); ++k) {
+            const int frame = frames.at(k).toInt();
+            QTimer::singleShot(3000 + 1000 * k, &windowManager, [&windowManager, frame, begun] {
+                qInfo("QCV_SCRUB_FRAMES: scrub %d", frame);
+                if (auto *dc = windowManager.dualController()) {
+                    if (!*begun) { windowManager.pause(); dc->beginScrub(); *begun = true; }
+                    dc->requestScrubFrame(frame);
+                } else if (auto *sd = windowManager.scrubDecoder()) {
+                    if (auto *vd = windowManager.videoDecoder()) vd->pause();
+                    sd->requestFrame(frame);
+                }
             });
         }
     }

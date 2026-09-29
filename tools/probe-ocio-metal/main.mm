@@ -16,6 +16,14 @@
 #include "render/metal/metal_scope_renderer.h"
 #include "color/scope_math.h"
 #include "color/scope_names.h"
+#include "decode/sws_threaded.h"
+#include "decode/yuv_planar.h"
+#include "render/metal/metal_yuv_renderer.h"
+
+extern "C" {
+#include <libavutil/frame.h>
+#include <libswscale/swscale.h>
+}
 
 #include <QGuiApplication>
 #include <QPainter>
@@ -332,6 +340,146 @@ int namesCheck(const std::string &root)
     return failures;
 }
 
+// Clean YUV: synthetic frames of flat 16×16 blocks (neutrals, saturated
+// colours, a super-white and a sub-black) through MetalYuvRenderer's planar
+// kernel vs the CPU reference (yuvPlanarToRgb), and vs swscale for the
+// blocks inside 0..1 (swscale clips the rest — the reason for the kernel).
+// Flat blocks keep chroma filtering out of it: a difference here is a
+// matrix, levels or alignment error.
+int planarCheck(id<MTLDevice> dev, id<MTLCommandQueue> q)
+{
+    struct Case { AVPixelFormat fmt; const char *name; AVColorSpace cs; AVColorRange range; };
+    const Case cases[] = {
+        {AV_PIX_FMT_YUV420P,      "yuv420p 709",        AVCOL_SPC_BT709,       AVCOL_RANGE_MPEG},
+        {AV_PIX_FMT_YUV422P10LE,  "yuv422p10 709",      AVCOL_SPC_BT709,       AVCOL_RANGE_MPEG},
+        {AV_PIX_FMT_YUV422P10LE,  "yuv422p10 601",      AVCOL_SPC_SMPTE170M,   AVCOL_RANGE_MPEG},
+        {AV_PIX_FMT_YUV444P12LE,  "yuv444p12 2020",     AVCOL_SPC_BT2020_NCL,  AVCOL_RANGE_MPEG},
+        {AV_PIX_FMT_NV12,         "nv12 709",           AVCOL_SPC_BT709,       AVCOL_RANGE_MPEG},
+        {AV_PIX_FMT_P010LE,       "p010 709",           AVCOL_SPC_BT709,       AVCOL_RANGE_MPEG},
+        {AV_PIX_FMT_YUVJ420P,     "yuvj420p full 601",  AVCOL_SPC_BT470BG,     AVCOL_RANGE_JPEG},
+        {AV_PIX_FMT_YUVA444P10LE, "yuva444p10 709",     AVCOL_SPC_BT709,       AVCOL_RANGE_MPEG},
+        {AV_PIX_FMT_YUV420P,      "yuv420p untagged",   AVCOL_SPC_UNSPECIFIED, AVCOL_RANGE_UNSPECIFIED},
+    };
+    // 8-bit-equivalent Y, Cb, Cr per block (scaled to the format's depth).
+    const float blocks[][3] = {
+        {16, 128, 128}, {126, 128, 128}, {235, 128, 128}, {254, 128, 128}, {4, 128, 128},
+        // 75 % colour bars (BT.709 limited): yellow, cyan, green, magenta, red, blue.
+        {168, 44, 136}, {145, 147, 44}, {134, 63, 52}, {63, 193, 204}, {51, 109, 212},
+        {28, 212, 120},
+    };
+    const int nb = static_cast<int>(sizeof(blocks) / sizeof(blocks[0]));
+    const int B = 16, W = B * nb, H = B;
+
+    MetalYuvRenderer yuv;
+    if (!yuv.initialize() || !yuv.hasPlanar()) {
+        std::printf("FAIL planar: MetalYuvRenderer planar kernel unavailable\n");
+        return 1;
+    }
+    SwsContext *sws = qcv::swsCreateThreaded();
+    int failures = 0;
+    for (const Case &c : cases) {
+        AVFrame *f = av_frame_alloc();
+        f->format = c.fmt; f->width = W; f->height = H;
+        f->colorspace = c.cs; f->color_range = c.range;
+        av_frame_get_buffer(f, 64);
+        const YuvPlanarDesc d = yuvPlanarDesc(f, 0);
+        if (!d.ok) { std::printf("FAIL planar %-20s unsupported\n", c.name); ++failures; av_frame_free(&f); continue; }
+
+        // Fill every plane: stored code = 8-bit code × levelK (the code
+        // domain the kernel reads: LSB depth, or 16 for MSB-aligned P010).
+        const float alphaCode = std::round(d.fullMax * 0.5f);
+        for (int p = 0; p < d.planeCount; ++p) {
+            const auto &pl = d.planes[p];
+            const bool isAlpha = d.hasAlpha && p == d.planeCount - 1;
+            const int sx = (p == 0 || isAlpha) ? 0 : d.chromaShiftX;
+            uint8_t *base = f->data[pl.dataIndex];
+            for (int y = 0; y < pl.height; ++y) {
+                for (int x = 0; x < pl.width; ++x) {
+                    const int blk = std::min(nb - 1, (x << sx) / B);
+                    for (int ch = 0; ch < pl.channels; ++ch) {
+                        const int comp = isAlpha ? 3 : (p == 0 ? 0 : (pl.channels == 2 ? 1 + ch : p));
+                        const float v = comp == 3 ? alphaCode : blocks[blk][comp] * d.levelK;
+                        const int idx = x * pl.channels + ch;
+                        if (d.bytesPerSample == 2) {
+                            reinterpret_cast<uint16_t *>(base + y * f->linesize[pl.dataIndex])[idx] =
+                                static_cast<uint16_t>(v);
+                        } else {
+                            (base + y * f->linesize[pl.dataIndex])[idx] = static_cast<uint8_t>(v);
+                        }
+                    }
+                }
+            }
+        }
+
+        // GPU.
+        id<MTLTexture> planes[4] = {nil, nil, nil, nil};
+        void *ptrs[4] = {nullptr, nullptr, nullptr, nullptr};
+        for (int p = 0; p < d.planeCount; ++p) {
+            const auto &pl = d.planes[p];
+            const MTLPixelFormat pf = pl.channels == 2
+                ? (d.bytesPerSample == 2 ? MTLPixelFormatRG16Unorm : MTLPixelFormatRG8Unorm)
+                : (d.bytesPerSample == 2 ? MTLPixelFormatR16Unorm : MTLPixelFormatR8Unorm);
+            MTLTextureDescriptor *td = [MTLTextureDescriptor
+                texture2DDescriptorWithPixelFormat:pf width:pl.width height:pl.height mipmapped:NO];
+            planes[p] = [dev newTextureWithDescriptor:td];
+            [planes[p] replaceRegion:MTLRegionMake2D(0, 0, pl.width, pl.height) mipmapLevel:0
+                           withBytes:f->data[pl.dataIndex] bytesPerRow:f->linesize[pl.dataIndex]];
+            ptrs[p] = (__bridge void *)planes[p];
+        }
+        id<MTLCommandBuffer> cb = [q commandBuffer];
+        id<MTLTexture> out = (__bridge_transfer id<MTLTexture>)yuv.renderPlanarToRgba((__bridge void *)cb, ptrs, d);
+        MTLTextureDescriptor *rd = [MTLTextureDescriptor
+            texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:W height:H mipmapped:NO];
+        rd.storageMode = MTLStorageModeShared;
+        id<MTLTexture> rb = [dev newTextureWithDescriptor:rd];
+        id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+        [blit copyFromTexture:out toTexture:rb];
+        [blit endEncoding];
+        [cb commit];
+        [cb waitUntilCompleted];
+        std::vector<__fp16> gpu(static_cast<size_t>(W) * H * 4);
+        [rb getBytes:gpu.data() bytesPerRow:W * 8 fromRegion:MTLRegionMake2D(0, 0, W, H) mipmapLevel:0];
+
+        // swscale (clips — compared only where the reference is in 0..1).
+        std::vector<uint16_t> ref64(static_cast<size_t>(W) * H * 4 + 64);
+        const bool swsOk = qcv::swsConvertToBuffer(sws, f, AV_PIX_FMT_RGBA64LE,
+                               reinterpret_cast<uint8_t *>(ref64.data()), W * 8, 0) >= 0;
+
+        float worstRef = 0.0f, worstSws = 0.0f, superWhite = 0.0f, alphaSeen = 0.0f;
+        int inRange = 0;
+        for (int blk = 0; blk < nb; ++blk) {
+            const int x = blk * B + B / 2, y = H / 2;
+            float want[3];
+            yuvPlanarToRgb(d, blocks[blk][0] * d.levelK, blocks[blk][1] * d.levelK,
+                           blocks[blk][2] * d.levelK, want);
+            const __fp16 *g = &gpu[(static_cast<size_t>(y) * W + x) * 4];
+            bool inside = true;
+            for (int k = 0; k < 3; ++k) {
+                worstRef = std::max(worstRef, std::abs(float(g[k]) - want[k]));
+                inside = inside && want[k] >= 0.0f && want[k] <= 1.0f;
+            }
+            if (inside && swsOk) {
+                ++inRange;
+                const uint16_t *s = &ref64[(static_cast<size_t>(y) * W + x) * 4];
+                for (int k = 0; k < 3; ++k)
+                    worstSws = std::max(worstSws, std::abs(float(g[k]) - s[k] / 65535.0f));
+            }
+            if (blk == 3) superWhite = float(g[1]);
+            alphaSeen = float(g[3]);
+        }
+        // fp16 carries ~11 bits; swscale adds its own integer rounding.
+        const bool alphaOk = !d.hasAlpha || std::abs(alphaSeen - alphaCode / d.fullMax) < 2e-3f;
+        const bool ok = worstRef < 2e-3f && worstSws < 4e-3f && alphaOk;
+        std::printf("%s planar %-20s worst vs ref %.1e, vs swscale %.1e (%d in-range blocks), "
+                    "super-white %.3f%s\n", ok ? "ok  " : "FAIL", c.name, worstRef, worstSws,
+                    inRange, superWhite, d.hasAlpha ? (alphaOk ? ", alpha ok" : ", alpha WRONG") : "");
+        if (!ok) ++failures;
+        av_frame_free(&f);
+    }
+    sws_freeContext(sws);
+    return failures;
+}
+
 // In-app conditions: 1920×1080 RGBA16F bars, tapped at 960×540.
 void barsCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr,
                const ScopeConfig &sc)
@@ -406,6 +554,7 @@ int main(int argc, char **argv)
                                 {"green", gain2, green}};
 
     int failures = namesCheck(root);
+    failures += planarCheck(dev, q);
     for (const Case &c : cases) {
         const std::string cfgPath = root + "/" + c.config + "/config.ocio";
         OCIOConfigManager mgr;

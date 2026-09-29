@@ -23,6 +23,8 @@
 
 namespace qcv {
 
+struct YuvPlanarDesc;
+
 class MetalYuvRenderer {
 public:
     MetalYuvRenderer();
@@ -63,6 +65,14 @@ public:
                                   int width, int height,
                                   int bitDepth, bool isFullRange,
                                   bool isBt2020, bool isHdr);
+
+    // Clean YUV (decode/yuv_planar.h): software-decoded planes → RGBA16F,
+    // unclamped, into the caller's command buffer like the others.
+    // `planeTextures` = id<MTLTexture> as void*, in YuvPlanarDesc order
+    // (Y, U, V[, A] or Y, UV[, A]). +1-retained output, as above.
+    bool  hasPlanar() const;
+    void *renderPlanarToRgba(void *cbPtr, void *const *planeTextures,
+                             const YuvPlanarDesc &desc);
 
     // Impl is exposed for free-function helpers in the .mm. Nothing
     // in the header references it; consumers can ignore.

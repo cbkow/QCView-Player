@@ -1,4 +1,5 @@
 #include "scrub_decoder.h"
+#include "yuv_planar.h"
 #include "decode/sws_rgba_image.h"
 #include "decoder_cleanup_queue.h"
 #include "decode/thread_policy.h"
@@ -597,10 +598,23 @@ void ScrubDecoder::publishEntry(const std::shared_ptr<ScrubCacheEntry> &entry)
         return;
     }
 
-    // Yuv — swscale to RGBA on demand (the convert we deferred at cache
-    // fill). One frame's worth, only when actually shown. Padded-destination
-    // helper — a bare QImage overflows on odd widths (see sws_rgba_image.h).
+    // Yuv — clean YUV when the renderer takes planes (converted on the
+    // GPU, unclamped; decode/yuv_planar.h): hand over a ref to the cached
+    // frame. Otherwise swscale to RGBA on demand (the convert we deferred
+    // at cache fill). One frame's worth, only when actually shown. Padded-
+    // destination helper — a bare QImage overflows on odd widths (see
+    // sws_rgba_image.h).
     AVFrame *yf = entry->yuvFrame();
+    if (yf && cpuYuvRenderingEnabled() && yuvPlanarFormatSupported(yf->format)) {
+        if (AVFrame *clone = av_frame_clone(yf)) {
+            static std::atomic<bool> logged{false};
+            if (!logged.exchange(true))
+                qInfo("ScrubDecoder: publishing YUV planes (GPU convert)");
+            m_streaming->publishExternalFrame(
+                FrameHandle::cpuYuv(clone, yf->width, yf->height, entry->pts()), entry->pts());
+            return;
+        }
+    }
     if (!yf || !initSwsContext(yf)) return;
     const int rangeOv = m_rangeOverride.load(std::memory_order_acquire);
     QImage rgba = swsFrameToRgbaImage(

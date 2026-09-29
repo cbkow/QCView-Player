@@ -7,6 +7,8 @@ add_executable(probe-ocio-metal
     ${CMAKE_SOURCE_DIR}/src/render/metal/metal_ocio_luts.mm
     ${CMAKE_SOURCE_DIR}/src/render/metal/metal_scope_renderer.mm
     ${CMAKE_SOURCE_DIR}/src/render/metal/metal_device_manager.mm
+    ${CMAKE_SOURCE_DIR}/src/render/metal/metal_yuv_renderer.mm
+    ${CMAKE_SOURCE_DIR}/src/decode/yuv_planar.cpp
 )
 
 target_include_directories(probe-ocio-metal PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -17,6 +19,7 @@ target_link_libraries(probe-ocio-metal
     PRIVATE
         qcv_color
         Qt6::Gui
+        PkgConfig::FFMPEG
         "-framework Metal"
         "-framework QuartzCore"
         "-framework AppKit"

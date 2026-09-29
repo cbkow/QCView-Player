@@ -9,6 +9,7 @@
 #include "decode/frame_handle.h"
 #include "decode/image_sequence_cache.h"
 #include "decode/video_decoder.h"
+#include "decode/yuv_planar.h"
 // Phase 7.7 — DualCompositor delegate for dual flow.
 #include "dual/dual_playback_controller.h"
 #include "dual/metal/dual_compositor.h"
@@ -28,6 +29,10 @@
 
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+
+extern "C" {
+#include <libavutil/frame.h>
+}
 #import <QuartzCore/CATransaction.h>
 
 #include <QtLogging>
@@ -447,6 +452,9 @@ bool MetalPlayerRenderer::init(PlayerWindow *window)
     if (!m_impl->yuv.initialize()) {
         qWarning("MetalPlayerRenderer: YUV renderer init failed");
     }
+    // Clean YUV: decoders publish software YUV as planes only once a
+    // renderer can convert them.
+    setCpuYuvRenderingSupported(m_impl->yuv.hasPlanar());
     if (!m_impl->pixbufBridge.initialize()) {
         qWarning("MetalPlayerRenderer: CVPixelBuffer bridge init failed");
     }
@@ -542,6 +550,7 @@ void MetalPlayerRenderer::shutdown()
     // The CAMetalLayer is still attached to the NSView and will be
     // released when the view's layer reference drops. We just clear
     // our own non-owning copies.
+    setCpuYuvRenderingSupported(false);
     m_impl->yuv.shutdown();
     m_impl->pixbufBridge.shutdown();
     m_impl->ocio.shutdown();
@@ -1595,6 +1604,35 @@ void MetalPlayerRenderer::drawFrame()
                 outRgba = tex;
                 outW    = img.width();
                 outH    = img.height();
+            }
+        } else if (h.kind() == FrameHandle::Kind::CpuYuv) {
+            // Clean YUV: upload the decoder's planes as they are and
+            // convert on the GPU, unclamped (decode/yuv_planar.h).
+            const AVFrame *f = h.cpuYuvAvFrame();
+            const YuvPlanarDesc d = yuvPlanarDesc(f, rangeOverride);
+            if (!d.ok) return;
+            MetalUploadRing::PlaneUpload up[4];
+            for (int i = 0; i < d.planeCount; ++i) {
+                const auto &pl = d.planes[i];
+                if (f->linesize[pl.dataIndex] <= 0) return;   // bottom-up rows: not produced by decoders
+                up[i].bytes       = f->data[pl.dataIndex];
+                up[i].bytesPerRow = f->linesize[pl.dataIndex];
+                up[i].width       = pl.width;
+                up[i].height      = pl.height;
+                up[i].fmt = pl.channels == 2
+                    ? (d.bytesPerSample == 2 ? MTLPixelFormatRG16Unorm : MTLPixelFormatRG8Unorm)
+                    : (d.bytesPerSample == 2 ? MTLPixelFormatR16Unorm : MTLPixelFormatR8Unorm);
+            }
+            const __strong id<MTLTexture> *tex =
+                cpuRing.uploadPlanes(m_impl->device, up, d.planeCount);
+            if (!tex) return;
+            void *planes[4] = {nullptr, nullptr, nullptr, nullptr};
+            for (int i = 0; i < d.planeCount; ++i) planes[i] = (__bridge void *)tex[i];
+            void *output = m_impl->yuv.renderPlanarToRgba((__bridge void *)cb, planes, d);
+            if (output) {
+                outRgba = (__bridge_transfer id<MTLTexture>)output;
+                outW    = d.width;
+                outH    = d.height;
             }
         }
     };

@@ -666,6 +666,21 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
             outW = w; outH = h;
             break;
         }
+        case DualFrame::Kind::CpuYuv: {
+            // Clean YUV — the converter uploads the planes and converts on
+            // cb, unclamped; same ownership / last-good rules as Metal.
+            if (!m_pixbufConverter) { outTex = nil; return; }
+            int w = 0, h = 0;
+            void *rgba = m_pixbufConverter->convertPlanarToRgba(
+                cmdBufferPtr, f->avFrame.get(), slot, &w, &h, f->rangeOverride);
+            if (!rgba) { outTex = nil; return; }
+            outTex = (__bridge id<MTLTexture>)rgba;
+            cache.texture = outTex;
+            cache.width   = w;
+            cache.height  = h;
+            outW = w; outH = h;
+            break;
+        }
         case DualFrame::Kind::Vulkan:
         case DualFrame::Kind::D3D11:
             // Windows-only DualFrame kinds (F.2.12.b, zero-copy D3D11VA).

@@ -1,4 +1,5 @@
 #include "video_decoder.h"
+#include "yuv_planar.h"
 
 #include "decode/read_ahead.h"
 #include "decode/rgb_range.h"
@@ -1108,6 +1109,29 @@ int64_t VideoDecoder::ptsToMicroseconds(int64_t streamTickPts) const
 
 void VideoDecoder::publishCpuFrame(AVFrame *frame)
 {
+    // Clean YUV: planar YUV goes to the renderer as planes and converts on
+    // the GPU, unclamped — swscale's RGBA clipped super-whites and sub-
+    // blacks. Anything the renderer can't take (RGB, 4:1:1, float, no
+    // renderer support, QCV_CPU_YUV_SWSCALE) keeps the swscale path below.
+    if (qcv::cpuYuvRenderingEnabled() && qcv::yuvPlanarFormatSupported(frame->format)) {
+        if (AVFrame *clone = av_frame_clone(frame)) {
+            if (!m_loggedCpuFormat) {
+                const char *name = av_get_pix_fmt_name(static_cast<AVPixelFormat>(frame->format));
+                qInfo("VideoDecoder[%s]: CPU publish path — pix_fmt=%s (%dx%d) → GPU planes",
+                      qPrintable(QFileInfo(m_sourcePath).fileName()),
+                      name ? name : "<unknown>", frame->width, frame->height);
+                m_loggedCpuFormat = true;
+            }
+            const int64_t pts = (frame->best_effort_timestamp != AV_NOPTS_VALUE)
+                                ? frame->best_effort_timestamp
+                                : frame->pts;
+            publishHandle(FrameHandle::cpuYuv(clone, frame->width, frame->height,
+                                              ptsToMicroseconds(pts)),
+                          pts, /*pace=*/true);
+            return;
+        }
+    }
+
     if (!initSwsContext(frame)) return;
 
     // One-shot diag — fires the first time we publish a CPU frame

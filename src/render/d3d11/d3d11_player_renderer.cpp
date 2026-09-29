@@ -12,6 +12,7 @@
 #include "d3d11_texture_pool.h"
 #include "d3d11_vulkan_decode_bridge.h"
 #include "d3d11va_decode_bridge.h"          // Phase K.1
+#include "d3d11_yuv_planar_bridge.h"        // Clean YUV
 #include "decode/d3d11va_hw_device_ctx.h"   // Phase K.1 — shared-device hook
 #include "d3d11_vulkan_yuv_compositor.h"
 #include "render/i_dual_frame_source.h"
@@ -27,6 +28,7 @@
 #include "annotations/active_stroke.h"   // full ActiveStroke definition for std::vector
 #include "decode/frame_handle.h"
 #include "decode/video_decoder.h"
+#include "decode/yuv_planar.h"
 #include "render/player_window.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -263,6 +265,9 @@ struct D3D11PlayerRenderer::Impl {
     // D3D11): per-slice views + YUV→RGB compute into a bridge-owned
     // RGBA16F, consumed through the same SlotOwner::Bridge path.
     D3D11VaDecodeBridge              d3d11vaBridge;
+
+    // Clean YUV — software-decoded planes (FrameHandle::CpuYuv) → RGBA16F.
+    D3D11YuvPlanarBridge             yuvPlanarBridge;
 
     // Phase F.2.11.d — DualFlow pipeline. Compositor pulls per-side
     // frames through the IDualFrameSource adapter (qcv_window). Canvas
@@ -613,6 +618,16 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
         qcv::setSharedD3D11Device(device, D3D11DeviceManager::instance().context());
     }
 
+    // Clean YUV: decoders publish software YUV as planes only once a
+    // renderer can convert them; a failed compile keeps swscale.
+    if (m_impl->yuvPlanarBridge.initialize()) {
+        qcv::setCpuYuvRenderingSupported(true);
+        qInfo("D3D11PlayerRenderer::init: software YUV → GPU planar conversion on");
+    } else {
+        qInfo("D3D11PlayerRenderer::init: D3D11YuvPlanarBridge init failed; "
+              "software YUV stays on swscale");
+    }
+
     qInfo("D3D11PlayerRenderer: ready (child HWND %p on parent %p, "
           "%dx%d initial, BGRA8 flip-discard via DComp, compositor ready)",
           m_impl->childHwnd, parentHwnd, kInitW, kInitH);
@@ -689,6 +704,8 @@ void D3D11PlayerRenderer::shutdown()
     // bridge and the device go (pools are texture arrays on this device).
     qcv::clearSharedD3D11Device();
     m_impl->d3d11vaBridge.shutdown();
+    qcv::setCpuYuvRenderingSupported(false);
+    m_impl->yuvPlanarBridge.shutdown();
     m_impl->vulkanBridge.shutdown();
     m_impl->annotations.shutdown();
     m_impl->ocio.shutdown();
@@ -1036,6 +1053,32 @@ bool D3D11PlayerRenderer::consumeLatestVideoFrame()
         if (!m_impl->d3d11vaBridge.isInitialized()) return false;
         const int rangeOv = m_decoder ? m_decoder->rangeOverride() : 0;
         const auto *imp = m_impl->d3d11vaBridge.consume(h, rangeOv);
+        if (!imp || imp->planes.empty()) return false;
+        const auto &p = imp->planes.front();
+        if (!p.srv) return false;
+        auto &slot = m_impl->videoA;
+        if (slot.srv.Get() != p.srv) {
+            slot.srv.Reset();
+            slot.texture.Reset();
+            p.srv->AddRef();
+            slot.srv.Attach(p.srv);
+            if (p.texture) {
+                p.texture->AddRef();
+                slot.texture.Attach(p.texture);
+            }
+            slot.width  = imp->pictureWidth;
+            slot.height = imp->pictureHeight;
+            slot.owner  = Impl::SlotOwner::Bridge;
+            slot.format = DXGI_FORMAT_UNKNOWN;
+        }
+        return true;
+    }
+    // Clean YUV — software-decoded planes converted on the GPU, unclamped
+    // (decode/yuv_planar.h). Same bridge-owned RGBA16F slot handoff.
+    if (h.kind() == FrameHandle::Kind::CpuYuv) {
+        if (!m_impl->yuvPlanarBridge.isInitialized()) return false;
+        const int rangeOv = m_decoder ? m_decoder->rangeOverride() : 0;
+        const auto *imp = m_impl->yuvPlanarBridge.consume(h, rangeOv);
         if (!imp || imp->planes.empty()) return false;
         const auto &p = imp->planes.front();
         if (!p.srv) return false;

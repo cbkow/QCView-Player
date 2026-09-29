@@ -2,6 +2,7 @@
 #include "d3d11_device_manager.h"
 #include "d3d11_vulkan_decode_bridge.h"
 #include "d3d11va_decode_bridge.h"
+#include "d3d11_yuv_planar_bridge.h"
 #include "d3d11_vulkan_yuv_compositor.h"
 
 #include "render/i_dual_frame_source.h"
@@ -305,6 +306,7 @@ DXGI_FORMAT formatFor(DualFramePayload::Kind k)
     case DualFramePayload::Kind::CpuRgba16:    return DXGI_FORMAT_R16G16B16A16_UNORM;
     case DualFramePayload::Kind::VulkanShared: return DXGI_FORMAT_UNKNOWN;  // bridge picks
     case DualFramePayload::Kind::D3D11Shared:  return DXGI_FORMAT_UNKNOWN;  // bridge picks
+    case DualFramePayload::Kind::CpuYuv:       return DXGI_FORMAT_UNKNOWN;  // bridge picks
     case DualFramePayload::Kind::Empty:        return DXGI_FORMAT_UNKNOWN;
     }
     return DXGI_FORMAT_UNKNOWN;
@@ -337,6 +339,10 @@ struct D3D11DualCompositor::Impl {
     // first D3D11Shared payload. Keeps out-of-range values (the CPU
     // readback's UNORM swscale output clipped them).
     std::array<D3D11VaDecodeBridge, 2> d3dBridges;
+
+    // Clean YUV sides (software-decoded planes): one converter per slot,
+    // same adopt-the-output handoff. Lazy-initialized on first CpuYuv.
+    std::array<D3D11YuvPlanarBridge, 2> planarBridges;
 
     // Renderer-owned shared compute pipeline. Non-owning. Must
     // outlive `bridges`.
@@ -470,6 +476,8 @@ void D3D11DualCompositor::shutdown()
     m_impl->bridges[1].shutdown();
     m_impl->d3dBridges[0].shutdown();
     m_impl->d3dBridges[1].shutdown();
+    m_impl->planarBridges[0].shutdown();
+    m_impl->planarBridges[1].shutdown();
     m_impl->blendState.Reset();
     m_impl->rasterState.Reset();
     m_impl->cbuf.Reset();
@@ -495,6 +503,8 @@ void D3D11DualCompositor::setFrameSource(IDualFrameSource *source)
     // per decoder; up to ~0.9 GB per side at 4K).
     m_impl->d3dBridges[0].releaseViews();
     m_impl->d3dBridges[1].releaseViews();
+    m_impl->planarBridges[0].releaseTextures();
+    m_impl->planarBridges[1].releaseTextures();
     m_impl->cachedGeneration = -1;
     m_impl->lastRenderedMasterFrame = -1;
     m_impl->prepared = false;
@@ -728,6 +738,27 @@ void D3D11DualCompositor::prepareFrames(void *ctxVoid)
                            : (imp->planes.empty() || !imp->planes.front().srv ? "no output SRV"
                                                                               : "converted"));
             }
+            if (!imp || imp->planes.empty()) return;
+            const auto &p = imp->planes.front();
+            if (!p.srv) return;
+            cache.adoptBridgeSrv(p.srv, imp->pictureWidth, imp->pictureHeight);
+            outW = imp->pictureWidth;
+            outH = imp->pictureHeight;
+            return;
+        }
+
+        // Clean YUV: the slot's converter uploads the planes and writes its
+        // RGBA16F output (unclamped), which the slot adopts.
+        if (payload.kind == DualFramePayload::Kind::CpuYuv) {
+            if (!payload.avFrameOwning) return;
+            D3D11YuvPlanarBridge &pb = m_impl->planarBridges[slot];
+            if (!pb.isInitialized() && !pb.initialize()) {
+                qWarning("D3D11DualCompositor: planar YUV bridge init failed for "
+                         "slot %d — software YUV frames will be dropped", slot);
+                return;
+            }
+            auto *imp = pb.consumeAVFrame(static_cast<const AVFrame *>(payload.avFrameOwning),
+                                          payload.rangeOverride);
             if (!imp || imp->planes.empty()) return;
             const auto &p = imp->planes.front();
             if (!p.srv) return;

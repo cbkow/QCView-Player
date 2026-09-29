@@ -34,6 +34,8 @@ public:
                           int slot,
                           int *outW, int *outH,
                           int rangeOverride = 0) override;
+    void *convertPlanarToRgba(void *cmdBuffer, const void *avFrame, int slot,
+                              int *outW, int *outH, int rangeOverride = 0) override;
 
 private:
     // Pimpl — the bridges + yuv renderer + per-slot strong refs to

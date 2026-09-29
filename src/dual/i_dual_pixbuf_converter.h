@@ -50,6 +50,15 @@ public:
                                   int slot,
                                   int *outW, int *outH,
                                   int rangeOverride = 0) = 0;
+
+    // Clean YUV (decode/yuv_planar.h): a software-decoded YUV frame
+    // (`avFrame` = const AVFrame*) → RGBA, unclamped. Same slot, lifetime
+    // and ownership rules as convertToRgba. nullptr = unsupported here.
+    virtual void *convertPlanarToRgba(void * /*cmdBuffer*/,
+                                      const void * /*avFrame*/,
+                                      int /*slot*/,
+                                      int * /*outW*/, int * /*outH*/,
+                                      int /*rangeOverride*/ = 0) { return nullptr; }
 };
 
 } // namespace qcv::dual

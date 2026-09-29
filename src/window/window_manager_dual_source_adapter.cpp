@@ -68,6 +68,18 @@ DualFramePayload payloadFromDualFrame(
         out.keepAlive     = std::static_pointer_cast<void>(frame);
         break;
     }
+    case qcv::dual::DualFrame::Kind::CpuYuv: {
+        // Clean YUV: the renderer's per-side planar converter takes the
+        // AVFrame opaquely (converted on the GPU, unclamped).
+        void *avFrame = frame->avFrame.get();
+        if (!avFrame) return out;
+        out.kind          = DualFramePayload::Kind::CpuYuv;
+        out.width         = frame->width;
+        out.height        = frame->height;
+        out.avFrameOwning = avFrame;
+        out.keepAlive     = std::static_pointer_cast<void>(frame);
+        break;
+    }
     case qcv::dual::DualFrame::Kind::Empty:
         break;
     }

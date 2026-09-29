@@ -20,6 +20,8 @@ qt_add_library(qcv_decode STATIC
     thread_policy.h
     hw_routing.h
     sws_threaded.h
+    yuv_planar.cpp
+    yuv_planar.h
     stream_extent.h
     seek_compat.h
     sws_rgba_image.h

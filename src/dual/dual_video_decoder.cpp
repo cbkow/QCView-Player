@@ -5,6 +5,7 @@
 #include "decode/thread_policy.h"
 #include "decode/sws_rgba_image.h"  // swsAllocImage
 #include "decode/sws_threaded.h"
+#include "decode/yuv_planar.h"
 #include "decode/seek_compat.h"
 #include "decode/stream_extent.h"
 
@@ -1029,6 +1030,23 @@ DualVideoDecoder::convertFrameToRgba(AVFrame *frame, int frameNumber)
         m_swFrame->color_primaries = frame->color_primaries;
         m_swFrame->color_trc       = frame->color_trc;
         src = m_swFrame;
+    }
+
+    // Clean YUV: planar YUV goes to the compositor as planes (converted on
+    // the GPU, unclamped) when the renderer takes them; the rest swscales.
+    if (cpuYuvRenderingEnabled() && yuvPlanarFormatSupported(src->format)) {
+        if (AVFrame *cloned = av_frame_clone(src)) {
+            auto out = std::make_shared<DualFrame>();
+            out->frameNumber   = frameNumber;
+            out->width         = src->width;
+            out->height        = src->height;
+            out->kind          = DualFrame::Kind::CpuYuv;
+            out->rangeOverride = m_rangeOverride.load(std::memory_order_acquire);
+            out->avFrame       = std::shared_ptr<void>(
+                static_cast<void *>(cloned),
+                [](void *p) { AVFrame *fr = static_cast<AVFrame *>(p); av_frame_free(&fr); });
+            return out;
+        }
     }
 
     if (!initSwsContext(src)) return nullptr;

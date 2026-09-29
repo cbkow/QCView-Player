@@ -9,8 +9,15 @@
 #include "render/metal/dual_pixbuf_converter_impl.h"
 
 #include "render/metal/cv_pixbuf_metal_bridge.h"
+#include "render/metal/metal_device_manager.h"
+#include "render/metal/metal_upload_ring.h"
 #include "render/metal/metal_yuv_renderer.h"
 #include "decode/frame_handle.h"
+#include "decode/yuv_planar.h"
+
+extern "C" {
+#include <libavutil/frame.h>
+}
 
 #import <CoreVideo/CoreVideo.h>
 #import <Metal/Metal.h>
@@ -36,6 +43,11 @@ struct DualPixbufConverterImpl::Impl {
     // YUV renderer hands back +1-retained id<MTLTexture> as void*;
     // we absorb via __bridge_transfer so ARC releases on overwrite.
     id<MTLTexture> lastOutput[2] = { nil, nil };
+
+    // Clean YUV: per-slot plane uploads (the ring keeps an upload off
+    // textures an in-flight frame still reads).
+    MetalUploadRing planeRingA{"dual A planes"};
+    MetalUploadRing planeRingB{"dual B planes"};
 };
 
 DualPixbufConverterImpl::DualPixbufConverterImpl()
@@ -143,6 +155,43 @@ void *DualPixbufConverterImpl::convertToRgba(void *cmdBuffer,
     // Hand back as void* — the compositor binds via __bridge cast.
     // Caller does NOT take ownership; we hold the retain across the
     // single-frame window via lastOutput[slot].
+    return (__bridge void *)m_impl->lastOutput[slot];
+}
+
+void *DualPixbufConverterImpl::convertPlanarToRgba(void *cmdBuffer, const void *avFrame,
+                                                   int slot, int *outW, int *outH,
+                                                   int rangeOverride)
+{
+    if (!isInitialized() || !cmdBuffer || !avFrame || slot < 0 || slot > 1) return nullptr;
+    const auto *f = static_cast<const AVFrame *>(avFrame);
+    const YuvPlanarDesc d = yuvPlanarDesc(f, rangeOverride);
+    if (!d.ok) return nullptr;
+
+    id<MTLDevice> device = (__bridge id<MTLDevice>)MetalDeviceManager::instance().device();
+    if (!device) return nullptr;
+    MetalUploadRing &ring = slot == 0 ? m_impl->planeRingA : m_impl->planeRingB;
+    ring.beginFrame((__bridge id<MTLCommandBuffer>)cmdBuffer);
+    MetalUploadRing::PlaneUpload up[4];
+    for (int i = 0; i < d.planeCount; ++i) {
+        const auto &pl = d.planes[i];
+        if (f->linesize[pl.dataIndex] <= 0) return nullptr;
+        up[i].bytes       = f->data[pl.dataIndex];
+        up[i].bytesPerRow = f->linesize[pl.dataIndex];
+        up[i].width       = pl.width;
+        up[i].height      = pl.height;
+        up[i].fmt = pl.channels == 2
+            ? (d.bytesPerSample == 2 ? MTLPixelFormatRG16Unorm : MTLPixelFormatRG8Unorm)
+            : (d.bytesPerSample == 2 ? MTLPixelFormatR16Unorm : MTLPixelFormatR8Unorm);
+    }
+    const __strong id<MTLTexture> *tex = ring.uploadPlanes(device, up, d.planeCount);
+    if (!tex) return nullptr;
+    void *planes[4] = {nullptr, nullptr, nullptr, nullptr};
+    for (int i = 0; i < d.planeCount; ++i) planes[i] = (__bridge void *)tex[i];
+    void *output = m_impl->yuv.renderPlanarToRgba(cmdBuffer, planes, d);
+    if (!output) return nullptr;
+    m_impl->lastOutput[slot] = (__bridge_transfer id<MTLTexture>)output;
+    if (outW) *outW = d.width;
+    if (outH) *outH = d.height;
     return (__bridge void *)m_impl->lastOutput[slot];
 }
 

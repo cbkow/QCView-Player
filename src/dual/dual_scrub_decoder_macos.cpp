@@ -21,7 +21,8 @@
 #include "dual_video_decoder.h"
 #include "dual_scrub_cache.h"       // DualScrubEntry
 #include "decode/simple_lru.h"      // SimpleLRU
-#include "decode/sws_rgba_image.h"  // swsFrameToRgbaImage
+#include "decode/sws_rgba_image.h"
+#include "decode/yuv_planar.h"  // swsFrameToRgbaImage
 #include "decode/seek_compat.h"
 
 #include <QFileInfo>
@@ -494,6 +495,27 @@ void MacDualScrubDecoder::publishEntry(const std::shared_ptr<DualScrubEntry> &en
     }
 
     AVFrame *yf = entry->yuv.get();
+    // Clean YUV: hand the cached planes to the compositor (converted on
+    // the GPU, unclamped; decode/yuv_planar.h) when the renderer takes
+    // them — the swscale below clipped super-whites while scrubbing.
+    if (yf && cpuYuvRenderingEnabled() && yuvPlanarFormatSupported(yf->format)) {
+        if (AVFrame *clone = av_frame_clone(yf)) {
+            static std::atomic<bool> logged{false};
+            if (!logged.exchange(true))
+                qInfo("MacDualScrubDecoder: publishing YUV planes (GPU convert)");
+            auto f = std::make_shared<DualFrame>();
+            f->frameNumber   = entry->frameNumber;
+            f->width         = yf->width;
+            f->height        = yf->height;
+            f->kind          = DualFrame::Kind::CpuYuv;
+            f->rangeOverride = m_streaming->rangeOverride();
+            f->avFrame       = std::shared_ptr<void>(
+                static_cast<void *>(clone),
+                [](void *p) { AVFrame *fr = static_cast<AVFrame *>(p); av_frame_free(&fr); });
+            m_streaming->publishExternalFrame(entry->frameNumber, f);
+            return;
+        }
+    }
     if (!yf || !initSwsContext(yf)) return;
     // Padded-destination helper — a bare QImage overflows on odd widths
     // (see decode/sws_rgba_image.h).

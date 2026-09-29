@@ -9,6 +9,10 @@
 
 #import <CoreVideo/CoreVideo.h>
 
+extern "C" {
+#include <libavutil/frame.h>
+}
+
 // Bridge so video_decoder.cpp can retain a CVPixelBuffer without
 // including CoreVideo. Defined here where CoreVideo is already in
 // scope. Header-free linkage — declared `extern` at the call site.
@@ -103,12 +107,25 @@ FrameHandle &FrameHandle::operator=(FrameHandle &&other) noexcept
     m_height      = other.m_height;
     m_cpuImage    = std::move(other.m_cpuImage);
     m_metalPixbuf = other.m_metalPixbuf;
+    m_avFrame     = other.m_avFrame;
     m_keepAlive   = std::move(other.m_keepAlive);
     other.m_kind = Kind::Empty;
     other.m_pts = 0;
     other.m_width = other.m_height = 0;
     other.m_metalPixbuf = nullptr;
+    other.m_avFrame = nullptr;
     return *this;
+}
+
+FrameHandle FrameHandle::cpuYuv(AVFrame *avFrame, int width, int height, int64_t pts)
+{
+    FrameHandle h;
+    h.m_kind    = Kind::CpuYuv;
+    h.m_pts     = pts;
+    h.m_width   = width;
+    h.m_height  = height;
+    h.m_avFrame = avFrame;   // takes ownership; reset() will av_frame_free
+    return h;
 }
 
 FrameHandle FrameHandle::cpu(QImage image, int64_t pts)
@@ -154,6 +171,7 @@ void FrameHandle::reset()
         CVPixelBufferRelease(static_cast<CVPixelBufferRef>(m_metalPixbuf));
     }
     m_metalPixbuf = nullptr;
+    if (m_avFrame) av_frame_free(&m_avFrame);
     m_cpuImage = QImage();
     m_keepAlive.reset();
     m_kind = Kind::Empty;

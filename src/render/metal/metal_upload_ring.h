@@ -64,17 +64,7 @@ public:
     {
         if (!device || img.isNull()) return nil;
         const int n = static_cast<int>(m_slots.size());
-        int pick = -1;
-        if (n == 1) {
-            pick = 0;
-            if (inFlight(m_slots[0].prevUser)) ++m_hazards;   // the old behaviour
-        } else {
-            pick = freeSlot();
-            if (pick < 0) {
-                ++m_waits;
-                pick = waitForSlot();
-            }
-        }
+        const int pick = pickSlot();
         Slot &s = m_slots[static_cast<size_t>(pick)];
         const int w = img.width(), h = img.height();
         if (!s.tex || s.w != w || s.h != h || s.fmt != fmt) {
@@ -107,6 +97,49 @@ public:
         return s.tex;
     }
 
+    // Clean YUV: up to four planes of a software-decoded YUV frame into
+    // one slot (the same in-flight rule — a slot's planes are read by the
+    // YUV→RGB compute of the frame that uploaded them). Returns the slot's
+    // plane textures, or nullptr on failure. A side's frames are either
+    // RGBA or planes, so the two kinds share one ring's slots.
+    struct PlaneUpload {
+        const void    *bytes = nullptr;
+        int            bytesPerRow = 0;
+        int            width = 0, height = 0;
+        MTLPixelFormat fmt = MTLPixelFormatInvalid;
+    };
+    const __strong id<MTLTexture> *uploadPlanes(id<MTLDevice> device,
+                                                const PlaneUpload *planes, int count)
+    {
+        if (!device || !planes || count <= 0 || count > 4) return nullptr;
+        const int pick = pickSlot();
+        Slot &s = m_slots[static_cast<size_t>(pick)];
+        for (int i = 0; i < count; ++i) {
+            const PlaneUpload &p = planes[i];
+            if (!p.bytes || p.width <= 0 || p.height <= 0) return nullptr;
+            if (!s.plane[i] || s.pw[i] != p.width || s.ph[i] != p.height || s.pf[i] != p.fmt) {
+                MTLTextureDescriptor *desc =
+                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:p.fmt
+                                                                        width:p.width
+                                                                       height:p.height
+                                                                    mipmapped:NO];
+                desc.storageMode = MTLStorageModeShared;
+                desc.usage       = MTLTextureUsageShaderRead;
+                s.plane[i] = [device newTextureWithDescriptor:desc];
+                s.pw[i] = p.width; s.ph[i] = p.height; s.pf[i] = p.fmt;
+                if (!s.plane[i]) return nullptr;
+            }
+            [s.plane[i] replaceRegion:MTLRegionMake2D(0, 0, p.width, p.height)
+                          mipmapLevel:0
+                            withBytes:p.bytes
+                          bytesPerRow:static_cast<NSUInteger>(p.bytesPerRow)];
+        }
+        s.prevUser = s.lastUser;
+        s.lastUser = m_frameCb;
+        ++m_uploads;
+        return s.plane;
+    }
+
     id<MTLTexture> current() const
     {
         return m_current >= 0 ? m_slots[static_cast<size_t>(m_current)].tex : nil;
@@ -126,9 +159,29 @@ private:
         id<MTLTexture> tex = nil;
         int w = 0, h = 0;
         MTLPixelFormat fmt = MTLPixelFormatInvalid;
+        __strong id<MTLTexture> plane[4] = {nil, nil, nil, nil};   // clean-YUV planes
+        int pw[4] = {0, 0, 0, 0}, ph[4] = {0, 0, 0, 0};
+        MTLPixelFormat pf[4] = {MTLPixelFormatInvalid, MTLPixelFormatInvalid,
+                                MTLPixelFormatInvalid, MTLPixelFormatInvalid};
         id<MTLCommandBuffer> lastUser = nil;   // newest frame that samples it
         id<MTLCommandBuffer> prevUser = nil;   // the one before (1-slot measurement)
     };
+
+    // A slot no in-flight frame reads (waiting for one when none is free);
+    // with one slot, slot 0 regardless (the measurement mode).
+    int pickSlot()
+    {
+        if (m_slots.size() == 1) {
+            if (inFlight(m_slots[0].prevUser)) ++m_hazards;   // the old behaviour
+            return 0;
+        }
+        int pick = freeSlot();
+        if (pick < 0) {
+            ++m_waits;
+            pick = waitForSlot();
+        }
+        return pick;
+    }
 
     // A buffer that has not finished on the GPU. nil (never used) and the
     // two terminal states are free; anything else is still in flight.

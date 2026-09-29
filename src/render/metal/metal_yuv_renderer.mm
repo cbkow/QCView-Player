@@ -2,6 +2,8 @@
 
 #include "metal_yuv_renderer.h"
 
+#include "decode/yuv_planar.h"
+
 #include "metal_device_manager.h"
 
 #import <Metal/Metal.h>
@@ -139,6 +141,68 @@ kernel void yuv_interleaved_to_rgba(
 
     out_tex.write(float4(r, g, b, alpha), gid);   // unclamped, see yuv_to_rgba
 }
+
+// Clean YUV (decode/yuv_planar.h): software-decoded planes, any depth /
+// alignment / subsampling. Levels in code values (sample × codeMax); the
+// matrix from Kr / Kb, so BT.601 / 709 / 2020 / 240M / FCC all decode as
+// swscale did — minus its clamp. Chroma is sampled bilinearly at the luma
+// pixel centre.
+struct PlanarParams {
+    uint  width;
+    uint  height;
+    uint  interleaved;   // chroma as one RG texture (NV12 / P010)
+    uint  has_alpha;
+    uint  full_range;
+    float code_max;
+    float level_k;
+    float full_max;
+    float chroma_mid;
+    float kr;
+    float kb;
+};
+
+kernel void yuv_planar_to_rgba(
+    texture2d<float, access::read>   y_tex   [[texture(0)]],
+    texture2d<float, access::sample> u_tex   [[texture(1)]],
+    texture2d<float, access::sample> v_tex   [[texture(2)]],
+    texture2d<float, access::read>   a_tex   [[texture(3)]],
+    texture2d<float, access::write>  out_tex [[texture(4)]],
+    constant PlanarParams &p                 [[buffer(0)]],
+    uint2 gid                                [[thread_position_in_grid]])
+{
+    if (gid.x >= p.width || gid.y >= p.height) return;
+    constexpr sampler bilinear(coord::normalized, filter::linear, address::clamp_to_edge);
+    const float2 uv = (float2(gid) + 0.5) / float2(p.width, p.height);
+
+    const float yc = y_tex.read(gid).r * p.code_max;
+    float uc, vc;
+    if (p.interleaved) {
+        const float2 c = u_tex.sample(bilinear, uv).rg * p.code_max;
+        uc = c.x;
+        vc = c.y;
+    } else {
+        uc = u_tex.sample(bilinear, uv).r * p.code_max;
+        vc = v_tex.sample(bilinear, uv).r * p.code_max;
+    }
+
+    float y, cb, cr;
+    if (p.full_range) {
+        y  = yc / p.full_max;
+        cb = (uc - p.chroma_mid) / p.full_max;
+        cr = (vc - p.chroma_mid) / p.full_max;
+    } else {
+        y  = (yc -  16.0 * p.level_k) / (219.0 * p.level_k);
+        cb = (uc - 128.0 * p.level_k) / (224.0 * p.level_k);
+        cr = (vc - 128.0 * p.level_k) / (224.0 * p.level_k);
+    }
+    const float r = y + 2.0 * (1.0 - p.kr) * cr;
+    const float b = y + 2.0 * (1.0 - p.kb) * cb;
+    const float g = (y - p.kr * r - p.kb * b) / (1.0 - p.kr - p.kb);
+    const float a = p.has_alpha ? a_tex.read(gid).r * p.code_max / p.full_max : 1.0;
+
+    // Unclamped, like the biplanar kernel.
+    out_tex.write(float4(r, g, b, a), gid);
+}
 )";
 
 } // namespace
@@ -146,6 +210,7 @@ kernel void yuv_interleaved_to_rgba(
 struct MetalYuvRenderer::Impl {
     id<MTLComputePipelineState> biplanarPso    = nil;
     id<MTLComputePipelineState> interleavedPso = nil;
+    id<MTLComputePipelineState> planarPso      = nil;
 
     // Cached output texture descriptor — same dimensions across all
     // frames of a clip, so we re-use it instead of re-computing.
@@ -221,6 +286,15 @@ bool MetalYuvRenderer::createComputePipelines()
         qWarning("MetalYuvRenderer: biplanar pipeline creation failed: %s",
                  err ? [err.localizedDescription UTF8String] : "(no error)");
         return false;
+    }
+
+    if (id<MTLFunction> planarFn = [lib newFunctionWithName:@"yuv_planar_to_rgba"]) {
+        m_impl->planarPso = [device newComputePipelineStateWithFunction:planarFn error:&err];
+        if (!m_impl->planarPso) {
+            qWarning("MetalYuvRenderer: planar pipeline creation failed: %s",
+                     err ? [err.localizedDescription UTF8String] : "(no error)");
+            // Non-fatal — software YUV then keeps the swscale path.
+        }
     }
 
     id<MTLFunction> interleavedFn =
@@ -375,6 +449,59 @@ void *MetalYuvRenderer::renderInterleavedToRgba(void *cbPtr,
 
     [enc endEncoding];
 
+    return (__bridge_retained void *)output;
+}
+
+bool MetalYuvRenderer::hasPlanar() const
+{
+    return m_impl->initialized && m_impl->planarPso != nil;
+}
+
+void *MetalYuvRenderer::renderPlanarToRgba(void *cbPtr, void *const *planeTextures,
+                                           const YuvPlanarDesc &d)
+{
+    if (!hasPlanar() || !cbPtr || !planeTextures || !d.ok) return nullptr;
+    for (int i = 0; i < d.planeCount; ++i) {
+        if (!planeTextures[i]) return nullptr;
+    }
+
+    auto &mgr = MetalDeviceManager::instance();
+    id<MTLDevice> device = (__bridge id<MTLDevice>)mgr.device();
+    refreshOutputDesc(m_impl, d.width, d.height);
+    id<MTLTexture> output = [device newTextureWithDescriptor:m_impl->cachedOutputDesc];
+    if (!output) {
+        qWarning("MetalYuvRenderer: newTexture failed (%dx%d, planar)", d.width, d.height);
+        return nullptr;
+    }
+
+    // Planes in YuvPlanarDesc order: Y, U, V[, A] or Y, UV[, A]. Unused
+    // slots get a bound stand-in (the kernel never reads them).
+    auto tex = [&](int i) { return (__bridge id<MTLTexture>)planeTextures[i]; };
+    id<MTLTexture> yT = tex(0), uT = tex(1);
+    id<MTLTexture> vT = d.interleavedChroma ? uT : tex(2);
+    id<MTLTexture> aT = d.hasAlpha ? tex(d.planeCount - 1) : yT;
+
+    id<MTLCommandBuffer>         cb  = (__bridge id<MTLCommandBuffer>)cbPtr;
+    id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
+    [enc setComputePipelineState:m_impl->planarPso];
+    [enc setTexture:yT     atIndex:0];
+    [enc setTexture:uT     atIndex:1];
+    [enc setTexture:vT     atIndex:2];
+    [enc setTexture:aT     atIndex:3];
+    [enc setTexture:output atIndex:4];
+
+    struct {
+        uint32_t width, height, interleaved, hasAlpha, fullRange;
+        float    codeMax, levelK, fullMax, chromaMid, kr, kb;
+    } u = {
+        static_cast<uint32_t>(d.width), static_cast<uint32_t>(d.height),
+        d.interleavedChroma ? 1u : 0u, d.hasAlpha ? 1u : 0u, d.fullRange ? 1u : 0u,
+        d.codeMax, d.levelK, d.fullMax, d.chromaMid, d.kr, d.kb,
+    };
+    [enc setBytes:&u length:sizeof(u) atIndex:0];
+    [enc dispatchThreads:MTLSizeMake(d.width, d.height, 1)
+        threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+    [enc endEncoding];
     return (__bridge_retained void *)output;
 }
 

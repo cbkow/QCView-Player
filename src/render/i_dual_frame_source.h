@@ -41,6 +41,8 @@ struct DualFramePayload {
         D3D11Shared,   // D3D11VA on the renderer's device — texture array in
                        // data[0], slice in data[1] (NV12 / P010); converted
                        // by a per-side D3D11VaDecodeBridge
+        CpuYuv,        // software-decoded YUV planes (decode/yuv_planar.h);
+                       // uploaded + converted per side, unclamped
     };
 
     Kind kind   = Kind::Empty;

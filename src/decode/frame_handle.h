@@ -43,6 +43,10 @@ public:
                         // renderer's own ID3D11Device (data[0] = the
                         // array, data[1] = slice). D3D11VaDecodeBridge
                         // samples the slice — no readback.
+        CpuYuv  = 5,    // software-decoded YUV planes (decode/yuv_planar.h):
+                        // avFrame owns a ref to the decoder's frame; the
+                        // renderer uploads the planes and converts on the
+                        // GPU, unclamped (swscale's RGBA clipped them).
     };
 
     FrameHandle() = default;
@@ -90,6 +94,14 @@ public:
     // D3D11 accessor — undefined if kind() != D3D11.
     AVFrame *d3d11AvFrame() const { return m_avFrame; }
 
+    // Clean YUV: a software-decoded planar YUV frame. Same ownership
+    // contract as vulkan() / d3d11(): `avFrame` is a fresh clone that the
+    // handle av_frame_free's. Published only when the renderer converts
+    // planes (cpuYuvRenderingEnabled()).
+    static FrameHandle cpuYuv(AVFrame *avFrame, int width, int height, int64_t pts);
+    // CpuYuv accessor — undefined if kind() != CpuYuv.
+    AVFrame *cpuYuvAvFrame() const { return m_avFrame; }
+
     Kind     kind() const { return m_kind; }
     bool     isValid() const { return m_kind != Kind::Empty; }
     int64_t  pts() const { return m_pts; }
@@ -118,7 +130,7 @@ private:
 
     QImage  m_cpuImage;     // Cpu kind
     void   *m_metalPixbuf = nullptr;  // CVPixelBufferRef, retained
-    AVFrame *m_avFrame    = nullptr;  // Vulkan kind, av_frame_free'd
+    AVFrame *m_avFrame    = nullptr;  // Vulkan / D3D11 / CpuYuv, av_frame_free'd
     // Type-erased keepalive for the cpuShared path. Non-null for
     // FrameHandles built via cpuShared(); the QImage's bits point
     // into this object's buffer and stay valid until the FrameHandle
