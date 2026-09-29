@@ -5,6 +5,7 @@
 #include "decode/vulkan/vulkan_device_manager.h"
 #include "render/d3d11/d3d11_device_manager.h"
 
+#include <QtGlobal>
 #include <QtLogging>
 
 extern "C" {
@@ -747,6 +748,12 @@ D3D11VulkanDecodeBridge::consumeAVFrame(AVFrame *avFrame, int rangeOverride)
               (unsigned long long)vkf->sem_value[2], (unsigned long long)vkf->sem_value[3],
               (void *)vkf->img[0], (void *)vkf->img[1], (void *)vkf->img[2], (void *)vkf->img[3],
               (void *)vkfctx->lock_frame);
+    }
+    if (qEnvironmentVariableIsSet("QCV_VK_SYNC_DEBUG")) {
+        qInfo("D3D11VulkanDecodeBridge %p: dispatch sem=[%p %p %p] wait=[%llu %llu %llu] pts=%lld",
+              (void *)this, (void *)dp.syncSem[0], (void *)dp.syncSem[1], (void *)dp.syncSem[2],
+              (unsigned long long)dp.syncWaitValue[0], (unsigned long long)dp.syncWaitValue[1],
+              (unsigned long long)dp.syncWaitValue[2], (long long)avFrame->pts);
     }
     const bool dispatched = m_impl->yuv->dispatch(dp);
     if (dispatched) {

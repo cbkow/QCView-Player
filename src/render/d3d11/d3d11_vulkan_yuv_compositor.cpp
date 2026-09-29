@@ -3,6 +3,7 @@
 #include "decode/vulkan/vulkan_device_manager.h"
 #include "render/d3d11/d3d11_device_manager.h"
 
+#include <QString>
 #include <QtLogging>
 
 #include <shaderc/shaderc.hpp>
@@ -138,11 +139,6 @@ struct D3D11VulkanYuvCompositor::Impl {
     VkQueue               computeQueue    = VK_NULL_HANDLE;
     uint32_t              computeQueueFam = UINT32_MAX;
 
-    // Track the storage-image binding so we only re-bind when the
-    // bridge's output VkImageView changes (per-stream realloc, or
-    // bridge switch). Steady-state has zero storage-image writes.
-    VkImageView           boundStorageView = VK_NULL_HANDLE;
-
     // Cross-API timeline fence — D3D11 fence shared into Vulkan as a
     // timeline semaphore. Vulkan signals on compute submit; D3D11
     // queues a Wait on the immediate context so the next sample of
@@ -154,6 +150,13 @@ struct D3D11VulkanYuvCompositor::Impl {
     HANDLE          fenceHandle  = nullptr;
     VkSemaphore     vkSemaphore  = VK_NULL_HANDLE;
     uint64_t        timelineValue = 0;
+
+    // Stall diagnostics: what the last submission waited on (FFmpeg frame
+    // semaphores at their decode values). Logged when the next dispatch's
+    // wait for it runs long.
+    int             lastNWait = 0;
+    VkSemaphore     lastWaitSems[4] = {};
+    uint64_t        lastWaitVals[4] = {};
     bool            timelineReady = false;
 };
 
@@ -439,7 +442,6 @@ void teardownComputePipeline(D3D11VulkanYuvCompositor::Impl &impl)
         if (impl.dsLayout)        { vkDestroyDescriptorSetLayout(device, impl.dsLayout, nullptr); impl.dsLayout = VK_NULL_HANDLE; }
         if (impl.computeShader)   { vkDestroyShaderModule(device, impl.computeShader, nullptr); impl.computeShader = VK_NULL_HANDLE; }
     }
-    impl.boundStorageView = VK_NULL_HANDLE;
 }
 
 } // namespace
@@ -534,12 +536,50 @@ bool D3D11VulkanYuvCompositor::dispatch(const DispatchParams &params)
         wi.semaphoreCount = 1;
         wi.pSemaphores    = &impl.vkSemaphore;
         wi.pValues        = &impl.timelineValue;
-        vkWaitSemaphores(device, &wi, UINT64_MAX);
+        // Waits in 250 ms slices so a stuck previous submission gets
+        // logged (which of its waits hasn't been reached) — behaviour is
+        // unchanged: it still waits until the submission completes.
+        int waitedMs = 0;
+        for (;;) {
+            const VkResult wr = vkWaitSemaphores(device, &wi, 250ull * 1000 * 1000);
+            if (wr != VK_TIMEOUT) {
+                if (waitedMs > 0) {
+                    qWarning("D3D11VulkanYuvCompositor: previous dispatch done after ~%d ms (%d)",
+                             waitedMs + 250, static_cast<int>(wr));
+                }
+                break;
+            }
+            waitedMs += 250;
+            if (waitedMs == 250 || waitedMs % 2000 == 0) {
+                uint64_t own = 0;
+                vkGetSemaphoreCounterValue(device, impl.vkSemaphore, &own);
+                QString waits;
+                for (int i = 0; i < impl.lastNWait; ++i) {
+                    uint64_t now = 0;
+                    const VkResult cr =
+                        vkGetSemaphoreCounterValue(device, impl.lastWaitSems[i], &now);
+                    waits += QStringLiteral(" [sem %1 wants %2, now %3%4]")
+                                 .arg(reinterpret_cast<quintptr>(impl.lastWaitSems[i]), 0, 16)
+                                 .arg(impl.lastWaitVals[i]).arg(now)
+                                 .arg(cr == VK_SUCCESS ? QString() : QStringLiteral(" err %1").arg(cr));
+                }
+                qWarning("D3D11VulkanYuvCompositor: STALL %d ms — previous dispatch (timeline %llu, "
+                         "now %llu) not done; it waited on:%s",
+                         waitedMs, (unsigned long long)impl.timelineValue,
+                         (unsigned long long)own, qPrintable(waits.isEmpty() ? QStringLiteral(" nothing") : waits));
+            }
+        }
     }
 
-    // Storage-image binding only needs to change when the bridge's
-    // output view changed (new stream, realloc, or first dispatch).
-    if (params.outputView != impl.boundStorageView) {
+    // Storage-image binding, every dispatch. It used to be skipped while
+    // params.outputView matched the last one bound — but Vulkan recycles
+    // handle values: a bridge torn down on dual entry and its successor
+    // got the SAME VkImageView value over new memory, the write was
+    // skipped, and the compute wrote through the destroyed view into
+    // freed memory. The GPU faulted mid-dispatch, the queue hung ~10 s,
+    // and D3D11 (waiting on our fence) froze with it — D3D11VA "Failed
+    // to begin frame", then vkQueueSubmit failing (2026-09-29).
+    {
         VkDescriptorImageInfo dii{};
         dii.imageView   = params.outputView;
         dii.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -551,7 +591,6 @@ bool D3D11VulkanYuvCompositor::dispatch(const DispatchParams &params)
         write.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         write.pImageInfo      = &dii;
         vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
-        impl.boundStorageView = params.outputView;
     }
 
     // Sampler-binding writes — bindings 0..3 every dispatch. The
@@ -651,7 +690,10 @@ bool D3D11VulkanYuvCompositor::dispatch(const DispatchParams &params)
     VkSemaphore          signalSems[5];
     uint64_t             signalVals[5];
     uint32_t             nWait = 0, nSignal = 0;
+    impl.lastNWait = nSync;
     for (int i = 0; i < nSync; ++i) {
+        impl.lastWaitSems[i] = params.syncSem[i];
+        impl.lastWaitVals[i] = params.syncWaitValue[i];
         waitSems[nWait]   = params.syncSem[i];
         waitVals[nWait]   = params.syncWaitValue[i];
         waitStages[nWait] = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -692,7 +734,8 @@ bool D3D11VulkanYuvCompositor::dispatch(const DispatchParams &params)
             submitRes = vkQueueSubmit(impl.computeQueue, 1, &si, VK_NULL_HANDLE);
         }
         if (submitRes != VK_SUCCESS) {
-            qWarning("D3D11VulkanYuvCompositor: vkQueueSubmit (timeline) failed");
+            qWarning("D3D11VulkanYuvCompositor: vkQueueSubmit (timeline) failed (%d)",
+                     static_cast<int>(submitRes));
             return false;
         }
         impl.d3dContext4->Wait(impl.d3dFence.Get(), signalValue);
