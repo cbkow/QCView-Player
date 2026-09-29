@@ -20,6 +20,10 @@ Rectangle {
     // present as equal-width cells while text chips auto-fit.
     property int    minWidth: 0
     property string tooltip: ""
+    // Optional group tint (the Color panel's Setup / Clip / View
+    // colours): the active fill and hover lean toward it.
+    // Transparent = the stock look.
+    property color tint: "transparent"
 
     signal clicked()
 
@@ -27,9 +31,11 @@ Rectangle {
     implicitHeight: Theme.chipHeight
     radius: Theme.radiusBase
     color: active
-           ? Theme.accent
+           ? (tint.a > 0 ? Qt.darker(tint, 1.25) : Theme.accent)
            : (chipMa.containsMouse && interactive
-              ? Theme.surfaceHover : "transparent")
+              ? (tint.a > 0 ? Qt.tint(Theme.surfaceHover, Qt.rgba(tint.r, tint.g, tint.b, 0.18))
+                            : Theme.surfaceHover)
+              : "transparent")
     opacity: interactive ? 1.0 : 0.55
 
     Text {

@@ -7,6 +7,14 @@ import Qcv
 // Popup is a flat list with Theme.surfaceHover row hover.
 ComboBox {
     id: root
+    // Optional group tint (the Color panel's Setup / Clip / View
+    // colours): greys lean toward it, the accent becomes it.
+    // Transparent = the stock look.
+    property color tint: "transparent"
+    function tinted(c, amount) {
+        return tint.a > 0 ? Qt.tint(c, Qt.rgba(tint.r, tint.g, tint.b, amount)) : c;
+    }
+    readonly property color tintAccent: tint.a > 0 ? tint : Theme.accent
     implicitHeight: 26
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSizeSmall
@@ -15,9 +23,9 @@ ComboBox {
     // pill. Rest sits at toolbarAlt so the chip stands out clearly
     // against the panel surface (one full step brighter).
     background: Rectangle {
-        color: root.activeFocus || root.popup.opened
-               ? Theme.borderStrong
-               : (root.hovered ? Theme.surfaceHover : Theme.toolbarAlt)
+        color: root.tinted(root.activeFocus || root.popup.opened
+                           ? Theme.borderStrong
+                           : (root.hovered ? Theme.surfaceHover : Theme.toolbarAlt), 0.14)
         radius: 0
     }
 
@@ -50,8 +58,8 @@ ComboBox {
         implicitHeight: contentItem.implicitHeight
         padding: 0
         background: Rectangle {
-            color: Theme.surface
-            border.color: Theme.border
+            color: root.tinted(Theme.surface, 0.08)
+            border.color: root.tinted(Theme.border, 0.25)
             border.width: 1
             radius: 0
         }
@@ -76,7 +84,7 @@ ComboBox {
         }
         background: Rectangle {
             color: parent.hovered || parent.highlighted
-                   ? Theme.surfaceHover : "transparent"
+                   ? root.tinted(Theme.surfaceHover, 0.18) : "transparent"
         }
     }
 }

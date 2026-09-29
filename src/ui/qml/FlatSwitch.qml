@@ -12,6 +12,14 @@ import Qcv
 Switch {
     id: root
     property bool attention: false
+    // Optional group tint (the Color panel's Setup / Clip / View
+    // colours): greys lean toward it, the accent becomes it.
+    // Transparent = the stock look.
+    property color tint: "transparent"
+    function tinted(c, amount) {
+        return tint.a > 0 ? Qt.tint(c, Qt.rgba(tint.r, tint.g, tint.b, amount)) : c;
+    }
+    readonly property color tintAccent: tint.a > 0 ? tint : Theme.accent
     implicitWidth: 32
     implicitHeight: 18
     spacing: 0
@@ -36,11 +44,11 @@ Switch {
         // success so the engaged state reads as confirmed.
         color: root.attention
                ? (root.checked ? Theme.success : Theme.accent)
-               : (root.checked ? Theme.borderStrong : Theme.surface)
+               : root.tinted(root.checked ? Theme.borderStrong : Theme.surface, 0.18)
         border.color: root.attention
                       ? (root.checked ? Qt.lighter(Theme.success, 1.15)
                                       : Theme.accentHover)
-                      : (root.checked ? Theme.textMuted : Theme.border)
+                      : root.tinted(root.checked ? Theme.textMuted : Theme.border, 0.30)
         border.width: 1
 
         Rectangle {
@@ -51,7 +59,7 @@ Switch {
             radius: 0
             color: root.checked
                    ? Theme.textBright
-                   : (root.attention ? Theme.textBright : Theme.textMuted)
+                   : (root.attention ? Theme.textBright : root.tinted(Theme.textMuted, 0.25))
         }
     }
 

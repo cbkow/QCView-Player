@@ -54,6 +54,24 @@ Pane {
                                       && WindowManager.ocio.activeTab === 1
     readonly property color clipAccent:    editingB ? Theme.sideB : Theme.sideA
     readonly property color clipSelection: editingB ? Theme.sideBMuted : Theme.sideAMuted
+    // Each group's surfaces lean toward its colour — wells 8 %, the header
+    // plate 12 % — below the highlights, so they stay legible.
+    function washWell(c)  { return Qt.tint(Theme.surfaceRecess, Qt.rgba(c.r, c.g, c.b, 0.08)); }
+    function washPlate(c) { return Qt.tint(Theme.surface, Qt.rgba(c.r, c.g, c.b, 0.12)); }
+    readonly property color clipWell:   washWell(clipAccent)
+    readonly property color clipPlate:  washPlate(clipAccent)
+    readonly property color setupWell:  washWell(Theme.setupAccent)
+    readonly property color setupPlate: washPlate(Theme.setupAccent)
+    readonly property color viewWell:   washWell(Theme.viewAccent)
+    readonly property color viewPlate:  washPlate(Theme.viewAccent)
+    // Hover fills lean the same way, a little stronger than the wells.
+    function washHover(c) { return Qt.tint(Theme.surfaceHover, Qt.rgba(c.r, c.g, c.b, 0.16)); }
+    readonly property color clipHover:  washHover(clipAccent)
+    readonly property color setupHover: washHover(Theme.setupAccent)
+    readonly property color viewHover:  washHover(Theme.viewAccent)
+    // Icon highlights (a collapsed strip or LUT tile under the mouse):
+    // the group colour, lifted so a muted side colour still reads.
+    function iconHighlight(c) { return Qt.lighter(c, 1.35); }
     readonly property color viewAccent:    Theme.viewAccent
     readonly property color viewSelection: Theme.viewSelection
 
@@ -397,11 +415,17 @@ Pane {
 
                 // Same header height as the Clip / View groups so the
                 // lists line up.
-                RowLayout {
-                    id: setupHeader
+                Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: Theme.toolStripHeight
+                    color: root.setupPlate
+                    radius: Theme.radiusSmall
+                RowLayout {
+                    id: setupHeader
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacing
+                    anchors.rightMargin: Theme.spacing
                     spacing: Theme.spacing
                     Text {
                         id: setupLabel
@@ -436,10 +460,11 @@ Pane {
                         // header's own width follows its children.
                         Layout.preferredWidth: Math.max(0, Math.min(implicitWidth,
                             presetColumn.width - setupLabel.width - presetsTab.width
-                            - 3 * setupHeader.spacing))
+                            - 5 * setupHeader.spacing))
                         onClicked: presetColumn.setupTab = 1
                     }
                     Item { Layout.fillWidth: true }
+                }
                 }
                 GroupRule { color: Theme.setupAccent }
 
@@ -461,6 +486,7 @@ Pane {
                     Layout.fillWidth: true
                     accentColor: Theme.setupAccent
                     selectionColor: Theme.setupSelection
+                    wellColor: root.setupWell
                     model: WindowManager.ocio
                            ? WindowManager.ocio.availableConfigs : []
                     currentText: WindowManager.ocio
@@ -479,16 +505,16 @@ Pane {
                     // it, accent bottom-rule on focus.
                     background: Rectangle {
                         color: presetFilterField.activeFocus
-                               ? Theme.surfaceHover
+                               ? root.setupHover
                                : (presetFilterField.hovered
-                                  ? Theme.surfaceAlt : Theme.surfaceRecess)
+                                  ? Qt.lighter(root.setupWell, 1.25) : root.setupWell)
                         Rectangle {
                             anchors.left:   parent.left
                             anchors.right:  parent.right
                             anchors.bottom: parent.bottom
                             height: 1
                             color: presetFilterField.activeFocus
-                                   ? Theme.accent : "transparent"
+                                   ? Theme.setupAccent : "transparent"
                         }
                     }
                 }
@@ -499,7 +525,7 @@ Pane {
                     Layout.fillHeight: true
                     // Recessed well — darker than the panel so the
                     // list reads as inset by tone alone (no border).
-                    color: Theme.surfaceRecess
+                    color: root.setupWell
                     radius: Theme.radiusSmall
                     clip: true
 
@@ -520,7 +546,7 @@ Pane {
                             // Match the list bg so the section header
                             // reads as a label on the same surface as
                             // the items, not a contrasting stripe.
-                            color: Theme.surfaceRecess
+                            color: root.setupWell
                             Text {
                                 anchors.fill: parent
                                 anchors.leftMargin: 6
@@ -609,7 +635,7 @@ Pane {
                                 anchors.fill: parent
                                 color: presetRow.isCurrent ? Theme.setupSelection
                                      : (presetMa.containsMouse && presetRow.entryEnabled
-                                        ? Theme.surfaceHover : "transparent")
+                                        ? root.setupHover : "transparent")
                             }
                             // Current-preset accent rule — rail-row
                             // selected vocabulary (was a green ★).
@@ -682,6 +708,15 @@ Pane {
                     }
                 }
             }
+            // Group divider — Setup feeds the Clip chain.
+            Text {
+                text: "→"
+                color: Theme.textMuted
+                font.family: Theme.fontFamily
+                font.pixelSize: 22
+                Layout.alignment: Qt.AlignVCenter
+            }
+
             // ---- CLIP — the selected clip's own chain.
             ColumnLayout {
                 id: clipGroup
@@ -695,13 +730,19 @@ Pane {
                 Layout.fillHeight: true
                 spacing: Theme.spacing
 
-                RowLayout {
-                    id: clipHeader
+                Rectangle {
                     // Takes the width the columns below give the group,
                     // never widens it (a long clip name would).
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: Theme.toolStripHeight
+                    color: root.clipPlate
+                    radius: Theme.radiusSmall
+                RowLayout {
+                    id: clipHeader
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacing
+                    anchors.rightMargin: Theme.spacing
                     spacing: Theme.spacing
                     // Room for the side tabs; a short name keeps its full
                     // width and the other tab gets the rest.
@@ -756,6 +797,7 @@ Pane {
                         onClicked: clipGroup.ocio.activeTab = 1
                     }
                     Item { Layout.fillWidth: true }
+                }
                 }
                 GroupRule { color: root.clipAccent }
 
@@ -832,9 +874,16 @@ Pane {
                 Layout.fillHeight: true
                 spacing: Theme.spacing
 
-                RowLayout {
+                Rectangle {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     Layout.preferredHeight: Theme.toolStripHeight
+                    color: root.viewPlate
+                    radius: Theme.radiusSmall
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacing
+                    anchors.rightMargin: Theme.spacing
                     spacing: Theme.spacing
                     Text {
                         text: qsTr("View")
@@ -852,6 +901,7 @@ Pane {
                         font.pixelSize: Theme.fontSizeTiny
                     }
                     Item { Layout.fillWidth: true }
+                }
                 }
                 GroupRule { color: Theme.viewAccent }
 
@@ -923,6 +973,7 @@ Pane {
                 spacing: Theme.spacingLoose
                 FlatSwitch {
                     id: engageSwitch
+                    tint: Theme.viewAccent
                     // Attention styling on both states — blue "engage
                     // me" while off, green "engaged" when on. Was
                     // `!checked` previously which dropped attention
@@ -964,6 +1015,7 @@ Pane {
                 }
                 FlatSlider {
                     id: exposureSlider
+                    tint: Theme.viewAccent
                     from: -4.0
                     to: 4.0
                     stepSize: 0.1
@@ -1006,6 +1058,7 @@ Pane {
                     font.pixelSize: Theme.fontSizeTiny
                 }
                 FlatSlider {
+                    tint: Theme.viewAccent
                     from: 0.25
                     to: 4.0
                     stepSize: 0.05
@@ -1024,7 +1077,7 @@ Pane {
                     Layout.preferredWidth: 40
                     Layout.preferredHeight: 16
                     radius: Theme.radiusSmall
-                    color: Theme.surfaceRecess
+                    color: root.viewWell
                     Text {
                         anchors.centerIn: parent
                         text: (WindowManager ? WindowManager.viewerGamma : 1.0).toFixed(2)
@@ -1042,6 +1095,7 @@ Pane {
                     FlatChip {
                         required property int index
                         required property string modelData
+                        tint: Theme.viewAccent
                         label: modelData
                         active: WindowManager && WindowManager.channelView === index
                         minWidth: index === 0 ? 30 : 20
@@ -1074,6 +1128,7 @@ Pane {
             }
             FlatComboBox {
                 id: hdrModeCombo
+                tint: Theme.viewAccent
                 implicitHeight: 26
                 // Pin a width that fits the longest entry so the
                 // shorter "SDR" selection doesn't shrink the box and
@@ -1144,7 +1199,7 @@ Pane {
                     background: Rectangle {
                         color: (parent.hovered || parent.highlighted)
                                && modelData.supported
-                               ? Theme.surfaceHover : "transparent"
+                               ? root.viewHover : "transparent"
                     }
                 }
             }
@@ -1240,6 +1295,8 @@ Pane {
         // Clip columns highlight in the side's colour, View columns grey.
         property color  accentColor:    pinSlot.length > 0 ? root.clipAccent : root.viewAccent
         property color  selectionColor: pinSlot.length > 0 ? root.clipSelection : root.viewSelection
+        property color  wellColor:      pinSlot.length > 0 ? root.clipWell : root.viewWell
+        property color  hoverColor:     pinSlot.length > 0 ? root.clipHover : root.viewHover
         signal selected(string entry)
 
         Layout.minimumWidth: (expandable && !expanded) ? 32 : 130
@@ -1313,16 +1370,16 @@ Pane {
             // borderless, hover/focus lift, accent bottom-rule on focus.
             background: Rectangle {
                 color: reelFilterField.activeFocus
-                       ? Theme.surfaceHover
+                       ? reel.hoverColor
                        : (reelFilterField.hovered
-                          ? Theme.surfaceAlt : Theme.surfaceRecess)
+                          ? Qt.lighter(reel.wellColor, 1.25) : reel.wellColor)
                 Rectangle {
                     anchors.left:   parent.left
                     anchors.right:  parent.right
                     anchors.bottom: parent.bottom
                     height: 1
                     color: reelFilterField.activeFocus
-                           ? Theme.accent : "transparent"
+                           ? reel.accentColor : "transparent"
                 }
             }
         }
@@ -1332,7 +1389,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !reel.expandable || reel.expanded
-            color: reel.enabled ? Theme.surfaceRecess : Theme.bgAlt
+            color: reel.enabled ? reel.wellColor : Qt.darker(reel.wellColor, 1.15)
             radius: Theme.radiusSmall
             clip: true
             opacity: reel.enabled ? 1.0 : 0.55
@@ -1359,7 +1416,7 @@ Pane {
                     Rectangle {
                         anchors.fill: parent
                         color: modelData === reel.currentText ? reel.selectionColor
-                             : (mouseArea.containsMouse ? Theme.surfaceHover : "transparent")
+                             : (mouseArea.containsMouse ? reel.hoverColor : "transparent")
                     }
                     // Current-entry accent rule — same selected
                     // vocabulary as the rail rows (the old green ★
@@ -1404,7 +1461,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: reel.expandable && !reel.expanded
-            color: reelExpandMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            color: reelExpandMa.containsMouse ? reel.hoverColor : reel.wellColor
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -1452,9 +1509,9 @@ Pane {
                     name: reel.collapsedIconName
                     size: 20
                     // Grey icon (no green/success cue) — keeps the
-                    // collapsed strip neutral.
+                    // collapsed strip neutral; the group colour on hover.
                     color: reelExpandMa.containsMouse
-                           ? Theme.accent : Theme.textMuted
+                           ? root.iconHighlight(reel.accentColor) : Theme.textMuted
                 }
 
                 Icon {
@@ -1557,7 +1614,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: knee.expanded
-            color: Theme.surfaceRecess
+            color: root.clipWell
             radius: Theme.radiusSmall
 
             Flickable {
@@ -1576,6 +1633,7 @@ Pane {
                     RowLayout {
                         spacing: Theme.spacing
                         FlatSwitch {
+                            tint: root.clipAccent
                             checked: knee.on
                             onToggled: knee.ocio.kneeEnabled = checked
                         }
@@ -1611,6 +1669,7 @@ Pane {
                     RowLayout {
                         spacing: Theme.spacing
                         FlatSpinBox {
+                            tint: root.clipAccent
                             id: srcSpin
                             Layout.fillWidth: true
                             from: 100
@@ -1671,6 +1730,7 @@ Pane {
                         visible: knee.ocio && !knee.ocio.displayIsSdr
                         spacing: Theme.spacing
                         FlatSpinBox {
+                            tint: root.clipAccent
                             Layout.fillWidth: true
                             from: 100
                             to: 10000
@@ -1695,6 +1755,7 @@ Pane {
                         font.pixelSize: Theme.fontSizeTiny
                     }
                     FlatSlider {
+                        tint: root.clipAccent
                         Layout.fillWidth: true
                         from: 0.0
                         to: 0.99
@@ -1745,7 +1806,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !knee.expanded
-            color: kneeStripMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            color: kneeStripMa.containsMouse ? root.clipHover : root.clipWell
             radius: Theme.radiusSmall
 
             MouseArea {
@@ -1791,7 +1852,8 @@ Pane {
                     name: "sun-horizon"
                     size: 20
                     color: knee.on ? Theme.warning
-                                   : (kneeStripMa.containsMouse ? Theme.accent : Theme.textMuted)
+                                   : (kneeStripMa.containsMouse ? root.iconHighlight(root.clipAccent)
+                                                                : Theme.textMuted)
                 }
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
@@ -1815,6 +1877,9 @@ Pane {
         // whether the selected clip has set it.
         property string pinSlot: ""
         property bool   pinned: false
+        property color  wellColor: pinSlot.length > 0 ? root.clipWell : root.viewWell
+        property color  hoverColor: pinSlot.length > 0 ? root.clipHover : root.viewHover
+        property color  accentColor: pinSlot.length > 0 ? root.clipAccent : root.viewAccent
         signal pickRequested()
         signal clearRequested()
         signal cccIdEdited(string id)
@@ -1897,7 +1962,7 @@ Pane {
             visible: tile.expanded
             // Borderless recessed well. Hover lifts the fill; loaded-
             // state cue lives on the identity icon (Theme.success).
-            color: tileMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            color: tileMa.containsMouse ? tile.hoverColor : tile.wellColor
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -1925,7 +1990,7 @@ Pane {
                     color: tile.path
                            ? Theme.success
                            : (tileMa.containsMouse
-                              ? Theme.accent : Theme.textMuted)
+                              ? root.iconHighlight(tile.accentColor) : Theme.textMuted)
                 }
 
                 Item { Layout.preferredHeight: Theme.spacing }
@@ -1958,6 +2023,7 @@ Pane {
                     elide: Text.ElideMiddle
                 }
                 FlatTextField {
+                    tint: root.clipAccent
                     visible: tile.showCccId
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.padding
@@ -2022,7 +2088,7 @@ Pane {
             visible: !tile.expanded
             // Borderless recessed well. Hover lifts the fill; loaded-
             // state cue lives on the identity icon (Theme.success).
-            color: collapsedMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            color: collapsedMa.containsMouse ? tile.hoverColor : tile.wellColor
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -2076,7 +2142,7 @@ Pane {
                     color: tile.path
                            ? Theme.success
                            : (collapsedMa.containsMouse
-                              ? Theme.accent : Theme.textMuted)
+                              ? root.iconHighlight(tile.accentColor) : Theme.textMuted)
                 }
 
                 Icon {
