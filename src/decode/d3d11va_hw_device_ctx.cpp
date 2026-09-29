@@ -36,6 +36,7 @@ std::mutex   g_deviceMutex;
 SharedDevice g_shared;
 
 struct PoolEntry {
+    const void   *owner    = nullptr;   // null = shared by size/format; else one decoder's
     const void   *device   = nullptr;   // ID3D11Device identity
     int           width    = 0;
     int           height   = 0;
@@ -144,7 +145,7 @@ AVBufferRef *createSharedD3D11VaHwDeviceCtx()
     return ref;
 }
 
-AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx)
+AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx, const void *owner)
 {
     if (!avctx || !isSharedD3D11VaDeviceCtx(avctx->hw_device_ctx)) return nullptr;
     const auto *dev = reinterpret_cast<const AVHWDeviceContext *>(avctx->hw_device_ctx->data);
@@ -167,6 +168,7 @@ AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx)
     dfc->BindFlags |= D3D11_BIND_SHADER_RESOURCE;
 
     PoolEntry key;
+    key.owner    = owner;
     key.device   = deviceKey;
     key.width    = fc->width;
     key.height   = fc->height;
@@ -174,7 +176,7 @@ AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx)
 
     std::lock_guard<std::mutex> lock(g_poolMutex);
     for (const PoolEntry &e : g_pools) {
-        if (e.device == key.device && e.width == key.width
+        if (e.owner == key.owner && e.device == key.device && e.width == key.width
             && e.height == key.height && e.swFormat == key.swFormat) {
             av_buffer_unref(&fresh);
             qInfo("acquireSharedD3D11VaFramesCtx: pool HIT %dx%d %s (%zu cached)",
@@ -186,10 +188,12 @@ AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx)
     }
 
     // Same headroom ff_decode_get_hw_frames_ctx adds (a D3D11VA pool is
-    // a fixed-size texture array, so the count matters here).
+    // a fixed-size texture array, so the count matters here). The
+    // extra_hw_frames and frame-thread surfaces are already in:
+    // avcodec_get_hw_frames_parameters adds them (it used to be added
+    // twice here — harmless while nothing set extra_hw_frames).
     if (fc->initial_pool_size) {
-        const int extra = avctx->extra_hw_frames > 0 ? avctx->extra_hw_frames : 0;
-        fc->initial_pool_size += 3 + extra;
+        fc->initial_pool_size += 3;
     }
     if ((err = av_hwframe_ctx_init(fresh)) < 0) {
         qWarning("acquireSharedD3D11VaFramesCtx: av_hwframe_ctx_init failed (%d) — "
@@ -200,11 +204,33 @@ AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx)
 
     key.frames = av_buffer_ref(fresh);
     g_pools.push_back(key);
-    qInfo("acquireSharedD3D11VaFramesCtx: pool allocated %dx%d %s x%d (%zu cached)",
+    qInfo("acquireSharedD3D11VaFramesCtx: pool allocated %dx%d %s x%d%s (%zu cached)",
           key.width, key.height,
           av_get_pix_fmt_name(static_cast<AVPixelFormat>(key.swFormat)),
-          fc->initial_pool_size, g_pools.size());
+          fc->initial_pool_size, owner ? " [owned]" : "", g_pools.size());
     return fresh;
+}
+
+void releaseSharedD3D11VaFramesFor(const void *owner)
+{
+    if (!owner) return;
+    std::vector<PoolEntry> mine;
+    {
+        std::lock_guard<std::mutex> lock(g_poolMutex);
+        for (auto it = g_pools.begin(); it != g_pools.end();) {
+            if (it->owner == owner) {
+                mine.push_back(*it);
+                it = g_pools.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    if (!mine.empty())
+        qInfo("releaseSharedD3D11VaFramesFor: dropping %zu owned pool(s)", mine.size());
+    // Frames still in flight (a ring slot, the compositor's current
+    // frame) hold their own pool refs; the array goes when they do.
+    releasePoolsLocked(std::move(mine));
 }
 
 void releaseSharedD3D11VaFramesCache()

@@ -53,6 +53,8 @@ extern "C" void dualCvPixelBufferRelease(void *cvPix);
 // macros don't clobber std::min / std::max used elsewhere in this TU.
 #define NOMINMAX
 #include "decode/vulkan/vulkan_device_manager.h"
+// Zero-copy D3D11VA on the renderer's device (Phase K.1 helpers).
+#include "decode/d3d11va_hw_device_ctx.h"
 #endif
 
 namespace qcv::dual {
@@ -108,6 +110,14 @@ AVPixelFormat hwaccelGetFormat(AVCodecContext *ctx,
                 // images down under the bridge. Null → FFmpeg pool.
                 if (want == AV_PIX_FMT_VULKAN && ctx && !ctx->hw_frames_ctx) {
                     ctx->hw_frames_ctx = qcv::acquireSharedVulkanFramesCtx(ctx);
+                }
+                // Zero-copy D3D11VA: a pool of this decoder's own
+                // (ctx->opaque = the DualVideoDecoder), sized through
+                // extra_hw_frames for the ring — a D3D11VA pool is a
+                // fixed texture array, so the two sides must not share.
+                if (want == AV_PIX_FMT_D3D11 && ctx && !ctx->hw_frames_ctx
+                    && qcv::isSharedD3D11VaDeviceCtx(ctx->hw_device_ctx)) {
+                    ctx->hw_frames_ctx = qcv::acquireSharedD3D11VaFramesCtx(ctx, ctx->opaque);
                 }
 #endif
                 return want;
@@ -608,17 +618,23 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
         m_cctx->thread_count  = 1;
         qInfo("DualVideoDecoder: vulkan hwaccel attached (app-owned cached "
               "pool, thread_count=1)");
-    } else if (!skipAllHw
-               && av_hwdevice_ctx_create(&m_hwDeviceCtx,
-                                          AV_HWDEVICE_TYPE_D3D11VA,
-                                          nullptr, nullptr, 0) >= 0) {
+    } else if (!skipAllHw && attachD3D11VaDevice()) {
         m_cctx->hw_device_ctx = av_buffer_ref(m_hwDeviceCtx);
         m_cctx->get_format    = hwaccelGetFormat;
         m_hwAttached          = true;
         m_hwBackend           = QStringLiteral("d3d11va");
-        qInfo("DualVideoDecoder: d3d11va hwaccel attached%s",
+        if (m_d3d11ZeroCopy) {
+            // Frames stay on the renderer's device and are held in the
+            // ring as pool slices — the pool must cover the ring on top
+            // of the codec's references (acquireSharedD3D11VaFramesCtx,
+            // owned by this decoder through opaque).
+            m_cctx->opaque          = this;
+            m_cctx->extra_hw_frames = kRingSize;
+        }
+        qInfo("DualVideoDecoder: d3d11va hwaccel attached%s%s",
               skipVulkan ? " (codec-routed)"
-                         : " (Vulkan shared-device unavailable)");
+                         : " (Vulkan shared-device unavailable)",
+              m_d3d11ZeroCopy ? " [shared device, zero-copy]" : " [own device, readback]");
     } else {
         qInfo("DualVideoDecoder: software decode%s",
               kForceSoftwareDecode
@@ -649,7 +665,10 @@ bool DualVideoDecoder::initFFmpeg(const QString &path)
     // thread — both dual decoders were single-threaded), slice threads
     // for intra codecs, frame+slice for inter. Vulkan keeps its single
     // decode thread (Phase I.E).
-    if (m_hwBackend != QStringLiteral("vulkan")) {
+    // Zero-copy D3D11VA too: the GPU decodes, and every frame thread
+    // would add a pool surface (the pool is a fixed array) and a
+    // get_format re-entry.
+    if (m_hwBackend != QStringLiteral("vulkan") && !m_d3d11ZeroCopy) {
         qcv::applySoftwareThreadPolicy(m_cctx, codec, qcv::dualSideThreadCount());
         qInfo("DualVideoDecoder: threading %s (count=%d)",
               qcv::threadPolicyName(m_cctx), m_cctx->thread_count);
@@ -724,6 +743,12 @@ void DualVideoDecoder::teardownFFmpeg()
     if (m_hwDeviceCtx) {
         av_buffer_unref(&m_hwDeviceCtx);
     }
+#if defined(Q_OS_WIN)
+    // This decoder's own D3D11VA pool leaves the cache; frames still in
+    // the ring / compositor keep the array alive until they drop.
+    if (m_d3d11ZeroCopy) qcv::releaseSharedD3D11VaFramesFor(this);
+    m_d3d11ZeroCopy = false;
+#endif
     m_hwAttached = false;
     if (m_fmt) {
         avformat_close_input(&m_fmt);
@@ -732,6 +757,28 @@ void DualVideoDecoder::teardownFFmpeg()
     m_swsSrcW = m_swsSrcH = 0;
     m_swsSrcFmt = -1;
 }
+
+#if defined(Q_OS_WIN)
+bool DualVideoDecoder::attachD3D11VaDevice()
+{
+    // Zero-copy on the renderer's shared device (frames stay on the GPU,
+    // out-of-range values survive — the readback's UNORM swscale output
+    // clipped super-whites / sub-blacks). QCV_DUAL_D3D11_READBACK=1
+    // forces the old own-device + readback path (A/B testing, and a
+    // field fallback).
+    if (m_hwDeviceCtx) av_buffer_unref(&m_hwDeviceCtx);
+    m_d3d11ZeroCopy = false;
+    if (!qEnvironmentVariableIsSet("QCV_DUAL_D3D11_READBACK")) {
+        m_hwDeviceCtx = qcv::createSharedD3D11VaHwDeviceCtx();
+        if (m_hwDeviceCtx) {
+            m_d3d11ZeroCopy = true;
+            return true;
+        }
+    }
+    return av_hwdevice_ctx_create(&m_hwDeviceCtx, AV_HWDEVICE_TYPE_D3D11VA,
+                                  nullptr, nullptr, 0) >= 0;
+}
+#endif
 
 bool DualVideoDecoder::initSwsContext(AVFrame *frame)
 {
@@ -920,6 +967,36 @@ DualVideoDecoder::convertFrameToRgba(AVFrame *frame, int frameNumber)
         out->width       = frame->width;
         out->height      = frame->height;
         out->kind        = DualFrame::Kind::Vulkan;
+        out->avFrame     = std::shared_ptr<void>(
+            static_cast<void *>(cloned),
+            [](void *p) {
+                AVFrame *f = static_cast<AVFrame *>(p);
+                av_frame_free(&f);
+            });
+        return out;
+    }
+    // Zero-copy D3D11VA (NV12 / P010 on the renderer's device): same
+    // shape — the clone keeps the pool slice reserved until the
+    // compositor's D3D11VaDecodeBridge has converted it. Anything else
+    // (a 4:2:2 / 4:4:4 sw_format, an own-device fallback) reads back.
+    if (frame->format == AV_PIX_FMT_D3D11 && m_d3d11ZeroCopy
+        && qcv::d3d11FrameIsZeroCopyConsumable(frame)) {
+        AVFrame *cloned = av_frame_clone(frame);
+        if (!cloned) {
+            qWarning("DualVideoDecoder: av_frame_clone(D3D11) failed");
+            return nullptr;
+        }
+        auto out = std::make_shared<DualFrame>();
+        out->frameNumber = frameNumber;
+        out->width       = frame->width;
+        out->height      = frame->height;
+        out->kind        = DualFrame::Kind::D3D11;
+        if (!m_loggedD3D11ZeroCopy) {
+            m_loggedD3D11ZeroCopy = true;
+            qInfo("DualVideoDecoder[%s]: D3D11 zero-copy publish (%dx%d, slice %d)",
+                  qPrintable(QFileInfo(m_path).fileName()), frame->width, frame->height,
+                  static_cast<int>(reinterpret_cast<intptr_t>(frame->data[1])));
+        }
         out->avFrame     = std::shared_ptr<void>(
             static_cast<void *>(cloned),
             [](void *p) {

@@ -48,6 +48,8 @@ struct DualFrame {
         Cpu,     // rgba populated; format selects RGBA8 vs RGBA16F upload
         Metal,   // cvPixelBuffer populated (CVPixelBufferRef as void*)
         Vulkan,  // avFrame populated (AVFrame* owning AVVkFrame ref)
+        D3D11,   // avFrame populated (AVFrame* owning a D3D11VA pool slice,
+                 // NV12 / P010, on the renderer's device — Windows)
     };
 
     int  frameNumber = -1;
@@ -88,6 +90,7 @@ struct DualFrame {
         case Kind::Cpu:    return rgba && !rgba->isNull();
         case Kind::Metal:  return cvPixelBuffer.get() != nullptr;
         case Kind::Vulkan: return avFrame.get() != nullptr;
+        case Kind::D3D11:  return avFrame.get() != nullptr;
         case Kind::Empty:  return false;
         }
         return false;

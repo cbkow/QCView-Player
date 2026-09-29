@@ -67,7 +67,14 @@ AVBufferRef *createSharedD3D11VaHwDeviceCtx();
 // plus D3D11_BIND_SHADER_RESOURCE so the renderer can sample the
 // slices. Keyed on (device, w, h, sw_format). nullptr → FFmpeg
 // allocates as before.
-AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx);
+// `owner` (optional): a pool for that decoder alone — a D3D11VA pool is
+// a fixed-size texture array, so decoders that hold frames (the dual
+// ring, sized through extra_hw_frames) must not share one. Owned pools
+// are dropped by releaseSharedD3D11VaFramesFor(owner) when the decoder
+// closes; unowned ones live for the session.
+AVBufferRef *acquireSharedD3D11VaFramesCtx(AVCodecContext *avctx,
+                                           const void *owner = nullptr);
+void releaseSharedD3D11VaFramesFor(const void *owner);
 
 void releaseSharedD3D11VaFramesCache();
 

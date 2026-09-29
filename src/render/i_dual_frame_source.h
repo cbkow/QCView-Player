@@ -38,6 +38,9 @@ struct DualFramePayload {
         CpuRgba16,     // QImage::Format_RGBA64 — >8-bit video, Phase J.1
                        // (4 × uint16 → R16G16B16A16_UNORM)
         VulkanShared,  // FFmpeg Vulkan hwaccel — AVVkFrame in AVFrame->data[0]
+        D3D11Shared,   // D3D11VA on the renderer's device — texture array in
+                       // data[0], slice in data[1] (NV12 / P010); converted
+                       // by a per-side D3D11VaDecodeBridge
     };
 
     Kind kind   = Kind::Empty;
@@ -51,7 +54,7 @@ struct DualFramePayload {
     const uint8_t *cpuBits   = nullptr;
     int            cpuStride = 0;
 
-    // VulkanShared kind: opaque AVFrame* (treated as void* so this
+    // VulkanShared / D3D11Shared kinds: opaque AVFrame* (treated as void* so this
     // header doesn't need <libavutil/frame.h>). Lifetime tied to
     // `keepAlive` (the shared_ptr<DualFrame> the adapter built);
     // the renderer's bridge consumes the AVFrame and drops the

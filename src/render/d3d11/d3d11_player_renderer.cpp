@@ -40,6 +40,7 @@
 #include <wrl/client.h>
 
 #include <QColorSpace>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QPointF>
 #include <QWindow>
@@ -871,6 +872,19 @@ void D3D11PlayerRenderer::renderThreadProc()
             gotNewFrame = consumeLatestVideoFrame();
         }
         if (gotNewFrame) m_impl->displayedFrames.fetch_add(1, std::memory_order_relaxed);
+        // Dev aid: QCV_FPS_LOG — new frames shown per second, every 2 s.
+        static const bool fpsLog = qEnvironmentVariableIsSet("QCV_FPS_LOG");
+        if (fpsLog) {
+            static QElapsedTimer fpsTimer;
+            static quint64 fpsLast = 0;
+            if (!fpsTimer.isValid()) fpsTimer.start();
+            if (fpsTimer.elapsed() >= 2000) {
+                const quint64 now = m_impl->displayedFrames.load(std::memory_order_relaxed);
+                qInfo("D3D11PlayerRenderer: %.1f new frames/s",
+                      (now - fpsLast) * 1000.0 / fpsTimer.restart());
+                fpsLast = now;
+            }
+        }
 
         // OCIO chain-gen polling — the user can change view/look/LUT
         // while playback is paused. With no decoded frame arriving
@@ -1156,6 +1170,10 @@ void D3D11PlayerRenderer::drawFrame()
                   "torn down (mirrors macOS idle pixbufBridge)");
         }
     } else {
+        // Dual exit: drop the dual compositor's source (its caches and
+        // the D3D11VA converters' refs on the dual decode pools).
+        // No-op once cleared.
+        if (m_impl->dualCompositorInited) m_impl->dualCompositor.setFrameSource(nullptr);
         if (m_impl->yuvCompositor.isInitialized() &&
             !m_impl->vulkanBridge.isInitialized()) {
             if (m_impl->vulkanBridge.initialize(&m_impl->yuvCompositor)) {

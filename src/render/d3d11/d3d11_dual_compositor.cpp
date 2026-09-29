@@ -1,6 +1,7 @@
 #include "d3d11_dual_compositor.h"
 #include "d3d11_device_manager.h"
 #include "d3d11_vulkan_decode_bridge.h"
+#include "d3d11va_decode_bridge.h"
 #include "d3d11_vulkan_yuv_compositor.h"
 
 #include "render/i_dual_frame_source.h"
@@ -303,6 +304,7 @@ DXGI_FORMAT formatFor(DualFramePayload::Kind k)
     case DualFramePayload::Kind::CpuRgba16F:   return DXGI_FORMAT_R16G16B16A16_FLOAT;
     case DualFramePayload::Kind::CpuRgba16:    return DXGI_FORMAT_R16G16B16A16_UNORM;
     case DualFramePayload::Kind::VulkanShared: return DXGI_FORMAT_UNKNOWN;  // bridge picks
+    case DualFramePayload::Kind::D3D11Shared:  return DXGI_FORMAT_UNKNOWN;  // bridge picks
     case DualFramePayload::Kind::Empty:        return DXGI_FORMAT_UNKNOWN;
     }
     return DXGI_FORMAT_UNKNOWN;
@@ -328,6 +330,13 @@ struct D3D11DualCompositor::Impl {
     // `DualPixbufConverterImpl::bridges[2]` + shared `yuv`. Lazy-
     // initialized on first VulkanShared payload.
     std::array<D3D11VulkanDecodeBridge, 2> bridges;
+
+    // Zero-copy D3D11VA sides (H.264 / HEVC / AV1 / VP9 on the
+    // renderer's device): one converter per slot — each owns its
+    // RGBA16F output, which the slot adopts. Lazy-initialized on the
+    // first D3D11Shared payload. Keeps out-of-range values (the CPU
+    // readback's UNORM swscale output clipped them).
+    std::array<D3D11VaDecodeBridge, 2> d3dBridges;
 
     // Renderer-owned shared compute pipeline. Non-owning. Must
     // outlive `bridges`.
@@ -459,6 +468,8 @@ void D3D11DualCompositor::shutdown()
     m_impl->cachedB.reset();
     m_impl->bridges[0].shutdown();
     m_impl->bridges[1].shutdown();
+    m_impl->d3dBridges[0].shutdown();
+    m_impl->d3dBridges[1].shutdown();
     m_impl->blendState.Reset();
     m_impl->rasterState.Reset();
     m_impl->cbuf.Reset();
@@ -479,6 +490,11 @@ void D3D11DualCompositor::setFrameSource(IDualFrameSource *source)
     // Drop caches when source swaps — they're sized for previous content.
     m_impl->cachedA.reset();
     m_impl->cachedB.reset();
+    // The D3D11VA converters' slice views hold refs on the previous
+    // session's decode pools — let those go (the pools are released
+    // per decoder; up to ~0.9 GB per side at 4K).
+    m_impl->d3dBridges[0].releaseViews();
+    m_impl->d3dBridges[1].releaseViews();
     m_impl->cachedGeneration = -1;
     m_impl->lastRenderedMasterFrame = -1;
     m_impl->prepared = false;
@@ -681,6 +697,37 @@ void D3D11DualCompositor::prepareFrames(void *ctxVoid)
             auto *imp = bridge.consumeAVFrame(
                 static_cast<AVFrame *>(payload.avFrameOwning),
                 payload.rangeOverride);
+            if (!imp || imp->planes.empty()) return;
+            const auto &p = imp->planes.front();
+            if (!p.srv) return;
+            cache.adoptBridgeSrv(p.srv, imp->pictureWidth, imp->pictureHeight);
+            outW = imp->pictureWidth;
+            outH = imp->pictureHeight;
+            return;
+        }
+
+        // Zero-copy D3D11VA path: the slot's converter turns the pool
+        // slice into its RGBA16F output (unclamped), which the slot
+        // adopts — same shape as the Vulkan path above.
+        if (payload.kind == DualFramePayload::Kind::D3D11Shared) {
+            if (!payload.avFrameOwning) return;
+            D3D11VaDecodeBridge &d3d = m_impl->d3dBridges[slot];
+            if (!d3d.isInitialized() && !d3d.initialize()) {
+                qWarning("D3D11DualCompositor: D3D11VA bridge init failed for "
+                         "slot %d — D3D11 frames will be dropped", slot);
+                return;
+            }
+            auto *imp = d3d.consumeAVFrame(static_cast<const AVFrame *>(payload.avFrameOwning),
+                                           payload.rangeOverride);
+            static bool logged[2] = {false, false};
+            if (!logged[slot]) {
+                logged[slot] = true;
+                qInfo("D3D11DualCompositor: slot %d first D3D11 payload %dx%d → %s", slot,
+                      payload.width, payload.height,
+                      !imp ? "consume FAILED"
+                           : (imp->planes.empty() || !imp->planes.front().srv ? "no output SRV"
+                                                                              : "converted"));
+            }
             if (!imp || imp->planes.empty()) return;
             const auto &p = imp->planes.front();
             if (!p.srv) return;

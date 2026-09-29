@@ -20,6 +20,7 @@ extern "C" {
 }
 
 #if defined(Q_OS_WIN)
+#include "decode/d3d11va_hw_device_ctx.h"
 #include "decode/rgb_range.h"
 #include "decode/sws_rgba_image.h"
 #include "decode/sws_threaded.h"
@@ -183,6 +184,21 @@ void DualLiveSource::publishExternalFrame(qcv::FrameHandle handle, int64_t)
 #endif
 #if defined(Q_OS_WIN)
     case qcv::FrameHandle::Kind::D3D11: {
+        // Zero-copy when the slice is on the renderer's device (NV12 /
+        // P010): the clone holds one pool slice — within the pool's
+        // headroom — until the compositor's D3D11VaDecodeBridge has
+        // converted it. Else (or QCV_DUAL_D3D11_READBACK) the readback.
+        AVFrame *f = handle.d3d11AvFrame();
+        if (f && qcv::d3d11FrameIsZeroCopyConsumable(f)
+            && !qEnvironmentVariableIsSet("QCV_DUAL_D3D11_READBACK")) {
+            AVFrame *cloned = av_frame_clone(f);
+            if (!cloned) return;
+            out->kind    = DualFrame::Kind::D3D11;
+            out->avFrame = std::shared_ptr<void>(
+                static_cast<void *>(cloned),
+                [](void *p) { AVFrame *fr = static_cast<AVFrame *>(p); av_frame_free(&fr); });
+            break;
+        }
         auto cpu = publishD3D11(handle);
         if (!cpu) return;
         out = std::move(cpu);
@@ -212,10 +228,10 @@ void DualLiveSource::publishExternalFrame(qcv::FrameHandle handle, int64_t)
 // The D3D11VA slice comes down to the CPU (av_hwframe_transfer_data into
 // NV12/P010) and through swscale to RGBA8 or RGBA64, the same route and
 // the same depth rule (rgb_range.h) as DualVideoDecoder's D3D11VA file
-// side. One readback per frame; a D3D11 DualFrame kind would be the
-// zero-copy version of this, and until it exists a moving picture beats a
-// frozen one. Found on the Windows machine 2026-09-23 with a QCBridge
-// stream on one side of dual.
+// side. One readback per frame — now only the fallback: a slice on the
+// renderer's device goes zero-copy (DualFrame::Kind::D3D11, above). Found
+// on the Windows machine 2026-09-23 with a QCBridge stream on one side of
+// dual.
 std::shared_ptr<DualFrame> DualLiveSource::publishD3D11(const qcv::FrameHandle &handle)
 {
     AVFrame *frame = handle.d3d11AvFrame();

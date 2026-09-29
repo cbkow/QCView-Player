@@ -247,10 +247,21 @@ void D3D11VaDecodeBridge::shutdown()
 const D3D11VulkanDecodeBridge::ImportedFrame *
 D3D11VaDecodeBridge::consume(const FrameHandle &fh, int rangeOverride)
 {
+    if (fh.kind() != FrameHandle::Kind::D3D11) return nullptr;
+    return consumeAVFrame(fh.d3d11AvFrame(), rangeOverride);
+}
+
+void D3D11VaDecodeBridge::releaseViews()
+{
+    m_impl->views.clear();
+    m_impl->cachedArray = nullptr;
+}
+
+const D3D11VulkanDecodeBridge::ImportedFrame *
+D3D11VaDecodeBridge::consumeAVFrame(const AVFrame *avFrame, int rangeOverride)
+{
     auto &i = *m_impl;
     if (!i.initialized) return nullptr;
-    if (fh.kind() != FrameHandle::Kind::D3D11) return nullptr;
-    const AVFrame *avFrame = fh.d3d11AvFrame();
     if (!avFrame || avFrame->format != AV_PIX_FMT_D3D11 || !avFrame->hw_frames_ctx) return nullptr;
 
     auto *array = reinterpret_cast<ID3D11Texture2D *>(avFrame->data[0]);

@@ -56,6 +56,18 @@ DualFramePayload payloadFromDualFrame(
         out.keepAlive     = std::static_pointer_cast<void>(frame);
         break;
     }
+    case qcv::dual::DualFrame::Kind::D3D11: {
+        // Zero-copy D3D11VA: same opaque hand-off; the renderer's
+        // per-side D3D11VaDecodeBridge converts the pool slice.
+        void *avFrame = frame->avFrame.get();
+        if (!avFrame) return out;
+        out.kind          = DualFramePayload::Kind::D3D11Shared;
+        out.width         = frame->width;
+        out.height        = frame->height;
+        out.avFrameOwning = avFrame;
+        out.keepAlive     = std::static_pointer_cast<void>(frame);
+        break;
+    }
     case qcv::dual::DualFrame::Kind::Empty:
         break;
     }

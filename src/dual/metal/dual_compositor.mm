@@ -667,9 +667,10 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
             break;
         }
         case DualFrame::Kind::Vulkan:
-            // Windows-only DualFrame kind (F.2.12.b). Never reached on
-            // macOS — DualVideoDecoder's macOS path produces Metal/Cpu,
-            // not Vulkan. Listed here to keep the switch exhaustive.
+        case DualFrame::Kind::D3D11:
+            // Windows-only DualFrame kinds (F.2.12.b, zero-copy D3D11VA).
+            // Never reached on macOS — DualVideoDecoder's macOS path
+            // produces Metal/Cpu. Listed to keep the switch exhaustive.
             break;
         case DualFrame::Kind::Empty:
             break;

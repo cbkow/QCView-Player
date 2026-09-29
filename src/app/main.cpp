@@ -669,6 +669,15 @@ int main(int argc, char *argv[])
     // Dev aid: QCV_START_SECONDS=<s>[,<s>…] seeks to each time in turn,
     // the first ~3 s after launch, then every 2 s — for checking specific
     // frames (scopes, picture, dual gaps) without driving the UI.
+    // Dev aid: QCV_AUTOPLAY_SECONDS=<s> starts playback that long after
+    // launch (performance runs without touching the desktop).
+    if (qEnvironmentVariableIsSet("QCV_AUTOPLAY_SECONDS")) {
+        const int ms = static_cast<int>(qEnvironmentVariable("QCV_AUTOPLAY_SECONDS").toDouble() * 1000);
+        QTimer::singleShot(ms, &windowManager, [&windowManager] {
+            qInfo("QCV_AUTOPLAY_SECONDS: play");
+            windowManager.play();
+        });
+    }
     if (qEnvironmentVariableIsSet("QCV_START_SECONDS")) {
         const QStringList times = qEnvironmentVariable("QCV_START_SECONDS").split(QLatin1Char(','));
         for (int k = 0; k < times.size(); ++k) {

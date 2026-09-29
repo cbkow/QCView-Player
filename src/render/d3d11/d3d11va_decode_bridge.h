@@ -29,6 +29,10 @@
 
 #include "d3d11_vulkan_decode_bridge.h"   // ImportedFrame / ImportedPlane
 
+extern "C" {
+struct AVFrame;
+}
+
 namespace qcv {
 
 class FrameHandle;
@@ -53,6 +57,15 @@ public:
     // `rangeOverride`: 0 Auto / 1 Full / 2 Limited (per-clip pill).
     const D3D11VulkanDecodeBridge::ImportedFrame *
     consume(const FrameHandle &fh, int rangeOverride = 0);
+
+    // Same, from a raw D3D11 AVFrame (dual view's DualFramePayload::
+    // D3D11Shared). The caller keeps the frame alive until this returns.
+    const D3D11VulkanDecodeBridge::ImportedFrame *
+    consumeAVFrame(const AVFrame *avFrame, int rangeOverride = 0);
+
+    // Drops the per-slice views (and with them the refs they hold on
+    // the current decode pool). The output texture stays.
+    void releaseViews();
 
 private:
     struct Impl;

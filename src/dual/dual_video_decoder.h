@@ -178,6 +178,11 @@ private:
     bool initFFmpeg(const QString &path);
     void teardownFFmpeg();
     bool initSwsContext(AVFrame *frame);
+#if defined(Q_OS_WIN)
+    // Shared renderer device (zero-copy) when available, else FFmpeg's
+    // own device + readback. Sets m_hwDeviceCtx / m_d3d11ZeroCopy.
+    bool attachD3D11VaDevice();
+#endif
 
     // Decode thread loop
     void decodeThreadFunc();
@@ -222,6 +227,8 @@ private:
     AVBufferRef     *m_hwDeviceCtx = nullptr;   // VT/D3D11/VAAPI; null on SW
     AVFrame         *m_swFrame     = nullptr;   // landing pad for HW→SW transfer
     bool             m_hwAttached  = false;     // true if hwaccel attached + active
+    bool             m_d3d11ZeroCopy = false;   // D3D11VA on the renderer's device (Windows)
+    bool             m_loggedD3D11ZeroCopy = false;
     QString          m_hwBackend;               // "vulkan" | "d3d11va" | "vaapi" | "videotoolbox"; empty on SW
     bool             m_forceSwForProRes = false; // per-instance: gate hwaccel for ProRes (B-side dual)
     int              m_streamIdx  = -1;
