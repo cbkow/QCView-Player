@@ -4,6 +4,8 @@
 add_library(qcv_window STATIC
     window_manager.cpp
     window_manager.h
+    scope_controller.cpp
+    scope_controller.h
     native_fullscreen_macos.h
     native_fullscreen_win.h
     sparkle_updater_macos.h

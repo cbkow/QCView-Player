@@ -7,6 +7,7 @@
 // the active item's metadata, and the Image Sequence panel
 // surfacing layer / range / fps for EXR/PNG/TIFF/JPEG seqs.
 
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -150,6 +151,58 @@ Pane {
             }
             // No bottom divider — the toolbar strip's tone against
             // the rail well below is the separation.
+        }
+
+        // ---- Vectorscope — pinned above the Inspector's scroll area so
+        // reading long metadata never scrolls it away. Costs nothing
+        // while collapsed / hidden: `active` gates the GPU work.
+        Settings {
+            id: scopeSettings
+            category: "rightRail"
+            property bool scopeExpanded: false
+            property bool waveformExpanded: false
+        }
+        CollapsibleSection {
+            id: scopeSection
+            Layout.fillWidth: true
+            visible: !root.collapsed
+            title: qsTr("Vectorscope")
+            expanded: scopeSettings.scopeExpanded
+            onExpandedChanged: scopeSettings.scopeExpanded = expanded
+
+            ScopePanel {
+                x: Theme.paddingTight
+                width: parent ? parent.width - 2 * Theme.paddingTight : 0
+            }
+        }
+        CollapsibleSection {
+            id: waveformSection
+            Layout.fillWidth: true
+            visible: !root.collapsed
+            title: qsTr("Waveform")
+            expanded: scopeSettings.waveformExpanded
+            onExpandedChanged: scopeSettings.waveformExpanded = expanded
+
+            WaveformPanel {
+                x: Theme.paddingTight
+                width: parent ? parent.width - 2 * Theme.paddingTight : 0
+            }
+        }
+        // Each scope does GPU work only while its section is open, the
+        // rail is shown and the window isn't minimised.
+        Binding {
+            target: WindowManager.scope
+            property: "active"
+            value: root.visible && !root.collapsed && scopeSection.expanded
+                   && root.Window.window !== null
+                   && root.Window.window.visibility !== Window.Minimized
+        }
+        Binding {
+            target: WindowManager.scope
+            property: "waveformActive"
+            value: root.visible && !root.collapsed && waveformSection.expanded
+                   && root.Window.window !== null
+                   && root.Window.window.visibility !== Window.Minimized
         }
 
         // ---- Inspector + Image Sequence -------------------------

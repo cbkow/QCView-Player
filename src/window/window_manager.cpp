@@ -1,4 +1,5 @@
 #include "window_manager.h"
+#include "scope_controller.h"
 
 #if !defined(Q_OS_MACOS) && !defined(__APPLE__)
 #include "window_manager_dual_source_adapter.h"
@@ -116,6 +117,23 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     if (!m_audio->initialize()) {
         qWarning("WindowManager: AudioPlayer init failed — playback will be silent");
     }
+
+    // Vectorscope: resolves its tier / geometry from the OCIO chain and
+    // the active item, and talks to whichever renderer is wired.
+    m_scope = new ScopeController(
+        m_ocio, m_project,
+        [this]() -> IPlayerRenderer * {
+#ifdef QCV_NATIVE_PLAYER
+            if (auto *pw = qobject_cast<qcv::PlayerWindow *>(m_playerWindow.data())) {
+                return pw->renderer();
+            }
+#endif
+            return nullptr;
+        },
+        this);
+    connect(this, &WindowManager::compositorModeChanged, this, [this] {
+        m_scope->setDualView(m_compositorMode != 0);
+    });
 
     // Seed the process-wide scrub-audio mute from the persisted
     // setting — the engines only re-check the flag, never QSettings.
@@ -1412,6 +1430,7 @@ bool WindowManager::createPlayerWindow()
         // first present.
         r->setBrightness(static_cast<float>(m_brightness));
         r->setViewerAids(static_cast<float>(m_viewerGamma), m_channelView);
+        m_scope->refresh();   // pushes the scope config to the new renderer
         // Phase B.6.3: wire the VideoDecoder once. The renderer
         // pulls FrameHandles via fetchLatest each present; if there's
         // no source open it just returns false and the renderer
@@ -6829,6 +6848,21 @@ void WindowManager::setBrightness(double brightness)
 
     emit brightnessChanged();
     emit viewerAidsChanged();
+}
+
+void WindowManager::setScopeImageProvider(BackdropImageProvider *p)
+{
+    m_scope->setImageProvider(p);
+}
+
+void WindowManager::setWaveformImageProvider(BackdropImageProvider *p)
+{
+    m_scope->setWaveformImageProvider(p);
+}
+
+QObject *WindowManager::scopeObject() const
+{
+    return m_scope;
 }
 
 double WindowManager::exposure() const

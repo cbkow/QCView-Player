@@ -55,6 +55,7 @@ class WindowManagerDualSourceAdapter;
 // Serves the frozen modal backdrop QImage to QML via image://qcv/...
 // (created + registered in main.cpp; we only hold a borrowed pointer).
 class BackdropImageProvider;
+class ScopeController;
 
 class WindowManager : public QObject
 {
@@ -347,6 +348,8 @@ class WindowManager : public QObject
     Q_PROPERTY(double viewerGamma READ viewerGamma WRITE setViewerGamma NOTIFY viewerAidsChanged)
     Q_PROPERTY(int    channelView READ channelView WRITE setChannelView NOTIFY viewerAidsChanged)
     Q_PROPERTY(bool   viewerAdjusted READ viewerAdjusted NOTIFY viewerAidsChanged)
+    // Vectorscope state and options (ScopeController).
+    Q_PROPERTY(QObject *scope READ scopeObject CONSTANT)
 
 public:
     // Stroke-history entry — used by the annotation undo/redo
@@ -400,6 +403,10 @@ public:
     void setBackdropImageProvider(BackdropImageProvider *p) {
         m_backdropProvider = p;
     }
+    // Engine-owned provider serving the vectorscope trace (image://qcvscope/).
+    void setScopeImageProvider(BackdropImageProvider *p);
+    void setWaveformImageProvider(BackdropImageProvider *p);
+    QObject *scopeObject() const;
 
     // Modal lifecycle, driven by ModalHost.qml. beginModal captures the
     // current frame as a frozen backdrop (CAPTURE-FIRST, while the
@@ -1432,6 +1439,7 @@ private:
     int                    m_hdrMode = SdrSRgb;
     double                 m_brightness = 1.0;
     double                 m_viewerGamma = 1.0;
+    ScopeController       *m_scope = nullptr;         // owned via QObject parent
     int                    m_channelView = 0;
     void                   pushViewerAids();
 

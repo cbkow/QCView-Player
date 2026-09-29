@@ -48,6 +48,8 @@ set(QCVIEW_QML_FILES
     ModalHost.qml
     Toast.qml
     LiveStrip.qml
+    ScopePanel.qml
+    WaveformPanel.qml
 )
 
 foreach(qml_file IN LISTS QCVIEW_QML_FILES)
@@ -115,6 +117,8 @@ qt_add_qml_module(qcview
         ${CMAKE_CURRENT_SOURCE_DIR}/ModalHost.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/Toast.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/LiveStrip.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ScopePanel.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/WaveformPanel.qml
     RESOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/PhosphorIcons.js
 )

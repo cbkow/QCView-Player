@@ -635,6 +635,15 @@ int main(int argc, char *argv[])
     engine.addImageProvider(QStringLiteral("qcv"), backdropProvider);
     windowManager.setBackdropImageProvider(backdropProvider);
 
+    // Vectorscope trace (image://qcvscope/<serial>) — same latest-image
+    // provider shape as the backdrop; ScopeController publishes into it.
+    auto *scopeProvider = new qcv::BackdropImageProvider();
+    engine.addImageProvider(QStringLiteral("qcvscope"), scopeProvider);
+    windowManager.setScopeImageProvider(scopeProvider);
+    auto *waveProvider = new qcv::BackdropImageProvider();
+    engine.addImageProvider(QStringLiteral("qcvwave"), waveProvider);
+    windowManager.setWaveformImageProvider(waveProvider);
+
     // Inspector media thumbnails (image://thumb/<path>?layer=&frame=).
     // Async-forced — decode always runs on provider worker threads.
     engine.addImageProvider(QStringLiteral("thumb"),
@@ -656,6 +665,15 @@ int main(int argc, char *argv[])
     QTimer::singleShot(0, &windowManager, [] {
         qcv::startSparkleUpdater();
     });
+
+    // Dev aid: QCV_START_SECONDS=<s> seeks there ~2.5 s after launch — for
+    // checking a specific frame (scopes, picture) without driving the UI.
+    if (qEnvironmentVariableIsSet("QCV_START_SECONDS")) {
+        const double startSeconds = qEnvironmentVariable("QCV_START_SECONDS").toDouble();
+        QTimer::singleShot(2500, &windowManager, [&windowManager, startSeconds] {
+            windowManager.seekToTime(startSeconds);
+        });
+    }
 
     // Phase 7.7 Stage 3 — developer test entry. If `--dual-test PATH_A
     // PATH_B` is on the command line, enter dual mode after the
