@@ -99,17 +99,50 @@ ColumnLayout {
         }
     }
 
-    // Trace brightness and persistence are shared with the vectorscope.
+    // Peak readout: this frame and the max so far, per side; measured
+    // over every source pixel. Brightest channel in the tooltip.
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Theme.spacing
+        visible: root.scope && root.scope.waveformPeaks.length > 0
+        Column {
+            Layout.fillWidth: true
+            spacing: 1
+            Repeater {
+                model: root.scope ? root.scope.waveformPeaks : []
+                Text {
+                    required property var modelData
+                    width: parent.width
+                    textFormat: Text.StyledText
+                    text: (modelData.side.length > 0
+                           ? "<b><font color='" + (modelData.side === "A" ? "#4dd9ff" : "#ff9e40")
+                             + "'>" + modelData.side + "</font></b>  " : "")
+                          + qsTr("Frame") + " <b>" + modelData.frame + "</b>  ·  "
+                          + qsTr("Max") + " <b>" + modelData.clip + "</b>"
+                          + (root.scope.waveformHdr ? " " + qsTr("nits") : "")
+                    color: Theme.textPrimary
+                    font.family: Theme.monoFamily
+                    font.pixelSize: Theme.fontSizeMono
+                    elide: Text.ElideRight
+                    HoverHandler { id: peakHover }
+                    FlatToolTip {
+                        visible: peakHover.hovered
+                        text: modelData.tooltip
+                    }
+                }
+            }
+        }
+        FlatChip {
+            label: qsTr("Reset")
+            tooltip: qsTr("Start Max over")
+            onClicked: root.scope.resetClipPeaks()
+        }
+    }
+
+    // Scale (HDR) and trace brightness (shared with the vectorscope).
     RowLayout {
         Layout.fillWidth: true
         spacing: 2
-        FlatChip {
-            label: qsTr("Persist")
-            active: root.scope && root.scope.persistence
-            tooltip: qsTr("Phosphor-style persistence")
-            onClicked: root.scope.persistence = !root.scope.persistence
-        }
-        Item { Layout.preferredWidth: Theme.spacing }
         Repeater {
             model: root.scope && root.scope.waveformHdr ? [300, 600, 1000, 2000, 4000] : []
             FlatChip {

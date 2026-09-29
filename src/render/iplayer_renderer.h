@@ -123,10 +123,12 @@ public:
     // waiting on the GPU). scopeImage() returns the newest finished
     // 512² image and its serial — any thread.
     // One config per scope kind (vectorscope, waveform); routed by
-    // config.kind, each with its own renderer and image.
+    // config.kind, each with its own renderer and image. The waveform's
+    // image carries its full-resolution peaks (`peaks`, optional).
     virtual void setScopeConfig(const ScopeConfig & /*config*/) {}
     virtual bool scopeImage(QImage * /*out*/, quint64 * /*serial*/,
-                            ScopeKind /*kind*/ = ScopeKind::Vectorscope) { return false; }
+                            ScopeKind /*kind*/ = ScopeKind::Vectorscope,
+                            ScopePeaks * /*peaks*/ = nullptr) { return false; }
     virtual void setImageSeqCache(ImageSequenceCache *c)   = 0;
     virtual void setVideoDecoder(VideoDecoder *d)          = 0;
     // Source B decoder — fed into the compositor's srcB slot for

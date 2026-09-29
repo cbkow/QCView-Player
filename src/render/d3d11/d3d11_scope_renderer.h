@@ -10,8 +10,11 @@
 //   2. accumulate (cs_5_0) — scope-space Cb/Cr per tap pixel,
 //      InterlockedAdd into one of kScopeCopies raw count grids, plus an
 //      out-of-gamut count;
-//   3. draw (cs_5_0) — counts → premultiplied RGBA8 (512²) into a raw
-//      buffer, copied into one of three staging buffers.
+//   3. waveform only — peak (ps_5_0, no render target): the same
+//      conversion over every source pixel, InterlockedMax of the level
+//      and the brightest channel into a raw buffer;
+//   4. draw (cs_5_0) — counts → premultiplied RGBA8 (512²) into a raw
+//      buffer, copied with the peaks into one of three staging buffers.
 // Staging buffers are mapped with DO_NOT_WAIT on later frames — the render
 // thread never waits for the GPU — and the newest finished image is kept
 // for latestImage() (any thread). Buffers are freed by releaseIfIdle().
@@ -53,7 +56,8 @@ public:
     // result would otherwise wait for the next draw.
     void collectPending(void *ctx);
 
-    bool latestImage(QImage *out, quint64 *serial) const;
+    // The newest image; for the waveform also its peaks (`peaks`).
+    bool latestImage(QImage *out, quint64 *serial, ScopePeaks *peaks = nullptr) const;
     void releaseIfIdle(int idleMs = 10000);
 
 private:

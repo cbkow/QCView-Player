@@ -134,6 +134,8 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     connect(this, &WindowManager::compositorModeChanged, this, [this] {
         m_scope->setDualView(m_compositorMode != 0);
     });
+    // A dual side loaded (the controller is rebuilt per load): new clips.
+    connect(this, &WindowManager::dualControllerChanged, m_scope, &ScopeController::resetClipPeaks);
 
     // Seed the process-wide scrub-audio mute from the persisted
     // setting — the engines only re-check the flag, never QSettings.

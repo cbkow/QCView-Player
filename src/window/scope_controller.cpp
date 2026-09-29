@@ -6,6 +6,7 @@
 #include "render/iplayer_renderer.h"
 
 #include <QFileInfo>
+#include <QLocale>
 #include <QPainter>
 #include <QSettings>
 #include <QtLogging>
@@ -79,7 +80,6 @@ ScopeController::ScopeController(OCIOConfigManager *ocio, ProjectManager *projec
     m_zoom        = std::clamp(s.value(QStringLiteral("scope/zoom"), 1).toInt(), 1, 4);
     m_colorize    = s.value(QStringLiteral("scope/colorize"), false).toBool();
     m_brightness  = std::clamp(s.value(QStringLiteral("scope/brightness"), 1.0).toDouble(), 0.1, 10.0);
-    m_persistence = s.value(QStringLiteral("scope/persistence"), false).toBool();
     m_wavePeak    = snapPeak(s.value(QStringLiteral("scope/waveformPeak"), 1000).toInt());
 
     m_pollTimer.setInterval(33);
@@ -90,6 +90,7 @@ ScopeController::ScopeController(OCIOConfigManager *ocio, ProjectManager *projec
     }
     if (m_project) {
         connect(m_project, &ProjectManager::activeItemIdChanged, this, &ScopeController::refresh);
+        connect(m_project, &ProjectManager::bSourceChanged, this, &ScopeController::refresh);
     }
     refresh();
 }
@@ -158,19 +159,92 @@ void ScopeController::setWaveformPeak(int nits)
     refresh();
 }
 
-void ScopeController::setPersistence(bool on)
+void ScopeController::resetClipPeaks()
 {
-    if (on == m_persistence) return;
-    m_persistence = on;
-    QSettings().setValue(QStringLiteral("scope/persistence"), on);
-    emit optionsChanged();
-    refresh();
+    m_clipSides = 0;
+    m_clipLevel[0] = m_clipLevel[1] = 0.0f;
+    m_clipChannel[0] = m_clipChannel[1] = 0.0f;
+    if (!m_wavePeaks.isEmpty()) {
+        m_wavePeaks.clear();
+        emit peaksChanged();
+    }
+}
+
+namespace {
+
+// A peak for the readout: nits on the HDR scale (one decimal below 10),
+// else a percentage of the encoded range (Y′ / code value).
+QString formatPeak(float v, bool hdr)
+{
+    if (hdr) return v < 10.0f ? QString::number(v, 'f', 1) : QLocale().toString(qRound(v));
+    return QStringLiteral("%1 %").arg(qRound(v * 100.0f));
+}
+
+} // namespace
+
+void ScopeController::updatePeaks(const ScopePeaks &p)
+{
+    if (p.sides <= 0) return;
+    // A changed layout (single / dual) or scale starts over. A side in a
+    // timeline gap keeps its Max and shows no frame value.
+    if (m_clipSides != p.sides || m_clipHdr != p.hdr) {
+        m_clipSides = p.sides;
+        m_clipHdr = p.hdr;
+        m_clipLevel[0] = m_clipLevel[1] = 0.0f;
+        m_clipChannel[0] = m_clipChannel[1] = 0.0f;
+    }
+    QVariantList list;
+    const QString none = QStringLiteral("—");
+    for (int s = 0; s < p.sides; ++s) {
+        if (p.measured[s]) {
+            m_clipLevel[s]   = std::max(m_clipLevel[s], p.level[s]);
+            m_clipChannel[s] = std::max(m_clipChannel[s], p.channel[s]);
+        }
+        QVariantMap m;
+        m[QStringLiteral("side")]  = p.sides == 2 ? QString(QLatin1Char(s == 0 ? 'A' : 'B')) : QString();
+        m[QStringLiteral("frame")] = p.measured[s] ? formatPeak(p.level[s], p.hdr) : none;
+        m[QStringLiteral("clip")]  = formatPeak(m_clipLevel[s], p.hdr);
+        const QString frameChannel = p.measured[s] ? formatPeak(p.channel[s], p.hdr) : none;
+        m[QStringLiteral("tooltip")] =
+            p.hdr ? tr("Brightest channel (linear Rec.2020): frame %1 · max %2 nits")
+                        .arg(frameChannel, formatPeak(m_clipChannel[s], true))
+                  : tr("Brightest channel (code value): frame %1 · max %2")
+                        .arg(frameChannel, formatPeak(m_clipChannel[s], false));
+        list.push_back(m);
+    }
+    if (list != m_wavePeaks) {
+        m_wavePeaks = list;
+        // Dev aid (with the waveform dump): log the readout as it changes.
+        if (qEnvironmentVariableIsSet("QCV_WAVE_DUMP")) {
+            for (const QVariant &v : m_wavePeaks) {
+                const QVariantMap m = v.toMap();
+                qInfo("ScopeController: peak %s frame %s max %s — %s",
+                      qPrintable(m.value(QStringLiteral("side")).toString()),
+                      qPrintable(m.value(QStringLiteral("frame")).toString()),
+                      qPrintable(m.value(QStringLiteral("clip")).toString()),
+                      qPrintable(m.value(QStringLiteral("tooltip")).toString()));
+            }
+        }
+        emit peaksChanged();
+    }
 }
 
 void ScopeController::refresh()
 {
     resolve();
     buildGeometry();
+    // Clip peaks belong to one clip under one interpretation.
+    const QString peakKey = (m_project ? m_project->activeItemId() : QString())
+        + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tier))
+        + QLatin1Char('|') + m_waveConfig.colorspace
+        + QLatin1Char('|') + (m_dualView && m_project ? m_project->bSourceMediaId() : QString())
+        + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tierB))
+        + QLatin1Char('|') + m_waveConfig.colorspaceB
+        + QLatin1Char('|') + QString::number(m_dualView ? 2 : 1);
+    if (peakKey != m_peakKey) {
+        m_peakKey = peakKey;
+        resetClipPeaks();
+    }
     push();
     emit stateChanged();
 }
@@ -181,7 +255,6 @@ void ScopeController::resolve()
     m_config.zoom        = m_zoom;
     m_config.colorize    = m_colorize;
     m_config.brightness  = static_cast<float>(m_brightness);
-    m_config.persistence = m_persistence;
     m_config.dual        = m_dualView;
     m_config.tier        = ScopeTier::Signal;
     m_config.colorspace.clear();
@@ -195,49 +268,58 @@ void ScopeController::resolve()
         } catch (const OCIO::Exception &) {}
     }
 
-    // What the file says.
-    const QVariantMap item = m_project ? m_project->activeItemMap() : QVariantMap{};
-    const QVariantMap video = item.value(QStringLiteral("video")).toMap();
-    const int type = item.value(QStringLiteral("type"), -1).toInt();
-    const QString ext = QFileInfo(item.value(QStringLiteral("path")).toString()).suffix().toLower();
-    const QString transfer  = video.value(QStringLiteral("colorTransfer")).toString().toLower();
-    const QString primaries = video.value(QStringLiteral("colorPrimaries")).toString().toLower();
-    const QString space     = video.value(QStringLiteral("colorspace")).toString().toLower();
-    const bool still = type == 2 || type == 3;   // Image, ImageSequence
-    const bool exr   = ext == QLatin1String("exr");
-
-    m_config.signalMatrix = space.contains(QLatin1String("2020")) ? 2
-        : (space.contains(QLatin1String("170m")) || space.contains(QLatin1String("470bg"))
-           || space.contains(QLatin1String("601"))) ? 0 : 1;
-    m_config.signalNominalCurve = exr;
-
-    const bool tagged = !transfer.isEmpty() && transfer != QLatin1String("unknown")
-                        && transfer != QLatin1String("unspecified");
-    QString assumed, why;
-    if (still) {
-        if (exr) {
-            assumed = firstKnown(cfg, {"Linear Rec.709 (sRGB)", "Linear Rec.709"});
-            why = tr("EXR default");
-        } else {
-            assumed = firstKnown(cfg, {"sRGB - Display", "sRGB Encoded Rec.709 (sRGB)",
-                                       "sRGB", "sRGB - Texture"});
-            why = tr("still");
-        }
-    } else if (type == 0 || type == 6) {           // Video, LiveStream
-        if (transfer == QLatin1String("smpte2084")) {
-            if (primaries.contains(QLatin1String("432")) || primaries.contains(QLatin1String("431"))
-                || primaries.contains(QLatin1String("p3"))) {
-                assumed = firstKnown(cfg, {"ST2084-P3-D65 - Display", "ST2084-P3-D65"});
+    // What a file says: its assumed colourspace (tags / format rules),
+    // why, and the Signal-tier matrix / curve.
+    struct Reading {
+        QString assumed, why;
+        bool    tagged = false;
+        bool    still = false, exr = false;
+        int     matrix = 1;
+    };
+    auto read = [&](const QVariantMap &item) {
+        Reading r;
+        const QVariantMap video = item.value(QStringLiteral("video")).toMap();
+        const int type = item.value(QStringLiteral("type"), -1).toInt();
+        const QString ext = QFileInfo(item.value(QStringLiteral("path")).toString()).suffix().toLower();
+        const QString transfer  = video.value(QStringLiteral("colorTransfer")).toString().toLower();
+        const QString primaries = video.value(QStringLiteral("colorPrimaries")).toString().toLower();
+        const QString space     = video.value(QStringLiteral("colorspace")).toString().toLower();
+        r.still = type == 2 || type == 3;   // Image, ImageSequence
+        r.exr   = ext == QLatin1String("exr");
+        r.matrix = space.contains(QLatin1String("2020")) ? 2
+            : (space.contains(QLatin1String("170m")) || space.contains(QLatin1String("470bg"))
+               || space.contains(QLatin1String("601"))) ? 0 : 1;
+        r.tagged = !transfer.isEmpty() && transfer != QLatin1String("unknown")
+                   && transfer != QLatin1String("unspecified");
+        if (r.still) {
+            if (r.exr) {
+                r.assumed = firstKnown(cfg, {"Linear Rec.709 (sRGB)", "Linear Rec.709"});
+                r.why = tr("EXR default");
             } else {
-                assumed = firstKnown(cfg, {"Rec.2100-PQ - Display", "Rec.2100-PQ"});
+                r.assumed = firstKnown(cfg, {"sRGB - Display", "sRGB Encoded Rec.709 (sRGB)",
+                                             "sRGB", "sRGB - Texture"});
+                r.why = tr("still");
             }
-        } else if (transfer.contains(QLatin1String("arib")) || transfer.contains(QLatin1String("hlg"))) {
-            assumed = firstKnown(cfg, {"Rec.2100-HLG - Display", "Rec.2100-HLG"});
-        } else {
-            assumed = firstKnown(cfg, {"Rec.1886 Rec.709 - Display", "Rec.1886"});
+        } else if (type == 0 || type == 6) {           // Video, LiveStream
+            if (transfer == QLatin1String("smpte2084")) {
+                if (primaries.contains(QLatin1String("432")) || primaries.contains(QLatin1String("431"))
+                    || primaries.contains(QLatin1String("p3"))) {
+                    r.assumed = firstKnown(cfg, {"ST2084-P3-D65 - Display", "ST2084-P3-D65"});
+                } else {
+                    r.assumed = firstKnown(cfg, {"Rec.2100-PQ - Display", "Rec.2100-PQ"});
+                }
+            } else if (transfer.contains(QLatin1String("arib")) || transfer.contains(QLatin1String("hlg"))) {
+                r.assumed = firstKnown(cfg, {"Rec.2100-HLG - Display", "Rec.2100-HLG"});
+            } else {
+                r.assumed = firstKnown(cfg, {"Rec.1886 Rec.709 - Display", "Rec.1886"});
+            }
+            r.why = r.tagged ? tr("tags") : tr("untagged");
         }
-        why = tagged ? tr("tags") : tr("untagged");
-    }
+        // Aliases (e.g. Blender's "Rec.1886" answers to "Rec.1886 Rec.709 -
+        // Display") resolve to the config's own name for the badge.
+        r.assumed = canonicalName(cfg, r.assumed);
+        return r;
+    };
 
     auto usable = [&](const QString &cs) {
         if (!cfg || cs.isEmpty()) return false;
@@ -258,32 +340,74 @@ void ScopeController::resolve()
         }
         return ScopeScale::Sdr;
     };
-    // Aliases (e.g. Blender's "Rec.1886" answers to "Rec.1886 Rec.709 -
-    // Display") resolve to the config's own name for the badge.
-    assumed = canonicalName(cfg, assumed);
 
+    // One side's tier, colourspace and badge. OCIO engaged: the user's
+    // Input, for both dual sides — the picture runs one chain, and the
+    // scopes show what it shows. OCIO off: each file's own assumption.
+    struct Side {
+        ScopeTier tier = ScopeTier::Signal;
+        QString   colorspace, badge, mismatch;
+        Reading   r;
+    };
     const QString input = m_ocio ? m_ocio->activeInput() : QString();
-    if (m_ocio && m_ocio->engaged() && usable(input)) {
-        m_config.tier = ScopeTier::Input;
-        m_config.colorspace = input;
-        m_badge = tr("Input · %1").arg(input);
-        if (tagged && !assumed.isEmpty()
-            && canonicalName(cfg, assumed) != canonicalName(cfg, input)) {
-            m_mismatch = tr("⚠ File tagged %1 · Input: %2").arg(assumed, input);
+    auto interpret = [&](const QVariantMap &item) {
+        Side sd;
+        sd.r = read(item);
+        if (m_ocio && m_ocio->engaged() && usable(input)) {
+            sd.tier = ScopeTier::Input;
+            sd.colorspace = input;
+            sd.badge = tr("Input · %1").arg(input);
+            if (sd.r.tagged && !sd.r.assumed.isEmpty()
+                && canonicalName(cfg, sd.r.assumed) != canonicalName(cfg, input)) {
+                sd.mismatch = tr("⚠ File tagged %1 · Input: %2").arg(sd.r.assumed, input);
+            }
+        } else if (usable(sd.r.assumed)) {
+            sd.tier = ScopeTier::Assumed;
+            sd.colorspace = sd.r.assumed;
+            sd.badge = tr("Assumed · %1 (%2)").arg(sd.r.assumed, sd.r.why);
+        } else {
+            sd.badge = sd.r.exr || sd.r.still ? tr("Signal · RGB, nominal curve")
+                                              : tr("Signal · YUV");
         }
-    } else if (usable(assumed)) {
-        m_config.tier = ScopeTier::Assumed;
-        m_config.colorspace = assumed;
-        m_badge = tr("Assumed · %1 (%2)").arg(assumed, why);
-    } else {
-        m_badge = exr || still ? tr("Signal · RGB, nominal curve") : tr("Signal · YUV");
+        return sd;
+    };
+
+    const Side a = interpret(m_project ? m_project->activeItemMap() : QVariantMap{});
+    m_config.tier = a.tier;
+    m_config.colorspace = a.colorspace;
+    m_config.signalMatrix = a.r.matrix;
+    m_config.signalNominalCurve = a.r.exr;
+    m_badge = a.badge;
+    m_mismatch = a.mismatch;
+    m_config.tierB = a.tier;
+    m_config.colorspaceB = a.colorspace;
+    m_config.signalMatrixB = a.r.matrix;
+    m_config.signalNominalCurveB = a.r.exr;
+    if (m_dualView && m_project) {
+        const QVariantMap itemB = m_project->bSourceItemMap();
+        if (!itemB.isEmpty()) {
+            const Side b = interpret(itemB);
+            m_config.tierB = b.tier;
+            m_config.colorspaceB = b.colorspace;
+            m_config.signalMatrixB = b.r.matrix;
+            m_config.signalNominalCurveB = b.r.exr;
+            if (b.badge != a.badge) m_badge = tr("A %1  ·  B %2").arg(a.badge, b.badge);
+            if (m_mismatch.isEmpty()) m_mismatch = b.mismatch;
+        }
     }
+    // The scale is shared: HDR when either side needs it (an SDR side
+    // then plots in nits too, its white at 100).
+    auto sideScale = [&](ScopeTier t, const QString &cs) {
+        return t == ScopeTier::Signal ? ScopeScale::Sdr : scaleFor(cs);
+    };
+    m_hdrScale = sideScale(m_config.tier, m_config.colorspace) == ScopeScale::Hdr
+                 || (m_dualView && sideScale(m_config.tierB, m_config.colorspaceB) == ScopeScale::Hdr);
 
     // Signal draws mono: colours would claim to know the colour space.
     m_config.colorize = m_colorize && m_config.tier != ScopeTier::Signal;
     m_config.kind = ScopeKind::Vectorscope;
-    if (m_config.tier != ScopeTier::Signal) {
-        m_config.scale = scaleFor(m_config.colorspace);
+    if (m_config.tier != ScopeTier::Signal || m_config.tierB != ScopeTier::Signal) {
+        m_config.scale = m_hdrScale ? ScopeScale::Hdr : ScopeScale::Sdr;
         m_scaleLabel = m_config.scale == ScopeScale::Sdr ? tr("SDR · Rec.709")
                                                          : tr("HDR · PQ Rec.2020");
     } else {
@@ -305,12 +429,15 @@ void ScopeController::buildGeometry()
     // SDR: the file's own Y′ — what a broadcast waveform shows, and the only
     // way to keep sub-blacks, which some configs' SDR decodes clamp
     // (Blender's Rec.1886). HDR / linear / log: the converted PQ scale.
-    const bool hdr = m_config.tier != ScopeTier::Signal && m_config.scale == ScopeScale::Hdr;
+    // Dual: an SDR side beside an HDR one converts too, into nits.
+    const bool hdr = m_config.scale == ScopeScale::Hdr;
     m_waveHdr = hdr;
     static const char *kMatrix[] = {"BT.601", "BT.709", "BT.2020"};
     if (!hdr) {
         m_waveConfig.tier = ScopeTier::Signal;
         m_waveConfig.colorspace.clear();
+        m_waveConfig.tierB = ScopeTier::Signal;
+        m_waveConfig.colorspaceB.clear();
         m_waveBadge = tr("Signal Y′ · %1 matrix")
                           .arg(QString::fromLatin1(kMatrix[m_config.signalMatrix]));
     } else {
@@ -420,8 +547,11 @@ void ScopeController::poll()
     if (m_waveActive && m_waveProvider) {
         QImage wimg;
         quint64 wserial = 0;
-        if (r->scopeImage(&wimg, &wserial, ScopeKind::Waveform) && wserial != m_lastWaveSerial) {
+        ScopePeaks peaks;
+        if (r->scopeImage(&wimg, &wserial, ScopeKind::Waveform, &peaks)
+            && wserial != m_lastWaveSerial) {
             m_lastWaveSerial = wserial;
+            updatePeaks(peaks);
             m_waveProvider->setImage(wimg);
             m_waveImageSource = QStringLiteral("image://qcvwave/%1").arg(wserial);
             static const QByteArray wdump = qgetenv("QCV_WAVE_DUMP");

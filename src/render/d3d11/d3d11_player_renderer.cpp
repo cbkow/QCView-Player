@@ -186,7 +186,7 @@ struct D3D11PlayerRenderer::Impl {
                 std::lock_guard lk(scopeMutex);
                 c = scopeConfig[k];
             }
-            if (!c.active || !srvA) {
+            if (!c.active || (!srvA && !srvB)) {
                 scopes[k].releaseIfIdle();
                 continue;
             }
@@ -2012,11 +2012,11 @@ void D3D11PlayerRenderer::drawDualFrame()
 
     // Vectorscope tap: the per-side sources this frame composited.
     {
+        // Either side can be in a timeline gap (null); each stays itself —
+        // its colour, interpretation and peaks.
         const auto ls = m_impl->dualCompositor.lastSources();
-        auto *a = static_cast<ID3D11ShaderResourceView *>(ls.srvA ? ls.srvA : ls.srvB);
-        const int aw = ls.srvA ? ls.wA : ls.wB, ah = ls.srvA ? ls.hA : ls.hB;
-        m_impl->encodeScope(ctx, m_ocio, a, aw, ah,
-                            ls.srvA ? static_cast<ID3D11ShaderResourceView *>(ls.srvB) : nullptr,
+        m_impl->encodeScope(ctx, m_ocio, static_cast<ID3D11ShaderResourceView *>(ls.srvA),
+                            ls.wA, ls.hA, static_cast<ID3D11ShaderResourceView *>(ls.srvB),
                             ls.wB, ls.hB);
     }
 
@@ -2329,9 +2329,10 @@ void D3D11PlayerRenderer::setScopeConfig(const ScopeConfig &config)
     requestUpdate();
 }
 
-bool D3D11PlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind)
+bool D3D11PlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind,
+                                     ScopePeaks *peaks)
 {
-    return m_impl->scopes[kind == ScopeKind::Waveform ? 1 : 0].latestImage(out, serial);
+    return m_impl->scopes[kind == ScopeKind::Waveform ? 1 : 0].latestImage(out, serial, peaks);
 }
 
 void D3D11PlayerRenderer::setViewerAids(float gamma, int channel)

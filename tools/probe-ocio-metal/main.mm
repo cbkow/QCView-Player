@@ -165,10 +165,14 @@ int scopeCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr,
     }
     const ScopeAccumGpu u = scope_math::resolveAccum(sc, side, converted, W, H, 0);
     std::vector<uint32_t> ref(kScopeGrid * kScopeGrid, 0), refOog(kScopeGrid * kScopeGrid, 0);
+    float refLevel = 0.0f, refChannel = 0.0f;
     for (int i = 0; i < W * H; ++i) {
         if (px[i * 4 + 3] <= 0.0f) continue;
         float rgb[3] = {px[i * 4], px[i * 4 + 1], px[i * 4 + 2]};
         if (cpu) cpu->applyRGB(rgb);
+        const scope_math::ScopePixel sp = scope_math::classify(u, rgb);
+        refLevel   = std::max(refLevel, scope_math::waveformLevel(u, sp));
+        refChannel = std::max(refChannel, sp.channel);
         int bx, by; bool oog;
         scope_math::bin(u, rgb, bx, by, oog, ((i % W) + 0.5f) / W);
         ref[by * kScopeGrid + bx]++;
@@ -206,9 +210,20 @@ int scopeCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr,
                 (unsigned long long)(moved2 / 2), far, (unsigned long long)(oogMoved2 / 2));
     QImage img;
     quint64 serial = 0;
-    if (!scope.latestImage(&img, &serial) || img.isNull()) {
+    ScopePeaks peaks;
+    if (!scope.latestImage(&img, &serial, &peaks) || img.isNull()) {
         std::printf("FAIL scope %s: no image\n", label);
         return 1;
+    }
+    bool peaksOk = true;
+    if (sc.kind == ScopeKind::Waveform) {
+        // OCIO's GPU PQ LUT vs the CPU curve: within 1 % (+ a hair).
+        auto close = [](float g, float c) { return std::abs(g - c) <= 0.01f * std::abs(c) + 1e-3f; };
+        peaksOk = peaks.sides == 1 && close(peaks.level[0], refLevel)
+                  && close(peaks.channel[0], refChannel);
+        std::printf("%s peak  %-26s level %.4f (cpu %.4f), channel %.4f (cpu %.4f)\n",
+                    peaksOk ? "ok  " : "FAIL", label, peaks.level[0], refLevel,
+                    peaks.channel[0], refChannel);
     }
     if (const char *dir = std::getenv("PROBE_SCOPE_DIR")) {
         QImage onBlack(img.size(), QImage::Format_RGB32);
@@ -218,7 +233,64 @@ int scopeCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr,
                      + QString::fromUtf8(label).replace(QLatin1Char(' '), QLatin1Char('_'))
                      + QStringLiteral(".png"));
     }
-    return ok ? 0 : 1;
+    return ok && peaksOk ? 0 : 1;
+}
+
+// Peak pass at in-app size: one hot pixel in a 1920×1080 frame. The tap
+// (960 wide, bilinear) would average it to ~1.6; the peak pass must see
+// every pixel.
+int hotPixelCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr)
+{
+    const int W = 1920, H = 1080;
+    std::vector<__fp16> px(W * H * 4);
+    for (int i = 0; i < W * H; ++i) {
+        px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = 0.5f;
+        px[i * 4 + 3] = 1.0f;
+    }
+    const int hot = (537 * W + 1333) * 4;   // odd row / column: between tap samples
+    px[hot] = 5.0f; px[hot + 1] = 4.0f; px[hot + 2] = 3.0f;
+    MTLTextureDescriptor *td = [MTLTextureDescriptor
+        texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:W height:H mipmapped:NO];
+    id<MTLTexture> src = [dev newTextureWithDescriptor:td];
+    [src replaceRegion:MTLRegionMake2D(0, 0, W, H) mipmapLevel:0 withBytes:px.data() bytesPerRow:W * 8];
+    ScopeConfig sc;
+    sc.active = true;
+    sc.kind = ScopeKind::Waveform;
+    sc.tier = ScopeTier::Signal;
+    MetalScopeRenderer scope;
+    scope.initialize();
+    scope.setConfig(sc);
+    id<MTLCommandBuffer> cb = [q commandBuffer];
+    scope.encode((__bridge void *)cb, &mgr, (__bridge void *)src, W, H);
+    [cb commit];
+    [cb waitUntilCompleted];
+    QImage img;
+    ScopePeaks peaks;
+    scope.latestImage(&img, nullptr, &peaks);
+    // Y′ (709) of (5, 4, 3) = 0.2126·5 + 0.7152·4 + 0.0722·3.
+    const float wantLevel = 0.2126f * 5.0f + 0.7152f * 4.0f + 0.0722f * 3.0f;
+    const bool ok = peaks.sides == 1 && std::abs(peaks.level[0] - wantLevel) < 0.01f
+                    && std::abs(peaks.channel[0] - 5.0f) < 0.01f;
+    std::printf("%s peak  hot pixel 1920x1080          level %.4f (want %.4f), channel %.4f (want 5)\n",
+                ok ? "ok  " : "FAIL", peaks.level[0], wantLevel, peaks.channel[0]);
+
+    // Dual with A in a timeline gap: B's peak stays on side B, A unmeasured.
+    sc.dual = true;
+    MetalScopeRenderer gap;
+    gap.initialize();
+    gap.setConfig(sc);
+    id<MTLCommandBuffer> cb2 = [q commandBuffer];
+    const bool encoded = gap.encode((__bridge void *)cb2, &mgr, nullptr, 0, 0,
+                                    (__bridge void *)src, W, H);
+    [cb2 commit];
+    [cb2 waitUntilCompleted];
+    ScopePeaks gp;
+    gap.latestImage(&img, nullptr, &gp);
+    const bool gapOk = encoded && gp.sides == 2 && !gp.measured[0] && gp.measured[1]
+                       && std::abs(gp.level[1] - wantLevel) < 0.01f && gp.level[0] == 0.0f;
+    std::printf("%s peak  dual, A in a gap                sides %d, measured A %d B %d, B level %.4f\n",
+                gapOk ? "ok  " : "FAIL", gp.sides, gp.measured[0], gp.measured[1], gp.level[1]);
+    return ok && gapOk ? 0 : 1;
 }
 
 // In-app conditions: 1920×1080 RGBA16F bars, tapped at 960×540.
@@ -367,6 +439,7 @@ int main(int argc, char **argv)
         failures += scopeCheck(dev, q, mgr, cfg, "waveform nits HDR 4k", wf);
         wf.waveformPeakNits = 300;
         failures += scopeCheck(dev, q, mgr, cfg, "waveform nits HDR 300", wf);
+        failures += hotPixelCheck(dev, q, mgr);
     }
     {
         const std::string cfgPath = root + "/ACES_2.0/config.ocio";

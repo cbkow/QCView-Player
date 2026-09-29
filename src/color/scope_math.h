@@ -11,6 +11,9 @@
 //                 in nits, 0…peak (300 / 600 / 1 000 / 2 000 / 4 000) —
 //                 levels above it pile up at the top, tinted red. Linear,
 //                 not PQ: judging nits matters more than perceptual spacing.
+//   peaks       — (waveform only) a second pass over every source pixel,
+//                 not the tap: the highest waveform level (nits / Y′) and
+//                 the brightest channel, per side (ScopePeaks).
 //
 // Tiers (labelled on the scope, see WindowManager's scope state):
 //   Signal   — nothing known: Y'CbCr straight from the source's encoded
@@ -59,9 +62,29 @@ struct ScopeConfig {
     int        zoom = 1;                 // 1, 2, 4
     float      brightness = 1.0f;        // trace exposure k
     bool       colorize = false;
-    bool       persistence = false;
     bool       dual = false;             // A + B overlay (cyan / orange)
     int        waveformPeakNits = 1000;  // waveform HDR scale: top of the face, nits
+
+    // Dual: side B's own interpretation (its tags can differ from A's —
+    // an SDR B beside a PQ A). The scale stays shared.
+    ScopeTier  tierB = ScopeTier::Signal;
+    QString    colorspaceB;
+    int        signalMatrixB = 1;
+    bool       signalNominalCurveB = false;
+
+    // This config as seen by one side (0 = A, 1 = B): B's interpretation
+    // moved into the main fields.
+    ScopeConfig forSide(int side) const
+    {
+        ScopeConfig c = *this;
+        if (side == 1) {
+            c.tier = tierB;
+            c.colorspace = colorspaceB;
+            c.signalMatrix = signalMatrixB;
+            c.signalNominalCurve = signalNominalCurveB;
+        }
+        return c;
+    }
 };
 
 // Accumulate uniforms (all float4 — identical layout in C++ / MSL / HLSL).
@@ -69,12 +92,24 @@ struct ScopeAccumGpu {
     float to0[4], to1[4], to2[4];   // interchange → linear Rec.2020
     float p0[4];   // x = converted (0/1), y = scale (0 SDR, 1 HDR), z = zoom, w = signal matrix
     float p1[4];   // x = nominal curve (0/1), y = tap width, z = tap height, w = side (0 A, 1 B)
-    float p2[4];   // x = kind (0 vectorscope, 1 waveform), y = waveform HDR top (nits), zw unused
+    float p2[4];   // x = kind (0 vectorscope, 1 waveform), y = waveform HDR top (nits),
+                   // z = pass (0 accumulate, 1 peak), w unused
+};
+
+// Waveform peaks of the newest image, per side: the waveform's level
+// (nits on the HDR scale, Y′ 0..1 on SDR) and the brightest channel
+// (linear Rec.2020 nits / encoded 0..1), over every source pixel.
+struct ScopePeaks {
+    int   sides = 0;          // layout: 0 = none, 1, or 2 (dual)
+    bool  measured[2] = {false, false};   // false = that side in a timeline gap
+    bool  hdr = false;
+    float level[2]   = {0.0f, 0.0f};
+    float channel[2] = {0.0f, 0.0f};
 };
 
 // Draw uniforms.
 struct ScopeDrawGpu {
-    float p0[4];   // x = count gain, y = colourize (0/1), z = persistence decay (0 = off), w = sides (1/2)
+    float p0[4];   // x = count gain, y = colourize (0/1), z unused, w = sides (1/2)
     float p1[4];   // x = zoom, y = kind, zw unused
 };
 
@@ -138,7 +173,6 @@ inline ScopeDrawGpu resolveDraw(const ScopeConfig &c, int pixelsSampled)
     g.p0[0] = std::max(c.brightness, 0.01f) * per / std::max(pixelsSampled, 1);
     g.p1[1] = c.kind == ScopeKind::Waveform ? 1.0f : 0.0f;
     g.p0[1] = c.colorize ? 1.0f : 0.0f;
-    g.p0[2] = c.persistence ? 0.7f : 0.0f;
     g.p0[3] = c.dual ? 2.0f : 1.0f;
     g.p1[0] = static_cast<float>(std::clamp(c.zoom, 1, 8));
     return g;
@@ -152,15 +186,22 @@ inline void rec2020To709(const float *in, float *out)
     out[2] = -0.0181508f * in[0] - 0.1005789f * in[1] + 1.1187297f * in[2];
 }
 
-// Scope-space Cb/Cr for one pixel. `rgb` is the source's encoded RGB
-// (Signal) or the OCIOScope output in the interchange space (converted).
-// Returns the bin, and whether the pixel is outside the scale's gamut.
-// `col01` = the pixel's column position 0..1 (waveform only).
-inline void bin(const ScopeAccumGpu &g, const float *rgbIn, int &bx, int &by, bool &oog,
-                float col01 = 0.0f)
+// One pixel in scope space: (Y′, Cb, Cr), whether it is outside the
+// scale's gamut, HDR luminance in nits (converted HDR only) and the
+// brightest channel (linear nits on the HDR scale, else encoded 0..1).
+// `rgb` is the source's encoded RGB (Signal) or the OCIOScope output in
+// the interchange space (converted). Mirrored by qs_classify in the
+// kernels.
+struct ScopePixel {
+    float y = 0.0f, cb = 0.0f, cr = 0.0f;
+    bool  oog = false;
+    float nits = 0.0f;
+    float channel = 0.0f;
+};
+
+inline ScopePixel classify(const ScopeAccumGpu &g, const float *rgbIn)
 {
-    float cb = 0.0f, cr = 0.0f, y = 0.0f, nits = 0.0f;
-    oog = false;
+    ScopePixel p;
     if (g.p0[0] > 0.5f) {
         float l[3];
         for (int i = 0; i < 3; ++i) {
@@ -171,24 +212,46 @@ inline void bin(const ScopeAccumGpu &g, const float *rgbIn, int &bx, int &by, bo
         if (g.p0[1] < 0.5f) {
             float l7[3];
             rec2020To709(l, l7);
-            oog = l7[0] < -0.002f || l7[1] < -0.002f || l7[2] < -0.002f;
+            p.oog = l7[0] < -0.002f || l7[1] < -0.002f || l7[2] < -0.002f;
             for (int i = 0; i < 3; ++i) e[i] = spow(l7[i], 1.0f / 2.4f);
-            ycc(1, e, y, cb, cr);
+            p.channel = std::max({e[0], e[1], e[2]});
+            ycc(1, e, p.y, p.cb, p.cr);
         } else {
-            oog = l[0] < -0.002f || l[1] < -0.002f || l[2] < -0.002f;
-            nits = 100.0f * (0.2627f * l[0] + 0.6780f * l[1] + 0.0593f * l[2]);
+            p.oog = l[0] < -0.002f || l[1] < -0.002f || l[2] < -0.002f;
+            p.nits = 100.0f * (0.2627f * l[0] + 0.6780f * l[1] + 0.0593f * l[2]);
+            p.channel = 100.0f * std::max({l[0], l[1], l[2]});
             for (int i = 0; i < 3; ++i) {
                 e[i] = std::copysign(linear_stage::pqEncode(std::abs(l[i]) * 0.01f), l[i]);
             }
-            ycc(2, e, y, cb, cr);
+            ycc(2, e, p.y, p.cb, p.cr);
         }
     } else {
         float e[3] = {rgbIn[0], rgbIn[1], rgbIn[2]};
         if (g.p1[0] > 0.5f) {
             for (int i = 0; i < 3; ++i) e[i] = spow(e[i], 1.0f / 2.4f);
         }
-        ycc(static_cast<int>(g.p0[3]), e, y, cb, cr);
+        p.channel = std::max({e[0], e[1], e[2]});
+        ycc(static_cast<int>(g.p0[3]), e, p.y, p.cb, p.cr);
     }
+    return p;
+}
+
+// The waveform's level for a pixel (peak pass): nits on the HDR scale,
+// else Y′.
+inline float waveformLevel(const ScopeAccumGpu &g, const ScopePixel &p)
+{
+    return g.p0[0] > 0.5f && g.p0[1] > 0.5f ? p.nits : p.y;
+}
+
+// The bin for one pixel, and whether it is outside the scale's gamut /
+// range. `col01` = the pixel's column position 0..1 (waveform only).
+inline void bin(const ScopeAccumGpu &g, const float *rgbIn, int &bx, int &by, bool &oog,
+                float col01 = 0.0f)
+{
+    const ScopePixel p = classify(g, rgbIn);
+    float y = p.y;
+    const float cb = p.cb, cr = p.cr, nits = p.nits;
+    oog = p.oog;
     if (g.p2[0] > 0.5f) {
         // Waveform: the column, and the level in the scale's range — SDR /
         // Signal Y′, HDR luminance in nits. SDR levels outside 0..1, HDR

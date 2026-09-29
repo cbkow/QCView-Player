@@ -222,12 +222,6 @@ ColumnLayout {
                      : qsTr("Signal tier draws mono — the colour space isn't known")
             onClicked: if (interactive) root.scope.colorize = !root.scope.colorize
         }
-        FlatChip {
-            label: qsTr("Persist")
-            active: root.scope && root.scope.persistence
-            tooltip: qsTr("Phosphor-style persistence")
-            onClicked: root.scope.persistence = !root.scope.persistence
-        }
         Item { Layout.fillWidth: true }
         FlatSlider {
             Layout.preferredWidth: 70

@@ -174,7 +174,7 @@ struct MetalPlayerRenderer::Impl {
                 std::lock_guard lk(scopeMutex);
                 c = scopeConfig[k];
             }
-            if (!c.active || !srcA) {
+            if (!c.active || (!srcA && !srcB)) {
                 scopes[k].releaseIfIdle();
                 continue;
             }
@@ -620,9 +620,10 @@ void MetalPlayerRenderer::setScopeConfig(const ScopeConfig &config)
     m_impl->scopeConfig[config.kind == ScopeKind::Waveform ? 1 : 0] = config;
 }
 
-bool MetalPlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind)
+bool MetalPlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind,
+                                     ScopePeaks *peaks)
 {
-    return m_impl->scopes[kind == ScopeKind::Waveform ? 1 : 0].latestImage(out, serial);
+    return m_impl->scopes[kind == ScopeKind::Waveform ? 1 : 0].latestImage(out, serial, peaks);
 }
 
 ViewerAids MetalPlayerRenderer::currentViewerAids() const
@@ -1069,11 +1070,10 @@ void MetalPlayerRenderer::drawFrame()
 
         // ---- Vectorscope tap: the per-side sources dual_fs sampled ----
         {
+            // Either side can be in a timeline gap (null); each stays
+            // itself — its colour, interpretation and peaks.
             const auto ls = m_impl->dualCompositor.takeLastSources();
-            void *a = ls.texA ? ls.texA : ls.texB;   // B alone still scopes
-            const int aw = ls.texA ? ls.wA : ls.wB, ah = ls.texA ? ls.hA : ls.hB;
-            m_impl->encodeScope(cb, m_ocio, a, aw, ah,
-                                ls.texA ? ls.texB : nullptr, ls.wB, ls.hB);
+            m_impl->encodeScope(cb, m_ocio, ls.texA, ls.wA, ls.hA, ls.texB, ls.wB, ls.hB);
         }
 
         // ---- Pass 2: present blit canvas → drawable ----

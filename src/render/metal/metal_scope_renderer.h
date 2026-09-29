@@ -8,15 +8,16 @@
 //      wide): optional OCIOScope conversion, scope-space Cb/Cr, one
 //      atomic add into one of kScopeCopies grid copies (picked by
 //      threadgroup, to cut contention on flat frames), plus an
-//      out-of-gamut count;
+//      out-of-gamut count; for the waveform, the same kernel again over
+//      every source pixel (peak pass: atomic max of level and channel);
 //   3. scope_draw — sums the copies, maps counts to intensity, tints
-//      (mono / colourised / dual cyan-orange / out-of-gamut), optional
-//      persistence, and writes 512² premultiplied RGBA8 straight into one
-//      of three shared readback buffers.
+//      (mono / colourised / dual cyan-orange / out-of-gamut), and writes
+//      512² premultiplied RGBA8 straight into one of three shared
+//      readback buffers (the peaks are copied in after the image).
 // A completion handler publishes the finished buffer; latestImage()
 // copies the newest one out on any thread. The scope is allowed to lag.
 //
-// Resources (~15 MB) are allocated on first use and freed by releaseIfIdle()
+// Resources (~13 MB) are allocated on first use and freed by releaseIfIdle()
 // after the scope has been inactive for a while.
 
 #pragma once
@@ -56,7 +57,8 @@ public:
 
     // Newest finished scope image (512² RGBA8, premultiplied). `serial`
     // bumps with each new image. Any thread.
-    bool latestImage(QImage *out, quint64 *serial) const;
+    // The newest image; for the waveform also its peaks (`peaks`).
+    bool latestImage(QImage *out, quint64 *serial, ScopePeaks *peaks = nullptr) const;
     quint64 serial() const;
 
     // Free the buffers if encode() hasn't run for `idleMs`. Render thread.

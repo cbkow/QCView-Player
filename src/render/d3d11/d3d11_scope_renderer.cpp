@@ -52,7 +52,8 @@ float4 PSMain(VsOut input) : SV_TARGET
 }
 )";
 
-// Shared math for the compute kernels. Mirrors scope_math::bin().
+// Shared math for the compute kernels and the peak pass. Mirrors
+// scope_math::classify() / bin().
 constexpr const char *kScopeCommon = R"(
 static const int G = 512;
 static const int COPIES = 4;
@@ -75,6 +76,52 @@ float3 qs_ycc(float3 e, int m)
     float y = kr * e.r + (1.0 - kr - kb) * e.g + kb * e.b;
     return float3(y, (e.b - y) / (2.0 * (1.0 - kb)), (e.r - y) / (2.0 * (1.0 - kr)));
 }
+
+// One pixel in scope space (scope_math::classify): (Y′, Cb, Cr), outside
+// the scale's gamut, HDR luminance in nits, brightest channel.
+void qs_classify(float3 rgb, float4 to0, float4 to1, float4 to2, float4 p0, float4 p1,
+                 out float3 ycc, out bool outside, out float nits, out float chan)
+{
+    outside = false;
+    nits = 0.0;
+    if (p0.x > 0.5) {
+        float3 l = float3(dot(to0.xyz, rgb), dot(to1.xyz, rgb), dot(to2.xyz, rgb));
+        if (p0.y < 0.5) {
+            float3 l7 = float3( 1.6604910 * l.r - 0.5876411 * l.g - 0.0728499 * l.b,
+                               -0.1245505 * l.r + 1.1328999 * l.g - 0.0083494 * l.b,
+                               -0.0181508 * l.r - 0.1005789 * l.g + 1.1187297 * l.b);
+            outside = any(l7 < -0.002);
+            float3 e = float3(qs_spow(l7.r, 1.0 / 2.4), qs_spow(l7.g, 1.0 / 2.4),
+                              qs_spow(l7.b, 1.0 / 2.4));
+            chan = max(e.r, max(e.g, e.b));
+            ycc = qs_ycc(e, 1);
+        } else {
+            outside = any(l < -0.002);
+            nits = 100.0 * dot(float3(0.2627, 0.6780, 0.0593), l);
+            chan = 100.0 * max(l.r, max(l.g, l.b));
+            float3 e = sign(l) * float3(qs_pq(abs(l.r) * 0.01), qs_pq(abs(l.g) * 0.01),
+                                        qs_pq(abs(l.b) * 0.01));
+            ycc = qs_ycc(e, 2);
+        }
+    } else {
+        float3 e = rgb;
+        if (p1.x > 0.5) {
+            e = float3(qs_spow(e.r, 1.0 / 2.4), qs_spow(e.g, 1.0 / 2.4), qs_spow(e.b, 1.0 / 2.4));
+        }
+        chan = max(e.r, max(e.g, e.b));
+        ycc = qs_ycc(e, (int)p0.w);
+    }
+}
+
+// A peak value as orderable uint bits: NaN (tested on the bits — the
+// compiler may fold isnan), negatives and −0 → 0, capped at 1e6.
+uint qs_peakBits(float v)
+{
+    uint b = asuint(v);
+    if ((b & 0x7fffffffu) > 0x7f800000u) return 0u;
+    v = min(v, 1e6);
+    return v > 0.0 ? asuint(v) : 0u;
+}
 )";
 
 constexpr const char *kAccumCs = R"(
@@ -90,34 +137,10 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint3 tg : SV_GroupID)
     if (id.x >= w || id.y >= h) return;
     float4 c = tapTex.Load(int3(id.xy, 0));
     if (c.a <= 0.0) return;
-    float3 rgb = c.rgb;
     float3 ycc;
-    bool outside = false;
-    float nits = 0.0;
-    if (p0.x > 0.5) {
-        float3 l = float3(dot(to0.xyz, rgb), dot(to1.xyz, rgb), dot(to2.xyz, rgb));
-        if (p0.y < 0.5) {
-            float3 l7 = float3( 1.6604910 * l.r - 0.5876411 * l.g - 0.0728499 * l.b,
-                               -0.1245505 * l.r + 1.1328999 * l.g - 0.0083494 * l.b,
-                               -0.0181508 * l.r - 0.1005789 * l.g + 1.1187297 * l.b);
-            outside = any(l7 < -0.002);
-            float3 e = float3(qs_spow(l7.r, 1.0 / 2.4), qs_spow(l7.g, 1.0 / 2.4),
-                              qs_spow(l7.b, 1.0 / 2.4));
-            ycc = qs_ycc(e, 1);
-        } else {
-            outside = any(l < -0.002);
-            nits = 100.0 * dot(float3(0.2627, 0.6780, 0.0593), l);
-            float3 e = sign(l) * float3(qs_pq(abs(l.r) * 0.01), qs_pq(abs(l.g) * 0.01),
-                                        qs_pq(abs(l.b) * 0.01));
-            ycc = qs_ycc(e, 2);
-        }
-    } else {
-        float3 e = rgb;
-        if (p1.x > 0.5) {
-            e = float3(qs_spow(e.r, 1.0 / 2.4), qs_spow(e.g, 1.0 / 2.4), qs_spow(e.b, 1.0 / 2.4));
-        }
-        ycc = qs_ycc(e, (int)p0.w);
-    }
+    bool outside;
+    float nits, chan;
+    qs_classify(c.rgb, to0, to1, to2, p0, p1, ycc, outside, nits, chan);
     int bx, by;
     if (p2.x > 0.5) {
         // Waveform: column × Y′ / nits (scope_math::bin / waveformRange).
@@ -141,11 +164,35 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint3 tg : SV_GroupID)
 }
 )";
 
+// Waveform peak pass (after kTapHead + OCIO + kScopeCommon): every source
+// pixel, InterlockedMax of the level and the brightest channel — float
+// bits, non-negative, so uint order = float order. No render target.
+constexpr const char *kPeakPs = R"(
+RWByteAddressBuffer peaks : register(u0);
+cbuffer ScopeAccumCb : register(b0) { float4 to0, to1, to2; float4 p0; float4 p1; float4 p2; };
+struct VsOut { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
+void PSMain(VsOut input)
+{
+    float4 c = uSrc.Sample(uSrcSampler, input.uv);
+    if (c.a <= 0.0) return;
+    float3 rgb = c.rgb;
+    QCV_SCOPE_CONVERT
+    float3 ycc;
+    bool outside;
+    float nits, chan;
+    qs_classify(rgb, to0, to1, to2, p0, p1, ycc, outside, nits, chan);
+    bool hdr = p0.x > 0.5 && p0.y > 0.5;
+    uint side = (uint)p1.w;
+    uint prev;
+    peaks.InterlockedMax(side * 8, qs_peakBits(hdr ? nits : ycc.x), prev);
+    peaks.InterlockedMax(side * 8 + 4, qs_peakBits(chan), prev);
+}
+)";
+
 constexpr const char *kDrawCs = R"(
 RWByteAddressBuffer grid    : register(u0);
 RWByteAddressBuffer oog     : register(u1);
-RWByteAddressBuffer persist : register(u2);
-RWByteAddressBuffer outPx   : register(u3);
+RWByteAddressBuffer outPx   : register(u2);
 cbuffer ScopeDrawCb : register(b0) { float4 d0; float4 d1; };
 
 uint countAt(int s, int x, int y)
@@ -181,9 +228,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
             }
         }
         I = max(I, 0.6 * halo);
-        uint pi = ((uint)s * (uint)(G * G) + cell) * 4;
-        if (d0.z > 0.0) I = max(I, asfloat(persist.Load(pi)) * d0.z);
-        persist.Store(pi, asuint(I));
         float3 tint;
         if (sides == 2) {
             tint = s == 0 ? float3(0.30, 0.85, 1.0) : float3(1.0, 0.62, 0.25);
@@ -230,6 +274,15 @@ struct RawBuffer {
     void reset() { uav.Reset(); buf.Reset(); }
 };
 
+// A tap-style pixel shader: kTapHead, OCIO's function (converted tiers)
+// and `main`, whose QCV_SCOPE_CONVERT marker becomes `call` (or nothing).
+std::string tapSource(const std::string &ocioText, std::string main, const std::string &call)
+{
+    const std::string marker = "QCV_SCOPE_CONVERT";
+    main.replace(main.find(marker), marker.size(), call);
+    return std::string(kTapHead) + ocioText + main;
+}
+
 template <class T>
 bool makeCb(ID3D11Device *d, ComPtr<ID3D11Buffer> &out)
 {
@@ -257,16 +310,24 @@ struct D3D11ScopeRenderer::Impl {
     ID3D11Device *device = nullptr;
     ComPtr<ID3D11VertexShader>  vs;
     ComPtr<ID3D11PixelShader>   tapSignal;
+    ComPtr<ID3D11PixelShader>   peakSignal;
     ComPtr<ID3D11ComputeShader> accum;
     ComPtr<ID3D11ComputeShader> draw;
     ComPtr<ID3D11SamplerState>  sampler;
     ComPtr<ID3D11Buffer>        accumCb, drawCb;
 
-    // Converted tap PS (OCIOScope inside), keyed on config + colourspace.
-    ComPtr<ID3D11PixelShader> tapConverted;
-    std::vector<LutResource>  luts;
-    QString          convertedKey;
-    InterchangeSide  convertedSide = InterchangeSide::None;
+    // Converted tap / peak PS (OCIOScope inside), one set per side — dual
+    // sides can be interpreted differently — each keyed on config +
+    // colourspace. Same LUTs, slots resolved per shader.
+    struct Conversion {
+        ComPtr<ID3D11PixelShader> tap;
+        ComPtr<ID3D11PixelShader> peak;
+        std::vector<LutResource>  luts;
+        std::vector<LutResource>  peakLuts;
+        QString          key;
+        InterchangeSide  side = InterchangeSide::None;
+    };
+    Conversion conv[2];
 
     // Tap target (reallocated on size change).
     ComPtr<ID3D11Texture2D>          tapTex;
@@ -274,15 +335,21 @@ struct D3D11ScopeRenderer::Impl {
     ComPtr<ID3D11ShaderResourceView> tapSrv;
     int tapW = 0, tapH = 0;
 
-    RawBuffer grid, oog, persist, outPx;
+    // A staging slot = the G² RGBA8 image, then the four peak words
+    // (A level, A channel, B level, B channel).
+    RawBuffer grid, oog, peaks, outPx;
     ComPtr<ID3D11Buffer> staging[kRingSlots];
     bool     stagingPending[kRingSlots] = {false, false, false};
+    int      stagingSides[kRingSlots]   = {0, 0, 0};   // sides with peaks (0 = none)
+    bool     stagingHdr[kRingSlots]     = {false, false, false};
+    bool     stagingMeasured[kRingSlots][2] = {};
     quint64  stagingOrder[kRingSlots]   = {0, 0, 0};
     quint64  submitCount = 0;
 
     mutable std::mutex imageMutex;
-    QImage   latest;
-    quint64  serial = 0;
+    QImage     latest;
+    ScopePeaks latestPeaks;
+    quint64    serial = 0;
 
     ScopeConfig   cfg;
     QElapsedTimer lastUse;
@@ -293,11 +360,11 @@ struct D3D11ScopeRenderer::Impl {
         const UINT g2 = kScopeGrid * kScopeGrid;
         bool ok = grid.create(device, 2 * kScopeCopies * g2 * 4)
                && oog.create(device, 2 * g2 * 4)
-               && persist.create(device, 2 * g2 * 4)
+               && peaks.create(device, 4 * 4)
                && outPx.create(device, g2 * 4);
         for (auto &s : staging) {
             D3D11_BUFFER_DESC bd{};
-            bd.ByteWidth      = g2 * 4;
+            bd.ByteWidth      = g2 * 4 + 4 * 4;
             bd.Usage          = D3D11_USAGE_STAGING;
             bd.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
             ok = ok && SUCCEEDED(device->CreateBuffer(&bd, nullptr, s.GetAddressOf()));
@@ -309,7 +376,7 @@ struct D3D11ScopeRenderer::Impl {
 
     void releaseBuffers()
     {
-        grid.reset(); oog.reset(); persist.reset(); outPx.reset();
+        grid.reset(); oog.reset(); peaks.reset(); outPx.reset();
         for (auto &s : staging) s.Reset();
         for (bool &p : stagingPending) p = false;
         tapSrv.Reset(); tapRtv.Reset(); tapTex.Reset();
@@ -339,43 +406,55 @@ struct D3D11ScopeRenderer::Impl {
         return true;
     }
 
-    bool ensureConverted(OCIOConfigManager *ocio)
+    // Build (or reuse) side `s`'s converted shaders for `colorspace`.
+    // False = unavailable — the caller falls back to Signal for that side.
+    bool ensureConverted(OCIOConfigManager *ocio, int s, const QString &colorspace)
     {
-        if (!ocio || cfg.colorspace.isEmpty()) return false;
-        const QString key = ocio->configIdentifier() + QLatin1Char('|') + cfg.colorspace;
-        if (key == convertedKey) return static_cast<bool>(tapConverted);
-        convertedKey = key;
-        tapConverted.Reset();
-        luts.clear();
+        if (!ocio || colorspace.isEmpty()) return false;
+        Conversion &c = conv[s];
+        const QString key = ocio->configIdentifier() + QLatin1Char('|') + colorspace;
+        if (key == c.key) return c.tap && c.peak;
+        if (conv[1 - s].key == key) {   // the other side already built it
+            c = conv[1 - s];
+            return c.tap && c.peak;
+        }
+        c = Conversion{};
+        c.key = key;
         InterchangeSide side = InterchangeSide::None;
         OcioChain chain = OcioChainBuilder::buildScope(
-            ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0, cfg.colorspace, &side);
+            ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0, colorspace, &side);
         if (!chain.ok) {
             qInfo("D3D11ScopeRenderer: no conversion for '%s' (%s) — Signal",
-                  qPrintable(cfg.colorspace), qPrintable(chain.errorMessage));
+                  qPrintable(colorspace), qPrintable(chain.errorMessage));
             return false;
         }
         QString err;
-        if (!createLuts(device, chain.desc, luts, err)) { luts.clear(); return false; }
-        std::string src = kTapHead;
-        src += chain.shaderText.toStdString();
-        std::string main = kTapMain;
-        const std::string marker = "QCV_SCOPE_CONVERT";
-        main.replace(main.find(marker), marker.size(), "rgb = OCIOScope(float4(rgb, 1.0)).rgb;");
-        src += main;
-        ComPtr<ID3DBlob> blob = compileHlsl(src, "PSMain", "ps_5_0", &err);
-        if (!blob || FAILED(device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(),
-                                                      nullptr, tapConverted.GetAddressOf()))) {
+        if (!createLuts(device, chain.desc, c.luts, err)) { c.luts.clear(); return false; }
+        const std::string ocioText = chain.shaderText.toStdString();
+        const std::string call = "rgb = OCIOScope(float4(rgb, 1.0)).rgb;";
+        ComPtr<ID3DBlob> blob = compileHlsl(tapSource(ocioText, kTapMain, call), "PSMain", "ps_5_0", &err);
+        ComPtr<ID3DBlob> peakBlob =
+            blob ? compileHlsl(tapSource(ocioText, std::string(kScopeCommon) + kPeakPs, call),
+                               "PSMain", "ps_5_0", &err)
+                 : nullptr;
+        if (!blob || !peakBlob
+            || FAILED(device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(),
+                                                nullptr, c.tap.GetAddressOf()))
+            || FAILED(device->CreatePixelShader(peakBlob->GetBufferPointer(), peakBlob->GetBufferSize(),
+                                                nullptr, c.peak.GetAddressOf()))) {
             qWarning("D3D11ScopeRenderer: tap compile failed: %s", qPrintable(err));
-            tapConverted.Reset();
-            luts.clear();
+            c.tap.Reset();
+            c.peak.Reset();
+            c.luts.clear();
             return false;
         }
         int byName = 0, byFallback = 0;
-        resolveLutSlots(blob.Get(), luts, byName, byFallback);
-        convertedSide = side;
+        resolveLutSlots(blob.Get(), c.luts, byName, byFallback);
+        c.peakLuts = c.luts;
+        resolveLutSlots(peakBlob.Get(), c.peakLuts, byName, byFallback);
+        c.side = side;
         qInfo("D3D11ScopeRenderer: conversion built for '%s' (%zu LUTs)",
-              qPrintable(cfg.colorspace), luts.size());
+              qPrintable(colorspace), c.luts.size());
         return true;
     }
 
@@ -390,10 +469,22 @@ struct D3D11ScopeRenderer::Impl {
                 continue;   // still on the GPU
             }
             if (best < 0 || stagingOrder[s] > stagingOrder[best]) {
+                const size_t imageBytes = static_cast<size_t>(kScopeGrid) * kScopeGrid * 4;
                 QImage img(kScopeGrid, kScopeGrid, QImage::Format_RGBA8888_Premultiplied);
-                std::memcpy(img.bits(), m.pData, static_cast<size_t>(kScopeGrid) * kScopeGrid * 4);
+                std::memcpy(img.bits(), m.pData, imageBytes);
+                ScopePeaks pk;
+                pk.sides = stagingSides[s];
+                pk.hdr   = stagingHdr[s];
+                float words[4];
+                std::memcpy(words, static_cast<const char *>(m.pData) + imageBytes, sizeof(words));
+                for (int k = 0; k < pk.sides; ++k) {
+                    pk.measured[k] = stagingMeasured[s][k];
+                    pk.level[k]    = words[2 * k];
+                    pk.channel[k]  = words[2 * k + 1];
+                }
                 std::lock_guard lk(imageMutex);
                 latest = std::move(img);
+                latestPeaks = pk;
                 ++serial;
                 best = s;
             }
@@ -415,12 +506,12 @@ bool D3D11ScopeRenderer::initialize()
     if (!i.device) return false;
     QString err;
     ComPtr<ID3DBlob> vsb = compileHlsl(kVsHlsl, "VSMain", "vs_5_0", &err);
-    std::string tapSrc = std::string(kTapHead) + kTapMain;
-    tapSrc.replace(tapSrc.find("QCV_SCOPE_CONVERT"), std::strlen("QCV_SCOPE_CONVERT"), "");
-    ComPtr<ID3DBlob> psb = compileHlsl(tapSrc, "PSMain", "ps_5_0", &err);
+    ComPtr<ID3DBlob> psb = compileHlsl(tapSource({}, kTapMain, {}), "PSMain", "ps_5_0", &err);
+    ComPtr<ID3DBlob> pkb = compileHlsl(tapSource({}, std::string(kScopeCommon) + kPeakPs, {}),
+                                       "PSMain", "ps_5_0", &err);
     ComPtr<ID3DBlob> acb = compileHlsl(std::string(kScopeCommon) + kAccumCs, "CSMain", "cs_5_0", &err);
     ComPtr<ID3DBlob> drb = compileHlsl(std::string(kScopeCommon) + kDrawCs, "CSMain", "cs_5_0", &err);
-    if (!vsb || !psb || !acb || !drb) {
+    if (!vsb || !psb || !pkb || !acb || !drb) {
         qWarning("D3D11ScopeRenderer: shader compile failed: %s", qPrintable(err));
         return false;
     }
@@ -428,6 +519,8 @@ bool D3D11ScopeRenderer::initialize()
                                                      nullptr, i.vs.GetAddressOf()))
            && SUCCEEDED(i.device->CreatePixelShader(psb->GetBufferPointer(), psb->GetBufferSize(),
                                                     nullptr, i.tapSignal.GetAddressOf()))
+           && SUCCEEDED(i.device->CreatePixelShader(pkb->GetBufferPointer(), pkb->GetBufferSize(),
+                                                    nullptr, i.peakSignal.GetAddressOf()))
            && SUCCEEDED(i.device->CreateComputeShader(acb->GetBufferPointer(), acb->GetBufferSize(),
                                                       nullptr, i.accum.GetAddressOf()))
            && SUCCEEDED(i.device->CreateComputeShader(drb->GetBufferPointer(), drb->GetBufferSize(),
@@ -443,11 +536,10 @@ void D3D11ScopeRenderer::shutdown()
 {
     if (!m_impl) return;
     m_impl->releaseBuffers();
-    m_impl->vs.Reset(); m_impl->tapSignal.Reset(); m_impl->tapConverted.Reset();
+    m_impl->vs.Reset(); m_impl->tapSignal.Reset(); m_impl->peakSignal.Reset();
+    for (auto &c : m_impl->conv) c = Impl::Conversion{};
     m_impl->accum.Reset(); m_impl->draw.Reset();
     m_impl->accumCb.Reset(); m_impl->drawCb.Reset(); m_impl->sampler.Reset();
-    m_impl->luts.clear();
-    m_impl->convertedKey.clear();
     m_impl->device = nullptr;
 }
 
@@ -459,7 +551,11 @@ bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
 {
     Impl &i = *m_impl;
     auto *ctx = static_cast<ID3D11DeviceContext *>(ctxPtr);
-    if (!i.cfg.active || !ctx || !srvAPtr || wA <= 0 || hA <= 0) return false;
+    // Dual: either side can be in a timeline gap; each present side keeps
+    // its own index (colour, interpretation, peaks).
+    const bool hasA = srvAPtr && wA > 0 && hA > 0;
+    const bool hasB = i.cfg.dual && srvBPtr && wB > 0 && hB > 0;
+    if (!i.cfg.active || !ctx || (!hasA && !hasB)) return false;
     if (!i.accum || !i.ensureBuffers()) return false;
     i.lastUse.restart();
     i.collect(ctx);
@@ -471,28 +567,33 @@ bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
     }
     if (slot < 0) return false;
 
-    const bool converted = i.cfg.tier != ScopeTier::Signal && i.ensureConverted(ocio);
+    // Each side in its own interpretation (dual: B's tags can differ).
+    const bool has[2] = {hasA, hasB};
+    const ScopeConfig sideCfg[2] = {i.cfg.forSide(0), i.cfg.forSide(1)};
+    bool converted[2] = {false, false};
+    for (int s = 0; s < 2; ++s) {
+        converted[s] = has[s] && sideCfg[s].tier != ScopeTier::Signal
+                       && i.ensureConverted(ocio, s, sideCfg[s].colorspace);
+    }
+    static const std::vector<LutResource> kNoLuts;
+    const bool wantPeaks = i.cfg.kind == ScopeKind::Waveform;
     const UINT zeros[4] = {0, 0, 0, 0};
     ctx->ClearUnorderedAccessViewUint(i.grid.uav.Get(), zeros);
     ctx->ClearUnorderedAccessViewUint(i.oog.uav.Get(), zeros);
+    if (wantPeaks) ctx->ClearUnorderedAccessViewUint(i.peaks.uav.Get(), zeros);
 
     auto tapSize = [](int w, int h, int &tw, int &th) {
         tw = std::min(w, kScopeMaxTapWidth);
         th = std::max(1, static_cast<int>(std::lround(static_cast<double>(h) * tw / w)));
     };
-    int pixelsA = 0;
-    auto runSide = [&](ID3D11ShaderResourceView *srv, int w, int h, int side) {
-        int tw = 0, th = 0;
-        tapSize(w, h, tw, th);
-        if (side == 0) pixelsA = tw * th;
-        if (!i.ensureTap(tw, th)) return;
-
-        // 1. Tap (+ OCIOScope) into the RGBA16F target.
-        ID3D11RenderTargetView *rtv = i.tapRtv.Get();
-        ctx->OMSetRenderTargets(1, &rtv, nullptr);
+    // A full-screen triangle over a w × h viewport with `ps`, the source
+    // and the LUTs (converted; none for Signal) at the slots `luts`
+    // resolved for `ps`.
+    auto drawTap = [&](ID3D11PixelShader *ps, const std::vector<LutResource> &luts,
+                       ID3D11ShaderResourceView *srv, int w, int h) {
         D3D11_VIEWPORT vp{};
-        vp.Width = static_cast<float>(tw);
-        vp.Height = static_cast<float>(th);
+        vp.Width = static_cast<float>(w);
+        vp.Height = static_cast<float>(h);
         vp.MaxDepth = 1.0f;
         ctx->RSSetViewports(1, &vp);
         ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -500,20 +601,18 @@ bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
         ctx->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
         ctx->RSSetState(nullptr);
         ctx->VSSetShader(i.vs.Get(), nullptr, 0);
-        ctx->PSSetShader(converted ? i.tapConverted.Get() : i.tapSignal.Get(), nullptr, 0);
+        ctx->PSSetShader(ps, nullptr, 0);
         ID3D11ShaderResourceView *srvs[16] = {srv};
         ID3D11SamplerState *smps[16] = {i.sampler.Get()};
         UINT n = 1;
-        if (converted) {
-            for (const auto &lut : i.luts) {
-                if (lut.texSlot >= 0 && lut.texSlot < 16) {
-                    srvs[lut.texSlot] = lut.srv.Get();
-                    n = std::max(n, static_cast<UINT>(lut.texSlot + 1));
-                }
-                if (lut.smpSlot >= 0 && lut.smpSlot < 16) {
-                    smps[lut.smpSlot] = lut.sampler.Get();
-                    n = std::max(n, static_cast<UINT>(lut.smpSlot + 1));
-                }
+        for (const auto &lut : luts) {
+            if (lut.texSlot >= 0 && lut.texSlot < 16) {
+                srvs[lut.texSlot] = lut.srv.Get();
+                n = std::max(n, static_cast<UINT>(lut.texSlot + 1));
+            }
+            if (lut.smpSlot >= 0 && lut.smpSlot < 16) {
+                smps[lut.smpSlot] = lut.sampler.Get();
+                n = std::max(n, static_cast<UINT>(lut.smpSlot + 1));
             }
         }
         ctx->PSSetShaderResources(0, n, srvs);
@@ -521,11 +620,25 @@ bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
         ctx->Draw(3, 0);
         ID3D11ShaderResourceView *nullSrvs[16] = {};
         ctx->PSSetShaderResources(0, n, nullSrvs);
+    };
+    int pixels = 0;   // draw gain: the first present side's tap size
+    auto runSide = [&](ID3D11ShaderResourceView *srv, int w, int h, int side) {
+        int tw = 0, th = 0;
+        tapSize(w, h, tw, th);
+        if (pixels == 0) pixels = tw * th;
+        if (!i.ensureTap(tw, th)) return;
+
+        // 1. Tap (+ OCIOScope) into the RGBA16F target.
+        ID3D11RenderTargetView *rtv = i.tapRtv.Get();
+        ctx->OMSetRenderTargets(1, &rtv, nullptr);
+        const Impl::Conversion &c = i.conv[side];
+        const bool conv = converted[side];
+        drawTap(conv ? c.tap.Get() : i.tapSignal.Get(), conv ? c.luts : kNoLuts, srv, tw, th);
         ctx->OMSetRenderTargets(0, nullptr, nullptr);
 
         // 2. Accumulate.
-        const ScopeAccumGpu u = scope_math::resolveAccum(
-            i.cfg, converted ? i.convertedSide : InterchangeSide::None, converted, tw, th, side);
+        ScopeAccumGpu u = scope_math::resolveAccum(
+            sideCfg[side], conv ? c.side : InterchangeSide::None, conv, tw, th, side);
         upload(ctx, i.accumCb.Get(), u);
         ctx->CSSetShader(i.accum.Get(), nullptr, 0);
         ID3D11Buffer *cb = i.accumCb.Get();
@@ -539,26 +652,50 @@ bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
         ctx->CSSetShaderResources(0, 1, &nullSrv);
         ID3D11UnorderedAccessView *nullUavs[2] = {};
         ctx->CSSetUnorderedAccessViews(0, 2, nullUavs, nullptr);
-    };
-    runSide(static_cast<ID3D11ShaderResourceView *>(srvAPtr), wA, hA, 0);
-    const bool dual = i.cfg.dual && srvBPtr && wB > 0 && hB > 0;
-    if (dual) runSide(static_cast<ID3D11ShaderResourceView *>(srvBPtr), wB, hB, 1);
 
-    // 3. Draw into the raw image buffer, then copy to a staging slot.
-    const ScopeDrawGpu d = scope_math::resolveDraw(i.cfg, pixelsA);
+        // 3. Waveform peaks over the full source (the tap would average
+        //    small highlights away): UAV only, no render target.
+        if (wantPeaks) {
+            u.p1[1] = static_cast<float>(w);
+            u.p1[2] = static_cast<float>(h);
+            u.p2[2] = 1.0f;
+            upload(ctx, i.accumCb.Get(), u);
+            ctx->PSSetConstantBuffers(0, 1, &cb);
+            ID3D11UnorderedAccessView *pu = i.peaks.uav.Get();
+            ctx->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 0, 1, &pu, nullptr);
+            drawTap(conv ? c.peak.Get() : i.peakSignal.Get(), conv ? c.peakLuts : kNoLuts, srv, w, h);
+            ID3D11UnorderedAccessView *nullUav = nullptr;
+            ctx->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 0, 1, &nullUav, nullptr);
+            ID3D11Buffer *nullCb = nullptr;
+            ctx->PSSetConstantBuffers(0, 1, &nullCb);
+        }
+    };
+    if (hasA) runSide(static_cast<ID3D11ShaderResourceView *>(srvAPtr), wA, hA, 0);
+    if (hasB) runSide(static_cast<ID3D11ShaderResourceView *>(srvBPtr), wB, hB, 1);
+
+    // 4. Draw into the raw image buffer, then copy it (and the peaks) to
+    //    a staging slot.
+    const ScopeDrawGpu d = scope_math::resolveDraw(i.cfg, pixels);
     upload(ctx, i.drawCb.Get(), d);
     ctx->CSSetShader(i.draw.Get(), nullptr, 0);
     ID3D11Buffer *dcb = i.drawCb.Get();
     ctx->CSSetConstantBuffers(0, 1, &dcb);
-    ID3D11UnorderedAccessView *duavs[4] = {i.grid.uav.Get(), i.oog.uav.Get(),
-                                           i.persist.uav.Get(), i.outPx.uav.Get()};
-    ctx->CSSetUnorderedAccessViews(0, 4, duavs, nullptr);
+    ID3D11UnorderedAccessView *duavs[3] = {i.grid.uav.Get(), i.oog.uav.Get(), i.outPx.uav.Get()};
+    ctx->CSSetUnorderedAccessViews(0, 3, duavs, nullptr);
     ctx->Dispatch(kScopeGrid / 16, kScopeGrid / 16, 1);
-    ID3D11UnorderedAccessView *nullUavs[4] = {};
-    ctx->CSSetUnorderedAccessViews(0, 4, nullUavs, nullptr);
+    ID3D11UnorderedAccessView *nullUavs[3] = {};
+    ctx->CSSetUnorderedAccessViews(0, 3, nullUavs, nullptr);
     ctx->CSSetShader(nullptr, nullptr, 0);
 
-    ctx->CopyResource(i.staging[slot].Get(), i.outPx.buf.Get());
+    ctx->CopySubresourceRegion(i.staging[slot].Get(), 0, 0, 0, 0, i.outPx.buf.Get(), 0, nullptr);
+    if (wantPeaks) {
+        ctx->CopySubresourceRegion(i.staging[slot].Get(), 0, kScopeGrid * kScopeGrid * 4, 0, 0,
+                                   i.peaks.buf.Get(), 0, nullptr);
+    }
+    i.stagingSides[slot] = wantPeaks ? (i.cfg.dual ? 2 : 1) : 0;
+    i.stagingMeasured[slot][0] = hasA;
+    i.stagingMeasured[slot][1] = hasB;
+    i.stagingHdr[slot] = i.cfg.scale == ScopeScale::Hdr;
     i.stagingPending[slot] = true;
     i.stagingOrder[slot]   = ++i.submitCount;
     return true;
@@ -570,11 +707,12 @@ void D3D11ScopeRenderer::collectPending(void *ctxPtr)
     if (ctx && m_impl->grid.buf) m_impl->collect(ctx);
 }
 
-bool D3D11ScopeRenderer::latestImage(QImage *out, quint64 *serial) const
+bool D3D11ScopeRenderer::latestImage(QImage *out, quint64 *serial, ScopePeaks *peaks) const
 {
     std::lock_guard lk(m_impl->imageMutex);
     if (m_impl->latest.isNull()) return false;
     if (out) *out = m_impl->latest;
+    if (peaks) *peaks = m_impl->latestPeaks;
     if (serial) *serial = m_impl->serial;
     return true;
 }

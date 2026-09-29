@@ -51,10 +51,23 @@ static float3 qs_ycc(float3 e, int m)
     float y = kr * e.r + (1.0 - kr - kb) * e.g + kb * e.b;
     return float3(y, (e.b - y) / (2.0 * (1.0 - kb)), (e.r - y) / (2.0 * (1.0 - kr)));
 }
+
+// A peak value as orderable uint bits: NaN (tested on the bits — fast
+// math may fold isnan), negatives and −0 → 0, capped at 1e6.
+static uint qs_peakBits(float v)
+{
+    uint b = as_type<uint>(v);
+    if ((b & 0x7fffffffu) > 0x7f800000u) return 0u;
+    v = min(v, 1e6);
+    return v > 0.0 ? as_type<uint>(v) : 0u;
+}
 )";
 
 // Accumulate kernel, split so the converted variant can splice the OCIO
-// function's arguments and call in. Mirrors scope_math::bin().
+// function's arguments and call in. Mirrors scope_math::classify() /
+// bin(). With p2.z = 1 it is the waveform's peak pass instead: every
+// source pixel, atomic max of the level and the brightest channel (float
+// bits — non-negative, so uint order = float order), no binning.
 constexpr const char *kAccumPrefix = R"(
 kernel void scope_accum(
     texture2d<float, access::sample> src     [[texture(0)]],
@@ -65,6 +78,7 @@ constexpr const char *kAccumBodyHead = R"(
     constant ScopeAccum &u          [[buffer(0)]],
     device atomic_uint  *grid       [[buffer(1)]],
     device atomic_uint  *oog        [[buffer(2)]],
+    device atomic_uint  *peaks      [[buffer(3)]],
     uint2 gid [[thread_position_in_grid]],
     uint2 tg  [[threadgroup_position_in_grid]])
 {
@@ -76,7 +90,7 @@ constexpr const char *kAccumBodyHead = R"(
     float3 rgb = c.rgb;
     float3 ycc;
     bool outside = false;
-    float nits = 0.0;
+    float nits = 0.0, chan = 0.0;
     if (u.p0.x > 0.5) {
 )";
 
@@ -89,10 +103,12 @@ constexpr const char *kAccumBodyTail = R"(
             outside = any(l7 < -0.002);
             float3 e = float3(qs_spow(l7.r, 1.0 / 2.4), qs_spow(l7.g, 1.0 / 2.4),
                               qs_spow(l7.b, 1.0 / 2.4));
+            chan = max(e.r, max(e.g, e.b));
             ycc = qs_ycc(e, 1);
         } else {
             outside = any(l < -0.002);
             nits = 100.0 * dot(float3(0.2627, 0.6780, 0.0593), l);
+            chan = 100.0 * max(l.r, max(l.g, l.b));
             float3 e = sign(l) * float3(qs_pq(abs(l.r) * 0.01), qs_pq(abs(l.g) * 0.01),
                                         qs_pq(abs(l.b) * 0.01));
             ycc = qs_ycc(e, 2);
@@ -102,7 +118,16 @@ constexpr const char *kAccumBodyTail = R"(
         if (u.p1.x > 0.5) {
             e = float3(qs_spow(e.r, 1.0 / 2.4), qs_spow(e.g, 1.0 / 2.4), qs_spow(e.b, 1.0 / 2.4));
         }
+        chan = max(e.r, max(e.g, e.b));
         ycc = qs_ycc(e, int(u.p0.w));
+    }
+    if (u.p2.z > 0.5) {
+        bool hdr = u.p0.x > 0.5 && u.p0.y > 0.5;
+        uint side = uint(u.p1.w);
+        atomic_fetch_max_explicit(&peaks[side * 2u], qs_peakBits(hdr ? nits : ycc.x),
+                                  memory_order_relaxed);
+        atomic_fetch_max_explicit(&peaks[side * 2u + 1u], qs_peakBits(chan), memory_order_relaxed);
+        return;
     }
     int bx, by;
     if (u.p2.x > 0.5) {
@@ -133,9 +158,8 @@ constexpr const char *kDrawKernel = R"(
 kernel void scope_draw(
     device const uint *grid    [[buffer(0)]],
     device const uint *oog     [[buffer(1)]],
-    device float      *persist [[buffer(2)]],
-    device uint       *outPx   [[buffer(3)]],
-    constant ScopeDraw &u      [[buffer(4)]],
+    device uint       *outPx   [[buffer(2)]],
+    constant ScopeDraw &u      [[buffer(3)]],
     uint2 gid [[thread_position_in_grid]])
 {
     if (gid.x >= uint(G) || gid.y >= uint(G)) return;
@@ -165,9 +189,6 @@ kernel void scope_draw(
             }
         }
         I = max(I, 0.6 * halo);
-        uint pi = uint(s) * uint(G * G) + cell;
-        if (u.p0.z > 0.0) I = max(I, persist[pi] * u.p0.z);
-        persist[pi] = I;
         float3 tint;
         if (sides == 2) {
             tint = s == 0 ? float3(0.30, 0.85, 1.0) : float3(1.0, 0.62, 0.25);
@@ -226,18 +247,25 @@ struct MetalScopeRenderer::Impl {
     id<MTLComputePipelineState> accumSignal = nil;
     id<MTLComputePipelineState> draw        = nil;
 
-    // Converted variant (OCIOScope inside), keyed on config + colourspace.
-    id<MTLComputePipelineState> accumConverted = nil;
-    std::vector<id<MTLTexture>> luts;
-    QString          convertedKey;
-    InterchangeSide  convertedSide = InterchangeSide::None;
-    bool             convertedFailed = false;
+    // Converted variants (OCIOScope inside), one per side — dual sides
+    // can be interpreted differently — each keyed on config + colourspace.
+    struct Conversion {
+        id<MTLComputePipelineState> accum = nil;
+        std::vector<id<MTLTexture>> luts;
+        QString         key;
+        InterchangeSide side = InterchangeSide::None;
+    };
+    Conversion conv[2];
 
-    // Buffers (lazy; ~15 MB).
+    // Buffers (lazy; ~13 MB). A ring slot = the G² RGBA8 image, then the
+    // four peak words (A level, A channel, B level, B channel).
     id<MTLBuffer> grid    = nil;   // 2 sides × COPIES × G² uint
     id<MTLBuffer> oog     = nil;   // 2 sides × G² uint
-    id<MTLBuffer> persist = nil;   // 2 sides × G² float
+    id<MTLBuffer> peaks   = nil;   // 4 uint (float bits)
     id<MTLBuffer> ring[kRingSlots] = {nil, nil, nil};
+    int  slotSides[kRingSlots] = {0, 0, 0};   // sides with peaks (0 = none)
+    bool slotHdr[kRingSlots]   = {false, false, false};
+    bool slotMeasured[kRingSlots][2] = {};
 
     mutable std::mutex ringMutex;
     int  latest = -1;
@@ -254,9 +282,11 @@ struct MetalScopeRenderer::Impl {
         const NSUInteger g2 = static_cast<NSUInteger>(kScopeGrid) * kScopeGrid;
         grid    = [device newBufferWithLength:2 * kScopeCopies * g2 * 4 options:MTLResourceStorageModePrivate];
         oog     = [device newBufferWithLength:2 * g2 * 4 options:MTLResourceStorageModePrivate];
-        persist = [device newBufferWithLength:2 * g2 * 4 options:MTLResourceStorageModePrivate];
-        for (auto &r : ring) r = [device newBufferWithLength:g2 * 4 options:MTLResourceStorageModeShared];
-        if (!grid || !oog || !persist || !ring[0] || !ring[1] || !ring[2]) {
+        peaks   = [device newBufferWithLength:4 * 4 options:MTLResourceStorageModePrivate];
+        for (auto &r : ring) {
+            r = [device newBufferWithLength:g2 * 4 + 4 * 4 options:MTLResourceStorageModeShared];
+        }
+        if (!grid || !oog || !peaks || !ring[0] || !ring[1] || !ring[2]) {
             releaseBuffers();
             return false;
         }
@@ -267,44 +297,51 @@ struct MetalScopeRenderer::Impl {
     void releaseBuffers()
     {
         std::lock_guard lk(ringMutex);
-        grid = nil; oog = nil; persist = nil;
+        grid = nil; oog = nil; peaks = nil;
         for (auto &r : ring) r = nil;
         latest = -1;
         for (bool &f : inFlight) f = false;
     }
 
-    // Build (or reuse) the converted accumulate pipeline for the config's
-    // colourspace. False = unavailable (data colourspace, no role, compile
-    // error) — the caller falls back to Signal.
-    bool ensureConverted(OCIOConfigManager *ocio)
+    // Build (or reuse) side `s`'s converted accumulate pipeline for
+    // `colorspace`. False = unavailable (data colourspace, no role, compile
+    // error) — the caller falls back to Signal for that side.
+    bool ensureConverted(OCIOConfigManager *ocio, int s, const QString &colorspace)
     {
-        if (!ocio || cfg.colorspace.isEmpty()) return false;
-        const QString key = ocio->configIdentifier() + QLatin1Char('|') + cfg.colorspace;
-        if (key == convertedKey) return accumConverted != nil;
-        convertedKey = key;
-        accumConverted = nil;
-        luts.clear();
+        if (!ocio || colorspace.isEmpty()) return false;
+        Conversion &c = conv[s];
+        const QString key = ocio->configIdentifier() + QLatin1Char('|') + colorspace;
+        if (key == c.key) return c.accum != nil;
+        if (conv[1 - s].key == key) {   // the other side already built it
+            c = conv[1 - s];
+            return c.accum != nil;
+        }
+        c = Conversion{};
+        c.key = key;
         InterchangeSide side = InterchangeSide::None;
         OcioChain chain = OcioChainBuilder::buildScope(
-            ocio, OcioChainBuilder::Language::Msl_2_0, cfg.colorspace, &side);
+            ocio, OcioChainBuilder::Language::Msl_2_0, colorspace, &side);
         if (!chain.ok) {
             qInfo("MetalScopeRenderer: no conversion for '%s' (%s) — Signal",
-                  qPrintable(cfg.colorspace), qPrintable(chain.errorMessage));
+                  qPrintable(colorspace), qPrintable(chain.errorMessage));
             return false;
         }
         int nextTex = 1;   // 0 = src
         QString args, call, err;
-        if (!gatherLuts(device, chain.desc, nextTex, luts, args, call, err)) return false;
+        if (!gatherLuts(device, chain.desc, nextTex, c.luts, args, call, err)) {
+            c.luts.clear();
+            return false;
+        }
         const QString src =
             QString::fromUtf8(kScopeHeader) + chain.shaderText
             + QString::fromUtf8(kAccumPrefix) + args + QString::fromUtf8(kAccumBodyHead)
             + QStringLiteral("        rgb = OCIOScope(%1float4(rgb, 1.0)).rgb;\n").arg(call)
             + QString::fromUtf8(kAccumBodyTail);
-        accumConverted = compile(device, src, @"scope_accum", err);
-        if (!accumConverted) { luts.clear(); return false; }
-        convertedSide = side;
+        c.accum = compile(device, src, @"scope_accum", err);
+        if (!c.accum) { c.luts.clear(); return false; }
+        c.side = side;
         qInfo("MetalScopeRenderer: conversion built for '%s' (%zu LUTs)",
-              qPrintable(cfg.colorspace), luts.size());
+              qPrintable(colorspace), c.luts.size());
         return true;
     }
 };
@@ -341,10 +378,8 @@ void MetalScopeRenderer::shutdown()
     if (!m_impl) return;
     m_impl->releaseBuffers();
     m_impl->accumSignal = nil;
-    m_impl->accumConverted = nil;
     m_impl->draw = nil;
-    m_impl->luts.clear();
-    m_impl->convertedKey.clear();
+    for (auto &c : m_impl->conv) c = Impl::Conversion{};
     m_impl->device = nil;
 }
 
@@ -359,7 +394,11 @@ bool MetalScopeRenderer::encode(void *cmdBufPtr, OCIOConfigManager *ocio,
                                 void *srcBPtr, int wB, int hB)
 {
     Impl &i = *m_impl;
-    if (!i.cfg.active || !cmdBufPtr || !srcAPtr || wA <= 0 || hA <= 0) return false;
+    // Dual: either side can be in a timeline gap; each present side keeps
+    // its own index (colour, interpretation, peaks).
+    const bool hasA = srcAPtr && wA > 0 && hA > 0;
+    const bool hasB = i.cfg.dual && srcBPtr && wB > 0 && hB > 0;
+    if (!i.cfg.active || !cmdBufPtr || (!hasA && !hasB)) return false;
     if (!i.accumSignal || !i.draw || !i.ensureBuffers()) return false;
     i.lastUse.restart();
 
@@ -375,22 +414,30 @@ bool MetalScopeRenderer::encode(void *cmdBufPtr, OCIOConfigManager *ocio,
         i.inFlight[slot] = true;
     }
 
-    const bool converted = i.cfg.tier != ScopeTier::Signal && i.ensureConverted(ocio);
-    id<MTLComputePipelineState> accum = converted ? i.accumConverted : i.accumSignal;
+    // Each side in its own interpretation (dual: B's tags can differ).
+    const bool has[2] = {hasA, hasB};
+    const ScopeConfig sideCfg[2] = {i.cfg.forSide(0), i.cfg.forSide(1)};
+    bool converted[2] = {false, false};
+    for (int s = 0; s < 2; ++s) {
+        converted[s] = has[s] && sideCfg[s].tier != ScopeTier::Signal
+                       && i.ensureConverted(ocio, s, sideCfg[s].colorspace);
+    }
     id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)cmdBufPtr;
 
     id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
     [blit fillBuffer:i.grid range:NSMakeRange(0, i.grid.length) value:0];
     [blit fillBuffer:i.oog  range:NSMakeRange(0, i.oog.length)  value:0];
+    [blit fillBuffer:i.peaks range:NSMakeRange(0, i.peaks.length) value:0];
     [blit endEncoding];
 
     auto tapSize = [](int w, int h, int &tw, int &th) {
         tw = std::min(w, kScopeMaxTapWidth);
         th = std::max(1, static_cast<int>(std::lround(static_cast<double>(h) * tw / w)));
     };
+    // Draw gain from the first present side's tap size.
     int tapWA = 0, tapHA = 0;
-    tapSize(wA, hA, tapWA, tapHA);
-    if (qEnvironmentVariableIsSet("QCV_SCOPE_DEBUG")) {
+    tapSize(hasA ? wA : wB, hasA ? hA : hB, tapWA, tapHA);
+    if (hasA && qEnvironmentVariableIsSet("QCV_SCOPE_DEBUG")) {
         static int n = 0;
         if (n++ < 3) {
             id<MTLTexture> t = (__bridge id<MTLTexture>)srcAPtr;
@@ -403,26 +450,38 @@ bool MetalScopeRenderer::encode(void *cmdBufPtr, OCIOConfigManager *ocio,
     }
 
     id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
-    [enc setComputePipelineState:accum];
     [enc setSamplerState:i.sampler atIndex:0];
-    if (converted) {
-        int t = 1;
-        for (id<MTLTexture> lut : i.luts) [enc setTexture:lut atIndex:t++];
-    }
     [enc setBuffer:i.grid offset:0 atIndex:1];
     [enc setBuffer:i.oog  offset:0 atIndex:2];
+    [enc setBuffer:i.peaks offset:0 atIndex:3];
+    // Waveform: a peak pass per side over the full source (the tap would
+    // average small highlights away).
+    const bool wantPeaks = i.cfg.kind == ScopeKind::Waveform;
     auto dispatchSide = [&](void *srcPtr, int w, int h, int side) {
         int tw = 0, th = 0;
         tapSize(w, h, tw, th);
-        const ScopeAccumGpu u = scope_math::resolveAccum(
-            i.cfg, converted ? i.convertedSide : InterchangeSide::None, converted, tw, th, side);
+        const Impl::Conversion &c = i.conv[side];
+        [enc setComputePipelineState:converted[side] ? c.accum : i.accumSignal];
+        if (converted[side]) {
+            int t = 1;
+            for (id<MTLTexture> lut : c.luts) [enc setTexture:lut atIndex:t++];
+        }
+        ScopeAccumGpu u = scope_math::resolveAccum(
+            sideCfg[side], converted[side] ? c.side : InterchangeSide::None, converted[side],
+            tw, th, side);
         [enc setTexture:(__bridge id<MTLTexture>)srcPtr atIndex:0];
         [enc setBytes:&u length:sizeof(u) atIndex:0];
         [enc dispatchThreads:MTLSizeMake(tw, th, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+        if (wantPeaks) {
+            u.p1[1] = static_cast<float>(w);
+            u.p1[2] = static_cast<float>(h);
+            u.p2[2] = 1.0f;
+            [enc setBytes:&u length:sizeof(u) atIndex:0];
+            [enc dispatchThreads:MTLSizeMake(w, h, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+        }
     };
-    dispatchSide(srcAPtr, wA, hA, 0);
-    const bool dual = i.cfg.dual && srcBPtr && wB > 0 && hB > 0;
-    if (dual) dispatchSide(srcBPtr, wB, hB, 1);
+    if (hasA) dispatchSide(srcAPtr, wA, hA, 0);
+    if (hasB) dispatchSide(srcBPtr, wB, hB, 1);
 
     ScopeConfig drawCfg = i.cfg;
     drawCfg.dual = i.cfg.dual;
@@ -430,12 +489,21 @@ bool MetalScopeRenderer::encode(void *cmdBufPtr, OCIOConfigManager *ocio,
     [enc setComputePipelineState:i.draw];
     [enc setBuffer:i.grid       offset:0 atIndex:0];
     [enc setBuffer:i.oog        offset:0 atIndex:1];
-    [enc setBuffer:i.persist    offset:0 atIndex:2];
-    [enc setBuffer:i.ring[slot] offset:0 atIndex:3];
-    [enc setBytes:&d length:sizeof(d) atIndex:4];
+    [enc setBuffer:i.ring[slot] offset:0 atIndex:2];
+    [enc setBytes:&d length:sizeof(d) atIndex:3];
     [enc dispatchThreads:MTLSizeMake(kScopeGrid, kScopeGrid, 1)
         threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
     [enc endEncoding];
+    if (wantPeaks) {
+        id<MTLBlitCommandEncoder> copy = [cb blitCommandEncoder];
+        [copy copyFromBuffer:i.peaks sourceOffset:0 toBuffer:i.ring[slot]
+             destinationOffset:static_cast<NSUInteger>(kScopeGrid) * kScopeGrid * 4 size:4 * 4];
+        [copy endEncoding];
+    }
+    i.slotSides[slot] = wantPeaks ? (i.cfg.dual ? 2 : 1) : 0;
+    i.slotMeasured[slot][0] = hasA;
+    i.slotMeasured[slot][1] = hasB;
+    i.slotHdr[slot] = i.cfg.scale == ScopeScale::Hdr;
 
     Impl *impl = m_impl.get();
     [cb addCompletedHandler:^(id<MTLCommandBuffer>) {
@@ -449,7 +517,7 @@ bool MetalScopeRenderer::encode(void *cmdBufPtr, OCIOConfigManager *ocio,
     return true;
 }
 
-bool MetalScopeRenderer::latestImage(QImage *out, quint64 *serialOut) const
+bool MetalScopeRenderer::latestImage(QImage *out, quint64 *serialOut, ScopePeaks *peaks) const
 {
     Impl &i = *m_impl;
     int slot;
@@ -462,8 +530,21 @@ bool MetalScopeRenderer::latestImage(QImage *out, quint64 *serialOut) const
         i.reading = slot;
         if (serialOut) *serialOut = i.serial.load();
     }
+    const size_t imageBytes = static_cast<size_t>(kScopeGrid) * kScopeGrid * 4;
     QImage img(kScopeGrid, kScopeGrid, QImage::Format_RGBA8888_Premultiplied);
-    std::memcpy(img.bits(), buf.contents, static_cast<size_t>(kScopeGrid) * kScopeGrid * 4);
+    std::memcpy(img.bits(), buf.contents, imageBytes);
+    if (peaks) {
+        float words[4];
+        std::memcpy(words, static_cast<const char *>(buf.contents) + imageBytes, sizeof(words));
+        *peaks = ScopePeaks{};
+        peaks->sides = i.slotSides[slot];
+        peaks->hdr   = i.slotHdr[slot];
+        for (int s = 0; s < peaks->sides; ++s) {
+            peaks->measured[s] = i.slotMeasured[slot][s];
+            peaks->level[s]    = words[2 * s];
+            peaks->channel[s]  = words[2 * s + 1];
+        }
+    }
     {
         std::lock_guard lk(i.ringMutex);
         i.reading = -1;

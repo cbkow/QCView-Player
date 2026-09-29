@@ -666,13 +666,18 @@ int main(int argc, char *argv[])
         qcv::startSparkleUpdater();
     });
 
-    // Dev aid: QCV_START_SECONDS=<s> seeks there ~2.5 s after launch — for
-    // checking a specific frame (scopes, picture) without driving the UI.
+    // Dev aid: QCV_START_SECONDS=<s>[,<s>…] seeks to each time in turn,
+    // the first ~3 s after launch, then every 2 s — for checking specific
+    // frames (scopes, picture, dual gaps) without driving the UI.
     if (qEnvironmentVariableIsSet("QCV_START_SECONDS")) {
-        const double startSeconds = qEnvironmentVariable("QCV_START_SECONDS").toDouble();
-        QTimer::singleShot(2500, &windowManager, [&windowManager, startSeconds] {
-            windowManager.seekToTime(startSeconds);
-        });
+        const QStringList times = qEnvironmentVariable("QCV_START_SECONDS").split(QLatin1Char(','));
+        for (int k = 0; k < times.size(); ++k) {
+            const double seconds = times.at(k).toDouble();
+            QTimer::singleShot(3000 + 2000 * k, &windowManager, [&windowManager, seconds] {
+                qInfo("QCV_START_SECONDS: seek %.2f", seconds);
+                windowManager.seekToTime(seconds);
+            });
+        }
     }
 
     // Phase 7.7 Stage 3 — developer test entry. If `--dual-test PATH_A
