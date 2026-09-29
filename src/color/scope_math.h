@@ -56,6 +56,8 @@ struct ScopeConfig {
     bool       active = false;
     ScopeTier  tier = ScopeTier::Signal;
     QString    colorspace;               // Assumed / Input: the resolved colourspace
+    QString    configPath;               // "" = the live config; else the built-in
+                                         // fallback that names `colorspace`
     ScopeScale scale = ScopeScale::Sdr;
     int        signalMatrix = 1;         // Signal tier: 0 = BT.601, 1 = BT.709, 2 = BT.2020
     bool       signalNominalCurve = false; // Signal tier, linear RGB source
@@ -64,11 +66,14 @@ struct ScopeConfig {
     bool       colorize = false;
     bool       dual = false;             // A + B overlay (cyan / orange)
     int        waveformPeakNits = 1000;  // waveform HDR scale: top of the face, nits
+    quint32    peakEpoch = 0;            // ScopeController's peak reset count, echoed
+                                         // back in ScopePeaks (drops in-flight images)
 
     // Dual: side B's own interpretation (its tags can differ from A's —
     // an SDR B beside a PQ A). The scale stays shared.
     ScopeTier  tierB = ScopeTier::Signal;
     QString    colorspaceB;
+    QString    configPathB;
     int        signalMatrixB = 1;
     bool       signalNominalCurveB = false;
 
@@ -80,6 +85,7 @@ struct ScopeConfig {
         if (side == 1) {
             c.tier = tierB;
             c.colorspace = colorspaceB;
+            c.configPath = configPathB;
             c.signalMatrix = signalMatrixB;
             c.signalNominalCurve = signalNominalCurveB;
         }
@@ -102,6 +108,8 @@ struct ScopeAccumGpu {
 struct ScopePeaks {
     int   sides = 0;          // layout: 0 = none, 1, or 2 (dual)
     bool  measured[2] = {false, false};   // false = that side in a timeline gap
+    quint64 frameStamp = 0;   // renderer's displayed-frame count when measured
+    quint32 epoch = 0;        // the config's peakEpoch it was measured under
     bool  hdr = false;
     float level[2]   = {0.0f, 0.0f};
     float channel[2] = {0.0f, 0.0f};

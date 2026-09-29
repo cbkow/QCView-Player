@@ -126,6 +126,9 @@ public:
     // config.kind, each with its own renderer and image. The waveform's
     // image carries its full-resolution peaks (`peaks`, optional).
     virtual void setScopeConfig(const ScopeConfig & /*config*/) {}
+    // New frames taken for display so far (either side); scope images
+    // carry the count they were measured at (ScopePeaks::frameStamp).
+    virtual quint64 displayedFrameCount() const { return 0; }
     virtual bool scopeImage(QImage * /*out*/, quint64 * /*serial*/,
                             ScopeKind /*kind*/ = ScopeKind::Vectorscope,
                             ScopePeaks * /*peaks*/ = nullptr) { return false; }

@@ -26,13 +26,27 @@ ColumnLayout {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeTiny
             font.bold: true
+            // Two lines: where the reading came from ("built-in config",
+            // the A / B pair) is the part that must not be cut.
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
             elide: Text.ElideRight
         }
+        // Signal values, not this screen's light: PQ is absolute, SDR
+        // white sits at its 100-nit reference. The display shows both at
+        // whatever its own settings say (macOS EDR, Windows SDR slider).
         Text {
-            text: !root.scope ? "" : (root.scope.waveformHdr ? qsTr("nits") : qsTr("% Y′"))
+            Layout.alignment: Qt.AlignTop
+            text: !root.scope ? "" : (root.scope.waveformHdr ? qsTr("nits · reference") : qsTr("% Y′"))
             color: Theme.textMuted
             font.family: Theme.monoFamily
             font.pixelSize: Theme.fontSizeMono
+            HoverHandler { id: unitHover }
+            FlatToolTip {
+                visible: unitHover.hovered && root.scope && root.scope.waveformHdr
+                text: qsTr("What the file encodes on a reference display, not what this "
+                           + "screen emits. SDR white = 100 nits (BT.1886 reference).")
+            }
         }
     }
 

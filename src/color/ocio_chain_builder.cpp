@@ -299,16 +299,17 @@ OCIO::TransformRcPtr OcioChainBuilder::buildScopeTransform(
 }
 
 OcioChain OcioChainBuilder::buildScope(OCIOConfigManager *ocio, Language language,
-                                       const QString &colorspace, InterchangeSide *sideOut)
+                                       const QString &colorspace, InterchangeSide *sideOut,
+                                       const QString &configPath)
 {
     OcioChain out;
-    if (!ocio) {
+    if (!ocio && configPath.isEmpty()) {
         out.errorMessage = QStringLiteral("OcioChainBuilder: null OCIOConfigManager");
         return out;
     }
     try {
-        OCIO::ConstConfigRcPtr cfg = OCIO::Config::CreateFromFile(
-            ocio->configIdentifier().toUtf8().constData());
+        const QString path = configPath.isEmpty() ? ocio->configIdentifier() : configPath;
+        OCIO::ConstConfigRcPtr cfg = OCIO::Config::CreateFromFile(path.toUtf8().constData());
         OCIO::TransformRcPtr t = buildScopeTransform(cfg, colorspace, sideOut, &out.errorMessage);
         if (!t) return out;
         return extractShader(cfg, t, toGpuLanguage(language), "OCIOScope", "ocio_scope_");

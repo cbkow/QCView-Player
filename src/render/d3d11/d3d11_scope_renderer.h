@@ -56,6 +56,10 @@ public:
     // result would otherwise wait for the next draw.
     void collectPending(void *ctx);
 
+    // The player's displayed-frame count for the next encode (render
+    // thread); echoed in ScopePeaks::frameStamp.
+    void setFrameStamp(quint64 stamp);
+
     // The newest image; for the waveform also its peaks (`peaks`).
     bool latestImage(QImage *out, quint64 *serial, ScopePeaks *peaks = nullptr) const;
     void releaseIfIdle(int idleMs = 10000);

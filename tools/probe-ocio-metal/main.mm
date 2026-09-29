@@ -15,6 +15,7 @@
 #include "render/metal/metal_ocio_renderer.h"
 #include "render/metal/metal_scope_renderer.h"
 #include "color/scope_math.h"
+#include "color/scope_names.h"
 
 #include <QGuiApplication>
 #include <QPainter>
@@ -293,6 +294,44 @@ int hotPixelCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &m
     return ok && gapOk ? 0 : 1;
 }
 
+// Config upgrade guard: every scope tag-rule list (color/scope_names.h)
+// must name a usable colourspace — known, not data, interchange role on its
+// side — in the scopes' fallback config (Blender 5.2: failures), and is
+// reported for the other bundled configs (a miss there just means the
+// scopes fall back to Blender 5.2 for that file kind).
+int namesCheck(const std::string &root)
+{
+    int failures = 0;
+    for (const char *dir : {"Blender5.2", "ACES_2.0", "Blender5.1", "ACES_1.3"}) {
+        const bool required = std::string(dir) == "Blender5.2";
+        OCIO::ConstConfigRcPtr cfg;
+        try {
+            cfg = OCIO::Config::CreateFromFile((root + "/" + dir + "/config.ocio").c_str());
+        } catch (const OCIO::Exception &e) {
+            std::printf("%s names %-11s config failed to load: %s\n",
+                        required ? "FAIL" : "--  ", dir, e.what());
+            failures += required;
+            continue;
+        }
+        for (const auto &l : scope_names::kAll) {
+            const char *found = nullptr;
+            for (int k = 0; k < l.count && !found; ++k) {
+                OCIO::ConstColorSpaceRcPtr cs = cfg->getColorSpace(l.names[k]);
+                if (!cs || cs->isData()) continue;
+                const bool scene = cs->getReferenceSpaceType() == OCIO::REFERENCE_SPACE_SCENE;
+                if (cfg->hasRole(scene ? "aces_interchange" : "cie_xyz_d65_interchange")) {
+                    found = l.names[k];
+                }
+            }
+            const bool ok = found != nullptr;
+            std::printf("%s names %-11s %-20s %s\n", ok ? "ok  " : (required ? "FAIL" : "--  "),
+                        dir, l.label, ok ? found : "(none — scopes use the built-in config)");
+            if (!ok && required) ++failures;
+        }
+    }
+    return failures;
+}
+
 // In-app conditions: 1920×1080 RGBA16F bars, tapped at 960×540.
 void barsCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr,
                const ScopeConfig &sc)
@@ -366,7 +405,7 @@ int main(int argc, char **argv)
                                 {"knee+gam", knee, gamma2},
                                 {"green", gain2, green}};
 
-    int failures = 0;
+    int failures = namesCheck(root);
     for (const Case &c : cases) {
         const std::string cfgPath = root + "/" + c.config + "/config.ocio";
         OCIOConfigManager mgr;

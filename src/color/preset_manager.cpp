@@ -63,6 +63,11 @@ void PresetManager::loadBuiltIns()
                        /*displayLutPath*/ {}, /*builtIn*/ true, kind };
     };
 
+    // CONFIG UPGRADE: every built-in preset names a config (by friendly
+    // name) and its colourspace / display / view by string. After
+    // replacing a bundled config, check each still resolves — a stale
+    // name leaves the preset unloadable (assets/OCIO/patches/README.md,
+    // "Names QCView depends on").
     const QString secBuiltIn   = QStringLiteral("Built-in");
     const QString secBlender52 = QStringLiteral("Blender 5.2");
     const QString secBlender   = QStringLiteral("Blender 5.1");

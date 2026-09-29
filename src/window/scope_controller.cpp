@@ -1,6 +1,7 @@
 #include "scope_controller.h"
 
 #include "color/ocio_config_manager.h"
+#include "color/scope_names.h"
 #include "project/project_manager.h"
 #include "render/backdrop_image_provider.h"
 #include "render/iplayer_renderer.h"
@@ -44,8 +45,16 @@ QVariantMap point(float x, float y)
     return m;
 }
 
+// The bundled config the scopes read a file through when the live config
+// has no colourspace for its tags (a studio config without PQ, say).
+// Labelled "built-in config" on the badge.
+// CONFIG UPGRADE: move this with the default config (assets/OCIO/patches/
+// README.md, "Names QCView depends on").
+constexpr const char *kScopeFallbackConfigDir = "Blender5.2";
+
 // First of `names` the config knows (aliases resolve), else empty.
-QString firstKnown(OCIO::ConstConfigRcPtr cfg, std::initializer_list<const char *> names)
+template <int N>
+QString firstKnown(OCIO::ConstConfigRcPtr cfg, const char *const (&names)[N])
 {
     if (!cfg) return {};
     for (const char *n : names) {
@@ -159,8 +168,18 @@ void ScopeController::setWaveformPeak(int nits)
     refresh();
 }
 
+QString ScopeController::mediaItemIdA() const
+{
+    if (m_mediaItemIdFn) return m_mediaItemIdFn();
+    return m_project ? m_project->activeItemId() : QString();
+}
+
 void ScopeController::resetClipPeaks()
 {
+    // Images already measured (or in flight) belong to before the reset.
+    ++m_peakEpoch;
+    m_waveConfig.peakEpoch = m_peakEpoch;
+    if (IPlayerRenderer *r = m_renderer ? m_renderer() : nullptr) r->setScopeConfig(m_waveConfig);
     m_clipSides = 0;
     m_clipLevel[0] = m_clipLevel[1] = 0.0f;
     m_clipChannel[0] = m_clipChannel[1] = 0.0f;
@@ -185,6 +204,15 @@ QString formatPeak(float v, bool hdr)
 void ScopeController::updatePeaks(const ScopePeaks &p)
 {
     if (p.sides <= 0) return;
+    // Measured before the last reset, or — after a clip change — of a
+    // frame the new clip hasn't replaced yet (the old one stays on screen
+    // until the new clip decodes).
+    if (p.epoch != m_peakEpoch || p.frameStamp <= m_peakMinStamp) {
+        if (qEnvironmentVariableIsSet("QCV_PEAK_DEBUG"))
+            qInfo("PEAKDBG reject epoch %u/%u stamp %llu min %llu", p.epoch, m_peakEpoch,
+                  (unsigned long long)p.frameStamp, (unsigned long long)m_peakMinStamp);
+        return;
+    }
     // A changed layout (single / dual) or scale starts over. A side in a
     // timeline gap keeps its Max and shows no frame value.
     if (m_clipSides != p.sides || m_clipHdr != p.hdr) {
@@ -233,14 +261,34 @@ void ScopeController::refresh()
 {
     resolve();
     buildGeometry();
-    // Clip peaks belong to one clip under one interpretation.
-    const QString peakKey = (m_project ? m_project->activeItemId() : QString())
-        + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tier))
-        + QLatin1Char('|') + m_waveConfig.colorspace
+    // Clip peaks belong to one clip (A / B) under one interpretation.
+    // Single view, a new A also waits for its first frame — the old one
+    // stays on screen until the new file decodes. This runs on
+    // activeItemIdChanged, before the load opens the file
+    // (ProjectManager::setActiveItem emits loadRequested after), so the
+    // displayed-frame count can't include a frame of the new clip yet.
+    // Dual changes (entering, B, a rebuilt island) arrive as several
+    // signals with no such ordering, so there only the reset epoch
+    // guards against in-flight images — as for a playlist's clip, which
+    // resolves after its load.
+    const QString activeId = m_project ? m_project->activeItemId() : QString();
+    if (activeId != m_gateItemA) {
+        m_gateItemA = activeId;
+        if (!m_dualView) {
+            IPlayerRenderer *r = m_renderer ? m_renderer() : nullptr;
+            m_peakMinStamp = r ? r->displayedFrameCount() : 0;
+            if (qEnvironmentVariableIsSet("QCV_PEAK_DEBUG"))
+                qInfo("PEAKDBG clip change min %llu", (unsigned long long)m_peakMinStamp);
+        }
+    }
+    const QString clipKey = mediaItemIdA()
         + QLatin1Char('|') + (m_dualView && m_project ? m_project->bSourceMediaId() : QString())
-        + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tierB))
-        + QLatin1Char('|') + m_waveConfig.colorspaceB
         + QLatin1Char('|') + QString::number(m_dualView ? 2 : 1);
+    const QString peakKey = clipKey
+        + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tier))
+        + QLatin1Char('|') + m_waveConfig.colorspace + QLatin1Char('|') + m_waveConfig.configPath
+        + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tierB))
+        + QLatin1Char('|') + m_waveConfig.colorspaceB + QLatin1Char('|') + m_waveConfig.configPathB;
     if (peakKey != m_peakKey) {
         m_peakKey = peakKey;
         resetClipPeaks();
@@ -268,15 +316,17 @@ void ScopeController::resolve()
         } catch (const OCIO::Exception &) {}
     }
 
-    // What a file says: its assumed colourspace (tags / format rules),
-    // why, and the Signal-tier matrix / curve.
+    // What a file says: its assumed colourspace (tags / format rules) in
+    // config `cfgX`, why, and the Signal-tier matrix / curve.
+    // CONFIG UPGRADE: the names live in color/scope_names.h, checked by
+    // tools/probe-ocio-metal against the bundled configs.
     struct Reading {
         QString assumed, why;
         bool    tagged = false;
         bool    still = false, exr = false;
         int     matrix = 1;
     };
-    auto read = [&](const QVariantMap &item) {
+    auto read = [&](const QVariantMap &item, const OCIO::ConstConfigRcPtr &cfgX) {
         Reading r;
         const QVariantMap video = item.value(QStringLiteral("video")).toMap();
         const int type = item.value(QStringLiteral("type"), -1).toInt();
@@ -293,44 +343,50 @@ void ScopeController::resolve()
                    && transfer != QLatin1String("unspecified");
         if (r.still) {
             if (r.exr) {
-                r.assumed = firstKnown(cfg, {"Linear Rec.709 (sRGB)", "Linear Rec.709"});
+                r.assumed = firstKnown(cfgX, scope_names::kExrLinear);
                 r.why = tr("EXR default");
             } else {
-                r.assumed = firstKnown(cfg, {"sRGB - Display", "sRGB Encoded Rec.709 (sRGB)",
-                                             "sRGB", "sRGB - Texture"});
+                r.assumed = firstKnown(cfgX, scope_names::kStill);
                 r.why = tr("still");
             }
         } else if (type == 0 || type == 6) {           // Video, LiveStream
             if (transfer == QLatin1String("smpte2084")) {
                 if (primaries.contains(QLatin1String("432")) || primaries.contains(QLatin1String("431"))
                     || primaries.contains(QLatin1String("p3"))) {
-                    r.assumed = firstKnown(cfg, {"ST2084-P3-D65 - Display", "ST2084-P3-D65"});
+                    r.assumed = firstKnown(cfgX, scope_names::kPqP3);
                 } else {
-                    r.assumed = firstKnown(cfg, {"Rec.2100-PQ - Display", "Rec.2100-PQ"});
+                    r.assumed = firstKnown(cfgX, scope_names::kPq2020);
                 }
             } else if (transfer.contains(QLatin1String("arib")) || transfer.contains(QLatin1String("hlg"))) {
-                r.assumed = firstKnown(cfg, {"Rec.2100-HLG - Display", "Rec.2100-HLG"});
+                r.assumed = firstKnown(cfgX, scope_names::kHlg);
             } else {
-                r.assumed = firstKnown(cfg, {"Rec.1886 Rec.709 - Display", "Rec.1886"});
+                r.assumed = firstKnown(cfgX, scope_names::kSdrVideo);
             }
             r.why = r.tagged ? tr("tags") : tr("untagged");
         }
         // Aliases (e.g. Blender's "Rec.1886" answers to "Rec.1886 Rec.709 -
         // Display") resolve to the config's own name for the badge.
-        r.assumed = canonicalName(cfg, r.assumed);
+        r.assumed = canonicalName(cfgX, r.assumed);
         return r;
     };
 
-    auto usable = [&](const QString &cs) {
-        if (!cfg || cs.isEmpty()) return false;
-        OCIO::ConstColorSpaceRcPtr c = cfg->getColorSpace(cs.toUtf8().constData());
-        return c && !c->isData();
+    // A colourspace the scope can convert: known, not data, and the config
+    // has the interchange role on its side (what buildScope needs — else
+    // the renderer would drop to Signal under an Assumed / Input badge).
+    auto usable = [&](const OCIO::ConstConfigRcPtr &cfgX, const QString &cs) {
+        if (!cfgX || cs.isEmpty()) return false;
+        OCIO::ConstColorSpaceRcPtr c = cfgX->getColorSpace(cs.toUtf8().constData());
+        if (!c || c->isData()) return false;
+        const bool scene = c->getReferenceSpaceType() == OCIO::REFERENCE_SPACE_SCENE;
+        return cfgX->hasRole(scene ? "aces_interchange" : "cie_xyz_d65_interchange");
     };
     // SDR scale for SDR-encoded video, HDR for everything else. Configs
     // (Blender's Rec.1886 among them) don't always set `encoding`; then
     // the name decides, like OcioChainBuilder's display-output rule.
-    auto scaleFor = [&](const QString &cs) {
-        OCIO::ConstColorSpaceRcPtr c = cfg->getColorSpace(cs.toUtf8().constData());
+    // CONFIG UPGRADE: the name fallback matches substrings of colourspace
+    // names; recheck it against new configs' names.
+    auto scaleFor = [&](const OCIO::ConstConfigRcPtr &cfgX, const QString &cs) {
+        OCIO::ConstColorSpaceRcPtr c = cfgX->getColorSpace(cs.toUtf8().constData());
         const QByteArray enc = c ? QByteArray(c->getEncoding()) : QByteArray();
         if (!enc.isEmpty()) return enc == "sdr-video" ? ScopeScale::Sdr : ScopeScale::Hdr;
         const QString n = c ? QString::fromUtf8(c->getName()) : cs;
@@ -341,30 +397,58 @@ void ScopeController::resolve()
         return ScopeScale::Sdr;
     };
 
+    // The built-in fallback config, for files the live config can't name
+    // (loaded only when it is a different file).
+    const QString fallbackPath =
+        OCIOConfigManager::bundledConfigPath(QString::fromLatin1(kScopeFallbackConfigDir));
+    OCIO::ConstConfigRcPtr fallbackCfg;
+    if (!fallbackPath.isEmpty()
+        && (!m_ocio || QFileInfo(fallbackPath).canonicalFilePath()
+                           != QFileInfo(m_ocio->configIdentifier()).canonicalFilePath())) {
+        try {
+            fallbackCfg = OCIO::Config::CreateFromFile(fallbackPath.toUtf8().constData());
+        } catch (const OCIO::Exception &) {}
+    }
+
     // One side's tier, colourspace and badge. OCIO engaged: the user's
     // Input, for both dual sides — the picture runs one chain, and the
-    // scopes show what it shows. OCIO off: each file's own assumption.
+    // scopes show what it shows. OCIO off: each file's own assumption,
+    // from the live config, else the built-in one (labelled).
     struct Side {
         ScopeTier tier = ScopeTier::Signal;
-        QString   colorspace, badge, mismatch;
+        QString   colorspace, configPath, badge, mismatch;
+        bool      hdr = false;
         Reading   r;
     };
     const QString input = m_ocio ? m_ocio->activeInput() : QString();
     auto interpret = [&](const QVariantMap &item) {
         Side sd;
-        sd.r = read(item);
-        if (m_ocio && m_ocio->engaged() && usable(input)) {
+        sd.r = read(item, cfg);
+        const Reading rf = fallbackCfg ? read(item, fallbackCfg) : Reading{};
+        const bool fallbackNames = !usable(cfg, sd.r.assumed) && usable(fallbackCfg, rf.assumed);
+        if (m_ocio && m_ocio->engaged() && usable(cfg, input)) {
             sd.tier = ScopeTier::Input;
             sd.colorspace = input;
+            sd.hdr = scaleFor(cfg, input) == ScopeScale::Hdr;
             sd.badge = tr("Input · %1").arg(input);
             if (sd.r.tagged && !sd.r.assumed.isEmpty()
                 && canonicalName(cfg, sd.r.assumed) != canonicalName(cfg, input)) {
                 sd.mismatch = tr("⚠ File tagged %1 · Input: %2").arg(sd.r.assumed, input);
+            } else if (sd.r.tagged && fallbackNames) {
+                sd.mismatch = tr("⚠ File tagged %1 — not in this config · Input: %2")
+                                  .arg(rf.assumed, input);
             }
-        } else if (usable(sd.r.assumed)) {
+        } else if (usable(cfg, sd.r.assumed)) {
             sd.tier = ScopeTier::Assumed;
             sd.colorspace = sd.r.assumed;
+            sd.hdr = scaleFor(cfg, sd.colorspace) == ScopeScale::Hdr;
             sd.badge = tr("Assumed · %1 (%2)").arg(sd.r.assumed, sd.r.why);
+        } else if (fallbackNames) {
+            sd.tier = ScopeTier::Assumed;
+            sd.colorspace = rf.assumed;
+            sd.configPath = fallbackPath;
+            sd.hdr = scaleFor(fallbackCfg, sd.colorspace) == ScopeScale::Hdr;
+            sd.badge = tr("Assumed · %1 (%2, built-in config)").arg(rf.assumed, rf.why);
         } else {
             sd.badge = sd.r.exr || sd.r.still ? tr("Signal · RGB, nominal curve")
                                               : tr("Signal · YUV");
@@ -372,15 +456,18 @@ void ScopeController::resolve()
         return sd;
     };
 
-    const Side a = interpret(m_project ? m_project->activeItemMap() : QVariantMap{});
+    const Side a = interpret(m_project ? m_project->mediaItemMap(mediaItemIdA()) : QVariantMap{});
     m_config.tier = a.tier;
     m_config.colorspace = a.colorspace;
+    m_config.configPath = a.configPath;
     m_config.signalMatrix = a.r.matrix;
     m_config.signalNominalCurve = a.r.exr;
     m_badge = a.badge;
     m_mismatch = a.mismatch;
     m_config.tierB = a.tier;
     m_config.colorspaceB = a.colorspace;
+    m_config.configPathB = a.configPath;
+    bool bHdr = a.hdr;
     m_config.signalMatrixB = a.r.matrix;
     m_config.signalNominalCurveB = a.r.exr;
     if (m_dualView && m_project) {
@@ -389,6 +476,8 @@ void ScopeController::resolve()
             const Side b = interpret(itemB);
             m_config.tierB = b.tier;
             m_config.colorspaceB = b.colorspace;
+            m_config.configPathB = b.configPath;
+            bHdr = b.hdr;
             m_config.signalMatrixB = b.r.matrix;
             m_config.signalNominalCurveB = b.r.exr;
             if (b.badge != a.badge) m_badge = tr("A %1  ·  B %2").arg(a.badge, b.badge);
@@ -397,11 +486,7 @@ void ScopeController::resolve()
     }
     // The scale is shared: HDR when either side needs it (an SDR side
     // then plots in nits too, its white at 100).
-    auto sideScale = [&](ScopeTier t, const QString &cs) {
-        return t == ScopeTier::Signal ? ScopeScale::Sdr : scaleFor(cs);
-    };
-    m_hdrScale = sideScale(m_config.tier, m_config.colorspace) == ScopeScale::Hdr
-                 || (m_dualView && sideScale(m_config.tierB, m_config.colorspaceB) == ScopeScale::Hdr);
+    m_hdrScale = a.hdr || (m_dualView && bHdr);
 
     // Signal draws mono: colours would claim to know the colour space.
     m_config.colorize = m_colorize && m_config.tier != ScopeTier::Signal;
@@ -534,6 +619,7 @@ void ScopeController::buildGeometry()
 
 void ScopeController::push()
 {
+    m_waveConfig.peakEpoch = m_peakEpoch;
     if (IPlayerRenderer *r = m_renderer ? m_renderer() : nullptr) {
         r->setScopeConfig(m_config);
         r->setScopeConfig(m_waveConfig);

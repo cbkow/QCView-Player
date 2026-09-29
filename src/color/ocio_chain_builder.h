@@ -130,9 +130,14 @@ public:
     // crossed. Function "OCIOScope", prefix "ocio_scope_". `sideOut`
     // tells the caller which fixed matrix takes it to linear Rec.2020
     // (linear_stage::resolve). Fails for data colourspaces / a missing
-    // role; the scope then falls back to its Signal tier.
+    // role; the scope then falls back to its Signal tier. `configPath`
+    // (optional) reads `colorspace` from that config instead of the live
+    // one — the scopes' built-in fallback.
+    // CONFIG UPGRADE: needs the aces_interchange (scene) /
+    // cie_xyz_d65_interchange (display) roles in every config.
     static OcioChain buildScope(OCIOConfigManager *ocio, Language language,
-                                const QString &colorspace, InterchangeSide *sideOut);
+                                const QString &colorspace, InterchangeSide *sideOut,
+                                const QString &configPath = {});
     static OCIO_NAMESPACE::TransformRcPtr buildScopeTransform(
         OCIO_NAMESPACE::ConstConfigRcPtr cfg, const QString &colorspace,
         InterchangeSide *sideOut, QString *errorOut = nullptr);

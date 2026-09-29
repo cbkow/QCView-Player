@@ -134,8 +134,10 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     connect(this, &WindowManager::compositorModeChanged, this, [this] {
         m_scope->setDualView(m_compositorMode != 0);
     });
-    // A dual side loaded (the controller is rebuilt per load): new clips.
-    connect(this, &WindowManager::dualControllerChanged, m_scope, &ScopeController::resetClipPeaks);
+    // Playlists: the scopes read the current clip's media, and a clip
+    // transition is a new clip for Max.
+    m_scope->setMediaItemIdFn([this] { return audioRoutingScopeMediaItemId(); });
+    connect(this, &WindowManager::audioRoutingScopeChanged, m_scope, &ScopeController::refresh);
 
     // Seed the process-wide scrub-audio mute from the persisted
     // setting — the engines only re-check the flag, never QSettings.

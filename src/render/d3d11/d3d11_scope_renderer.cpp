@@ -343,6 +343,9 @@ struct D3D11ScopeRenderer::Impl {
     int      stagingSides[kRingSlots]   = {0, 0, 0};   // sides with peaks (0 = none)
     bool     stagingHdr[kRingSlots]     = {false, false, false};
     bool     stagingMeasured[kRingSlots][2] = {};
+    quint64  stagingStamp[kRingSlots] = {0, 0, 0};
+    quint32  stagingEpoch[kRingSlots] = {0, 0, 0};
+    quint64  frameStamp = 0;
     quint64  stagingOrder[kRingSlots]   = {0, 0, 0};
     quint64  submitCount = 0;
 
@@ -406,13 +409,16 @@ struct D3D11ScopeRenderer::Impl {
         return true;
     }
 
-    // Build (or reuse) side `s`'s converted shaders for `colorspace`.
+    // Build (or reuse) side `s`'s converted shaders for `colorspace` (from
+    // `configPath`, or the live config when empty).
     // False = unavailable — the caller falls back to Signal for that side.
-    bool ensureConverted(OCIOConfigManager *ocio, int s, const QString &colorspace)
+    bool ensureConverted(OCIOConfigManager *ocio, int s, const QString &colorspace,
+                         const QString &configPath)
     {
         if (!ocio || colorspace.isEmpty()) return false;
         Conversion &c = conv[s];
-        const QString key = ocio->configIdentifier() + QLatin1Char('|') + colorspace;
+        const QString key = (configPath.isEmpty() ? ocio->configIdentifier() : configPath)
+                            + QLatin1Char('|') + colorspace;
         if (key == c.key) return c.tap && c.peak;
         if (conv[1 - s].key == key) {   // the other side already built it
             c = conv[1 - s];
@@ -422,7 +428,7 @@ struct D3D11ScopeRenderer::Impl {
         c.key = key;
         InterchangeSide side = InterchangeSide::None;
         OcioChain chain = OcioChainBuilder::buildScope(
-            ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0, colorspace, &side);
+            ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0, colorspace, &side, configPath);
         if (!chain.ok) {
             qInfo("D3D11ScopeRenderer: no conversion for '%s' (%s) — Signal",
                   qPrintable(colorspace), qPrintable(chain.errorMessage));
@@ -474,6 +480,8 @@ struct D3D11ScopeRenderer::Impl {
                 std::memcpy(img.bits(), m.pData, imageBytes);
                 ScopePeaks pk;
                 pk.sides = stagingSides[s];
+                pk.frameStamp = stagingStamp[s];
+                pk.epoch = stagingEpoch[s];
                 pk.hdr   = stagingHdr[s];
                 float words[4];
                 std::memcpy(words, static_cast<const char *>(m.pData) + imageBytes, sizeof(words));
@@ -545,6 +553,8 @@ void D3D11ScopeRenderer::shutdown()
 
 void D3D11ScopeRenderer::setConfig(const ScopeConfig &config) { m_impl->cfg = config; }
 
+void D3D11ScopeRenderer::setFrameStamp(quint64 stamp) { m_impl->frameStamp = stamp; }
+
 bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
                                 void *srvAPtr, int wA, int hA,
                                 void *srvBPtr, int wB, int hB)
@@ -573,7 +583,7 @@ bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
     bool converted[2] = {false, false};
     for (int s = 0; s < 2; ++s) {
         converted[s] = has[s] && sideCfg[s].tier != ScopeTier::Signal
-                       && i.ensureConverted(ocio, s, sideCfg[s].colorspace);
+                       && i.ensureConverted(ocio, s, sideCfg[s].colorspace, sideCfg[s].configPath);
     }
     static const std::vector<LutResource> kNoLuts;
     const bool wantPeaks = i.cfg.kind == ScopeKind::Waveform;
@@ -696,6 +706,8 @@ bool D3D11ScopeRenderer::encode(void *ctxPtr, OCIOConfigManager *ocio,
     i.stagingMeasured[slot][0] = hasA;
     i.stagingMeasured[slot][1] = hasB;
     i.stagingHdr[slot] = i.cfg.scale == ScopeScale::Hdr;
+    i.stagingStamp[slot] = i.frameStamp;
+    i.stagingEpoch[slot] = i.cfg.peakEpoch;
     i.stagingPending[slot] = true;
     i.stagingOrder[slot]   = ++i.submitCount;
     return true;

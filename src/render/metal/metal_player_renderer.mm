@@ -161,6 +161,25 @@ struct MetalPlayerRenderer::Impl {
     // the scope renderer on the render thread each frame.
     // [0] vectorscope, [1] waveform — same renderer, different binning.
     MetalScopeRenderer   scopes[2];
+    // New frames taken for display (decoded A / B, a new image-sequence
+    // texture) — scope images carry it, so a clip change can wait for
+    // the new clip's first frame (ScopeController).
+    std::atomic<quint64> displayedFrames{0};
+    quint64              lastSeqHandle = 0;
+    // Dual: a new frame = a new controller (rebuilt per clip change) or
+    // a new master frame.
+    void                *lastDualController = nullptr;
+    int                  lastDualFrame = -1;
+    void countDualFrame(void *controller)
+    {
+        const int f = controller
+            ? static_cast<dual::DualPlaybackController *>(controller)->currentFrame() : -1;
+        if (controller != lastDualController || f != lastDualFrame) {
+            lastDualController = controller;
+            lastDualFrame = f;
+            displayedFrames.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
     std::mutex           scopeMutex;
     ScopeConfig          scopeConfig[2];
 
@@ -179,6 +198,7 @@ struct MetalPlayerRenderer::Impl {
                 continue;
             }
             scopes[k].setConfig(c);
+            scopes[k].setFrameStamp(displayedFrames.load(std::memory_order_relaxed));
             scopes[k].encode((__bridge void *)cb, ocio, srcA, wA, hA, srcB, wB, hB);
         }
     }
@@ -620,6 +640,11 @@ void MetalPlayerRenderer::setScopeConfig(const ScopeConfig &config)
     m_impl->scopeConfig[config.kind == ScopeKind::Waveform ? 1 : 0] = config;
 }
 
+quint64 MetalPlayerRenderer::displayedFrameCount() const
+{
+    return m_impl->displayedFrames.load(std::memory_order_relaxed);
+}
+
 bool MetalPlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind,
                                      ScopePeaks *peaks)
 {
@@ -982,6 +1007,7 @@ void MetalPlayerRenderer::drawFrame()
         // converted textures via Metal's intra-cb dependency
         // tracking (no waitUntilCompleted).
         m_impl->dualCompositor.prepareFrames((__bridge void *)cb);
+        m_impl->countDualFrame(m_dualControllerPtr.load(std::memory_order_acquire));
 
         // ---- Pass 1: dual composite → compositeRawDual (RGBA16F) ----
         {
@@ -1482,12 +1508,14 @@ void MetalPlayerRenderer::drawFrame()
         FrameHandle h;
         if (m_decoder->fetchLatest(&h) && h.isValid()) {
             m_impl->pendingHandleA = std::move(h);
+            m_impl->displayedFrames.fetch_add(1, std::memory_order_relaxed);
         }
     }
     if (m_decoderB) {
         FrameHandle h;
         if (m_decoderB->fetchLatest(&h) && h.isValid()) {
             m_impl->pendingHandleB = std::move(h);
+            m_impl->displayedFrames.fetch_add(1, std::memory_order_relaxed);
         }
     }
 
@@ -1611,6 +1639,10 @@ void MetalPlayerRenderer::drawFrame()
     void *sourceTexture = nullptr;
     int   sourceW = 0;
     int   sourceH = 0;
+    if (frameTex.valid && frameTex.handle != 0 && frameTex.handle != m_impl->lastSeqHandle) {
+        m_impl->lastSeqHandle = frameTex.handle;
+        m_impl->displayedFrames.fetch_add(1, std::memory_order_relaxed);
+    }
     if (frameTex.valid && frameTex.handle != 0) {
         const auto *tex = MetalTexturePool::instance().texture(frameTex.handle);
         if (tex && tex->valid && tex->texture) {

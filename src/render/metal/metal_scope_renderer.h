@@ -57,6 +57,10 @@ public:
 
     // Newest finished scope image (512² RGBA8, premultiplied). `serial`
     // bumps with each new image. Any thread.
+    // The player's displayed-frame count for the next encode (render
+    // thread); echoed in ScopePeaks::frameStamp.
+    void setFrameStamp(quint64 stamp);
+
     // The newest image; for the waveform also its peaks (`peaks`).
     bool latestImage(QImage *out, quint64 *serial, ScopePeaks *peaks = nullptr) const;
     quint64 serial() const;

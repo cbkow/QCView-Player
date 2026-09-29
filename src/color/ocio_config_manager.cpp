@@ -25,6 +25,10 @@ namespace {
 
 // Phase 2.5c: friendly names for shipped config directories.
 // Anything not in the table falls back to the dir name as-is.
+// CONFIG UPGRADE: a new Blender / ACES directory needs a row here, the
+// default promotion below, and ScopeController's kScopeFallbackConfigDir
+// if the scopes' fallback moves — checklist in
+// assets/OCIO/patches/README.md ("Names QCView depends on").
 QString friendlyNameForDir(const QString &dirName)
 {
     static const QHash<QString, QString> table{
@@ -123,6 +127,14 @@ struct OCIOConfigManager::Impl {
     OCIO::ConstConfigRcPtr config;
 };
 
+QString OCIOConfigManager::bundledConfigPath(const QString &dirName)
+{
+    const QString dir = resolveOcioAssetsDir();
+    if (dir.isEmpty()) return {};
+    const QString path = dir + QLatin1Char('/') + dirName + QStringLiteral("/config.ocio");
+    return QFileInfo::exists(path) ? path : QString();
+}
+
 OCIOConfigManager::OCIOConfigManager(QObject *parent)
     : QObject(parent), m_impl(std::make_unique<Impl>())
 {
@@ -204,6 +216,8 @@ void OCIOConfigManager::enumerateConfigs()
             }
         }
         // Promote Blender 5.2 to the front of the bundled list.
+        // CONFIG UPGRADE: the default config — moves with the scopes'
+        // fallback (ScopeController kScopeFallbackConfigDir).
         for (int i = 0; i < bundled.size(); ++i) {
             if (bundled[i].displayName == QStringLiteral("Blender 5.2")) {
                 bundled.move(i, 0);
@@ -381,6 +395,7 @@ bool OCIOConfigManager::sdrCaptureDisplayView(QString *display, QString *view) c
     // Target display: "sRGB" (Blender) / "sRGB - Display" (ACES
     // studio configs), else the first sRGB-named display that isn't
     // one of our linear EDR ones.
+    // CONFIG UPGRADE: recheck these display names against new configs.
     const QStringList allDisplays = displays();
     QString target;
     for (const QString &d : allDisplays) {

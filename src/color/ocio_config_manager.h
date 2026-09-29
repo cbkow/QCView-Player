@@ -84,6 +84,11 @@ public:
     // QML-callable.
     Q_INVOKABLE bool loadBuiltInDefault();
     Q_INVOKABLE bool loadConfigFile(const QString &path);
+    // A bundled config's file (assets/OCIO/<dirName>/config.ocio), or ""
+    // when it isn't shipped. The scopes read files the live config can't
+    // name through Blender 5.2 (ScopeController).
+    static QString bundledConfigPath(const QString &dirName);
+
     // Switch to one of the enumerated configs. `name` must be a
     // member of availableConfigs(). Resets the active chain to the
     // new config's defaults (a chain valid for one config is rarely

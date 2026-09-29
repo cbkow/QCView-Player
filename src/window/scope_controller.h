@@ -87,6 +87,11 @@ public:
     ScopeController(OCIOConfigManager *ocio, ProjectManager *project,
                     RendererFn renderer, QObject *parent = nullptr);
 
+    // The media item A shows: in playlist mode the current clip's source,
+    // not the playlist (whose item carries no video tags). Unset = the
+    // project's active item.
+    void setMediaItemIdFn(std::function<QString()> fn) { m_mediaItemIdFn = std::move(fn); }
+
     void setImageProvider(BackdropImageProvider *p) { m_provider = p; }
     void setWaveformImageProvider(BackdropImageProvider *p) { m_waveProvider = p; }
     // Dual view: overlay A (cyan) and B (orange).
@@ -138,10 +143,12 @@ private:
     void push();
     void poll();
     void updatePeaks(const ScopePeaks &p);
+    QString mediaItemIdA() const;
 
     OCIOConfigManager     *m_ocio = nullptr;
     ProjectManager        *m_project = nullptr;
     RendererFn             m_renderer;
+    std::function<QString()> m_mediaItemIdFn;
     BackdropImageProvider *m_provider = nullptr;
     BackdropImageProvider *m_waveProvider = nullptr;
     QTimer                 m_pollTimer;
@@ -170,6 +177,9 @@ private:
     int          m_wavePeak = 1000;
     QVariantList m_wavePeaks;
     QString      m_peakKey;
+    QString      m_gateItemA;       // the active item when the frame gate was set
+    quint32      m_peakEpoch = 0;      // bumped per reset (ScopeConfig::peakEpoch)
+    quint64      m_peakMinStamp = 0;   // clip change: ignore frames up to this count
     int          m_clipSides = 0;
     bool         m_clipHdr = false;
     float        m_clipLevel[2]   = {0.0f, 0.0f};

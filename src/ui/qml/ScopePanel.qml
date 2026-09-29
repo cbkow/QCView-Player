@@ -31,9 +31,14 @@ ColumnLayout {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeTiny
             font.bold: true
+            // Two lines: where the reading came from ("built-in config",
+            // the A / B pair) is the part that must not be cut.
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
             elide: Text.ElideRight
         }
         Text {
+            Layout.alignment: Qt.AlignTop
             text: root.scope ? root.scope.scaleLabel : ""
             color: Theme.textMuted
             font.family: Theme.monoFamily

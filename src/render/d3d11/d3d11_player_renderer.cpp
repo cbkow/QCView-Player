@@ -1,4 +1,5 @@
 #include "d3d11_player_renderer.h"
+
 #include "d3d11_annotation_renderer.h"
 #include "d3d11_compositor.h"
 #include "d3d11_device_manager.h"
@@ -20,6 +21,7 @@
 #include "color/ocio_config_manager.h"
 #include "decode/image_loader.h"          // PixelData
 #include "decode/image_sequence_cache.h"
+#include "dual/dual_playback_controller.h"
 #include "render/safety_overlay.h"
 
 #include "annotations/active_stroke.h"   // full ActiveStroke definition for std::vector
@@ -173,6 +175,23 @@ struct D3D11PlayerRenderer::Impl {
     // the render thread into each drawn frame (never waits on the GPU).
     // [0] vectorscope, [1] waveform — same renderer, different binning.
     D3D11ScopeRenderer               scopes[2];
+    // New frames taken for display — scope images carry it, so a clip
+    // change can wait for the new clip's first frame (ScopeController).
+    std::atomic<quint64>             displayedFrames{0};
+    // Dual: a new frame = a new controller (rebuilt per clip change) or
+    // a new master frame.
+    void                            *lastDualController = nullptr;
+    int                              lastDualFrame = -1;
+    void countDualFrame(void *controller)
+    {
+        const int f = controller
+            ? static_cast<dual::DualPlaybackController *>(controller)->currentFrame() : -1;
+        if (controller != lastDualController || f != lastDualFrame) {
+            lastDualController = controller;
+            lastDualFrame = f;
+            displayedFrames.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
     std::mutex                       scopeMutex;
     ScopeConfig                      scopeConfig[2];
 
@@ -191,6 +210,7 @@ struct D3D11PlayerRenderer::Impl {
                 continue;
             }
             scopes[k].setConfig(c);
+            scopes[k].setFrameStamp(displayedFrames.load(std::memory_order_relaxed));
             scopes[k].encode(ctx, ocio, srvA, wA, hA, srvB, wB, hB);
         }
     }
@@ -850,6 +870,7 @@ void D3D11PlayerRenderer::renderThreadProc()
             std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
             gotNewFrame = consumeLatestVideoFrame();
         }
+        if (gotNewFrame) m_impl->displayedFrames.fetch_add(1, std::memory_order_relaxed);
 
         // OCIO chain-gen polling — the user can change view/look/LUT
         // while playback is paused. With no decoded frame arriving
@@ -1726,6 +1747,7 @@ void D3D11PlayerRenderer::drawDualFrame()
     // compositor. Cheap no-op if frameSource is null (compositor
     // sets prepared=false, renderFrame returns).
     m_impl->dualCompositor.prepareFrames(ctx);
+    m_impl->countDualFrame(m_dualControllerPtr.load(std::memory_order_acquire));
 
     // Pass 1 — dual composite into the canvas.
     {
@@ -2327,6 +2349,11 @@ void D3D11PlayerRenderer::setScopeConfig(const ScopeConfig &config)
         m_impl->scopeConfig[config.kind == ScopeKind::Waveform ? 1 : 0] = config;
     }
     requestUpdate();
+}
+
+quint64 D3D11PlayerRenderer::displayedFrameCount() const
+{
+    return m_impl->displayedFrames.load(std::memory_order_relaxed);
 }
 
 bool D3D11PlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind,

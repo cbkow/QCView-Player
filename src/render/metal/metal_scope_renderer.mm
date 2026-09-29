@@ -266,6 +266,9 @@ struct MetalScopeRenderer::Impl {
     int  slotSides[kRingSlots] = {0, 0, 0};   // sides with peaks (0 = none)
     bool slotHdr[kRingSlots]   = {false, false, false};
     bool slotMeasured[kRingSlots][2] = {};
+    quint64 slotStamp[kRingSlots] = {0, 0, 0};
+    quint32 slotEpoch[kRingSlots] = {0, 0, 0};
+    quint64 frameStamp = 0;
 
     mutable std::mutex ringMutex;
     int  latest = -1;
@@ -304,13 +307,15 @@ struct MetalScopeRenderer::Impl {
     }
 
     // Build (or reuse) side `s`'s converted accumulate pipeline for
-    // `colorspace`. False = unavailable (data colourspace, no role, compile
+    // `colorspace` (from `configPath`, or the live config when empty). False = unavailable (data colourspace, no role, compile
     // error) — the caller falls back to Signal for that side.
-    bool ensureConverted(OCIOConfigManager *ocio, int s, const QString &colorspace)
+    bool ensureConverted(OCIOConfigManager *ocio, int s, const QString &colorspace,
+                         const QString &configPath)
     {
         if (!ocio || colorspace.isEmpty()) return false;
         Conversion &c = conv[s];
-        const QString key = ocio->configIdentifier() + QLatin1Char('|') + colorspace;
+        const QString key = (configPath.isEmpty() ? ocio->configIdentifier() : configPath)
+                            + QLatin1Char('|') + colorspace;
         if (key == c.key) return c.accum != nil;
         if (conv[1 - s].key == key) {   // the other side already built it
             c = conv[1 - s];
@@ -320,7 +325,7 @@ struct MetalScopeRenderer::Impl {
         c.key = key;
         InterchangeSide side = InterchangeSide::None;
         OcioChain chain = OcioChainBuilder::buildScope(
-            ocio, OcioChainBuilder::Language::Msl_2_0, colorspace, &side);
+            ocio, OcioChainBuilder::Language::Msl_2_0, colorspace, &side, configPath);
         if (!chain.ok) {
             qInfo("MetalScopeRenderer: no conversion for '%s' (%s) — Signal",
                   qPrintable(colorspace), qPrintable(chain.errorMessage));
@@ -385,6 +390,8 @@ void MetalScopeRenderer::shutdown()
 
 void MetalScopeRenderer::setConfig(const ScopeConfig &config) { m_impl->cfg = config; }
 
+void MetalScopeRenderer::setFrameStamp(quint64 stamp) { m_impl->frameStamp = stamp; }
+
 const ScopeConfig &MetalScopeRenderer::config() const { return m_impl->cfg; }
 
 quint64 MetalScopeRenderer::serial() const { return m_impl->serial.load(); }
@@ -420,7 +427,7 @@ bool MetalScopeRenderer::encode(void *cmdBufPtr, OCIOConfigManager *ocio,
     bool converted[2] = {false, false};
     for (int s = 0; s < 2; ++s) {
         converted[s] = has[s] && sideCfg[s].tier != ScopeTier::Signal
-                       && i.ensureConverted(ocio, s, sideCfg[s].colorspace);
+                       && i.ensureConverted(ocio, s, sideCfg[s].colorspace, sideCfg[s].configPath);
     }
     id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)cmdBufPtr;
 
@@ -504,6 +511,8 @@ bool MetalScopeRenderer::encode(void *cmdBufPtr, OCIOConfigManager *ocio,
     i.slotMeasured[slot][0] = hasA;
     i.slotMeasured[slot][1] = hasB;
     i.slotHdr[slot] = i.cfg.scale == ScopeScale::Hdr;
+    i.slotStamp[slot] = i.frameStamp;
+    i.slotEpoch[slot] = i.cfg.peakEpoch;
 
     Impl *impl = m_impl.get();
     [cb addCompletedHandler:^(id<MTLCommandBuffer>) {
@@ -538,6 +547,8 @@ bool MetalScopeRenderer::latestImage(QImage *out, quint64 *serialOut, ScopePeaks
         std::memcpy(words, static_cast<const char *>(buf.contents) + imageBytes, sizeof(words));
         *peaks = ScopePeaks{};
         peaks->sides = i.slotSides[slot];
+        peaks->frameStamp = i.slotStamp[slot];
+        peaks->epoch = i.slotEpoch[slot];
         peaks->hdr   = i.slotHdr[slot];
         for (int s = 0; s < peaks->sides; ++s) {
             peaks->measured[s] = i.slotMeasured[slot][s];
