@@ -903,7 +903,7 @@ int main(int argc, char *argv[])
             QTimer::singleShot(6000 + 900 * k + 600, &engine, [frames, k] {
                 qint64 worst = 0;
                 for (int i = 1; i < frames->size(); ++i)
-                    worst = std::max(worst, frames->at(i) - frames->at(i - 1));
+                    worst = qMax(worst, frames->at(i) - frames->at(i - 1));
                 qInfo("QCV_PANEL_PROBE: %s — %lld frames in 600 ms, worst gap %.1f ms",
                       k % 2 == 1 ? "open" : "close", static_cast<long long>(frames->size()),
                       worst / 1e6);
