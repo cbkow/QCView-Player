@@ -1711,6 +1711,7 @@ Rectangle {
                 // overlay color without going through a dialog.
                 CollapsibleSection {
                     id: safetyGuidesSection
+                    objectName: "safetyGuidesSection"
                     Layout.fillWidth: true
                     title: qsTr("Safety Guides")
                     expanded: false
@@ -1756,6 +1757,7 @@ Rectangle {
                             SafetyLabel { text: qsTr("Guide") }
                             FlatComboBox {
                                 id: safetyPicker
+                                objectName: "safetyPicker"
                                 Layout.fillWidth: true
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeSmall
@@ -1853,6 +1855,7 @@ Rectangle {
                 // ---- Viewport background --------------------------
                 CollapsibleSection {
                     id: backgroundSection
+                    objectName: "backgroundSection"
                     Layout.fillWidth: true
                     title: qsTr("Background")
                     expanded: false
@@ -1982,6 +1985,7 @@ Rectangle {
                 // QSettings store and prompts a relaunch.
                 CollapsibleSection {
                     id: settingsSection
+                    objectName: "settingsSection"
                     Layout.fillWidth: true
                     title: qsTr("Settings")
                     expanded: false

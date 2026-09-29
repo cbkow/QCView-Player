@@ -211,6 +211,7 @@ Pane {
         // can't fit everything at once.
         ScrollView {
             id: scroll
+            objectName: "rightRailScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !root.collapsed
@@ -268,6 +269,7 @@ Pane {
                     color: Theme.card
                     radius: Theme.radiusBase
                     clip: true
+                    objectName: "shortcutsCard"
                     property bool expanded: false
                     implicitHeight: expanded
                         ? shortcutsBody.y + shortcutsBody.implicitHeight

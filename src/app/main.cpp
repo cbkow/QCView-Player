@@ -23,6 +23,7 @@
 #include <QSaveFile>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQmlExpression>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QRandomGenerator>
@@ -812,6 +813,36 @@ int main(int argc, char *argv[])
             qInfo("QCV_OPEN_PROJECT: %s", qPrintable(path));
             windowManager.openProjectPath(path);
         });
+    }
+    // Dev aid: QCV_QML_EVAL="<seconds>:<js>;;<seconds>:<js>…" evaluates each
+    // snippet against the main window at its time (Main.qml's context, so
+    // its ids — leftRail, rightRail… — resolve; scope: the root item) —
+    // staging documentation screenshots. find("<objectName>") returns the
+    // first visual descendant with that objectName.
+    if (qEnvironmentVariableIsSet("QCV_QML_EVAL")) {
+        const QStringList steps = qEnvironmentVariable("QCV_QML_EVAL").split(QStringLiteral(";;"));
+        for (const QString &step : steps) {
+            const double secs = step.section(QLatin1Char(':'), 0, 0).toDouble();
+            const QString js = step.section(QLatin1Char(':'), 1);
+            QTimer::singleShot(static_cast<int>(secs * 1000), &engine, [&engine, js] {
+                if (engine.rootObjects().isEmpty()) return;
+                QObject *root = engine.rootObjects().first();
+                QQmlContext *ctx = QQmlEngine::contextForObject(root);
+                const QString wrapped = QStringLiteral(
+                    "(function(){ var find = function(n, o) {"
+                    " o = o || contentItem; if (o.objectName === n) return o;"
+                    " var c = o.children || [];"
+                    " for (var i = 0; i < c.length; ++i) { var r = find(n, c[i]); if (r) return r; }"
+                    " return null; }; return (%1); })()").arg(js);
+                QQmlExpression expr(ctx ? ctx : engine.rootContext(), root, wrapped);
+                const QVariant result = expr.evaluate();
+                if (expr.hasError())
+                    qWarning("QCV_QML_EVAL: %s → %s", qPrintable(js),
+                             qPrintable(expr.error().toString()));
+                else
+                    qInfo("QCV_QML_EVAL: %s → %s", qPrintable(js), qPrintable(result.toString()));
+            });
+        }
     }
     if (qEnvironmentVariableIsSet("QCV_OCIO_LOG")) {
         const double secs = qEnvironmentVariable("QCV_OCIO_LOG").toDouble();
