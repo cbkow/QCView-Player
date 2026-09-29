@@ -61,6 +61,12 @@ Button {
     // to match the addTile vocabulary. Transparent (alpha 0) means
     // "don't override; use the variant's normal fg".
     property color  hoverColor: "transparent"
+    // Checked fill (a toggle's "on" cell). The B-side controls use
+    // Theme.sideB so B reads in B's colour.
+    property color  checkedFill: Theme.accent
+    // Fill while unchecked (transparent = the variant's own): tab rows
+    // whose unselected cells keep a dimmed identity colour.
+    property color  uncheckedFill: "transparent"
 
     QtObject {
         id: pal
@@ -74,7 +80,8 @@ Button {
             // Checked wins over the raised fill — a checkable raised
             // button (e.g. the dual-view mode toggles) reads as a
             // segmented control: gray cells, accent on the active one.
-            if (root.checked && !root.subtleChecked) return Theme.accent
+            if (root.checked && !root.subtleChecked) return root.checkedFill
+            if (!root.checked && root.uncheckedFill.a > 0) return root.uncheckedFill
             if (root.variant === "raised")  return Theme.affordanceIdle
             return "transparent"
         }
@@ -82,7 +89,8 @@ Button {
             if (root.variant === "primary") return Theme.accentHover
             if (root.variant === "danger")  return Qt.lighter(Theme.error, 1.15)
             if (root.variant === "subtle")  return Theme.borderStrong
-            if (root.checked && !root.subtleChecked) return Theme.accentHover
+            if (root.checked && !root.subtleChecked) return Qt.lighter(root.checkedFill, 1.1)
+            if (!root.checked && root.uncheckedFill.a > 0) return Qt.lighter(root.uncheckedFill, 1.25)
             if (root.variant === "raised")  return Theme.affordanceHover
             return Theme.surfaceHover
         }

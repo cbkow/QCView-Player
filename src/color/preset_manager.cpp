@@ -299,7 +299,10 @@ bool PresetManager::applyPreset(const QString &name)
 
     // Apply each slot. Setters now accept empty as "clear" (Guide
     // 05 D6 — passthrough on absence) so the "None (Passthrough)"
-    // preset wipes all four colorspace-name slots.
+    // preset wipes all four colorspace-name slots. Same split as the
+    // panel, in single and dual view: the clip half (Input, Look, Scene
+    // LUT, knee) lands on the selected clip, the view half (Output,
+    // View, Display LUT) on the shared View.
     m_ocio->setActiveInput(p->input);
     m_ocio->setActiveLook(p->look);
     m_ocio->setActiveDisplay(p->output);

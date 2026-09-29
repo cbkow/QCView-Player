@@ -411,7 +411,7 @@ void ScopeController::resolve()
     }
 
     // One side's tier, colourspace and badge. OCIO engaged: that side's
-    // Input — the clip's pin, else the default; B's is A's while ganged —
+    // Input — the clip's pin, else the default —
     // so the scopes show what the picture shows. OCIO off: each file's
     // own assumption, from the live config, else the built-in one
     // (labelled).

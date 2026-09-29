@@ -105,7 +105,7 @@ struct OcioChainSnapshot {
     bool dual       = false;
     OcioChainSpec single;   // single view: the clip on screen (else the default)
     OcioChainSpec a;        // dual view
-    OcioChainSpec b;        //  … B is A's chain while ganged
+    OcioChainSpec b;
 
     // Dual view needs a chain per side: the sides resolve differently.
     // Equal chains collapse to one pass over the canvas, as before.

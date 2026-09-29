@@ -41,6 +41,22 @@ Pane {
     id: root
     padding: 0
 
+    // Two groups, read the same in single and dual view:
+    //   CLIP — the selected clip's own chain (Input, Look, Scene LUT,
+    //          knee). Every edit stays with that clip; highlights take the
+    //          side's colour (A's, or B's on the B tab).
+    //   VIEW — Output, View, Display LUT: shared by everything; muted
+    //          teal highlights.
+    //   SETUP (far left) — presets and the config, the vocabulary every
+    //          column uses; muted ochre. A preset splits like the panel:
+    //          its clip half → the clip, its view half → View.
+    readonly property bool  editingB: !!WindowManager.ocio && WindowManager.ocio.dualView
+                                      && WindowManager.ocio.activeTab === 1
+    readonly property color clipAccent:    editingB ? Theme.sideB : Theme.sideA
+    readonly property color clipSelection: editingB ? Theme.sideBMuted : Theme.sideAMuted
+    readonly property color viewAccent:    Theme.viewAccent
+    readonly property color viewSelection: Theme.viewSelection
+
     background: Rectangle {
         // Surface is one shade up from Theme.bg so the inner reels
         // (which use Theme.bg) read as recessed against the panel.
@@ -348,106 +364,6 @@ Pane {
             }
         }
 
-        // ---- Dual view: whose scene chain the panel edits. The scene side
-        // (Input, Look, Scene LUT, knee) belongs to each side's clip —
-        // editing a tab pins that clip; the display side stays shared.
-        // Ganged, B borrows A's chain (B's own pins are kept, not
-        // overwritten) and the panel shows one chain.
-        Rectangle {
-            id: dualStrip
-            readonly property var ocio: WindowManager.ocio
-            readonly property var project: WindowManager.project
-            readonly property bool shown: !!ocio && ocio.dualView
-            readonly property string nameA: shown && project && ocio.clipIdA.length > 0
-                                            ? (project.mediaItemMap(ocio.clipIdA).name || "") : ""
-            readonly property string nameB: shown && project && ocio.clipIdB.length > 0
-                                            ? (project.mediaItemMap(ocio.clipIdB).name || "") : ""
-            Layout.fillWidth: true
-            Layout.preferredHeight: shown ? 34 : 0
-            visible: shown
-            color: Theme.surface
-
-            Rectangle {
-                anchors.left:   parent.left
-                anchors.right:  parent.right
-                anchors.bottom: parent.bottom
-                height: Theme.dividerWidth
-                color:  Theme.divider
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Theme.spacingLoose
-                anchors.rightMargin: Theme.spacingLoose
-                spacing: Theme.spacing
-
-                Text {
-                    text: qsTr("Scene chain")
-                    color: Theme.textMuted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeTiny
-                    font.bold: true
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 0.8
-                }
-                FlatButton {
-                    checkable: true
-                    checked: !!dualStrip.ocio && dualStrip.ocio.activeTab === 0
-                    text: qsTr("A · %1").arg(dualStrip.nameA || qsTr("(none)"))
-                    tooltipText: qsTr("%1\nEdit A's scene chain — changes stay with this clip")
-                                     .arg(dualStrip.nameA || qsTr("(none)"))
-                    elideMode: Text.ElideMiddle
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 80
-                    Layout.maximumWidth: implicitWidth
-                    onClicked: dualStrip.ocio.activeTab = 0
-                }
-                FlatButton {
-                    checkable: true
-                    enabled: !!dualStrip.ocio && !dualStrip.ocio.ganged
-                    checked: !!dualStrip.ocio && dualStrip.ocio.activeTab === 1
-                             && !dualStrip.ocio.ganged
-                    text: dualStrip.ocio && dualStrip.ocio.ganged
-                          ? qsTr("B · ganged to A")
-                          : qsTr("B · %1").arg(dualStrip.nameB || qsTr("(none)"))
-                    tooltipText: dualStrip.ocio && dualStrip.ocio.ganged
-                                 ? qsTr("B uses A's scene chain — ungang to edit B's own")
-                                 : qsTr("%1\nEdit B's scene chain — changes stay with this clip")
-                                       .arg(dualStrip.nameB || qsTr("(none)"))
-                    elideMode: Text.ElideMiddle
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 80
-                    Layout.maximumWidth: implicitWidth
-                    onClicked: dualStrip.ocio.activeTab = 1
-                }
-                Item { Layout.fillWidth: true }
-                FlatButton {
-                    variant: "raised"
-                    checkable: true
-                    checked: !!dualStrip.ocio && dualStrip.ocio.ganged
-                    iconName: checked ? "link" : "link-break"
-                    text: qsTr("Gang")
-                    tooltipText: checked
-                                 ? qsTr("Ganged: B borrows A's scene chain. Click to give B its own again.")
-                                 : qsTr("Gang: B borrows A's scene chain, for like-for-like comparisons. B's own pins are kept.")
-                    onClicked: dualStrip.ocio.ganged = !dualStrip.ocio.ganged
-                }
-                FlatButton {
-                    variant: "raised"
-                    iconName: "copy"
-                    text: qsTr("Copy A → B")
-                    enabled: !!dualStrip.ocio && dualStrip.ocio.clipIdA.length > 0
-                             && dualStrip.ocio.clipIdB.length > 0
-                             && dualStrip.ocio.clipIdA !== dualStrip.ocio.clipIdB
-                    tooltipText: qsTr("Pin A's scene chain to B's clip")
-                    onClicked: {
-                        dualStrip.ocio.copyAChainToB();
-                        WindowManager.toast(qsTr("A's scene chain copied to B"), 0);
-                    }
-                }
-            }
-        }
-
         // ---- Reel grid (middle, fills available height)
         RowLayout {
             Layout.fillWidth: true
@@ -469,16 +385,68 @@ Pane {
             // into the chain. The body fills with the app's default
             // background but draws a 1-px border so the list reads as
             // a contained surface against the reels on its right.
+            // ---- SETUP — presets and the config, one column, two tabs.
             ColumnLayout {
                 id: presetColumn
                 property string filterText: ""
-                Layout.minimumWidth: 130
-                Layout.preferredWidth: 170
+                property int    setupTab: 0   // 0 Presets, 1 Config
+                Layout.minimumWidth: 180
+                Layout.preferredWidth: 240
                 Layout.fillHeight: true
                 spacing: Theme.spacing
 
+                // Same header height as the Clip / View groups so the
+                // lists line up.
+                RowLayout {
+                    id: setupHeader
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.preferredHeight: Theme.toolStripHeight
+                    spacing: Theme.spacing
+                    Text {
+                        id: setupLabel
+                        text: qsTr("Setup")
+                        color: Theme.setupAccent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.bold: true
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8
+                    }
+                    FlatButton {
+                        checkable: true
+                        checked: presetColumn.setupTab === 0
+                        checkedFill: Theme.setupTab
+                        uncheckedFill: Theme.setupFaded
+                        id: presetsTab
+                        text: qsTr("Presets")
+                        tooltipText: qsTr("A preset sets both groups: its clip half on the selected clip, its view half on the View")
+                        onClicked: presetColumn.setupTab = 0
+                    }
+                    FlatButton {
+                        checkable: true
+                        checked: presetColumn.setupTab === 1
+                        checkedFill: Theme.setupTab
+                        uncheckedFill: Theme.setupFaded
+                        text: qsTr("Config · %1").arg(WindowManager.ocio
+                                                      ? WindowManager.ocio.activeConfigName : "")
+                        tooltipText: qsTr("The OCIO config — the colourspace, display and view names every column uses")
+                        elideMode: Text.ElideRight
+                        // From the column's width, not the header's: the
+                        // header's own width follows its children.
+                        Layout.preferredWidth: Math.max(0, Math.min(implicitWidth,
+                            presetColumn.width - setupLabel.width - presetsTab.width
+                            - 3 * setupHeader.spacing))
+                        onClicked: presetColumn.setupTab = 1
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                GroupRule { color: Theme.setupAccent }
+
+                // Caption in the reels' title row, so the lists line up.
                 Text {
-                    text: qsTr("Preset")
+                    text: presetColumn.setupTab === 0 ? qsTr("Sets clip + view")
+                                                      : qsTr("Names every column uses")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeTiny
@@ -487,8 +455,22 @@ Pane {
                     font.letterSpacing: 0.8
                 }
 
+                ReelColumn {
+                    visible: presetColumn.setupTab === 1
+                    showTitle: false
+                    Layout.fillWidth: true
+                    accentColor: Theme.setupAccent
+                    selectionColor: Theme.setupSelection
+                    model: WindowManager.ocio
+                           ? WindowManager.ocio.availableConfigs : []
+                    currentText: WindowManager.ocio
+                                 ? WindowManager.ocio.activeConfigName : ""
+                    onSelected: (entry) => WindowManager.ocio.setActiveConfig(entry)
+                }
+
                 FlatTextField {
                     id: presetFilterField
+                    visible: presetColumn.setupTab === 0
                     Layout.fillWidth: true
                     placeholderText: qsTr("Filter…")
                     onTextChanged: presetColumn.filterText = text
@@ -512,6 +494,7 @@ Pane {
                 }
 
                 Rectangle {
+                    visible: presetColumn.setupTab === 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     // Recessed well — darker than the panel so the
@@ -624,7 +607,7 @@ Pane {
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: presetRow.isCurrent ? Theme.selection
+                                color: presetRow.isCurrent ? Theme.setupSelection
                                      : (presetMa.containsMouse && presetRow.entryEnabled
                                         ? Theme.surfaceHover : "transparent")
                             }
@@ -636,7 +619,7 @@ Pane {
                                 anchors.top:    parent.top
                                 anchors.bottom: parent.bottom
                                 width: 2
-                                color: Theme.accent
+                                color: Theme.setupAccent
                             }
                             RowLayout {
                                 anchors.fill: parent
@@ -699,65 +682,140 @@ Pane {
                     }
                 }
             }
-            ReelColumn {
-                title: qsTr("Config")
-                model: WindowManager.ocio
-                       ? WindowManager.ocio.availableConfigs : []
-                currentText: WindowManager.ocio
-                             ? WindowManager.ocio.activeConfigName : ""
-                onSelected: (entry) => WindowManager.ocio.setActiveConfig(entry)
-            }
-            ReelColumn {
-                title: qsTr("Input")
-                model: WindowManager.ocio ? WindowManager.ocio.colorspaces : []
-                currentText: WindowManager.ocio
-                             ? WindowManager.ocio.activeInput : ""
-                pinSlot: "input"
-                pinned: !!WindowManager.ocio && WindowManager.ocio.inputPinned
-                onSelected: (entry) => WindowManager.ocio.activeInput = entry
-            }
-            ReelColumn {
-                title: qsTr("Look")
-                expandable: true
-                expanded: lutTileSettings.lookExpanded
-                onExpandedChanged: lutTileSettings.lookExpanded = expanded
-                collapsedIconName: "magic-wand"
-                model: WindowManager.ocio
-                       ? [qsTr("(none)")].concat(WindowManager.ocio.looks)
-                       : [qsTr("(none)")]
-                currentText: WindowManager.ocio
-                             && WindowManager.ocio.activeLook.length > 0
-                             ? WindowManager.ocio.activeLook
-                             : qsTr("(none)")
-                pinSlot: "look"
-                pinned: !!WindowManager.ocio && WindowManager.ocio.lookPinned
-                onSelected: (entry) => WindowManager.ocio.activeLook =
-                    (entry === qsTr("(none)") ? "" : entry)
-            }
+            // ---- CLIP — the selected clip's own chain.
+            ColumnLayout {
+                id: clipGroup
+                readonly property var ocio: WindowManager.ocio
+                readonly property var project: WindowManager.project
+                readonly property bool dual: !!ocio && ocio.dualView
+                readonly property string nameA: ocio && project && ocio.clipIdA.length > 0
+                                                ? (project.mediaItemMap(ocio.clipIdA).name || "") : ""
+                readonly property string nameB: dual && project && ocio.clipIdB.length > 0
+                                                ? (project.mediaItemMap(ocio.clipIdB).name || "") : ""
+                Layout.fillHeight: true
+                spacing: Theme.spacing
 
-            // Scene LUT — picker tile, full column height
-            LutTileColumn {
-                title: qsTr("Scene LUT")
-                iconName: "cube"
-                path: WindowManager.ocio
-                      ? WindowManager.ocio.activeSceneLutPath : ""
-                expanded: lutTileSettings.sceneLutExpanded
-                onExpandedChanged: lutTileSettings.sceneLutExpanded = expanded
-                onPickRequested: root.pickLut("scene")
-                onClearRequested: WindowManager.ocio.activeSceneLutPath = ""
-                // CDL collections: pick the correction (empty = first).
-                showCccId: /\.(ccc|cdl)$/i.test(path)
-                cccId: WindowManager.ocio ? WindowManager.ocio.activeSceneLutCccId : ""
-                onCccIdEdited: (id) => WindowManager.ocio.activeSceneLutCccId = id
-                pinSlot: "sceneLut"
-                pinned: !!WindowManager.ocio && WindowManager.ocio.sceneLutPinned
-            }
+                RowLayout {
+                    id: clipHeader
+                    // Takes the width the columns below give the group,
+                    // never widens it (a long clip name would).
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.preferredHeight: Theme.toolStripHeight
+                    spacing: Theme.spacing
+                    // Room for the side tabs; a short name keeps its full
+                    // width and the other tab gets the rest.
+                    readonly property real tabRoom: Math.max(0, width - clipLabel.width
+                        - (tabB.visible ? spacing : 0) - spacing)
+                    function tabWidth(own, other) {
+                        if (!tabB.visible) return Math.min(own, tabRoom);
+                        const half = tabRoom / 2;
+                        if (own <= half) return own;
+                        return Math.min(own, Math.max(half, tabRoom - other));
+                    }
 
-            // Highlight Knee — the chain step between the scene side and
-            // the Display/View (see color/linear_stage.h).
-            KneeColumn {
-                expanded: lutTileSettings.kneeExpanded
-                onExpandedChanged: lutTileSettings.kneeExpanded = expanded
+                    Text {
+                        id: clipLabel
+                        text: qsTr("Clip")
+                        color: root.clipAccent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.bold: true
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8
+                    }
+                    FlatButton {
+                        checkable: true
+                        checked: !clipGroup.ocio || clipGroup.ocio.activeTab === 0
+                                 || !clipGroup.dual
+                        checkedFill: Theme.sideA
+                        uncheckedFill: Theme.sideAFaded
+                        text: qsTr("A · %1").arg(clipGroup.nameA || qsTr("no clip"))
+                        tooltipText: clipGroup.dual
+                                     ? qsTr("%1\nA's clip — changes stay with this clip")
+                                           .arg(clipGroup.nameA || qsTr("no clip"))
+                                     : qsTr("%1\nChanges here stay with this clip")
+                                           .arg(clipGroup.nameA || qsTr("no clip"))
+                        id: tabA
+                        elideMode: Text.ElideMiddle
+                        Layout.preferredWidth: clipHeader.tabWidth(implicitWidth, tabB.implicitWidth)
+                        onClicked: if (clipGroup.ocio) clipGroup.ocio.activeTab = 0
+                    }
+                    FlatButton {
+                        visible: clipGroup.dual
+                        checkable: true
+                        checked: !!clipGroup.ocio && clipGroup.ocio.activeTab === 1
+                        checkedFill: Theme.sideB
+                        uncheckedFill: Theme.sideBFaded
+                        text: qsTr("B · %1").arg(clipGroup.nameB || qsTr("no clip"))
+                        tooltipText: qsTr("%1\nB's clip — changes stay with this clip")
+                                         .arg(clipGroup.nameB || qsTr("no clip"))
+                        id: tabB
+                        elideMode: Text.ElideMiddle
+                        Layout.preferredWidth: clipHeader.tabWidth(implicitWidth, tabA.implicitWidth)
+                        onClicked: clipGroup.ocio.activeTab = 1
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                GroupRule { color: root.clipAccent }
+
+                RowLayout {
+                    Layout.fillHeight: true
+                    spacing: Theme.spacingLoose
+
+                    ReelColumn {
+                        title: qsTr("Input")
+                        model: WindowManager.ocio ? WindowManager.ocio.colorspaces : []
+                        currentText: WindowManager.ocio
+                                     ? WindowManager.ocio.activeInput : ""
+                        pinSlot: "input"
+                        pinned: !!WindowManager.ocio && WindowManager.ocio.inputPinned
+                        onSelected: (entry) => WindowManager.ocio.activeInput = entry
+                    }
+                    ReelColumn {
+                        title: qsTr("Look")
+                        expandable: true
+                        expanded: lutTileSettings.lookExpanded
+                        onExpandedChanged: lutTileSettings.lookExpanded = expanded
+                        collapsedIconName: "magic-wand"
+                        model: WindowManager.ocio
+                               ? [qsTr("(none)")].concat(WindowManager.ocio.looks)
+                               : [qsTr("(none)")]
+                        currentText: WindowManager.ocio
+                                     && WindowManager.ocio.activeLook.length > 0
+                                     ? WindowManager.ocio.activeLook
+                                     : qsTr("(none)")
+                        pinSlot: "look"
+                        pinned: !!WindowManager.ocio && WindowManager.ocio.lookPinned
+                        onSelected: (entry) => WindowManager.ocio.activeLook =
+                            (entry === qsTr("(none)") ? "" : entry)
+                    }
+
+                    // Scene LUT — picker tile, full column height
+                    LutTileColumn {
+                        title: qsTr("Scene LUT")
+                        iconName: "cube"
+                        path: WindowManager.ocio
+                              ? WindowManager.ocio.activeSceneLutPath : ""
+                        expanded: lutTileSettings.sceneLutExpanded
+                        onExpandedChanged: lutTileSettings.sceneLutExpanded = expanded
+                        onPickRequested: root.pickLut("scene")
+                        onClearRequested: WindowManager.ocio.activeSceneLutPath = ""
+                        // CDL collections: pick the correction (empty = first).
+                        showCccId: /\.(ccc|cdl)$/i.test(path)
+                        cccId: WindowManager.ocio ? WindowManager.ocio.activeSceneLutCccId : ""
+                        onCccIdEdited: (id) => WindowManager.ocio.activeSceneLutCccId = id
+                        pinSlot: "sceneLut"
+                        pinned: !!WindowManager.ocio && WindowManager.ocio.sceneLutPinned
+                    }
+
+                    // Highlight Knee — the chain step between the scene side and
+                    // the Display/View (see color/linear_stage.h).
+                    KneeColumn {
+                        expanded: lutTileSettings.kneeExpanded
+                        onExpandedChanged: lutTileSettings.kneeExpanded = expanded
+                    }
+                }
             }
 
             // Group divider
@@ -769,36 +827,69 @@ Pane {
                 Layout.alignment: Qt.AlignVCenter
             }
 
-            // Display-referred group
-            ReelColumn {
-                title: qsTr("Output")
-                model: WindowManager.ocio ? WindowManager.ocio.displays : []
-                currentText: WindowManager.ocio
-                             ? WindowManager.ocio.activeDisplay : ""
-                onSelected: (entry) => WindowManager.ocio.activeDisplay = entry
-            }
-            ReelColumn {
-                title: qsTr("View")
-                // Recompute when display changes — bind to activeDisplay
-                // so the view list refreshes after Output selection.
-                model: WindowManager.ocio
-                    ? WindowManager.ocio.viewsForDisplay(
-                        WindowManager.ocio.activeDisplay) : []
-                currentText: WindowManager.ocio
-                             ? WindowManager.ocio.activeView : ""
-                onSelected: (entry) => WindowManager.ocio.activeView = entry
-            }
+            // ---- VIEW — shared by everything on screen.
+            ColumnLayout {
+                Layout.fillHeight: true
+                spacing: Theme.spacing
 
-            // Display LUT — picker tile, full column height
-            LutTileColumn {
-                title: qsTr("Display LUT")
-                iconName: "monitor"
-                path: WindowManager.ocio
-                      ? WindowManager.ocio.activeDisplayLutPath : ""
-                expanded: lutTileSettings.displayLutExpanded
-                onExpandedChanged: lutTileSettings.displayLutExpanded = expanded
-                onPickRequested: root.pickLut("display")
-                onClearRequested: WindowManager.ocio.activeDisplayLutPath = ""
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Theme.toolStripHeight
+                    spacing: Theme.spacing
+                    Text {
+                        text: qsTr("View")
+                        color: Theme.viewAccent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.bold: true
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8
+                    }
+                    Text {
+                        text: clipGroup.dual ? qsTr("both sides") : qsTr("everything")
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                GroupRule { color: Theme.viewAccent }
+
+                RowLayout {
+                    Layout.fillHeight: true
+                    spacing: Theme.spacingLoose
+
+                    ReelColumn {
+                        title: qsTr("Output")
+                        model: WindowManager.ocio ? WindowManager.ocio.displays : []
+                        currentText: WindowManager.ocio
+                                     ? WindowManager.ocio.activeDisplay : ""
+                        onSelected: (entry) => WindowManager.ocio.activeDisplay = entry
+                    }
+                    ReelColumn {
+                        title: qsTr("View")
+                        // Recompute when display changes — bind to activeDisplay
+                        // so the view list refreshes after Output selection.
+                        model: WindowManager.ocio
+                            ? WindowManager.ocio.viewsForDisplay(
+                                WindowManager.ocio.activeDisplay) : []
+                        currentText: WindowManager.ocio
+                                     ? WindowManager.ocio.activeView : ""
+                        onSelected: (entry) => WindowManager.ocio.activeView = entry
+                    }
+
+                    // Display LUT — picker tile, full column height
+                    LutTileColumn {
+                        title: qsTr("Display LUT")
+                        iconName: "monitor"
+                        path: WindowManager.ocio
+                              ? WindowManager.ocio.activeDisplayLutPath : ""
+                        expanded: lutTileSettings.displayLutExpanded
+                        onExpandedChanged: lutTileSettings.displayLutExpanded = expanded
+                        onPickRequested: root.pickLut("display")
+                        onClearRequested: WindowManager.ocio.activeDisplayLutPath = ""
+                    }
+                }
             }
         }
 
@@ -1086,39 +1177,48 @@ Pane {
     // Set expandable=true and the parent owns `expanded`. Collapsed
     // state renders a slim strip with rotated title — saves horizontal
     // space for reels that aren't typically active (e.g. Look).
-    // Per-clip scene chain: a scene-side slot (Input, Look, Scene LUT,
-    // knee) either follows the default or is pinned to the clip in focus.
-    // Hidden when no clip is loaded. In dual view an edit pins the side's
-    // clip on its own; the toggle still shows and clears it.
-    component PinToggle: Item {
-        id: pinToggle
+    // A clip column the selected clip has set: ↺ returns it to the default
+    // (what an untouched clip shows). Hidden while the column shows the
+    // default.
+    component RevertButton: Item {
+        id: revert
         property string slot: ""
-        property bool   pinned: false
         implicitWidth: 18
         implicitHeight: 18
-        visible: !!WindowManager.ocio && WindowManager.ocio.focusClipId.length > 0
 
         Icon {
             anchors.centerIn: parent
-            name: "push-pin"
+            name: "arrow-counter-clockwise"
             size: Theme.iconSizeSmall
-            color: pinToggle.pinned ? Theme.accent
-                                    : (pinMa.containsMouse ? Theme.textPrimary : Theme.textMuted)
-            opacity: pinToggle.pinned || pinMa.containsMouse ? 1.0 : 0.55
+            color: revertMa.containsMouse ? Theme.textBright : root.clipAccent
         }
         MouseArea {
-            id: pinMa
+            id: revertMa
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: WindowManager.ocio.setSlotPinned(pinToggle.slot, !pinToggle.pinned)
+            onClicked: WindowManager.ocio.setSlotPinned(revert.slot, false)
             FlatToolTip {
-                visible: pinMa.containsMouse
-                text: pinToggle.pinned
-                      ? qsTr("Pinned to this clip — click to follow the default")
-                      : qsTr("Follows the default — click to pin to this clip")
+                visible: revertMa.containsMouse
+                text: qsTr("Set on this clip — click to go back to the default")
             }
         }
+    }
+
+    // Collapsed-strip mark for a clip column the clip has set.
+    component ClipSetDot: Rectangle {
+        Layout.alignment: Qt.AlignHCenter
+        width: 6
+        height: 6
+        radius: 3
+        color: root.clipAccent
+    }
+
+    // Header over each group: its name, then (clip group) the side tabs.
+    component GroupRule: Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 2
+        radius: 1
     }
 
     component ReelColumn: ColumnLayout {
@@ -1131,9 +1231,15 @@ Pane {
         property bool   expandable: false
         property bool   expanded: true
         property string collapsedIconName: "list-bullets"
-        // Scene-side slot name for the pin toggle ("" = display side).
+        // False when the column sits under a header that names it.
+        property bool   showTitle: true
+        // Clip column: its slot name ("" = a View column), and whether
+        // the selected clip has set it.
         property string pinSlot: ""
         property bool   pinned: false
+        // Clip columns highlight in the side's colour, View columns grey.
+        property color  accentColor:    pinSlot.length > 0 ? root.clipAccent : root.viewAccent
+        property color  selectionColor: pinSlot.length > 0 ? root.clipSelection : root.viewSelection
         signal selected(string entry)
 
         Layout.minimumWidth: (expandable && !expanded) ? 32 : 130
@@ -1145,6 +1251,7 @@ Pane {
         // so collapsed and expanded columns line up at the same body Y.
         // The inner Text + chevron are what toggle on collapse.
         Item {
+            visible: reel.showTitle
             Layout.fillWidth: true
             Layout.preferredHeight: titleProbe.implicitHeight
 
@@ -1162,14 +1269,12 @@ Pane {
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 0.8
             }
-            PinToggle {
+            RevertButton {
                 anchors.left: titleProbe.right
                 anchors.leftMargin: 4
                 anchors.verticalCenter: parent.verticalCenter
-                visible: reel.pinSlot.length > 0 && titleProbe.visible
-                         && !!WindowManager.ocio && WindowManager.ocio.focusClipId.length > 0
+                visible: reel.pinned && titleProbe.visible
                 slot: reel.pinSlot
-                pinned: reel.pinned
             }
             Icon {
                 visible: reel.expandable && reel.expanded
@@ -1253,7 +1358,7 @@ Pane {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: modelData === reel.currentText ? Theme.selection
+                        color: modelData === reel.currentText ? reel.selectionColor
                              : (mouseArea.containsMouse ? Theme.surfaceHover : "transparent")
                     }
                     // Current-entry accent rule — same selected
@@ -1265,7 +1370,7 @@ Pane {
                         anchors.top:    parent.top
                         anchors.bottom: parent.bottom
                         width: 2
-                        color: Theme.accent
+                        color: reel.accentColor
                     }
                     RowLayout {
                         anchors.fill: parent
@@ -1340,13 +1445,7 @@ Pane {
                     }
                 }
 
-                Icon {
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: reel.pinned
-                    name: "push-pin"
-                    size: Theme.iconSizeSmall
-                    color: Theme.accent
-                }
+                ClipSetDot { visible: reel.pinned }
 
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
@@ -1424,13 +1523,12 @@ Pane {
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 0.8
             }
-            PinToggle {
+            RevertButton {
                 anchors.left: kneeTitle.right
                 anchors.leftMargin: 4
                 anchors.verticalCenter: parent.verticalCenter
-                visible: knee.expanded && !!knee.ocio && knee.ocio.focusClipId.length > 0
+                visible: knee.expanded && !!knee.ocio && knee.ocio.kneePinned
                 slot: "knee"
-                pinned: !!knee.ocio && knee.ocio.kneePinned
             }
             Icon {
                 visible: knee.expanded
@@ -1687,13 +1785,7 @@ Pane {
                         font.letterSpacing: 0.8
                     }
                 }
-                Icon {
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: !!knee.ocio && knee.ocio.kneePinned
-                    name: "push-pin"
-                    size: Theme.iconSizeSmall
-                    color: Theme.accent
-                }
+                ClipSetDot { visible: !!knee.ocio && knee.ocio.kneePinned }
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
                     name: "sun-horizon"
@@ -1719,7 +1811,8 @@ Pane {
         property bool   expanded: false
         property bool   showCccId: false
         property string cccId: ""
-        // Scene-side slot name for the pin toggle ("" = display side).
+        // Clip column: its slot name ("" = the View's Display LUT), and
+        // whether the selected clip has set it.
         property string pinSlot: ""
         property bool   pinned: false
         signal pickRequested()
@@ -1755,14 +1848,12 @@ Pane {
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 0.8
             }
-            PinToggle {
+            RevertButton {
                 anchors.left: titleProbe.right
                 anchors.leftMargin: 4
                 anchors.verticalCenter: parent.verticalCenter
-                visible: tile.pinSlot.length > 0 && tile.expanded
-                         && !!WindowManager.ocio && WindowManager.ocio.focusClipId.length > 0
+                visible: tile.pinned && tile.expanded
                 slot: tile.pinSlot
-                pinned: tile.pinned
             }
             Icon {
                 visible: tile.expanded
@@ -1976,13 +2067,7 @@ Pane {
                     }
                 }
 
-                Icon {
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: tile.pinned
-                    name: "push-pin"
-                    size: Theme.iconSizeSmall
-                    color: Theme.accent
-                }
+                ClipSetDot { visible: tile.pinned }
 
                 Icon {
                     Layout.alignment: Qt.AlignHCenter

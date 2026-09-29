@@ -19,12 +19,10 @@
 // Look, Scene LUT / CDL, knee) is a default plus per-clip pins; the
 // display side (Display, View, Display LUT) and the config are shared.
 // The active* / knee* properties are the chain of the clip in FOCUS
-// (single view: the clip on screen; dual view: the A or B tab, A while
-// ganged), and their setters route the edit:
-//   - single view: to the clip's pin when that slot is pinned, else to
-//     the default;
-//   - dual view: always to the focused clip's pin (editing a side is
-//     that clip's remembered state) — while ganged, A's.
+// (single view: the clip on screen; dual view: the A or B tab). A
+// clip-side edit always pins that clip — single and dual view
+// read the same; with no clip loaded it sets the starting chain (the
+// default every untouched clip shows).
 // Renderers never read these: they take snapshot(), an immutable
 // OcioChainSnapshot with one resolved OcioChainSpec per displayed side.
 
@@ -101,8 +99,6 @@ class OCIOConfigManager : public QObject
     Q_PROPERTY(bool    dualView    READ dualView    NOTIFY viewContextChanged)
     Q_PROPERTY(QString clipIdA     READ clipIdA     NOTIFY viewContextChanged)
     Q_PROPERTY(QString clipIdB     READ clipIdB     NOTIFY viewContextChanged)
-    // Dual view: B borrows A's scene chain (never written to B's pins).
-    Q_PROPERTY(bool ganged READ ganged WRITE setGanged NOTIFY viewContextChanged)
     // Dual view: which side's scene chain the panel edits (0 = A, 1 = B).
     Q_PROPERTY(int activeTab READ activeTab WRITE setActiveTab NOTIFY viewContextChanged)
 
@@ -222,8 +218,6 @@ public:
     bool    dualView()    const { return m_dual; }
     QString clipIdA()     const { return m_clipA; }
     QString clipIdB()     const { return m_clipB; }
-    bool    ganged()      const { return m_ganged; }
-    void    setGanged(bool on);
     int     activeTab()   const { return m_activeTab; }
     void    setActiveTab(int tab);
 
@@ -233,9 +227,11 @@ public:
     bool kneePinned()     const { return slotPinned(Slot::Knee); }
 
     // Pin the focused clip's current value of `slot` ("input", "look",
-    // "sceneLut", "knee") to it, or let it follow the default again.
+    // "sceneLut", "knee") to it, or (pinned = false) return that slot to
+    // the default — the panel's ↺.
     Q_INVOKABLE void setSlotPinned(const QString &slot, bool pinned);
-    // Dual view: B's pins become A's effective scene chain.
+    // Dual view: B's pins become A's effective scene chain. Not in the
+    // panel (kept for the bulk actions, colour plan stage 3).
     Q_INVOKABLE void copyAChainToB();
     Q_INVOKABLE bool clipHasPins(const QString &clipId) const;
     Q_INVOKABLE void clearClipPins(const QString &clipId);
@@ -265,8 +261,8 @@ private:
     OcioSceneChain focusedScene() const { return resolveScene(focusClipId()); }
     OcioChainSpec  specFor(const OcioSceneChain &scene) const;
     bool slotPinned(Slot slot) const;
-    // Where an edit of `slot` lands: the focused clip's pin (created in
-    // dual view), or nullptr for the default.
+    // Where an edit of `slot` lands: the focused clip's pin (created on
+    // first edit), or nullptr for the default when no clip is loaded.
     OcioScenePin *editPin(Slot slot);
     void notePinEdit(const QString &clipId);
     // Knee edits start from the focused clip's effective knee.
@@ -306,7 +302,6 @@ private:
     QString m_singleClip;
     QString m_clipA, m_clipB;
     bool    m_dual      = false;
-    bool    m_ganged    = false;
     int     m_activeTab = 0;
 
     mutable std::mutex m_snapshotMutex;

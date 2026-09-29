@@ -744,6 +744,48 @@ int main(int argc, char *argv[])
             t->start(every);
         }
     }
+    // Dev aid: QCV_UI_GRAB=<path>[@<seconds>] opens the Color panel and
+    // saves the main window's QML scene (the native viewport shows as
+    // blank) after <seconds> (default 6) — for checking panel layout.
+    if (qEnvironmentVariableIsSet("QCV_UI_GRAB")) {
+        const QString spec = qEnvironmentVariable("QCV_UI_GRAB");
+        const QString path = spec.section(QLatin1Char('@'), 0, 0);
+        const double secs = spec.contains(QLatin1Char('@'))
+                                ? spec.section(QLatin1Char('@'), 1).toDouble() : 6.0;
+        QTimer::singleShot(1500, &engine, [&engine] {
+            if (!engine.rootObjects().isEmpty())
+                engine.rootObjects().first()->setProperty("colorPanelVisible", true);
+        });
+        QTimer::singleShot(static_cast<int>(secs * 1000), &engine, [&engine, path] {
+            auto *win = engine.rootObjects().isEmpty()
+                            ? nullptr : qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+            const QImage img = win ? win->grabWindow() : QImage();
+            qInfo("QCV_UI_GRAB: %s %dx%d → %s", img.isNull() ? "FAILED" : "saved",
+                  img.width(), img.height(), qPrintable(path));
+            if (!img.isNull()) img.save(path);
+        });
+    }
+    // Dev aid: QCV_PRESET_TEST="<a|b>;<preset name>" applies a preset from
+    // that dual tab 5 s after launch and logs both sides' chains.
+    if (qEnvironmentVariableIsSet("QCV_PRESET_TEST")) {
+        QTimer::singleShot(5000, &windowManager, [&windowManager] {
+            auto *ocio = windowManager.ocio();
+            auto *presets = windowManager.presets();
+            if (!ocio || !presets) return;
+            const QString spec = qEnvironmentVariable("QCV_PRESET_TEST");
+            ocio->setActiveTab(spec.section(QLatin1Char(';'), 0, 0) == QLatin1String("b") ? 1 : 0);
+            auto log = [ocio](const char *when) {
+                const auto s = ocio->snapshot();
+                qInfo("QCV_PRESET_TEST %s: A=%s | B=%s | view=%s/%s | config=%s", when,
+                      qPrintable(s->a.scene.input), qPrintable(s->b.scene.input),
+                      qPrintable(s->a.display), qPrintable(s->a.view),
+                      qPrintable(ocio->activeConfigName()));
+            };
+            log("before");
+            presets->applyPreset(spec.section(QLatin1Char(';'), 1));
+            log("after");
+        });
+    }
     // Dev aid: QCV_COMP_MODE=<0..3> sets the compositor mode 4.5 s after
     // launch (1 SBS, 2 Wipe, 3 Difference) — after --simulate-user's SBS.
     if (qEnvironmentVariableIsSet("QCV_COMP_MODE")) {

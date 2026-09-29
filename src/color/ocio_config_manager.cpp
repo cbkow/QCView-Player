@@ -791,15 +791,7 @@ void OCIOConfigManager::setViewContext(const QString &singleClipId, bool dual,
 QString OCIOConfigManager::focusClipId() const
 {
     if (!m_dual) return m_singleClip;
-    return (m_activeTab == 1 && !m_ganged) ? m_clipB : m_clipA;
-}
-
-void OCIOConfigManager::setGanged(bool on)
-{
-    if (m_ganged == on) return;
-    m_ganged = on;
-    emit viewContextChanged();
-    publish(/*knee=*/true);
+    return m_activeTab == 1 ? m_clipB : m_clipA;
 }
 
 void OCIOConfigManager::setActiveTab(int tab)
@@ -835,11 +827,11 @@ bool OCIOConfigManager::slotPinned(Slot slot) const
 
 OcioScenePin *OCIOConfigManager::editPin(Slot slot)
 {
+    Q_UNUSED(slot);
+    // Every clip-side edit stays with the clip on screen, single or dual
+    // view alike. With no clip loaded it sets the starting chain.
     const QString clip = focusClipId();
-    if (clip.isEmpty()) return nullptr;
-    // Dual view: editing a side is that clip's remembered state.
-    if (m_dual) return &m_pins[clip];
-    return slotPinned(slot) ? &m_pins[clip] : nullptr;
+    return clip.isEmpty() ? nullptr : &m_pins[clip];
 }
 
 void OCIOConfigManager::notePinEdit(const QString &clipId)
@@ -970,7 +962,7 @@ void OCIOConfigManager::publish(bool knee)
     };
     snap->single = withScene(resolveScene(m_singleClip));
     snap->a      = withScene(resolveScene(m_clipA));
-    snap->b      = m_ganged ? snap->a : withScene(resolveScene(m_clipB));
+    snap->b      = withScene(resolveScene(m_clipB));
     snap->generation = m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
     {
         std::lock_guard lock(m_snapshotMutex);
