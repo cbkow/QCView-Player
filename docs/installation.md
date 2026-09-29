@@ -52,6 +52,21 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.0
+
+- **Colour per clip** — each clip now keeps its own Input, Look, Scene LUT and Highlight Knee (the Color panel's **Clip** group). The Output, View and Display LUT (the **View** group) stay shared by everything on screen. In dual view, A and B each render through their own chain; pick a side with the **A** / **B** tabs. Clip chains are saved with the project, and clips that have one show a badge in the project panel and on the A/B source chips.
+- **Color panel layout** — three groups, left to right: **Setup** (presets and the OCIO config), **Clip** and **View**. It works the same in single and dual view. A preset sets both halves: its clip half on the selected clip, its view half on the View. ↺ on a clip column goes back to the default.
+- **Bulk colour in the project panel** — right-click selected clips for **Input ›** (a searchable picker, with the inputs already used in the project on top), **Use Clip Chain of "…"** and **Reset Clip Chain**.
+- **Scopes** — GPU **Vectorscope** and **Waveform** sections in the right rail. The waveform reads in nits on HDR sources (with 203-nit reference white), shows a **Frame · Max** peak readout, and in dual view reads each side from its own file.
+- **Highlight Knee** — an optional chain step that compresses highlights above a chosen peak into the display's range, with an amber **KNEE** pill in the viewport while it is active. The Inspector shows the file's HDR metadata (MaxCLL / MaxFALL / mastering peak).
+- **Viewer aids** — Exposure (in stops), Gamma and Channel view (RGB / R / G / B / A / luma) for inspecting the source. They are never saved in presets or baked into exports.
+- **ASC CDL** — .cc, .ccc and .cdl files load in the Scene LUT slot, with a Correction ID field for collections.
+- **Super-whites and sub-blacks kept** — values outside the legal video range now reach OCIO on every decode path (hardware, software and dual view) instead of being clipped. A range chart reads 109 % everywhere; before, software-decoded video and Windows dual view read 100 %.
+- **Untagged video is BT.709 on every path** — untagged SD clips no longer decode as BT.601 on some paths and BT.709 on others.
+- **Windows: 10-bit video levels** — 10- and 12-bit video no longer leans slightly green (the fix 2.4.1 made on macOS).
+- **Windows: dual view** — full frame rate at 4K with far less CPU, and a fix for an intermittent 10–17 second freeze when entering dual view. Dual-view screenshots now capture the dual picture.
+- **Menus take typing** — text typed in pop-up menus and pickers no longer triggers app shortcuts (Backspace and Delete could delete the selected project items).
+
 What's new in 2.4.1
 
 - **PQ P3-D65 masters** — a new **ST2084-P3-D65** input in the Blender 5.2 OCIO config for HDR deliverables mastered in P3-D65 with the PQ curve (e.g. Resolve's "P3-D65 ST2084"). Previously these could only be read as Rec.2100-PQ, which treats the P3 values as BT.2020 and oversaturates the greens. The ACES 2.0 config already carries it as `ST2084-P3-D65 - Display`.
