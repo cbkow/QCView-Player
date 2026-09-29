@@ -26,6 +26,22 @@ Dragging items past the app's borders is restricted to a link-action drop so the
 
 ---
 
+## Clip colour
+
+A clip that has its own colour chain (set in the [Color panel's Clip group](/color/#clip)) shows a badge on its row: its Input, plus anything else it sets. Hover the badge for the full names.
+
+Right-click one or more selected clips for bulk colour actions:
+
+| Action | Result |
+|---|---|
+| **Input ›** | Opens a picker to set the Input on every selected clip. Type to filter; the Inputs already used in the project are listed on top, with the default marked. `Enter` picks the first match. |
+| **Use Clip Chain of "…"** | Copies the chain of the clip on screen to the selected clips |
+| **Reset Clip Chain** | Clears the selected clips' own chains, so they follow the default again |
+
+![Clip badges and the bulk Input picker in the Project panel](images/qcv040.jpg)
+
+---
+
 ## Save / Load Projects
 
 Save your current session — all media, playlists, dual views, and per-item properties — to a `.qcvproj` file. Reopen it to pick up where you left off.

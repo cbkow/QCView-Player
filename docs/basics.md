@@ -17,18 +17,21 @@ Use the **File** menu to load media into QCView:
 | Action | Shortcut |
 |---|---|
 | Open Media | `Ctrl + O` |
+| Open Stream | Opens a live stream by URL (e.g. `srt://…`) |
+| Connect to After Effects / Premiere Pro | Receive a live source from the [QCViewBridgeAE](/qcbridge/adobe/) add-on |
 | Open Project | `Ctrl + Shift + O` |
 | Save Project | `Ctrl + S` |
 | Save Project As | `Ctrl + Shift + S` |
 | New Project | Clears the current project |
+| Copy Project Link | Copies a `qcview://` link to the saved project (see [Project Links](/project-manager/#project-links)) |
 
 Recent media and recent projects are also reachable from the **Open Recent** submenus.
 
 ### Drag and Drop
 
-You can drag files directly into the app. The viewport border highlights when a drop target is detected. Drag one or more files to the viewport to load immediately or the media panel to add to a collection.
+You can drag files directly into the app. Drag one or more files to the viewport to load them immediately, or onto the Project panel's media list to add them to the project; the list outlines in blue while you're over it.
 
-![Viewport drop-target highlight](images/qcv003.jpg)
+![Dragging a file onto the Project panel](images/qcv003.jpg)
 
 To load files already in your project, double-click them in the media panel or drag them into the viewport.
 
@@ -43,9 +46,10 @@ Toggle panels from the **View** menu or with keyboard shortcuts:
 | Panel | Shortcut |
 |---|---|
 | Left Rail (Project, Settings, Background, Safety) | `Ctrl + 1` |
-| Right Rail (Inspector, Shortcuts) | `Ctrl + 2` |
+| Right Rail (Scopes, Inspector, Shortcuts) | `Ctrl + 2` |
 | Color Panel | `Ctrl + 3` |
 | Notes | `Ctrl + 4` |
+| Status Bar | `Ctrl + 5` |
 
 ![Left Rail panels](images/qcv004.jpg)
 
@@ -59,7 +63,9 @@ You can also use the mouse to toggle panels. Rails can be opened and closed by c
 
 | Preset | Shortcut | Description |
 |---|---|---|
-| Minimal Mode | `Ctrl + -` | Viewport + transport only |
+| Minimal Mode | `Ctrl + 0` | Viewport + transport only |
+| Show All Panels | `Ctrl + 9` | Opens every panel |
+| Default View | `Ctrl + R` | Rails, timeline, Color panel and status bar |
 | Fullscreen | `F` | Viewport only, no UI. Press `F` or `Esc` to exit |
 
 
@@ -82,7 +88,7 @@ Open the **Safety Guides** section in the Left Rail (Tools menu → Safety Guide
 
 ## Keyboard Shortcuts
 
-The full keyboard shortcut reference lives in the Inspector under **Shortcuts** (`Ctrl + /`).
+The full keyboard shortcut reference lives at the bottom of the Right Rail under **Keyboard Shortcuts** (`Ctrl + /`).
 
 ![Keyboard Shortcuts reference in the Right Rail](images/qcv009.jpg)
 

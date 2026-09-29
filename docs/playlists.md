@@ -10,7 +10,7 @@ To create a playlist, click the `+` button to the right of the Playlist header i
 
 To build a playlist, drag video or image-sequence sources from the Project panel into the timeline. Mixed video + image-sequence playlists work — QCView swaps backends at clip boundaries.
 
-![Playlist timeline with mixed video and image-sequence clips](images/qcv030.jpg)
+![The + button in the Playlists header, and a playlist on the timeline](images/qcv030.jpg)
 
 ---
 

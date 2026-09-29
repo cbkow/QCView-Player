@@ -30,6 +30,10 @@ In **Difference**, the same overlay slider becomes a **gain** control. Subtle di
 ![Split-wipe seam between A and B](images/qcv036.jpg)
 ![Difference mode between A and B](images/qcv037.jpg)
 
+## Color per side
+
+Each side renders through its own clip's colour chain, so an SDR render and an HDR master can be compared with each read correctly. In the Color panel, the **A** and **B** tabs pick which side's clip you are editing; the Output, View and Display LUT are shared by both. Each chip shows its clip's colour badge. See [Color → Dual view](/color/#dual-view).
+
 ## Audio
 
 Per-side mute and an A/B level mixer live in the Inspector's Audio routing controls. Multi-stream broadcast deliveries route per channel, same as in single-source mode (see [App Basics](app-basics)). The right side is muted by default.

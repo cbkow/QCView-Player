@@ -20,12 +20,15 @@ Click **Add Note** to create a note at the current playhead position. A diamond 
 
 ### Drawing Tools
 
-The annotation toolbar provides shapes (freehand, box, circle, arrow), a line-width slider, and color selection for drawing directly on the viewport.
+The annotation toolbar on the right of the Notes panel provides a pointer (select, move, scale or delete a drawn shape), freehand pen, box, circle, arrow, line and eraser, plus a color picker and a line-width slider for drawing directly on the viewport. The note's thumbnail picks up the strokes.
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl + Z` | Undo |
-| `Ctrl + Y` | Redo |
+| `Ctrl + Z` | Undo stroke |
+| `Ctrl + Shift + Z` | Redo stroke |
+| `Esc` | Cancel the stroke in progress |
+
+Note thumbnails are captured through the active OCIO chain and marked **OCIO**; hover the mark to see the chain.
 
 > If the Notes panel is open, screenshots are captured with embedded annotations.
 

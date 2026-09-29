@@ -4,6 +4,10 @@
 
 This is the Qt-based rebuild of the original QCView (Dear ImGui + GLFW + native graphics APIs). Architecture, decode path, color pipeline, and review tools are all carried forward; the UI shell is now Qt Quick / QML.
 
+![QCView comparing an SDR render and an HDR master in dual view, each with its own colour chain](docs/images/qcv039.jpg)
+
+Full manual: [qcview.app](https://qcview.app)
+
 ### Windows
 
 <a href="https://apps.microsoft.com/detail/9p4z15p5g805?referrer=appbadge&mode=full" target="_blank" rel="noopener noreferrer">
@@ -32,8 +36,10 @@ Signed and notarized `.dmg` available from [GitHub Releases](https://github.com/
 - TIFF, PNG, JPEG, and JPEG-2000 (HTJ2K via OpenJPH) sequence playback
 
 ### Color
-- Live [OCIO](https://opencolorio.org/) color correction with a node-based interface
+- Live [OCIO](https://opencolorio.org/) color management, with a colour chain per clip and per side of a dual view
 - Bundled OCIO configs: ACES 2.0, ACES 1.3, Blender 5.2, Blender 5.1
+- Highlight Knee for reviewing HDR masters on SDR displays; ASC CDL and `.cube` LUTs
+- GPU vectorscope and waveform (nits on HDR sources) with a peak readout
 - Screenshots and notes exports with OCIO transforms applied
 
 ### Review Tools

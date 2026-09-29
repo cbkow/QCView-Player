@@ -29,8 +29,10 @@ nav_order: 1
 - TIFF, PNG, JPEG sequence playback
 
 ### Color
-- Live [OCIO](https://opencolorio.org/) color correction with a node-based interface
+- Live [OCIO](https://opencolorio.org/) color management, with a colour chain per clip and per side of a dual view
 - Bundled OCIO configs: ACES 2.0, ACES 1.3, Blender 5.2, Blender 5.1
+- Highlight Knee for reviewing HDR masters on SDR displays; ASC CDL and `.cube` LUTs
+- GPU vectorscope and waveform (nits on HDR sources) with a peak readout
 - Screenshots and notes exports apply the OCIO transform
 
 ### Review Tools

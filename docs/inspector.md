@@ -10,6 +10,22 @@ The Inspector lives in the Right Rail (`Ctrl + 2`). It shows per-source properti
 
 ![Inspector panel in the Right Rail](images/qcv021.jpg)
 
+## Scopes
+
+The **Vectorscope** and **Waveform** sections sit at the top of the Inspector. Expand one to turn it on; collapsed scopes cost nothing. The scopes read the source itself, before your View, and the label above each one says how it is being interpreted:
+
+- **Input** — OCIO is on: the scope follows the clip's Input from the [Color panel](/color/).
+- **Assumed** — OCIO is off: the colorspace is taken from the file's tags (the targets are dimmed).
+- **Signal** — nothing to go on: the raw signal.
+
+![Vectorscope and Waveform in the Right Rail](images/qcv041.jpg)
+
+**Vectorscope** — colour-bar targets, Rec.709 / P3 / Rec.2020 gamut outlines and the skin-tone line. The `1× 2× 4×` buttons zoom, **Color** tints the trace by hue, and the slider sets the trace brightness.
+
+**Waveform** — SDR sources plot the signal's Y′ from 0–100 %. HDR sources plot luminance in nits on a scale with lines at 300, 600, 1000, 2000 and 4000 nits and a reference-white line at 203. Under the waveform, a **Frame · Max** readout gives the brightest level in the current frame and the highest seen since the clip started; hover it for the brightest channel, and click **Reset** to start over.
+
+In dual view each side is read from its own file, drawn in its own colour.
+
 ## Path actions
 
 The Inspector shows the file path of the currently-loaded media with two path actions:
