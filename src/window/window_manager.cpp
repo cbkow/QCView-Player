@@ -151,6 +151,22 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             m_ocio->setViewContext(a, m_compositorMode != 0, a, b);
         };
         connect(this, &WindowManager::compositorModeChanged, this, updateOcioContext);
+        // The clip chains live in the project: mirror every edit onto the
+        // media item, and hand them all back when a project loads (before
+        // its restored clip does).
+        connect(m_ocio, &OCIOConfigManager::pinsChanged, this, [this](const QString &id) {
+            if (m_project && m_ocio) m_project->setOcioClip(id, m_ocio->clipPinsVariant(id));
+        });
+        if (m_project) {
+            connect(m_project, &ProjectManager::mediaPoolLoaded, this, [this] {
+                if (!m_ocio || !m_project) return;
+                QHash<QString, QVariantMap> all;
+                for (const MediaItem &it : m_project->mediaPool()) {
+                    if (!it.ocioClip.isEmpty()) all.insert(it.id, it.ocioClip);
+                }
+                m_ocio->replaceAllPins(all);
+            });
+        }
         connect(this, &WindowManager::audioRoutingScopeChanged, this, updateOcioContext);
         if (m_project) {
             connect(m_project, &ProjectManager::activeItemIdChanged, this, updateOcioContext);
@@ -6978,6 +6994,23 @@ void WindowManager::resetViewerAids()
     setChannelView(0);
 }
 
+QString WindowManager::ocioChainTag() const
+{
+    // Notes belong to the single-view clip: its chain (its own settings
+    // over the default), exact names — a note is a record.
+    if (!m_ocio || !m_ocio->engaged()) return {};
+    const auto snap = m_ocio->snapshot();
+    const OcioChainSpec &s = snap->single;
+    if (!s.complete()) return {};
+    QStringList clip{s.scene.input};
+    if (!s.scene.look.isEmpty()) clip << s.scene.look;
+    if (!s.scene.sceneLutPath.isEmpty()) clip << QFileInfo(s.scene.sceneLutPath).fileName();
+    QString view = s.display + QStringLiteral(" / ") + s.view;
+    if (!s.displayLutPath.isEmpty())
+        view += QStringLiteral(" + ") + QFileInfo(s.displayLutPath).fileName();
+    return QStringLiteral("OCIO: %1 → %2").arg(clip.join(QStringLiteral(" + ")), view);
+}
+
 QString WindowManager::viewerAidsTag() const
 {
     auto *ocio = m_ocio;
@@ -7909,6 +7942,7 @@ QVariantList WindowManager::notesList() const
         m[QStringLiteral("addressed")]        = n.addressed;
         m[QStringLiteral("hasStrokes")]       = !n.annotation_data.isEmpty();
         m[QStringLiteral("viewerTag")]        = n.viewer_tag;
+        m[QStringLiteral("ocioChain")]        = n.ocio_chain;
         // image_path is sidecar-relative ("images/note_<TC>.png");
         // join with the absolute images folder so QML's Image item
         // can load it directly. We expose two paths:
@@ -8033,6 +8067,7 @@ void WindowManager::saveNoteCleanThumbnail(const QString &timecode)
     // The capture includes the viewer aids (and the knee); say so on the
     // note, captured with the frame.
     m_annotationManager->updateNoteViewerTag(timecode, viewerAidsTag());
+    m_annotationManager->updateNoteOcioChain(timecode, ocioChainTag());
 
     // Keep the just-captured clean frame in memory so the annotated
     // recomposite (fired ~400 ms later) can proceed even if the async PNG

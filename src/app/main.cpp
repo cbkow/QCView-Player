@@ -715,6 +715,26 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Dev aid: QCV_OCIO_CLIP_INPUTS="<cs>;<cs>;…" gives the project's
+    // media items (pool order, playlists skipped) those Inputs 2.5 s after
+    // launch — the project panel's bulk Input, for playlist-cut checks.
+    if (qEnvironmentVariableIsSet("QCV_OCIO_CLIP_INPUTS")) {
+        QTimer::singleShot(2500, &windowManager, [&windowManager] {
+            auto *ocio = windowManager.ocio();
+            auto *p = windowManager.project();
+            if (!ocio || !p) return;
+            const QStringList inputs =
+                qEnvironmentVariable("QCV_OCIO_CLIP_INPUTS").split(QLatin1Char(';'));
+            int n = 0;
+            for (const qcv::MediaItem &it : p->mediaPool()) {
+                if (it.type == qcv::MediaType::Playlist || n >= inputs.size()) continue;
+                ocio->setInputForClips({it.id}, inputs.at(n));
+                qInfo("QCV_OCIO_CLIP_INPUTS: %s → %s", qPrintable(it.name),
+                      qPrintable(inputs.at(n)));
+                ++n;
+            }
+        });
+    }
     // Dev aid: QCV_OCIO_PINS="a=<colourspace>;b=<colourspace>" pins each
     // dual side's Input 4 s after launch — the way editing its tab does —
     // for per-side chain checks without driving the Color panel.
@@ -763,6 +783,41 @@ int main(int argc, char *argv[])
             qInfo("QCV_UI_GRAB: %s %dx%d → %s", img.isNull() ? "FAILED" : "saved",
                   img.width(), img.height(), qPrintable(path));
             if (!img.isNull()) img.save(path);
+        });
+    }
+    // Dev aid: QCV_SAVE_PROJECT=<path>[@<seconds>] saves the project
+    // (default 6 s); QCV_OPEN_PROJECT=<path> opens one after 1 s;
+    // QCV_OCIO_LOG=<seconds> logs the chain snapshot —
+    // round-trip checks of the per-clip chains.
+    if (qEnvironmentVariableIsSet("QCV_SAVE_PROJECT")) {
+        const QString spec = qEnvironmentVariable("QCV_SAVE_PROJECT");
+        const QString path = spec.section(QLatin1Char('@'), 0, 0);
+        const double secs = spec.contains(QLatin1Char('@'))
+                                ? spec.section(QLatin1Char('@'), 1).toDouble() : 6.0;
+        QTimer::singleShot(static_cast<int>(secs * 1000), &windowManager, [&windowManager, path] {
+            auto *p = windowManager.project();
+            qInfo("QCV_SAVE_PROJECT: %s → %s",
+                  p && p->saveProject(path) ? "saved" : "FAILED", qPrintable(path));
+        });
+    }
+    if (qEnvironmentVariableIsSet("QCV_OPEN_PROJECT")) {
+        const QString path = qEnvironmentVariable("QCV_OPEN_PROJECT");
+        QTimer::singleShot(1000, &windowManager, [&windowManager, path] {
+            qInfo("QCV_OPEN_PROJECT: %s", qPrintable(path));
+            windowManager.openProjectPath(path);
+        });
+    }
+    if (qEnvironmentVariableIsSet("QCV_OCIO_LOG")) {
+        const double secs = qEnvironmentVariable("QCV_OCIO_LOG").toDouble();
+        QTimer::singleShot(static_cast<int>(secs * 1000), &windowManager, [&windowManager] {
+            if (auto *ocio = windowManager.ocio()) {
+                const auto s = ocio->snapshot();
+                qInfo("QCV_OCIO_LOG: single=%s A=%s B=%s look=%s knee=%d | note tag: %s",
+                      qPrintable(s->single.scene.input), qPrintable(s->a.scene.input),
+                      qPrintable(s->b.scene.input), qPrintable(s->single.scene.look),
+                      s->single.scene.kneeEnabled ? 1 : 0,
+                      qPrintable(windowManager.ocioChainTag()));
+            }
         });
     }
     // Dev aid: QCV_PRESET_TEST="<a|b>;<preset name>" applies a preset from

@@ -53,6 +53,8 @@ public:
     // Viewer aids in effect for the note's thumbnail (see
     // AnnotationNote::viewer_tag).
     void updateNoteViewerTag(const QString &timecode, const QString &tag);
+    // The OCIO chain the thumbnail went through (AnnotationNote::ocio_chain).
+    void updateNoteOcioChain(const QString &timecode, const QString &chain);
     void updateNoteAddressed(const QString &timecode, bool addressed);
     void deleteNote(const QString &timecode);
 

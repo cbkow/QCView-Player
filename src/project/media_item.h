@@ -428,6 +428,14 @@ struct MediaItem {
     // picked "5.1 Downmix" once on a master expects that to stick.
     AudioRoutingMode        audioRoutingMode = AudioRoutingMode::Auto;
 
+    // Colour plan stage 3 — the clip's own OCIO chain (the Color panel's
+    // Clip group): only the slots set on this clip (input, look,
+    // sceneLut {path, cccId}, knee {enabled, sourceNits, targetNits,
+    // start}); empty = the default chain. OCIOConfigManager owns the live
+    // copy; WindowManager mirrors it here via ProjectManager::setOcioClip
+    // and hands every item's back when a project loads.
+    QVariantMap             ocioClip;
+
     // Phase 7.8 — DualPair save state. Populated when type ==
     // DualPair; default-constructed otherwise.
     DualPairData            dualPair;

@@ -72,6 +72,7 @@ private:
         // sibling when present, falling back to the clean PNG.
         QString imagePath;
         QString viewerTag;        // viewer aids in the thumbnail, if any
+        QString ocioChain;        // the OCIO chain it went through, if any
         int     imageWidth        = 0;
         int     imageHeight       = 0;
     };

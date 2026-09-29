@@ -1432,6 +1432,9 @@ void D3D11PlayerRenderer::drawFrame()
     bool useOcio = chains && chains->engaged && m_impl->ocio.isInitialized();
     if (useOcio) {
         useOcio = rebuildOcio(m_impl->ocio, chains->single);
+        // Every other chain in the project, built in the background, so
+        // a playlist cut or clip switch swaps instead of compiling.
+        m_impl->ocio.prewarm(chains->warm, m_gain.load(std::memory_order_relaxed));
     }
     // HDR10: signal the knee's target as the content peak while it
     // compresses for this display, else the 1000-nit default.
@@ -2031,7 +2034,10 @@ void D3D11PlayerRenderer::drawDualFrame()
     ID3D11ShaderResourceView *correctedSrv = m_impl->dualCanvasSrv.Get();
     {
         bool useOcio = chains && chains->engaged && m_impl->ocio.isInitialized();
-        if (useOcio) useOcio = rebuildOcio(m_impl->ocio, chains->a);
+        if (useOcio) {
+            useOcio = rebuildOcio(m_impl->ocio, chains->a);
+            m_impl->ocio.prewarm(chains->warm, m_gain.load(std::memory_order_relaxed));
+        }
         // Dual view signals "unknown" HDR10 metadata: two sides can mean
         // two knees (colour plan decision — no per-side logic).
         m_impl->hdrSwapchain.setContentPeakNits(0.0f);

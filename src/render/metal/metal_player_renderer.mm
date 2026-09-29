@@ -1224,6 +1224,7 @@ void MetalPlayerRenderer::drawFrame()
             m_impl->ocio.setStage(chains->a.stage(m_gain.load(std::memory_order_relaxed)));
             m_impl->ocio.setViewer(currentViewerAids());
             m_impl->ocio.rebuild(chains->a);
+            m_impl->ocio.prewarm(chains->warm, m_gain.load(std::memory_order_relaxed));
             if (m_impl->ocio.hasPipeline()) {
                 void *ocioOut = m_impl->ocio.apply(
                     (__bridge void *)cb,
@@ -2056,6 +2057,9 @@ void MetalPlayerRenderer::drawFrame()
         m_impl->ocio.setStage(chains->single.stage(m_gain.load(std::memory_order_relaxed)));
         m_impl->ocio.setViewer(currentViewerAids());
         m_impl->ocio.rebuild(chains->single);
+        // Every other chain in the project, built in the background, so
+        // a playlist cut or clip switch swaps instead of compiling.
+        m_impl->ocio.prewarm(chains->warm, m_gain.load(std::memory_order_relaxed));
         if (m_impl->ocio.hasPipeline()) {
             void *ocioOut = m_impl->ocio.apply(
                 (__bridge void *)cb,

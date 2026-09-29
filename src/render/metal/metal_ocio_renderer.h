@@ -67,6 +67,12 @@ public:
     // after the whole chain, split or not. No rebuild — a uniform block.
     void setViewer(const ViewerAids &viewer);
 
+    // Build chains ahead of time (async instances): at most one
+    // background compile per call, of the first spec in `specs` that is
+    // neither active nor cached. `gain` decides split vs unsplit, as in
+    // rebuild(). Cheap when everything is built — call it every frame.
+    void prewarm(const std::vector<OcioChainSpec> &specs, float gain);
+
     // Compile off the render thread (see rebuild()). Default off.
     void setAsync(bool on);
 

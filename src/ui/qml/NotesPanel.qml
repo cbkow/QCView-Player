@@ -677,6 +677,33 @@ Pane {
                                         text: card._live.viewerTag || ""
                                     }
                                 }
+                                // The OCIO chain the thumbnail went through.
+                                Rectangle {
+                                    visible: (card._live.ocioChain || "").length > 0
+                                    anchors.right:  parent.right
+                                    anchors.bottom: parent.bottom
+                                    anchors.margins: 4
+                                    width: ocioBadgeText.implicitWidth + 8
+                                    height: ocioBadgeText.implicitHeight + 2
+                                    radius: Theme.radiusSmall
+                                    color: "#cc000000"
+                                    border.width: 1
+                                    border.color: Theme.viewAccent
+                                    Text {
+                                        id: ocioBadgeText
+                                        anchors.centerIn: parent
+                                        text: qsTr("OCIO")
+                                        color: Theme.viewAccent
+                                        font.family: Theme.monoFamily
+                                        font.pixelSize: Theme.fontSizeTiny
+                                        font.bold: true
+                                    }
+                                    HoverHandler { id: ocioBadgeHover }
+                                    FlatToolTip {
+                                        visible: ocioBadgeHover.hovered
+                                        text: card._live.ocioChain || ""
+                                    }
+                                }
                                 MouseArea {
                                     id: cardMa
                                     anchors.fill: parent

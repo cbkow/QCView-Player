@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "colourspace_short_name.h"
 #include "ocio_chain_builder.h"
 #include "ocio_lut_baker.h"
 
@@ -154,6 +155,9 @@ OCIOConfigManager::OCIOConfigManager(QObject *parent)
             this, &OCIOConfigManager::kneeChanged);
     connect(this, &OCIOConfigManager::configChanged,
             this, &OCIOConfigManager::kneeChanged);
+    // Badge short names follow the config.
+    connect(this, &OCIOConfigManager::configChanged,
+            this, &OCIOConfigManager::bumpPinsRevision);
 
     bool loaded = false;
     for (const ConfigSlot &slot : m_configSlots) {
@@ -837,6 +841,51 @@ OcioScenePin *OCIOConfigManager::editPin(Slot slot)
 void OCIOConfigManager::notePinEdit(const QString &clipId)
 {
     emit pinsChanged(clipId);
+    bumpPinsRevision();
+}
+
+QString OCIOConfigManager::clipBadge(const QString &clipId) const
+{
+    const auto it = m_pins.constFind(clipId);
+    if (clipId.isEmpty() || it == m_pins.constEnd() || it->empty()) return {};
+    if (m_shortNamesConfig != m_configIdentifier) {
+        m_shortNames       = colourspace_names::shortNamesFor(colorspaces());
+        m_shortNamesConfig = m_configIdentifier;
+    }
+    QStringList parts;
+    if (it->input && !it->input->isEmpty()) {
+        parts << m_shortNames.value(*it->input, colourspace_names::shortName(*it->input));
+    }
+    if (it->look && !it->look->isEmpty()) parts << tr("Look");
+    if (it->sceneLut && !it->sceneLut->path.isEmpty()) {
+        const QString ext = QFileInfo(it->sceneLut->path).suffix().toLower();
+        parts << ((ext == QLatin1String("cc") || ext == QLatin1String("ccc")
+                   || ext == QLatin1String("cdl")) ? tr("CDL") : tr("LUT"));
+    }
+    if (it->knee && it->knee->enabled) parts << tr("Knee");
+    // Only empty slots set (e.g. a preset's "no Look"): still its own chain.
+    return parts.isEmpty() ? tr("Clip chain") : parts.join(QStringLiteral(" + "));
+}
+
+QString OCIOConfigManager::clipBadgeTooltip(const QString &clipId) const
+{
+    const auto it = m_pins.constFind(clipId);
+    if (clipId.isEmpty() || it == m_pins.constEnd() || it->empty()) return {};
+    QStringList lines{tr("Set on this clip:")};
+    if (it->input) lines << tr("Input: %1").arg(it->input->isEmpty() ? tr("(none)") : *it->input);
+    if (it->look)  lines << tr("Look: %1").arg(it->look->isEmpty() ? tr("(none)") : *it->look);
+    if (it->sceneLut) {
+        lines << tr("Scene LUT: %1").arg(it->sceneLut->path.isEmpty()
+                                             ? tr("(none)")
+                                             : QFileInfo(it->sceneLut->path).fileName());
+    }
+    if (it->knee) {
+        lines << (it->knee->enabled
+                      ? tr("Highlight Knee: on · %1 → %2 nits")
+                            .arg(qRound(it->knee->sourceNits)).arg(qRound(it->knee->targetNits))
+                      : tr("Highlight Knee: off"));
+    }
+    return lines.join(QLatin1Char('\n'));
 }
 
 void OCIOConfigManager::setSlotPinned(const QString &slotName, bool pinned)
@@ -866,14 +915,67 @@ void OCIOConfigManager::setSlotPinned(const QString &slotName, bool pinned)
 void OCIOConfigManager::copyAChainToB()
 {
     if (m_clipA.isEmpty() || m_clipB.isEmpty() || m_clipA == m_clipB) return;
-    const OcioSceneChain a = resolveScene(m_clipA);
+    copyClipChain(m_clipA, {m_clipB});
+}
+
+void OCIOConfigManager::setInputForClips(const QStringList &clipIds, const QString &colourspace)
+{
+    if (!colourspace.isEmpty() && !isValidColorSpace(colourspace)) {
+        qWarning("OCIOConfigManager: rejected unknown Input colorspace '%s'",
+                 qPrintable(colourspace));
+        return;
+    }
+    bool any = false;
+    for (const QString &id : clipIds) {
+        if (id.isEmpty()) continue;
+        m_pins[id].input = colourspace;
+        notePinEdit(id);
+        any = true;
+    }
+    if (any) publish(/*knee=*/true);
+}
+
+void OCIOConfigManager::copyClipChain(const QString &fromClipId, const QStringList &toClipIds)
+{
+    // The source's effective chain (its own settings over the default),
+    // so the targets look the same even where the source follows the
+    // default.
+    const OcioSceneChain from = resolveScene(fromClipId);
     OcioScenePin pin;
-    pin.input    = a.input;
-    pin.look     = a.look;
-    pin.sceneLut = OcioScenePin::SceneLut{a.sceneLutPath, a.sceneLutCccId};
-    pin.knee     = kneeOf(a);
-    m_pins[m_clipB] = pin;
-    notePinEdit(m_clipB);
+    pin.input    = from.input;
+    pin.look     = from.look;
+    pin.sceneLut = OcioScenePin::SceneLut{from.sceneLutPath, from.sceneLutCccId};
+    pin.knee     = kneeOf(from);
+    bool any = false;
+    for (const QString &id : toClipIds) {
+        if (id.isEmpty() || id == fromClipId) continue;
+        m_pins[id] = pin;
+        notePinEdit(id);
+        any = true;
+    }
+    if (any) publish(/*knee=*/true);
+}
+
+void OCIOConfigManager::resetClipChains(const QStringList &clipIds)
+{
+    bool any = false;
+    for (const QString &id : clipIds) {
+        if (!m_pins.remove(id)) continue;
+        notePinEdit(id);
+        any = true;
+    }
+    if (any) publish(/*knee=*/true);
+}
+
+void OCIOConfigManager::replaceAllPins(const QHash<QString, QVariantMap> &pins)
+{
+    m_pins.clear();
+    for (auto it = pins.constBegin(); it != pins.constEnd(); ++it) {
+        const OcioScenePin pin = OcioScenePin::fromVariant(it.value());
+        if (!pin.empty()) m_pins.insert(it.key(), pin);
+    }
+    emit pinsReloaded();
+    bumpPinsRevision();
     publish(/*knee=*/true);
 }
 
@@ -963,6 +1065,21 @@ void OCIOConfigManager::publish(bool knee)
     snap->single = withScene(resolveScene(m_singleClip));
     snap->a      = withScene(resolveScene(m_clipA));
     snap->b      = withScene(resolveScene(m_clipB));
+    // Distinct shaders only (knee values are uniforms); the on-screen
+    // chains first, then the rest — capped, the renderers' caches are
+    // small.
+    constexpr size_t kMaxWarm = 8;
+    auto addWarm = [&snap](const OcioChainSpec &spec) {
+        if (!spec.complete() || snap->warm.size() >= kMaxWarm) return;
+        for (const OcioChainSpec &w : snap->warm) if (w.sameShader(spec)) return;
+        snap->warm.push_back(spec);
+    };
+    addWarm(snap->single);
+    addWarm(snap->b);
+    addWarm(base);
+    for (auto it = m_pins.constBegin(); it != m_pins.constEnd(); ++it) {
+        addWarm(withScene(resolveScene(it.key())));
+    }
     snap->generation = m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
     {
         std::lock_guard lock(m_snapshotMutex);

@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <deque>
 #include <memory>
 #include <mutex>
 
@@ -222,6 +223,45 @@ struct MetalOcioRenderer::Impl {
     OcioChainSpec jobSpec;
     bool  jobSplit     = false;
 
+    // Built pipelines kept for reuse (most recent first) — prewarm() fills
+    // it, so a chain change (a playlist cut, a clip switch) swaps
+    // instantly. Failed keys are remembered so a broken chain isn't
+    // rebuilt every frame.
+    struct CacheEntry { OcioChainSpec spec; bool split = false; Built built; };
+    std::deque<CacheEntry> cache;
+    static constexpr size_t kCacheSize = 8;
+    std::vector<std::pair<OcioChainSpec, bool>> failed;
+
+    static bool sameKey(const OcioChainSpec &a, bool sa, const OcioChainSpec &b, bool sb)
+    {
+        return sa == sb && a.sameShader(b);
+    }
+    void remember(const OcioChainSpec &spec, bool split, const Built &b)
+    {
+        if (!b.pipeline) {
+            if (failed.size() >= 16) failed.erase(failed.begin());
+            failed.emplace_back(spec, split);
+            return;
+        }
+        cache.erase(std::remove_if(cache.begin(), cache.end(),
+                                   [&](const CacheEntry &e) { return sameKey(e.spec, e.split, spec, split); }),
+                    cache.end());
+        cache.push_front({spec, split, b});
+        while (cache.size() > kCacheSize) cache.pop_back();
+    }
+    const Built *cached(const OcioChainSpec &spec, bool split) const
+    {
+        for (const CacheEntry &e : cache)
+            if (sameKey(e.spec, e.split, spec, split)) return &e.built;
+        return nullptr;
+    }
+    bool knownFailed(const OcioChainSpec &spec, bool split) const
+    {
+        for (const auto &f : failed)
+            if (sameKey(f.first, f.second, spec, split)) return true;
+        return false;
+    }
+
     LinearStageSettings stage;
     ViewerAids          viewer;
     bool  async      = false;
@@ -296,6 +336,8 @@ void MetalOcioRenderer::shutdown()
     }
     m_impl->active      = Built{};
     m_impl->activeValid = false;
+    m_impl->cache.clear();
+    m_impl->failed.clear();
     m_impl->sampler   = nil;
     m_impl->outputTex = nil;
     m_impl->outputW   = 0;
@@ -351,7 +393,8 @@ bool MetalOcioRenderer::rebuild(const OcioChainSpec &spec)
 
     const bool wantSplit = !linear_stage::isIdentity(i.stage);
 
-    // 1. A finished background build waiting to be swapped in?
+    // 1. A finished background build (the live chain, or a prewarm):
+    //    into the cache; installed when it is the chain asked for.
     if (i.async) {
         std::unique_ptr<Built> ready;
         OcioChainSpec readySpec;
@@ -365,11 +408,14 @@ bool MetalOcioRenderer::rebuild(const OcioChainSpec &spec)
             }
         }
         if (ready) {
-            i.install(std::move(*ready), readySpec, readySplit);
-            if (i.active.pipeline) {
-                qInfo("MetalOcioRenderer: swapped in chain '%s' (%s, %zu LUTs)",
-                      qPrintable(readySpec.scene.input), i.active.split ? "split" : "unsplit",
-                      i.active.luts.size());
+            i.remember(readySpec, readySplit, *ready);
+            if (Impl::sameKey(readySpec, readySplit, spec, wantSplit)) {
+                i.install(std::move(*ready), readySpec, readySplit);
+                if (i.active.pipeline) {
+                    qInfo("MetalOcioRenderer: swapped in chain '%s' (%s, %zu LUTs)",
+                          qPrintable(readySpec.scene.input), i.active.split ? "split" : "unsplit",
+                          i.active.luts.size());
+                }
             }
         }
     }
@@ -379,10 +425,18 @@ bool MetalOcioRenderer::rebuild(const OcioChainSpec &spec)
         return i.active.pipeline != nil;
     }
 
+    // 2b. Built ahead of time (prewarm) or earlier: swap it in now.
+    if (const Built *hit = i.cached(spec, wantSplit)) {
+        i.install(Built(*hit), spec, wantSplit);
+        qInfo("MetalOcioRenderer: chain '%s' ready (built ahead)", qPrintable(spec.scene.input));
+        return i.active.pipeline != nil;
+    }
+
     // 3. Synchronous build: capture instances, and the first build of a
     //    session (nothing to keep showing meanwhile).
     if (!i.async || !i.active.pipeline) {
         Built b = buildPipeline(i.device, spec, i.sdrCapture, wantSplit);
+        i.remember(spec, wantSplit, b);
         i.install(std::move(b), spec, wantSplit);
         if (i.active.pipeline) {
             qInfo("MetalOcioRenderer: rebuilt for chain '%s' (%s, %zu LUTs)",
@@ -415,6 +469,42 @@ bool MetalOcioRenderer::rebuild(const OcioChainSpec &spec)
         impl->jobRunning   = false;
     });
     return true;
+}
+
+void MetalOcioRenderer::prewarm(const std::vector<OcioChainSpec> &specs, float gain)
+{
+    if (!isInitialized() || !m_impl->async) return;
+    Impl &i = *m_impl;
+    for (const OcioChainSpec &spec : specs) {
+        if (!spec.complete()) continue;
+        const bool split = !linear_stage::isIdentity(spec.stage(gain));
+        if (i.activeValid && Impl::sameKey(i.activeSpec, i.activeSplit, spec, split)) continue;
+        if (i.cached(spec, split) || i.knownFailed(spec, split)) continue;
+        {
+            std::lock_guard lock(i.pendingMutex);
+            // One job at a time, and never over a finished build that
+            // rebuild() hasn't collected yet.
+            if (i.jobRunning || i.pending) return;
+            i.jobRunning = true;
+            i.jobSpec    = spec;
+            i.jobSplit   = split;
+        }
+        id<MTLDevice> device = i.device;
+        const bool sdrCapture = i.sdrCapture;
+        Impl *impl = m_impl;
+        const OcioChainSpec jobSpec = spec;
+        dispatch_async(i.queue, ^{
+            auto b = std::make_unique<Built>(buildPipeline(device, jobSpec, sdrCapture, split));
+            std::lock_guard lock(impl->pendingMutex);
+            impl->pending      = std::move(b);
+            impl->pendingSpec  = jobSpec;
+            impl->pendingSplit = split;
+            impl->jobRunning   = false;
+        });
+        qInfo("MetalOcioRenderer: building chain '%s' ahead of time",
+              qPrintable(spec.scene.input));
+        return;
+    }
 }
 
 void *MetalOcioRenderer::apply(void *cmdBufPtr, void *sourceMtlTexture,

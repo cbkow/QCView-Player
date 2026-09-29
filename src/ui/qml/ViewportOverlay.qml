@@ -215,6 +215,41 @@ Pane {
                     font.pixelSize: Theme.fontSizeSmall
                     elide: Text.ElideMiddle
                 }
+                // The clip's own OCIO chain, when it has one (see the
+                // project panel's badge).
+                Rectangle {
+                    id: aClipBadge
+                    readonly property string clipId: WindowManager.ocio ? WindowManager.ocio.clipIdA : ""
+                    readonly property string badge: WindowManager.ocio && clipId.length > 0
+                        ? (WindowManager.ocio.pinsRevision,
+                           WindowManager.ocio.clipBadge(clipId))
+                        : ""
+                    visible: badge.length > 0
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.maximumWidth: 110
+                    Layout.preferredWidth: aClipBadgeText.implicitWidth + 10
+                    Layout.preferredHeight: 16
+                    radius: Theme.radiusSmall
+                    color: Theme.sideAMuted
+                    Text {
+                        id: aClipBadgeText
+                        anchors.fill: parent
+                        anchors.leftMargin: 5
+                        anchors.rightMargin: 5
+                        verticalAlignment: Text.AlignVCenter
+                        text: aClipBadge.badge
+                        color: Theme.textPrimary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        elide: Text.ElideRight
+                    }
+                    HoverHandler { id: aClipBadgeHover }
+                    FlatToolTip {
+                        visible: aClipBadgeHover.hovered
+                        text: WindowManager.ocio
+                              ? WindowManager.ocio.clipBadgeTooltip(aClipBadge.clipId) : ""
+                    }
+                }
 
                 // Per-side mute (A). Phosphor speaker icon.
                 Item {
@@ -398,6 +433,41 @@ Pane {
                     font.pixelSize: Theme.fontSizeSmall
                     font.italic: !bChip.bLoaded
                     elide: Text.ElideMiddle
+                }
+                // The clip's own OCIO chain, when it has one (see the
+                // project panel's badge).
+                Rectangle {
+                    id: bClipBadge
+                    readonly property string clipId: WindowManager.ocio ? WindowManager.ocio.clipIdB : ""
+                    readonly property string badge: WindowManager.ocio && clipId.length > 0
+                        ? (WindowManager.ocio.pinsRevision,
+                           WindowManager.ocio.clipBadge(clipId))
+                        : ""
+                    visible: badge.length > 0
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.maximumWidth: 110
+                    Layout.preferredWidth: bClipBadgeText.implicitWidth + 10
+                    Layout.preferredHeight: 16
+                    radius: Theme.radiusSmall
+                    color: Theme.sideBMuted
+                    Text {
+                        id: bClipBadgeText
+                        anchors.fill: parent
+                        anchors.leftMargin: 5
+                        anchors.rightMargin: 5
+                        verticalAlignment: Text.AlignVCenter
+                        text: bClipBadge.badge
+                        color: Theme.textPrimary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        elide: Text.ElideRight
+                    }
+                    HoverHandler { id: bClipBadgeHover }
+                    FlatToolTip {
+                        visible: bClipBadgeHover.hovered
+                        text: WindowManager.ocio
+                              ? WindowManager.ocio.clipBadgeTooltip(bClipBadge.clipId) : ""
+                    }
                 }
 
                 // Per-side mute (B).

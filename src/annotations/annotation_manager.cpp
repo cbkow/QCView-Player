@@ -140,6 +140,21 @@ void AnnotationManager::updateNoteViewerTag(const QString &timecode, const QStri
     }
 }
 
+void AnnotationManager::updateNoteOcioChain(const QString &timecode, const QString &chain)
+{
+    {
+        QMutexLocker lk(&notes_mutex_);
+        auto it = std::find_if(notes_.begin(), notes_.end(),
+            [&](const AnnotationNote &n) { return n.timecode == timecode; });
+        if (it == notes_.end() || it->ocio_chain == chain) return;
+        it->ocio_chain = chain;
+    }
+    if (!batch_mode_.load()) {
+        saveNotesAsyncLocked();
+        notifyNotesChanged();
+    }
+}
+
 void AnnotationManager::updateNoteAddressed(const QString &timecode, bool addressed)
 {
     {

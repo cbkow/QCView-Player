@@ -13,8 +13,10 @@
 #pragma once
 
 #include <QString>
+#include <QVariantMap>
 
 #include <optional>
+#include <vector>
 
 #include "linear_stage.h"
 
@@ -58,6 +60,46 @@ struct OcioScenePin {
     std::optional<Knee>     knee;
 
     bool empty() const { return !input && !look && !sceneLut && !knee; }
+
+    // The project file's form (MediaItem::ocioClip): only set slots.
+    QVariantMap toVariant() const
+    {
+        QVariantMap m;
+        if (input) m.insert(QStringLiteral("input"), *input);
+        if (look)  m.insert(QStringLiteral("look"), *look);
+        if (sceneLut) {
+            m.insert(QStringLiteral("sceneLut"), QVariantMap{
+                {QStringLiteral("path"), sceneLut->path},
+                {QStringLiteral("cccId"), sceneLut->cccId}});
+        }
+        if (knee) {
+            m.insert(QStringLiteral("knee"), QVariantMap{
+                {QStringLiteral("enabled"), knee->enabled},
+                {QStringLiteral("sourceNits"), double(knee->sourceNits)},
+                {QStringLiteral("targetNits"), double(knee->targetNits)},
+                {QStringLiteral("start"), double(knee->start)}});
+        }
+        return m;
+    }
+    static OcioScenePin fromVariant(const QVariantMap &m)
+    {
+        OcioScenePin p;
+        if (m.contains(QStringLiteral("input"))) p.input = m.value(QStringLiteral("input")).toString();
+        if (m.contains(QStringLiteral("look")))  p.look  = m.value(QStringLiteral("look")).toString();
+        if (m.contains(QStringLiteral("sceneLut"))) {
+            const QVariantMap l = m.value(QStringLiteral("sceneLut")).toMap();
+            p.sceneLut = SceneLut{l.value(QStringLiteral("path")).toString(),
+                                  l.value(QStringLiteral("cccId")).toString()};
+        }
+        if (m.contains(QStringLiteral("knee"))) {
+            const QVariantMap k = m.value(QStringLiteral("knee")).toMap();
+            p.knee = Knee{k.value(QStringLiteral("enabled")).toBool(),
+                          float(k.value(QStringLiteral("sourceNits"), 1000.0).toDouble()),
+                          float(k.value(QStringLiteral("targetNits"), 1000.0).toDouble()),
+                          float(k.value(QStringLiteral("start"), -1.0).toDouble())};
+        }
+        return p;
+    }
 };
 
 struct OcioChainSpec {
@@ -106,6 +148,11 @@ struct OcioChainSnapshot {
     OcioChainSpec single;   // single view: the clip on screen (else the default)
     OcioChainSpec a;        // dual view
     OcioChainSpec b;
+    // Every distinct chain in the project (the default plus each clip's
+    // own), for the renderers to build ahead of time: a playlist cut or a
+    // clip switch then swaps to a ready pipeline instead of drawing the
+    // new clip through the old chain while it compiles.
+    std::vector<OcioChainSpec> warm;
 
     // Dual view needs a chain per side: the sides resolve differently.
     // Equal chains collapse to one pass over the canvas, as before.

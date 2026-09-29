@@ -9,6 +9,7 @@
 //
 // Usage:  probe-ocio-pins <config.ocio>
 
+#include "color/colourspace_short_name.h"
 #include "color/ocio_config_manager.h"
 
 #include <QCoreApplication>
@@ -111,6 +112,62 @@ int main(int argc, char **argv)
     mgr.setViewContext("clipA", false, "clipA", "clipB");
     check(mgr.focusClipId() == "clipA" && mgr.activeInput() == y,
           "single again: A's clip keeps its pin");
+
+    // ---- Bulk (project panel) ----
+    mgr.setViewContext("clipP", false, "clipP", "");
+    mgr.setInputForClips({"c1", "c2", "c3"}, z);
+    check(mgr.specForClip("c1").scene.input == z && mgr.specForClip("c3").scene.input == z,
+          "bulk: Input for several clips");
+    mgr.setActiveInput(y);   // clipP's own chain
+    mgr.copyClipChain("clipP", {"c1", "c2"});
+    check(mgr.specForClip("c1").scene.input == y && mgr.specForClip("c2").scene.input == y
+              && mgr.specForClip("c3").scene.input == z,
+          "bulk: Use Clip Chain of the clip on screen");
+    mgr.resetClipChains({"c1", "c2", "c3"});
+    check(!mgr.clipHasPins("c1") && !mgr.clipHasPins("c3")
+              && mgr.specForClip("c1").scene.input == mgr.specForClip("").scene.input,
+          "bulk: Reset Clip Chain");
+
+    // ---- Badge names (the plan's table) ----
+    using colourspace_names::shortName;
+    const struct { const char *in, *out; } names[] = {
+        {"ACEScg", "ACEScg"},
+        {"ARRI LogC4", "ARRI LogC4"},
+        {"ST2084-P3-D65 - Display", "ST2084-P3-D65"},
+        {"Rec.1886 Rec.709 - Display", "Rec.1886 Rec.709"},
+        {"Linear Rec.709", "Lin Rec.709"},
+        {"Gamma 2.4 Encoded Rec.709", "Gamma 2.4 Rec.709"},
+        {"Sony S-Log3 Venice S-Gamut3.Cine to ACES2065-1", "Sony S-Log3 Venice…"},
+    };
+    for (const auto &n : names) {
+        const QString got = shortName(QString::fromUtf8(n.in));
+        const QString what = QStringLiteral("badge: %1 → %2 (got %3)")
+                                 .arg(QString::fromUtf8(n.in), QString::fromUtf8(n.out), got);
+        check(got == QString::fromUtf8(n.out), qPrintable(what));
+    }
+    {
+        // Collisions in the loaded config fall back to the full tidied name.
+        const auto shorts = colourspace_names::shortNamesFor(mgr.colorspaces());
+        QHash<QString, int> uses;
+        for (const QString &v : shorts) uses[v] += 1;
+        int collisions = 0;
+        for (auto it = uses.constBegin(); it != uses.constEnd(); ++it)
+            if (it.value() > 1) ++collisions;
+        check(collisions == 0, "badge: no two colourspaces share a short name");
+    }
+    mgr.setViewContext("clipX", false, "clipX", "");
+    QString linearIn = y;
+    for (const QString &c : mgr.colorspaces())
+        if (c.startsWith(QStringLiteral("Linear"))) { linearIn = c; break; }
+    mgr.setActiveInput(linearIn);
+    mgr.setActiveLook(mgr.looks().isEmpty() ? QString() : mgr.looks().first());
+    {
+        const auto shorts = colourspace_names::shortNamesFor(mgr.colorspaces());
+        check(mgr.clipBadge("clipX").startsWith(shorts.value(linearIn))
+                  && (mgr.looks().isEmpty() || mgr.clipBadge("clipX").endsWith(QStringLiteral("+ Look"))),
+              qPrintable(QStringLiteral("badge: %1 → %2").arg(linearIn, mgr.clipBadge("clipX"))));
+    }
+    check(mgr.clipBadge("untouched").isEmpty(), "badge: none for an untouched clip");
 
     std::printf("\n%s (%d failed)\n", g_failed ? "FAILED" : "all passed", g_failed);
     return g_failed ? 1 : 0;

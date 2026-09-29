@@ -215,6 +215,9 @@ public:
     // when the id matches A or B. The render-side apply is
     // WindowManager's job. Video and ImageSequence items.
     Q_INVOKABLE bool setRotationOverride(const QString &itemId, int deg);
+    // The clip's own OCIO chain (MediaItem::ocioClip); an empty map clears
+    // it. Marks the project dirty; no reload.
+    bool setOcioClip(const QString &itemId, const QVariantMap &pins);
 
     // Set the per-clip audio routing mode. `mode` is a
     // `qcv::AudioRoutingMode` cast to int (0 = Auto, 1 = Downmix5_1,
@@ -426,6 +429,10 @@ signals:
     // logic in the loadRequested handler doesn't try to re-pair the new
     // project's A with the previous project's B.
     void projectReplaced();
+    // The media pool was replaced wholesale (newProject, a project
+    // load) — emitted before the restored active item loads, so per-item
+    // state kept elsewhere (the OCIO clip chains) is in place first.
+    void mediaPoolLoaded();
 
     // Emitted when setActiveItem successfully resolves to a pool
     // item. WindowManager listens and routes the path into

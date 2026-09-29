@@ -25,6 +25,9 @@
 #include <QStandardPaths>
 #include <QtLogging>
 
+#include <algorithm>
+#include <deque>
+
 #include <cstring>
 #include <vector>
 
@@ -161,6 +164,71 @@ struct D3D11OcioRenderer::Impl {
     ComPtr<ID3D11PixelShader>  pendingPs;
     std::vector<LutResource>   pendingLuts;
     OcioChainSpec              pendingSpec;
+
+    // Built pipelines kept for reuse (most recent first) — prewarm()
+    // fills it, so a chain change (a playlist cut, a clip switch) swaps
+    // instantly. Failed keys are remembered so a broken chain isn't
+    // rebuilt every frame. Render thread only.
+    struct CacheEntry {
+        OcioChainSpec             spec;
+        bool                      split = false;
+        ComPtr<ID3D11PixelShader> ps;
+        std::vector<LutResource>  luts;
+        bool                      builtSplit = false;
+        InterchangeSide           side = InterchangeSide::None;
+        bool                      displayIsSdr = true;
+        OutputEncoding            encoding = OutputEncoding::Sdr;
+        int                       outputPrimaries = 0;
+    };
+    std::deque<CacheEntry> cache;
+    static constexpr size_t kCacheSize = 8;
+    std::vector<std::pair<OcioChainSpec, bool>> failed;
+
+    static bool sameKey(const OcioChainSpec &a, bool sa, const OcioChainSpec &b, bool sb)
+    {
+        return sa == sb && a.sameShader(b);
+    }
+    void remember(CacheEntry e)
+    {
+        if (!e.ps) {
+            if (failed.size() >= 16) failed.erase(failed.begin());
+            failed.emplace_back(e.spec, e.split);
+            return;
+        }
+        cache.erase(std::remove_if(cache.begin(), cache.end(),
+                                   [&](const CacheEntry &c) {
+                                       return sameKey(c.spec, c.split, e.spec, e.split);
+                                   }),
+                    cache.end());
+        cache.push_front(std::move(e));
+        while (cache.size() > kCacheSize) cache.pop_back();
+    }
+    const CacheEntry *cached(const OcioChainSpec &spec, bool split) const
+    {
+        for (const CacheEntry &c : cache)
+            if (sameKey(c.spec, c.split, spec, split)) return &c;
+        return nullptr;
+    }
+    bool knownFailed(const OcioChainSpec &spec, bool split) const
+    {
+        for (const auto &f : failed)
+            if (sameKey(f.first, f.second, spec, split)) return true;
+        return false;
+    }
+    void installEntry(const CacheEntry &e)
+    {
+        ps              = e.ps;
+        luts            = e.luts;
+        lastSpec        = e.spec;
+        lastValid       = true;
+        lastSplitKey    = e.split;
+        builtSplit      = e.builtSplit;
+        side            = e.side;
+        displayIsSdr    = e.displayIsSdr;
+        encoding        = e.encoding;
+        outputPrimaries = e.outputPrimaries;
+        lastError.clear();
+    }
     bool                       pendingSplitKey     = false;
     bool                       pendingBuiltSplit   = false;
     InterchangeSide            pendingSide         = InterchangeSide::None;
@@ -310,22 +378,28 @@ bool D3D11OcioRenderer::rebuild(const OcioChainSpec &spec)
 
     const bool wantSplit = !linear_stage::isIdentity(m_impl->stage);
 
-    // 1. Drain any pending result from a previously-finished worker.
+    // 1. Drain a finished worker (the live chain, or a prewarm): into the
+    //    cache; installed when it is the chain asked for.
     {
         std::lock_guard lock(m_impl->swapMutex);
         if (m_impl->pendingReady) {
-            m_impl->ps                  = std::move(m_impl->pendingPs);
-            m_impl->luts                = std::move(m_impl->pendingLuts);
-            m_impl->lastSpec            = m_impl->pendingSpec;
-            m_impl->lastValid           = true;
-            m_impl->lastSplitKey        = m_impl->pendingSplitKey;
-            m_impl->builtSplit          = m_impl->pendingBuiltSplit;
-            m_impl->side                = m_impl->pendingSide;
-            m_impl->displayIsSdr        = m_impl->pendingDisplayIsSdr;
-            m_impl->encoding            = m_impl->pendingEncoding;
-            m_impl->outputPrimaries     = m_impl->pendingPrimaries;
-            m_impl->lastError           = std::move(m_impl->pendingError);
-            m_impl->pendingPs.Reset();
+            Impl::CacheEntry e;
+            e.spec            = m_impl->pendingSpec;
+            e.split           = m_impl->pendingSplitKey;
+            e.ps              = std::move(m_impl->pendingPs);
+            e.luts            = std::move(m_impl->pendingLuts);
+            e.builtSplit      = m_impl->pendingBuiltSplit;
+            e.side            = m_impl->pendingSide;
+            e.displayIsSdr    = m_impl->pendingDisplayIsSdr;
+            e.encoding        = m_impl->pendingEncoding;
+            e.outputPrimaries = m_impl->pendingPrimaries;
+            if (Impl::sameKey(e.spec, e.split, spec, wantSplit)) {
+                // A failure installs too (null ps): recorded against its
+                // key so the next frame doesn't respawn the same compile.
+                m_impl->installEntry(e);
+                m_impl->lastError = std::move(m_impl->pendingError);
+            }
+            m_impl->remember(std::move(e));
             m_impl->pendingLuts.clear();
             m_impl->pendingError.clear();
             m_impl->pendingReady = false;
@@ -339,6 +413,13 @@ bool D3D11OcioRenderer::rebuild(const OcioChainSpec &spec)
     if (m_impl->lastValid && m_impl->lastSpec.sameShader(spec)
         && wantSplit == m_impl->lastSplitKey) {
         return static_cast<bool>(m_impl->ps);
+    }
+
+    // 2b. Built ahead of time (prewarm) or earlier: swap it in now.
+    if (const Impl::CacheEntry *hit = m_impl->cached(spec, wantSplit)) {
+        m_impl->installEntry(*hit);
+        qInfo("D3D11OcioRenderer: chain '%s' ready (built ahead)", qPrintable(spec.scene.input));
+        return true;
     }
 
     // 3. Worker still running? Keep using the old pipeline (if any).
@@ -362,6 +443,32 @@ bool D3D11OcioRenderer::rebuild(const OcioChainSpec &spec)
     });
 
     return static_cast<bool>(m_impl->ps);
+}
+
+void D3D11OcioRenderer::prewarm(const std::vector<OcioChainSpec> &specs, float gain)
+{
+    if (!isInitialized() || m_impl->sdrCapture.load()) return;
+    if (m_impl->rebuildInProgress.load()) return;
+    {
+        std::lock_guard lock(m_impl->swapMutex);
+        if (m_impl->pendingReady) return;   // rebuild() collects it first
+    }
+    for (const OcioChainSpec &spec : specs) {
+        if (!spec.complete()) continue;
+        const bool split = !linear_stage::isIdentity(spec.stage(gain));
+        if (m_impl->lastValid && Impl::sameKey(m_impl->lastSpec, m_impl->lastSplitKey, spec, split))
+            continue;
+        if (m_impl->cached(spec, split) || m_impl->knownFailed(spec, split)) continue;
+        if (m_impl->rebuildThread.joinable()) m_impl->rebuildThread.join();
+        m_impl->rebuildInProgress.store(true);
+        m_impl->rebuildThread = std::thread([this, spec, split]() {
+            doRebuildWork(spec, split);
+            m_impl->rebuildInProgress.store(false);
+        });
+        qInfo("D3D11OcioRenderer: building chain '%s' ahead of time",
+              qPrintable(spec.scene.input));
+        return;
+    }
 }
 
 void D3D11OcioRenderer::doRebuildWork(const OcioChainSpec &spec, bool wantSplit)

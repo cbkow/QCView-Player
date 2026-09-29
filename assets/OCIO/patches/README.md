@@ -59,4 +59,11 @@ comment (`git grep "CONFIG UPGRADE"`).
    ACES …) when a colourspace has no `encoding`; recheck against new names.
 7. **This patch.** The EDR displays and `ST2084-P3-D65` (above) are ours,
    not Blender's — re-apply and re-verify.
+8. **Badge short names** (`src/color/colourspace_short_name.h`): the
+   project panel and A/B chips shorten a clip's Input with generic word
+   rules (drop " - Display" / " - Texture" / "Encoded", Linear → Lin, Wide
+   Gamut → WG, "to ACES2065-1" → "→ AP0", cut near 20 characters).
+   `build/tools/probe-ocio-pins/probe-ocio-pins <config.ocio>` checks the
+   rules and that no two colourspaces share a short name — run it on each
+   new config.
 

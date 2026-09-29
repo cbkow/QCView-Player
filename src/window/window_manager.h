@@ -751,6 +751,9 @@ public:
     // "Viewer: −1.5 stops · γ 1.8 · luma · Knee 1000→100" for the aids
     // in effect (empty when none, or OCIO is off). Stored on notes.
     Q_INVOKABLE QString viewerAidsTag() const;
+    // The OCIO chain a note's thumbnail goes through ("OCIO: ACEScg +
+    // Look → sRGB / ACES 2.0"); empty with OCIO off.
+    Q_INVOKABLE QString ocioChainTag() const;
 
     bool imageSeqActive() const { return m_imageSeqActive; }
     bool liveActive() const { return m_liveActive; }

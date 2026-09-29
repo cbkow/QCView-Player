@@ -99,6 +99,9 @@ class OCIOConfigManager : public QObject
     Q_PROPERTY(bool    dualView    READ dualView    NOTIFY viewContextChanged)
     Q_PROPERTY(QString clipIdA     READ clipIdA     NOTIFY viewContextChanged)
     Q_PROPERTY(QString clipIdB     READ clipIdB     NOTIFY viewContextChanged)
+    // Bumps whenever any clip's own chain changes (or the config does) —
+    // QML binds badges through it: `ocio.pinsRevision, ocio.clipBadge(id)`.
+    Q_PROPERTY(int pinsRevision READ pinsRevision NOTIFY pinsRevisionChanged)
     // Dual view: which side's scene chain the panel edits (0 = A, 1 = B).
     Q_PROPERTY(int activeTab READ activeTab WRITE setActiveTab NOTIFY viewContextChanged)
 
@@ -235,7 +238,29 @@ public:
     Q_INVOKABLE void copyAChainToB();
     Q_INVOKABLE bool clipHasPins(const QString &clipId) const;
     Q_INVOKABLE void clearClipPins(const QString &clipId);
+
+    // Bulk (project panel, multi-select): set the Input of several clips;
+    // give them `fromClipId`'s whole clip chain; reset them to the
+    // default. One publish each.
+    Q_INVOKABLE void setInputForClips(const QStringList &clipIds, const QString &colourspace);
+    Q_INVOKABLE void copyClipChain(const QString &fromClipId, const QStringList &toClipIds);
+    Q_INVOKABLE void resetClipChains(const QStringList &clipIds);
     OcioScenePin clipPins(const QString &clipId) const { return m_pins.value(clipId); }
+    // Persistence (MediaItem::ocioClip): one clip's pins, and every
+    // clip's at once when a project loads (replaces all, one publish).
+    QVariantMap clipPinsVariant(const QString &clipId) const
+    {
+        return m_pins.value(clipId).toVariant();
+    }
+    void replaceAllPins(const QHash<QString, QVariantMap> &pins);
+
+    // Badges for clips with their own chain (project panel, A/B chips):
+    // the Input's short name (colourspace_short_name.h) plus what else
+    // the clip sets ("Lin Rec.709 + Look"); empty for an untouched clip.
+    // The tooltip lists each set slot with its exact name.
+    int pinsRevision() const { return m_pinsRevision; }
+    Q_INVOKABLE QString clipBadge(const QString &clipId) const;
+    Q_INVOKABLE QString clipBadgeTooltip(const QString &clipId) const;
 
     // Resolved chains. focusedSpec / specForClip: GUI thread.
     OcioChainSpec focusedSpec() const;
@@ -249,8 +274,11 @@ signals:
     void availableConfigsChanged();
     void kneeChanged();
     void viewContextChanged();
-    // A clip's pins changed (badges, stage 3).
+    // A clip's pins changed (persistence, badges).
     void pinsChanged(const QString &clipId);
+    // Every clip's pins were replaced (a project loaded).
+    void pinsReloaded();
+    void pinsRevisionChanged();
 
 private:
     void resetActiveDefaults();
@@ -299,6 +327,11 @@ private:
     std::atomic<int> m_stageGeneration{0};
 
     QHash<QString, OcioScenePin> m_pins;   // media item id → its pins
+    int m_pinsRevision = 0;
+    void bumpPinsRevision() { ++m_pinsRevision; emit pinsRevisionChanged(); }
+    // Short Input names for the loaded config (built on first use).
+    mutable QHash<QString, QString> m_shortNames;
+    mutable QString                 m_shortNamesConfig;
     QString m_singleClip;
     QString m_clipA, m_clipB;
     bool    m_dual      = false;

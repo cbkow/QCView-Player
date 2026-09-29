@@ -106,6 +106,7 @@ AnnotationExporter::collectNotes() const
         en.text             = n.text;
         en.addressed        = n.addressed;
         en.viewerTag        = n.viewer_tag;
+        en.ocioChain        = n.ocio_chain;
 
         // Resolve the on-disk PNG. Prefer the annotated sibling
         // when present so the export shows what the user was
@@ -233,6 +234,10 @@ bool AnnotationExporter::exportMarkdown(const QString &outputDir,
             md << QStringLiteral("![%1](%2)")
                   .arg(n.timecode, relImage);
             md << QString();
+            if (!n.ocioChain.isEmpty()) {
+                md << QStringLiteral("*%1*").arg(n.ocioChain);
+                md << QString();
+            }
             if (!n.viewerTag.isEmpty()) {
                 md << QStringLiteral("*%1*").arg(n.viewerTag);
                 md << QString();
@@ -341,6 +346,10 @@ QString AnnotationExporter::buildHtmlBody(
             }
         }
 
+        if (!n.ocioChain.isEmpty()) {
+            out += QStringLiteral("<p style='color:#777;font-style:italic;'>%1</p>")
+                       .arg(htmlEscape(n.ocioChain));
+        }
         if (!n.viewerTag.isEmpty()) {
             out += QStringLiteral("<p style='color:#777;font-style:italic;'>%1</p>")
                        .arg(htmlEscape(n.viewerTag));
@@ -575,6 +584,10 @@ bool AnnotationExporter::exportPdf(const QString &outputFile)
             }
         }
 
+        if (!n.ocioChain.isEmpty()) {
+            cur.insertBlock(defaultBlock);
+            cur.insertText(n.ocioChain, noteSubFmt);
+        }
         if (!n.viewerTag.isEmpty()) {
             cur.insertBlock(defaultBlock);
             cur.insertText(n.viewerTag, noteSubFmt);
@@ -922,6 +935,9 @@ bool AnnotationExporter::exportDocx(const QString &outputFile)
                 w.writeEndElement();
             }
 
+            if (!n.ocioChain.isEmpty()) {
+                writePara(w, n.ocioChain);
+            }
             if (!n.viewerTag.isEmpty()) {
                 writePara(w, n.viewerTag);
             }

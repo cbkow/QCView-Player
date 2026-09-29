@@ -391,6 +391,22 @@ Rectangle {
     // rejects it — as are Playlists (4) and Dual Views (5), which
     // have no single source path. Returned in flat-list (bin) order
     // so the new playlist matches the order shown in the rail.
+    // Selected items that can carry a clip chain (the Color panel's Clip
+    // group): video, still, image sequence, live stream — not audio,
+    // playlists or saved dual views.
+    function chainableIdsFromSelection() {
+        if (!WindowManager.project) return [];
+        const flat = WindowManager.project.flatItems || [];
+        const ids = [];
+        for (let i = 0; i < flat.length; ++i) {
+            const it = flat[i];
+            const t = it.type || 0;
+            if (t !== 0 && t !== 2 && t !== 3 && t !== 6) continue;
+            if (root.isItemSelected(it.id)) ids.push(it.id);
+        }
+        return ids;
+    }
+
     function playlistablePathsFromSelection() {
         if (!WindowManager.project) return [];
         const flat = WindowManager.project.flatItems || [];
@@ -556,6 +572,41 @@ Rectangle {
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     elide: Text.ElideMiddle
+                }
+                // A clip with its own OCIO chain (the Color panel's Clip
+                // group) carries a badge: its Input's short name plus what
+                // else it sets; the tooltip names each exactly.
+                Rectangle {
+                    id: clipChainBadge
+                    readonly property string badge: WindowManager.ocio
+                        ? (WindowManager.ocio.pinsRevision,
+                           WindowManager.ocio.clipBadge(rowItem.itemId))
+                        : ""
+                    visible: badge.length > 0 && !rowItem.isEditing
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.maximumWidth: 150
+                    implicitWidth: clipChainBadgeText.implicitWidth + 10
+                    implicitHeight: 16
+                    radius: Theme.radiusSmall
+                    color: Theme.sideAMuted
+                    Text {
+                        id: clipChainBadgeText
+                        anchors.fill: parent
+                        anchors.leftMargin: 5
+                        anchors.rightMargin: 5
+                        verticalAlignment: Text.AlignVCenter
+                        text: clipChainBadge.badge
+                        color: Theme.textPrimary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        elide: Text.ElideRight
+                    }
+                    HoverHandler { id: clipChainBadgeHover }
+                    FlatToolTip {
+                        visible: clipChainBadgeHover.hovered
+                        text: WindowManager.ocio
+                              ? WindowManager.ocio.clipBadgeTooltip(rowItem.itemId) : ""
+                    }
                 }
                 TextField {
                     id: renameField
@@ -732,6 +783,12 @@ Rectangle {
     // enabled state is snapshotted at open time so the items don't
     // re-evaluate while the popup is showing.
     property bool ctxCanCreatePlaylist: false
+    // Clip-chain actions: the selection's eligible ids, and the clip on
+    // screen (the Color panel's focus) whose chain "Use Clip Chain of"
+    // copies — snapshotted at open time like the rest.
+    property var    ctxChainIds: []
+    property string ctxSourceClipId: ""
+    property string ctxSourceClipName: ""
     function openRowMenu(rowItemId) {
         // Standard right-click selection semantics: if the clicked
         // row isn't already part of the selection, replace selection
@@ -741,6 +798,11 @@ Rectangle {
             root.selectItem(rowItemId, 0);
         root.ctxCanCreatePlaylist =
             root.playlistablePathsFromSelection().length > 0;
+        root.ctxChainIds = root.chainableIdsFromSelection();
+        const ocio = WindowManager.ocio;
+        root.ctxSourceClipId = ocio ? ocio.focusClipId : "";
+        root.ctxSourceClipName = root.ctxSourceClipId.length > 0 && WindowManager.project
+            ? (WindowManager.project.mediaItemMap(root.ctxSourceClipId).name || "") : "";
         rowContextMenu.popup();
     }
     ThemedMenu {
@@ -749,6 +811,43 @@ Rectangle {
             text: qsTr("Create Playlist from Selection")
             enabled: root.ctxCanCreatePlaylist
             onTriggered: root.createPlaylistFromSelection()
+        }
+        MenuSeparator {}
+        // Clip chain (the Color panel's Clip group) for every selected
+        // clip at once.
+        ThemedMenu {
+            id: inputSubMenu
+            title: qsTr("Input")
+            enabled: root.ctxChainIds.length > 0 && !!WindowManager.ocio
+            Instantiator {
+                model: WindowManager.ocio ? WindowManager.ocio.colorspaces : []
+                delegate: MenuItem {
+                    required property string modelData
+                    text: modelData
+                    onTriggered: WindowManager.ocio.setInputForClips(root.ctxChainIds, modelData)
+                }
+                onObjectAdded: (index, object) => inputSubMenu.insertItem(index, object)
+                onObjectRemoved: (index, object) => inputSubMenu.removeItem(object)
+            }
+        }
+        MenuItem {
+            text: root.ctxSourceClipName.length > 0
+                  ? qsTr("Use Clip Chain of “%1”").arg(root.ctxSourceClipName)
+                  : qsTr("Use Clip Chain of the Clip on Screen")
+            enabled: root.ctxChainIds.length > 0 && root.ctxSourceClipId.length > 0
+                     && !(root.ctxChainIds.length === 1
+                          && root.ctxChainIds[0] === root.ctxSourceClipId)
+            onTriggered: WindowManager.ocio.copyClipChain(root.ctxSourceClipId, root.ctxChainIds)
+        }
+        MenuItem {
+            text: qsTr("Reset Clip Chain")
+            enabled: {
+                if (!WindowManager.ocio) return false;
+                for (let i = 0; i < root.ctxChainIds.length; ++i)
+                    if (WindowManager.ocio.clipHasPins(root.ctxChainIds[i])) return true;
+                return false;
+            }
+            onTriggered: WindowManager.ocio.resetClipChains(root.ctxChainIds)
         }
         MenuSeparator {}
         MenuItem {

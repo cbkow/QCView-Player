@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 namespace qcv {
 
@@ -50,6 +51,12 @@ public:
     // chain. A chain that can't split runs unsplit (stage skipped).
     // Mirrors MetalOcioRenderer::setStage.
     void setStage(const LinearStageSettings &stage);
+
+    // Build chains ahead of time (live instance): at most one background
+    // compile per call, of the first spec in `specs` that is neither
+    // active nor cached. `gain` decides split vs unsplit, as in
+    // rebuild(). Cheap when everything is built — call it every frame.
+    void prewarm(const std::vector<OcioChainSpec> &specs, float gain);
 
     // Viewer aids (gamma, channel view) for the next apply(): applied
     // after the whole chain, split or not. No rebuild — cbuffer b1.

@@ -120,6 +120,7 @@ void ProjectManager::newProject()
     // Drop dual view before the wiped state propagates — see the
     // projectReplaced doc comment in the header.
     emit projectReplaced();
+    emit mediaPoolLoaded();
     emit binsChanged();
     if (hadActive)  emit activeItemIdChanged();
     if (hadBSource) emit bSourceChanged();
@@ -226,6 +227,7 @@ void ProjectManager::applyLoadedState(QList<MediaItem>  pool,
         }
     }
 
+    emit mediaPoolLoaded();
     emit binsChanged();
     emit activeItemIdChanged();
     emit bSourceChanged();
@@ -1015,6 +1017,17 @@ bool ProjectManager::setVideoRangeOverride(const QString &itemId, int range)
         emit activeItemIdChanged();
         emit bSourceChanged();
     }
+    return true;
+}
+
+bool ProjectManager::setOcioClip(const QString &itemId, const QVariantMap &pins)
+{
+    const int idx = findIndexInPool(itemId);
+    if (idx < 0) return false;
+    MediaItem &it = m_mediaPool[idx];
+    if (it.ocioClip == pins) return true;
+    it.ocioClip = pins;
+    markDirty();
     return true;
 }
 

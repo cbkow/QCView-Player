@@ -45,6 +45,10 @@ struct AnnotationNote {
     // knows the image isn't a 1:1 frame. Empty = none. Optional "viewer"
     // key on disk.
     QString viewer_tag;
+    // The OCIO chain the thumbnail was captured through ("OCIO: ACEScg +
+    // Look → sRGB / ACES 2.0") — the clip's own chain when it has one.
+    // Empty = OCIO off. Optional "ocio" key on disk.
+    QString ocio_chain;
 
     AnnotationNote() = default;
     AnnotationNote(QString tc, double ts, int f, QString img, QString txt)
