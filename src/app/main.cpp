@@ -13,6 +13,7 @@
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -773,8 +774,13 @@ int main(int argc, char *argv[])
         const double secs = spec.contains(QLatin1Char('@'))
                                 ? spec.section(QLatin1Char('@'), 1).toDouble() : 6.0;
         QTimer::singleShot(1500, &engine, [&engine] {
-            if (!engine.rootObjects().isEmpty())
-                engine.rootObjects().first()->setProperty("colorPanelVisible", true);
+            if (engine.rootObjects().isEmpty()) return;
+            QObject *main = engine.rootObjects().first();
+            main->setProperty("colorPanelVisible", true);
+            // QCV_UI_GRAB_PANEL_H=<px> sizes the panel (the resize handle's
+            // job) before the grab.
+            const int h = qEnvironmentVariableIntValue("QCV_UI_GRAB_PANEL_H");
+            if (h > 0) main->setProperty("colorPanelHeight", h);
         });
         QTimer::singleShot(static_cast<int>(secs * 1000), &engine, [&engine, path] {
             auto *win = engine.rootObjects().isEmpty()
@@ -857,6 +863,52 @@ int main(int argc, char *argv[])
                 if (!img.isNull()) img.save(path);
             }
         });
+    }
+    // Dev aid: QCV_PANEL_PROBE=1 — Color panel sizing + open/close cost:
+    // resizes it (the handle's job) and logs the height it really takes,
+    // then toggles it and logs the frame intervals of each animation.
+    if (qEnvironmentVariableIsSet("QCV_PANEL_PROBE")) {
+        auto frames = std::make_shared<QList<qint64>>();
+        auto clock  = std::make_shared<QElapsedTimer>();
+        clock->start();
+        QTimer::singleShot(1000, &engine, [&engine, frames, clock] {
+            auto *win = engine.rootObjects().isEmpty()
+                            ? nullptr : qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+            if (!win) return;
+            QObject::connect(win, &QQuickWindow::frameSwapped, win,
+                             [frames, clock] { frames->append(clock->nsecsElapsed()); });
+        });
+        auto panelH = [&engine]() -> double {
+            if (engine.rootObjects().isEmpty()) return -1;
+            auto *p = engine.rootObjects().first()->findChild<QObject *>(QStringLiteral("colorPanel"));
+            return p ? p->property("height").toDouble() : -1;
+        };
+        auto setProp = [&engine](const char *name, const QVariant &v) {
+            if (!engine.rootObjects().isEmpty()) engine.rootObjects().first()->setProperty(name, v);
+        };
+        QTimer::singleShot(2000, &engine, [setProp] { setProp("colorPanelVisible", true); });
+        const int heights[] = {250, 330, 200};
+        for (int k = 0; k < 3; ++k) {
+            const int h = heights[k];
+            QTimer::singleShot(3000 + 700 * k, &engine, [setProp, h] { setProp("colorPanelHeight", h); });
+            QTimer::singleShot(3000 + 700 * k + 500, &engine, [panelH, h] {
+                qInfo("QCV_PANEL_PROBE: asked %d → panel height %.0f", h, panelH());
+            });
+        }
+        for (int k = 0; k < 4; ++k) {
+            QTimer::singleShot(6000 + 900 * k, &engine, [setProp, frames, k] {
+                frames->clear();
+                setProp("colorPanelVisible", k % 2 == 1);
+            });
+            QTimer::singleShot(6000 + 900 * k + 600, &engine, [frames, k] {
+                qint64 worst = 0;
+                for (int i = 1; i < frames->size(); ++i)
+                    worst = std::max(worst, frames->at(i) - frames->at(i - 1));
+                qInfo("QCV_PANEL_PROBE: %s — %lld frames in 600 ms, worst gap %.1f ms",
+                      k % 2 == 1 ? "open" : "close", static_cast<long long>(frames->size()),
+                      worst / 1e6);
+            });
+        }
     }
     // Dev aid: QCV_PRESET_TEST="<a|b>;<preset name>" applies a preset from
     // that dual tab 5 s after launch and logs both sides' chains.

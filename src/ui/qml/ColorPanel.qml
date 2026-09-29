@@ -43,37 +43,12 @@ Pane {
 
     // Two groups, read the same in single and dual view:
     //   CLIP — the selected clip's own chain (Input, Look, Scene LUT,
-    //          knee). Every edit stays with that clip; highlights take the
-    //          side's colour (A's, or B's on the B tab).
-    //   VIEW — Output, View, Display LUT: shared by everything; muted
-    //          teal highlights.
+    //          knee). Every edit stays with that clip; the A / B tabs
+    //          pick the clip (only their letters carry the side colour).
+    //   VIEW — Output, View, Display LUT: shared by everything.
     //   SETUP (far left) — presets and the config, the vocabulary every
-    //          column uses; muted ochre. A preset splits like the panel:
-    //          its clip half → the clip, its view half → View.
-    readonly property bool  editingB: !!WindowManager.ocio && WindowManager.ocio.dualView
-                                      && WindowManager.ocio.activeTab === 1
-    readonly property color clipAccent:    editingB ? Theme.sideB : Theme.sideA
-    readonly property color clipSelection: editingB ? Theme.sideBMuted : Theme.sideAMuted
-    // Each group's surfaces lean toward its colour — wells 8 %, the header
-    // plate 12 % — below the highlights, so they stay legible.
-    function washWell(c)  { return Qt.tint(Theme.surfaceRecess, Qt.rgba(c.r, c.g, c.b, 0.08)); }
-    function washPlate(c) { return Qt.tint(Theme.surface, Qt.rgba(c.r, c.g, c.b, 0.12)); }
-    readonly property color clipWell:   washWell(clipAccent)
-    readonly property color clipPlate:  washPlate(clipAccent)
-    readonly property color setupWell:  washWell(Theme.setupAccent)
-    readonly property color setupPlate: washPlate(Theme.setupAccent)
-    readonly property color viewWell:   washWell(Theme.viewAccent)
-    readonly property color viewPlate:  washPlate(Theme.viewAccent)
-    // Hover fills lean the same way, a little stronger than the wells.
-    function washHover(c) { return Qt.tint(Theme.surfaceHover, Qt.rgba(c.r, c.g, c.b, 0.16)); }
-    readonly property color clipHover:  washHover(clipAccent)
-    readonly property color setupHover: washHover(Theme.setupAccent)
-    readonly property color viewHover:  washHover(Theme.viewAccent)
-    // Icon highlights (a collapsed strip or LUT tile under the mouse):
-    // the group colour, lifted so a muted side colour still reads.
-    function iconHighlight(c) { return Qt.lighter(c, 1.35); }
-    readonly property color viewAccent:    Theme.viewAccent
-    readonly property color viewSelection: Theme.viewSelection
+    //          column uses. A preset splits like the panel: its clip
+    //          half → the clip, its view half → View.
 
     background: Rectangle {
         // Surface is one shade up from Theme.bg so the inner reels
@@ -415,22 +390,16 @@ Pane {
 
                 // Same header height as the Clip / View groups so the
                 // lists line up.
-                Rectangle {
+                RowLayout {
+                    id: setupHeader
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: Theme.toolStripHeight
-                    color: root.setupPlate
-                    radius: Theme.radiusSmall
-                RowLayout {
-                    id: setupHeader
-                    anchors.fill: parent
-                    anchors.leftMargin: Theme.spacing
-                    anchors.rightMargin: Theme.spacing
                     spacing: Theme.spacing
                     Text {
                         id: setupLabel
                         text: qsTr("Setup")
-                        color: Theme.setupAccent
+                        color: Theme.textMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeTiny
                         font.bold: true
@@ -440,8 +409,8 @@ Pane {
                     FlatButton {
                         checkable: true
                         checked: presetColumn.setupTab === 0
-                        checkedFill: Theme.setupTab
-                        uncheckedFill: Theme.setupFaded
+                        variant: "raised"
+                        checkedFill: Theme.selection
                         id: presetsTab
                         text: qsTr("Presets")
                         tooltipText: qsTr("A preset sets both groups: its clip half on the selected clip, its view half on the View")
@@ -450,8 +419,8 @@ Pane {
                     FlatButton {
                         checkable: true
                         checked: presetColumn.setupTab === 1
-                        checkedFill: Theme.setupTab
-                        uncheckedFill: Theme.setupFaded
+                        variant: "raised"
+                        checkedFill: Theme.selection
                         text: qsTr("Config · %1").arg(WindowManager.ocio
                                                       ? WindowManager.ocio.activeConfigName : "")
                         tooltipText: qsTr("The OCIO config — the colourspace, display and view names every column uses")
@@ -460,13 +429,12 @@ Pane {
                         // header's own width follows its children.
                         Layout.preferredWidth: Math.max(0, Math.min(implicitWidth,
                             presetColumn.width - setupLabel.width - presetsTab.width
-                            - 5 * setupHeader.spacing))
+                            - 3 * setupHeader.spacing))
                         onClicked: presetColumn.setupTab = 1
                     }
                     Item { Layout.fillWidth: true }
                 }
-                }
-                GroupRule { color: Theme.setupAccent }
+                GroupRule {}
 
                 // Caption in the reels' title row, so the lists line up.
                 Text {
@@ -484,9 +452,6 @@ Pane {
                     visible: presetColumn.setupTab === 1
                     showTitle: false
                     Layout.fillWidth: true
-                    accentColor: Theme.setupAccent
-                    selectionColor: Theme.setupSelection
-                    wellColor: root.setupWell
                     model: WindowManager.ocio
                            ? WindowManager.ocio.availableConfigs : []
                     currentText: WindowManager.ocio
@@ -505,16 +470,16 @@ Pane {
                     // it, accent bottom-rule on focus.
                     background: Rectangle {
                         color: presetFilterField.activeFocus
-                               ? root.setupHover
+                               ? Theme.surfaceHover
                                : (presetFilterField.hovered
-                                  ? Qt.lighter(root.setupWell, 1.25) : root.setupWell)
+                                  ? Theme.surfaceAlt : Theme.surfaceRecess)
                         Rectangle {
                             anchors.left:   parent.left
                             anchors.right:  parent.right
                             anchors.bottom: parent.bottom
                             height: 1
                             color: presetFilterField.activeFocus
-                                   ? Theme.setupAccent : "transparent"
+                                   ? Theme.accent : "transparent"
                         }
                     }
                 }
@@ -525,7 +490,7 @@ Pane {
                     Layout.fillHeight: true
                     // Recessed well — darker than the panel so the
                     // list reads as inset by tone alone (no border).
-                    color: root.setupWell
+                    color: Theme.surfaceRecess
                     radius: Theme.radiusSmall
                     clip: true
 
@@ -546,7 +511,7 @@ Pane {
                             // Match the list bg so the section header
                             // reads as a label on the same surface as
                             // the items, not a contrasting stripe.
-                            color: root.setupWell
+                            color: Theme.surfaceRecess
                             Text {
                                 anchors.fill: parent
                                 anchors.leftMargin: 6
@@ -633,9 +598,9 @@ Pane {
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: presetRow.isCurrent ? Theme.setupSelection
+                                color: presetRow.isCurrent ? Theme.selection
                                      : (presetMa.containsMouse && presetRow.entryEnabled
-                                        ? root.setupHover : "transparent")
+                                        ? Theme.surfaceHover : "transparent")
                             }
                             // Current-preset accent rule — rail-row
                             // selected vocabulary (was a green ★).
@@ -645,7 +610,7 @@ Pane {
                                 anchors.top:    parent.top
                                 anchors.bottom: parent.bottom
                                 width: 2
-                                color: Theme.setupAccent
+                                color: Theme.accent
                             }
                             RowLayout {
                                 anchors.fill: parent
@@ -730,23 +695,20 @@ Pane {
                 Layout.fillHeight: true
                 spacing: Theme.spacing
 
-                Rectangle {
+                RowLayout {
+                    id: clipHeader
                     // Takes the width the columns below give the group,
                     // never widens it (a long clip name would).
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.preferredHeight: Theme.toolStripHeight
-                    color: root.clipPlate
-                    radius: Theme.radiusSmall
-                RowLayout {
-                    id: clipHeader
-                    anchors.fill: parent
-                    anchors.leftMargin: Theme.spacing
-                    anchors.rightMargin: Theme.spacing
                     spacing: Theme.spacing
                     // Room for the side tabs; a short name keeps its full
-                    // width and the other tab gets the rest.
-                    readonly property real tabRoom: Math.max(0, width - clipLabel.width
+                    // width and the other tab gets the rest. From the
+                    // columns' width, not the header's: while the panel is
+                    // hidden the header sizes to its content, which would
+                    // feed back (recursive rearrange).
+                    readonly property real tabRoom: Math.max(0, clipReels.width - clipLabel.implicitWidth
                         - (tabB.visible ? spacing : 0) - spacing)
                     function tabWidth(own, other) {
                         if (!tabB.visible) return Math.min(own, tabRoom);
@@ -758,7 +720,7 @@ Pane {
                     Text {
                         id: clipLabel
                         text: qsTr("Clip")
-                        color: root.clipAccent
+                        color: Theme.textMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeTiny
                         font.bold: true
@@ -769,9 +731,11 @@ Pane {
                         checkable: true
                         checked: !clipGroup.ocio || clipGroup.ocio.activeTab === 0
                                  || !clipGroup.dual
-                        checkedFill: Theme.sideA
-                        uncheckedFill: Theme.sideAFaded
-                        text: qsTr("A · %1").arg(clipGroup.nameA || qsTr("no clip"))
+                        variant: "raised"
+                        checkedFill: Theme.selection
+                        prefix: "A"
+                        prefixColor: Theme.sideAText
+                        text: clipGroup.nameA || qsTr("no clip")
                         tooltipText: clipGroup.dual
                                      ? qsTr("%1\nA's clip — changes stay with this clip")
                                            .arg(clipGroup.nameA || qsTr("no clip"))
@@ -786,9 +750,11 @@ Pane {
                         visible: clipGroup.dual
                         checkable: true
                         checked: !!clipGroup.ocio && clipGroup.ocio.activeTab === 1
-                        checkedFill: Theme.sideB
-                        uncheckedFill: Theme.sideBFaded
-                        text: qsTr("B · %1").arg(clipGroup.nameB || qsTr("no clip"))
+                        variant: "raised"
+                        checkedFill: Theme.selection
+                        prefix: "B"
+                        prefixColor: Theme.sideBText
+                        text: clipGroup.nameB || qsTr("no clip")
                         tooltipText: qsTr("%1\nB's clip — changes stay with this clip")
                                          .arg(clipGroup.nameB || qsTr("no clip"))
                         id: tabB
@@ -798,10 +764,10 @@ Pane {
                     }
                     Item { Layout.fillWidth: true }
                 }
-                }
-                GroupRule { color: root.clipAccent }
+                GroupRule {}
 
                 RowLayout {
+                    id: clipReels
                     Layout.fillHeight: true
                     spacing: Theme.spacingLoose
 
@@ -874,20 +840,13 @@ Pane {
                 Layout.fillHeight: true
                 spacing: Theme.spacing
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.preferredHeight: Theme.toolStripHeight
-                    color: root.viewPlate
-                    radius: Theme.radiusSmall
                 RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: Theme.spacing
-                    anchors.rightMargin: Theme.spacing
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Theme.toolStripHeight
                     spacing: Theme.spacing
                     Text {
                         text: qsTr("View")
-                        color: Theme.viewAccent
+                        color: Theme.textMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeTiny
                         font.bold: true
@@ -902,8 +861,7 @@ Pane {
                     }
                     Item { Layout.fillWidth: true }
                 }
-                }
-                GroupRule { color: Theme.viewAccent }
+                GroupRule {}
 
                 RowLayout {
                     Layout.fillHeight: true
@@ -973,7 +931,6 @@ Pane {
                 spacing: Theme.spacingLoose
                 FlatSwitch {
                     id: engageSwitch
-                    tint: Theme.viewAccent
                     // Attention styling on both states — blue "engage
                     // me" while off, green "engaged" when on. Was
                     // `!checked` previously which dropped attention
@@ -1015,7 +972,6 @@ Pane {
                 }
                 FlatSlider {
                     id: exposureSlider
-                    tint: Theme.viewAccent
                     from: -4.0
                     to: 4.0
                     stepSize: 0.1
@@ -1058,7 +1014,6 @@ Pane {
                     font.pixelSize: Theme.fontSizeTiny
                 }
                 FlatSlider {
-                    tint: Theme.viewAccent
                     from: 0.25
                     to: 4.0
                     stepSize: 0.05
@@ -1077,7 +1032,7 @@ Pane {
                     Layout.preferredWidth: 40
                     Layout.preferredHeight: 16
                     radius: Theme.radiusSmall
-                    color: root.viewWell
+                    color: Theme.surfaceRecess
                     Text {
                         anchors.centerIn: parent
                         text: (WindowManager ? WindowManager.viewerGamma : 1.0).toFixed(2)
@@ -1095,7 +1050,6 @@ Pane {
                     FlatChip {
                         required property int index
                         required property string modelData
-                        tint: Theme.viewAccent
                         label: modelData
                         active: WindowManager && WindowManager.channelView === index
                         minWidth: index === 0 ? 30 : 20
@@ -1128,7 +1082,6 @@ Pane {
             }
             FlatComboBox {
                 id: hdrModeCombo
-                tint: Theme.viewAccent
                 implicitHeight: 26
                 // Pin a width that fits the longest entry so the
                 // shorter "SDR" selection doesn't shrink the box and
@@ -1199,7 +1152,7 @@ Pane {
                     background: Rectangle {
                         color: (parent.hovered || parent.highlighted)
                                && modelData.supported
-                               ? root.viewHover : "transparent"
+                               ? Theme.surfaceHover : "transparent"
                     }
                 }
             }
@@ -1245,7 +1198,7 @@ Pane {
             anchors.centerIn: parent
             name: "arrow-counter-clockwise"
             size: Theme.iconSizeSmall
-            color: revertMa.containsMouse ? Theme.textBright : root.clipAccent
+            color: revertMa.containsMouse ? Theme.textBright : Theme.accent
         }
         MouseArea {
             id: revertMa
@@ -1266,14 +1219,14 @@ Pane {
         width: 6
         height: 6
         radius: 3
-        color: root.clipAccent
+        color: Theme.accent
     }
 
     // Header over each group: its name, then (clip group) the side tabs.
     component GroupRule: Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 2
-        radius: 1
+        Layout.preferredHeight: Theme.dividerWidth
+        color: Theme.divider
     }
 
     component ReelColumn: ColumnLayout {
@@ -1292,11 +1245,8 @@ Pane {
         // the selected clip has set it.
         property string pinSlot: ""
         property bool   pinned: false
-        // Clip columns highlight in the side's colour, View columns grey.
-        property color  accentColor:    pinSlot.length > 0 ? root.clipAccent : root.viewAccent
-        property color  selectionColor: pinSlot.length > 0 ? root.clipSelection : root.viewSelection
-        property color  wellColor:      pinSlot.length > 0 ? root.clipWell : root.viewWell
-        property color  hoverColor:     pinSlot.length > 0 ? root.clipHover : root.viewHover
+        property color  accentColor:    Theme.accent
+        property color  selectionColor: Theme.selection
         signal selected(string entry)
 
         Layout.minimumWidth: (expandable && !expanded) ? 32 : 130
@@ -1370,16 +1320,16 @@ Pane {
             // borderless, hover/focus lift, accent bottom-rule on focus.
             background: Rectangle {
                 color: reelFilterField.activeFocus
-                       ? reel.hoverColor
+                       ? Theme.surfaceHover
                        : (reelFilterField.hovered
-                          ? Qt.lighter(reel.wellColor, 1.25) : reel.wellColor)
+                          ? Theme.surfaceAlt : Theme.surfaceRecess)
                 Rectangle {
                     anchors.left:   parent.left
                     anchors.right:  parent.right
                     anchors.bottom: parent.bottom
                     height: 1
                     color: reelFilterField.activeFocus
-                           ? reel.accentColor : "transparent"
+                           ? Theme.accent : "transparent"
                 }
             }
         }
@@ -1389,7 +1339,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !reel.expandable || reel.expanded
-            color: reel.enabled ? reel.wellColor : Qt.darker(reel.wellColor, 1.15)
+            color: reel.enabled ? Theme.surfaceRecess : Theme.bgAlt
             radius: Theme.radiusSmall
             clip: true
             opacity: reel.enabled ? 1.0 : 0.55
@@ -1416,7 +1366,7 @@ Pane {
                     Rectangle {
                         anchors.fill: parent
                         color: modelData === reel.currentText ? reel.selectionColor
-                             : (mouseArea.containsMouse ? reel.hoverColor : "transparent")
+                             : (mouseArea.containsMouse ? Theme.surfaceHover : "transparent")
                     }
                     // Current-entry accent rule — same selected
                     // vocabulary as the rail rows (the old green ★
@@ -1461,7 +1411,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: reel.expandable && !reel.expanded
-            color: reelExpandMa.containsMouse ? reel.hoverColor : reel.wellColor
+            color: reelExpandMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -1509,9 +1459,9 @@ Pane {
                     name: reel.collapsedIconName
                     size: 20
                     // Grey icon (no green/success cue) — keeps the
-                    // collapsed strip neutral; the group colour on hover.
+                    // collapsed strip neutral.
                     color: reelExpandMa.containsMouse
-                           ? root.iconHighlight(reel.accentColor) : Theme.textMuted
+                           ? Theme.accent : Theme.textMuted
                 }
 
                 Icon {
@@ -1614,7 +1564,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: knee.expanded
-            color: root.clipWell
+            color: Theme.surfaceRecess
             radius: Theme.radiusSmall
 
             Flickable {
@@ -1633,7 +1583,6 @@ Pane {
                     RowLayout {
                         spacing: Theme.spacing
                         FlatSwitch {
-                            tint: root.clipAccent
                             checked: knee.on
                             onToggled: knee.ocio.kneeEnabled = checked
                         }
@@ -1669,7 +1618,6 @@ Pane {
                     RowLayout {
                         spacing: Theme.spacing
                         FlatSpinBox {
-                            tint: root.clipAccent
                             id: srcSpin
                             Layout.fillWidth: true
                             from: 100
@@ -1730,7 +1678,6 @@ Pane {
                         visible: knee.ocio && !knee.ocio.displayIsSdr
                         spacing: Theme.spacing
                         FlatSpinBox {
-                            tint: root.clipAccent
                             Layout.fillWidth: true
                             from: 100
                             to: 10000
@@ -1755,7 +1702,6 @@ Pane {
                         font.pixelSize: Theme.fontSizeTiny
                     }
                     FlatSlider {
-                        tint: root.clipAccent
                         Layout.fillWidth: true
                         from: 0.0
                         to: 0.99
@@ -1806,7 +1752,7 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !knee.expanded
-            color: kneeStripMa.containsMouse ? root.clipHover : root.clipWell
+            color: kneeStripMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
             radius: Theme.radiusSmall
 
             MouseArea {
@@ -1852,8 +1798,7 @@ Pane {
                     name: "sun-horizon"
                     size: 20
                     color: knee.on ? Theme.warning
-                                   : (kneeStripMa.containsMouse ? root.iconHighlight(root.clipAccent)
-                                                                : Theme.textMuted)
+                                   : (kneeStripMa.containsMouse ? Theme.accent : Theme.textMuted)
                 }
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
@@ -1877,9 +1822,6 @@ Pane {
         // whether the selected clip has set it.
         property string pinSlot: ""
         property bool   pinned: false
-        property color  wellColor: pinSlot.length > 0 ? root.clipWell : root.viewWell
-        property color  hoverColor: pinSlot.length > 0 ? root.clipHover : root.viewHover
-        property color  accentColor: pinSlot.length > 0 ? root.clipAccent : root.viewAccent
         signal pickRequested()
         signal clearRequested()
         signal cccIdEdited(string id)
@@ -1962,7 +1904,7 @@ Pane {
             visible: tile.expanded
             // Borderless recessed well. Hover lifts the fill; loaded-
             // state cue lives on the identity icon (Theme.success).
-            color: tileMa.containsMouse ? tile.hoverColor : tile.wellColor
+            color: tileMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -1990,7 +1932,7 @@ Pane {
                     color: tile.path
                            ? Theme.success
                            : (tileMa.containsMouse
-                              ? root.iconHighlight(tile.accentColor) : Theme.textMuted)
+                              ? Theme.accent : Theme.textMuted)
                 }
 
                 Item { Layout.preferredHeight: Theme.spacing }
@@ -2023,7 +1965,6 @@ Pane {
                     elide: Text.ElideMiddle
                 }
                 FlatTextField {
-                    tint: root.clipAccent
                     visible: tile.showCccId
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.padding
@@ -2088,7 +2029,7 @@ Pane {
             visible: !tile.expanded
             // Borderless recessed well. Hover lifts the fill; loaded-
             // state cue lives on the identity icon (Theme.success).
-            color: collapsedMa.containsMouse ? tile.hoverColor : tile.wellColor
+            color: collapsedMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -2142,7 +2083,7 @@ Pane {
                     color: tile.path
                            ? Theme.success
                            : (collapsedMa.containsMouse
-                              ? root.iconHighlight(tile.accentColor) : Theme.textMuted)
+                              ? Theme.accent : Theme.textMuted)
                 }
 
                 Icon {

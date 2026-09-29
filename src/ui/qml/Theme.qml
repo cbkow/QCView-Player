@@ -84,25 +84,15 @@ QtObject {
     readonly property color noteMarker:     "#b48ef0"
 
     // Dual view's A / B identity — the source chips, Inspector tabs and
-    // timeline signifiers. The Color panel's scene side takes B's while
-    // it edits B's clip.
+    // timeline signifiers.
     readonly property color sideA:          "#446a90"
     readonly property color sideB:          "#a0664a"
     readonly property color sideAMuted:     "#1e3042"   // selection fills, like accentMuted
     readonly property color sideBMuted:     "#4a2f24"
-    readonly property color sideAFaded:     "#26374a"   // unselected side tabs: the
-    readonly property color sideBFaded:     "#46302a"   //   side's colour, dimmed
-    // The Color panel's Setup group (presets, config): muted ochre —
-    // browner and dimmer than `warning`, which it must not read as.
-    readonly property color setupAccent:    "#a88f52"
-    readonly property color setupSelection: "#3a3120"
-    readonly property color setupTab:       "#7a6638"
-    readonly property color setupFaded:     "#352d1d"
-    // The Color panel's View group (shared by everything on screen):
-    // muted teal — clear of the sides' blue-grey / brown, Setup's ochre,
-    // the accent blue and success green.
-    readonly property color viewAccent:     "#4f8f86"
-    readonly property color viewSelection:  "#1d3431"
+    // The side colours lifted for text (the Color panel's A / B clip-tab
+    // letters), legible on raised grey and on the selection fill.
+    readonly property color sideAText:      "#7fa6cc"
+    readonly property color sideBText:      "#d6916c"
 
     // --- Fonts ---
     // Family names resolved by main.cpp at startup and exposed

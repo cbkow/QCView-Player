@@ -1534,6 +1534,7 @@ ApplicationWindow {
                          root.colorPanelHeight - dy))
         }
         ColorPanel {
+            objectName: "colorPanel"   // dev hook QCV_PANEL_PROBE
             Layout.fillWidth: true
             Layout.preferredHeight:
                 root.fxColorPanel ? root.colorPanelHeight : 0

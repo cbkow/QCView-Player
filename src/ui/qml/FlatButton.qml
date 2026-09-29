@@ -61,12 +61,15 @@ Button {
     // to match the addTile vocabulary. Transparent (alpha 0) means
     // "don't override; use the variant's normal fg".
     property color  hoverColor: "transparent"
-    // Checked fill (a toggle's "on" cell). The B-side controls use
-    // Theme.sideB so B reads in B's colour.
+    // Checked fill (a toggle's "on" cell).
     property color  checkedFill: Theme.accent
     // Fill while unchecked (transparent = the variant's own): tab rows
     // whose unselected cells keep a dimmed identity colour.
     property color  uncheckedFill: "transparent"
+    // Bold coloured lead-in before the label (e.g. the Color panel's
+    // clip tabs: "A" / "B" in the side's colour, then the clip name).
+    property string prefix: ""
+    property color  prefixColor: Theme.textBright
 
     QtObject {
         id: pal
@@ -139,6 +142,7 @@ Button {
     implicitWidth: leftPadding + rightPadding
                    + (buttonIcon.visible ? buttonIcon.width : 0)
                    + (buttonIcon.visible && buttonLabel.visible ? rowContent.spacing : 0)
+                   + (root.prefix.length > 0 ? prefixLabel.implicitWidth + rowContent.spacing : 0)
                    + (buttonLabel.visible ? buttonLabel.implicitWidth : 0)
 
     contentItem: Row {
@@ -154,13 +158,24 @@ Button {
             anchors.verticalCenter: parent.verticalCenter
         }
         Label {
+            id: prefixLabel
+            visible: root.prefix.length > 0
+            text: root.prefix
+            color: root.enabled ? root.prefixColor : Theme.textMuted
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeBase
+            font.bold: true
+            anchors.verticalCenter: parent.verticalCenter
+        }
+        Label {
             id: buttonLabel
             visible: root.text.length > 0
             width: root.elideMode === Text.ElideNone
                    ? implicitWidth
                    : Math.max(0, Math.min(implicitWidth,
                          root.availableWidth
-                         - (buttonIcon.visible ? buttonIcon.width + rowContent.spacing : 0)))
+                         - (buttonIcon.visible ? buttonIcon.width + rowContent.spacing : 0)
+                         - (root.prefix.length > 0 ? prefixLabel.implicitWidth + rowContent.spacing : 0)))
             elide: root.elideMode
             text: root.text
             color: pal.fg

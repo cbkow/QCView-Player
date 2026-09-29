@@ -504,8 +504,16 @@ Rectangle {
             // hover → transparent. Active uses Theme.rowActive (a
             // brighter cobalt than Theme.selection) so a row that's
             // both selected and loaded still reads as "loaded".
+            // Rows read as chips, like the Inspector's playlist rows: the
+            // fill is inset (2 px between rows) with small rounded corners.
             Rectangle {
+                id: rowFill
                 anchors.fill: parent
+                anchors.leftMargin: 4
+                anchors.rightMargin: 4
+                anchors.topMargin: 1
+                anchors.bottomMargin: 1
+                radius: Theme.radiusSmall
                 color: rowItem.isActive
                        ? Theme.rowActive
                        : (rowItem.isSelected
@@ -513,13 +521,15 @@ Rectangle {
                             : (rowMa.containsMouse
                                  ? Theme.surfaceHover : "transparent"))
             }
-            // Active (currently-loaded) media — accent left-rule.
+            // Active (currently-loaded) media — accent left-rule, inside
+            // the chip.
             Rectangle {
                 visible: rowItem.isActive
-                anchors.left:   parent.left
-                anchors.top:    parent.top
-                anchors.bottom: parent.bottom
+                anchors.left:   rowFill.left
+                anchors.top:    rowFill.top
+                anchors.bottom: rowFill.bottom
                 width: 2
+                radius: 1
                 color: Theme.accent
             }
 

@@ -7,14 +7,6 @@ import Qcv
 // Up / down arrows use Phosphor carets, hover to accent.
 SpinBox {
     id: root
-    // Optional group tint (the Color panel's Setup / Clip / View
-    // colours): greys lean toward it, the accent becomes it.
-    // Transparent = the stock look.
-    property color tint: "transparent"
-    function tinted(c, amount) {
-        return tint.a > 0 ? Qt.tint(c, Qt.rgba(tint.r, tint.g, tint.b, amount)) : c;
-    }
-    readonly property color tintAccent: tint.a > 0 ? tint : Theme.accent
 
     implicitHeight: 22
     font.family: Theme.monoFamily
@@ -22,16 +14,16 @@ SpinBox {
 
     // Borderless recessed-slot styling matching FlatTextField.
     background: Rectangle {
-        color: root.tinted(root.activeFocus
-                           ? Theme.surface
-                           : (root.hovered ? Theme.bgAlt : Theme.bg), 0.10)
+        color: root.activeFocus
+               ? Theme.surface
+               : (root.hovered ? Theme.bgAlt : Theme.bg)
         radius: 0
         Rectangle {
             anchors.left:   parent.left
             anchors.right:  parent.right
             anchors.bottom: parent.bottom
             height: 1
-            color: root.activeFocus ? root.tintAccent : "transparent"
+            color: root.activeFocus ? Theme.accent : "transparent"
         }
     }
 
@@ -54,14 +46,14 @@ SpinBox {
         height: root.height / 2
         implicitWidth: 18
         color: root.up.pressed
-                ? root.tinted(Theme.accentMuted, 0.6)
-                : (upMa.containsMouse ? root.tinted(Theme.surfaceHover, 0.15) : "transparent")
+                ? Theme.accentMuted
+                : (upMa.containsMouse ? Theme.surfaceHover : "transparent")
         border.width: 0
         Icon {
             anchors.centerIn: parent
             name: "caret-up"
             size: 10
-            color: upMa.containsMouse ? root.tintAccent : Theme.textSecondary
+            color: upMa.containsMouse ? Theme.accent : Theme.textSecondary
         }
         MouseArea {
             id: upMa
@@ -77,14 +69,14 @@ SpinBox {
         height: root.height / 2
         implicitWidth: 18
         color: root.down.pressed
-                ? root.tinted(Theme.accentMuted, 0.6)
-                : (downMa.containsMouse ? root.tinted(Theme.surfaceHover, 0.15) : "transparent")
+                ? Theme.accentMuted
+                : (downMa.containsMouse ? Theme.surfaceHover : "transparent")
         border.width: 0
         Icon {
             anchors.centerIn: parent
             name: "caret-down"
             size: 10
-            color: downMa.containsMouse ? root.tintAccent : Theme.textSecondary
+            color: downMa.containsMouse ? Theme.accent : Theme.textSecondary
         }
         MouseArea {
             id: downMa
