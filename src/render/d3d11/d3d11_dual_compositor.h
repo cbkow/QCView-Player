@@ -93,7 +93,12 @@ public:
     // already-bound RTV (caller has set viewport and cleared the
     // target). dstW/dstH set the destination size uniform (used for
     // SBS half-split + Wipe splitter line + sampleFit math).
-    void renderFrame(void *ctx, int dstW, int dstH);
+    // Per-side OCIO chains render the frame twice: passSide 1 draws A
+    // only, 2 B only (layout unchanged, the other side transparent,
+    // Difference yields the side itself). `consume` = false keeps this
+    // frame's prepared sources for the second pass.
+    void renderFrame(void *ctx, int dstW, int dstH, int passSide = 0, bool consume = true);
+    float diffGain() const;
 
     // Snapshot of the geometry the last renderFrame() drew, for the
     // present pass's media-bounds background fill (mirror of

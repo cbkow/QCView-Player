@@ -33,7 +33,7 @@ struct ChainParts {
     OCIO::FileTransformRcPtr displayLut;   // null if none (or overridden)
 };
 
-bool resolveParts(OCIOConfigManager *ocio, OCIO::ConstConfigRcPtr cfg,
+bool resolveParts(const OcioChainSpec &spec, OCIO::ConstConfigRcPtr cfg,
                   const DisplayViewOverride *override,
                   ChainParts &out, QString *errorOut)
 {
@@ -42,20 +42,19 @@ bool resolveParts(OCIOConfigManager *ocio, OCIO::ConstConfigRcPtr cfg,
         return false;
     };
 
-    if (!ocio) return fail(QStringLiteral("OcioChainBuilder: null OCIOConfigManager"));
     if (!cfg)  return fail(QStringLiteral("OcioChainBuilder: null OCIO config"));
 
-    const QString inputCs = ocio->activeInput();
-    const QString display = override ? override->display : ocio->activeDisplay();
-    const QString view    = override ? override->view    : ocio->activeView();
-    const QString look    = ocio->activeLook();
+    const QString inputCs = spec.scene.input;
+    const QString display = override ? override->display : spec.display;
+    const QString view    = override ? override->view    : spec.view;
+    const QString look    = spec.scene.look;
     if (inputCs.isEmpty() || display.isEmpty() || view.isEmpty()) {
         return fail(QStringLiteral("OcioChainBuilder: active chain incomplete"));
     }
 
-    const QString sceneLutPath   = ocio->activeSceneLutPath();
+    const QString sceneLutPath   = spec.scene.sceneLutPath;
     const QString displayLutPath =
-        override ? QString() : ocio->activeDisplayLutPath();
+        override ? QString() : spec.displayLutPath;
 
     out.dvtSrcCs = inputCs.toUtf8();
     out.display  = display.toUtf8();
@@ -83,7 +82,7 @@ bool resolveParts(OCIOConfigManager *ocio, OCIO::ConstConfigRcPtr cfg,
         out.sceneLut = OCIO::FileTransform::Create();
         out.sceneLut->setSrc(sceneLutPath.toUtf8().constData());
         // CDL collections: which correction (empty = the first).
-        out.sceneLut->setCCCId(ocio->activeSceneLutCccId().toUtf8().constData());
+        out.sceneLut->setCCCId(spec.scene.sceneLutCccId.toUtf8().constData());
         out.sceneLut->setInterpolation(OCIO::INTERP_BEST);
         out.sceneLut->setDirection(OCIO::TRANSFORM_DIR_FORWARD);
     }
@@ -183,14 +182,14 @@ OCIO::GpuLanguage toGpuLanguage(OcioChainBuilder::Language language)
 } // namespace
 
 OCIO::GroupTransformRcPtr OcioChainBuilder::buildGroupTransform(
-    OCIOConfigManager *ocio,
+    const OcioChainSpec &spec,
     OCIO::ConstConfigRcPtr cfg,
     QString *errorOut,
     const DisplayViewOverride *override)
 {
     try {
         ChainParts p;
-        if (!resolveParts(ocio, cfg, override, p, errorOut)) return nullptr;
+        if (!resolveParts(spec, cfg, override, p, errorOut)) return nullptr;
 
         OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
         if (p.look)       group->appendTransform(p.look);
@@ -204,7 +203,7 @@ OCIO::GroupTransformRcPtr OcioChainBuilder::buildGroupTransform(
     }
 }
 
-bool OcioChainBuilder::buildSplitTransforms(OCIOConfigManager *ocio,
+bool OcioChainBuilder::buildSplitTransforms(const OcioChainSpec &spec,
                                             OCIO::ConstConfigRcPtr cfg,
                                             OcioSplitTransforms &out,
                                             QString *errorOut,
@@ -216,7 +215,7 @@ bool OcioChainBuilder::buildSplitTransforms(OCIOConfigManager *ocio,
     };
     try {
         ChainParts p;
-        if (!resolveParts(ocio, cfg, override, p, errorOut)) return false;
+        if (!resolveParts(spec, cfg, override, p, errorOut)) return false;
 
         OCIO::ConstColorSpaceRcPtr src = cfg->getColorSpace(p.dvtSrcCs.constData());
         if (!src) {
@@ -322,20 +321,31 @@ OcioChain OcioChainBuilder::buildScope(OCIOConfigManager *ocio, Language languag
 OcioChain OcioChainBuilder::build(OCIOConfigManager *ocio, Language language,
                                   const DisplayViewOverride *override)
 {
-    OcioChain out;
     if (!ocio) {
+        OcioChain out;
         out.errorMessage = QStringLiteral("OcioChainBuilder: null OCIOConfigManager");
+        return out;
+    }
+    return build(ocio->focusedSpec(), language, override);
+}
+
+OcioChain OcioChainBuilder::build(const OcioChainSpec &spec, Language language,
+                                  const DisplayViewOverride *override)
+{
+    OcioChain out;
+    if (spec.configPath.isEmpty()) {
+        out.errorMessage = QStringLiteral("OcioChainBuilder: no OCIO config");
         return out;
     }
     try {
         OCIO::ConstConfigRcPtr cfg = OCIO::Config::CreateFromFile(
-            ocio->configIdentifier().toUtf8().constData());
+            spec.configPath.toUtf8().constData());
         OCIO::GroupTransformRcPtr group =
-            buildGroupTransform(ocio, cfg, &out.errorMessage, override);
+            buildGroupTransform(spec, cfg, &out.errorMessage, override);
         if (!group) return out;  // errorMessage already populated
         out = extractShader(cfg, group, toGpuLanguage(language), "OCIODisplay", "ocio_");
         ChainParts p;
-        if (out.ok && resolveParts(ocio, cfg, override, p, nullptr)) {
+        if (out.ok && resolveParts(spec, cfg, override, p, nullptr)) {
             const DisplayOutput dout = displayViewOutput(cfg, p);
             out.encoding        = dout.encoding;
             out.outputPrimaries = dout.primaries;
@@ -347,20 +357,20 @@ OcioChain OcioChainBuilder::build(OCIOConfigManager *ocio, Language language,
     }
 }
 
-OcioSplitChain OcioChainBuilder::buildSplit(OCIOConfigManager *ocio,
+OcioSplitChain OcioChainBuilder::buildSplit(const OcioChainSpec &spec,
                                             Language language,
                                             const DisplayViewOverride *override)
 {
     OcioSplitChain out;
-    if (!ocio) {
-        out.errorMessage = QStringLiteral("OcioChainBuilder: null OCIOConfigManager");
+    if (spec.configPath.isEmpty()) {
+        out.errorMessage = QStringLiteral("OcioChainBuilder: no OCIO config");
         return out;
     }
     try {
         OCIO::ConstConfigRcPtr cfg = OCIO::Config::CreateFromFile(
-            ocio->configIdentifier().toUtf8().constData());
+            spec.configPath.toUtf8().constData());
         OcioSplitTransforms t;
-        if (!buildSplitTransforms(ocio, cfg, t, &out.errorMessage, override)) {
+        if (!buildSplitTransforms(spec, cfg, t, &out.errorMessage, override)) {
             return out;
         }
         const OCIO::GpuLanguage lang = toGpuLanguage(language);

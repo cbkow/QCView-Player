@@ -40,6 +40,9 @@ struct UBO {
     int    rotA;           // per-side display rotation, quarter-turns
     int    rotB;           //   CW {0..3}; srcSize arrives display-swapped
     int    dropSide;       // drag-drop target highlight: 0 none, 1 A, 2 B
+    int    passSide;       // 0 both; 1 A only, 2 B only (per-side OCIO chains:
+                           //   same layout, the other side left transparent,
+                           //   Difference outputs the side itself)
 };
 
 struct VsOut {
@@ -101,46 +104,48 @@ fragment float4 dual_fs(VsOut in [[stage_in]],
 {
     const float2 uv    = in.uv;
     const float2 dstPx = uv * u.dstSize;
+    const bool   drawA = u.passSide != 2;
+    const bool   drawB = u.passSide != 1;
 
     float4 color = float4(0.0);
 
     if (u.mode == 1) {
         const float halfW = u.dstSize.x * 0.5;
         if (dstPx.x < halfW) {
-            color = (u.aActive == 0)
+            color = (u.aActive == 0 || !drawA)
                 ? float4(0.0)
                 : sampleFit(srcA, smp, dstPx,
                             float2(0.0, 0.0),
                             float2(halfW, u.dstSize.y),
                             u.srcSizeA, u.rotA);
         } else {
-            color = (u.bActive == 0)
+            color = (u.bActive == 0 || !drawB)
                 ? float4(0.0)
                 : sampleFit(srcB, smp, dstPx,
                             float2(halfW, 0.0),
                             float2(halfW, u.dstSize.y),
                             u.srcSizeB, u.rotB);
         }
-        // Faint grey divider between the two sides.
-        if (abs(uv.x - 0.5) * u.dstSize.x < 1.0) {
+        // Faint grey divider between the two sides (A's canvas carries it).
+        if (drawA && abs(uv.x - 0.5) * u.dstSize.x < 1.0) {
             return float4(0.4, 0.4, 0.4, 1.0);
         }
     } else if (u.mode == 2) {
         if (uv.x < u.splitPos) {
-            color = (u.aActive == 0)
+            color = (u.aActive == 0 || !drawA)
                 ? float4(0.0)
                 : sampleFit(srcA, smp, dstPx,
                             float2(0.0, 0.0),
                             u.dstSize, u.srcSizeA, u.rotA);
         } else {
-            color = (u.bActive == 0)
+            color = (u.bActive == 0 || !drawB)
                 ? float4(0.0)
                 : sampleFit(srcB, smp, dstPx,
                             float2(0.0, 0.0),
                             u.dstSize, u.srcSizeB, u.rotB);
         }
         // Split seam — faint grey at rest, full white on hover/drag.
-        if (abs(uv.x - u.splitPos) * u.dstSize.x < 1.0) {
+        if (drawA && abs(uv.x - u.splitPos) * u.dstSize.x < 1.0) {
             float3 seam = mix(float3(0.4, 0.4, 0.4), float3(1.0, 1.0, 1.0),
                               saturate(u.seamHighlight));
             return float4(seam, 1.0);
@@ -159,17 +164,19 @@ fragment float4 dual_fs(VsOut in [[stage_in]],
             : sampleFit(srcB, smp, dstPx,
                         float2(0.0, 0.0), u.dstSize, u.srcSizeB,
                         u.rotB);
-        color = float4(abs(ca.rgb - cb.rgb) * u.diffGain,
-                       max(ca.a, cb.a));
+        if (u.passSide == 1)      color = ca;   // |A − B| after each chain
+        else if (u.passSide == 2) color = cb;
+        else color = float4(abs(ca.rgb - cb.rgb) * u.diffGain,
+                            max(ca.a, cb.a));
     } else {
-        color = (u.aActive == 0)
+        color = (u.aActive == 0 || !drawA)
             ? float4(0.0)
             : sampleFit(srcA, smp, dstPx,
                         float2(0.0, 0.0),
                         u.dstSize, u.srcSizeA, u.rotA);
     }
 
-    if (u.dropSide != 0) {
+    if (u.dropSide != 0 && (u.passSide == 0 || u.passSide == u.dropSide)) {
         bool inZone = true;
         if (u.mode == 1)      inZone = (dstPx.x < u.dstSize.x * 0.5) == (u.dropSide == 1);
         else if (u.mode == 2) inZone = (uv.x < u.splitPos) == (u.dropSide == 1);
@@ -714,19 +721,20 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
     m_impl->prepared         = true;
 }
 
-void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
+bool DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight,
+                                 int passSide, bool consume)
 {
     // Raw pointers into this frame's textures only: never let a frame that
     // returns early leave the previous frame's (possibly freed) ones.
     m_lastSources = LastSources{};
-    if (!isInitialized() || !encoderPtr) return;
-    if (dstWidth <= 0 || dstHeight <= 0) return;
-    if (!m_controller) return;
+    if (!isInitialized() || !encoderPtr) return false;
+    if (dstWidth <= 0 || dstHeight <= 0) return false;
+    if (!m_controller) return false;
 
     id<MTLRenderCommandEncoder> enc =
         (__bridge id<MTLRenderCommandEncoder>)encoderPtr;
     id<MTLDevice> device = enc.device;
-    if (!device) return;
+    if (!device) return false;
 
     // Back-compat: if caller didn't run prepareFrames first (e.g.,
     // capture compositor that doesn't have its own cmd buffer hook
@@ -772,7 +780,7 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
             encodeSpinner(*m_impl, enc, dstWidth, dstHeight);
         }
         m_impl->prepared = false;
-        return;
+        return false;
     }
     // Both sides past-end (an empty dual, or both past their clips):
     // still run the pass so the divider / seam and the drop highlight
@@ -788,7 +796,7 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
             m_impl->placeholder = [device newTextureWithDescriptor:pd];
         }
         texA = texB = m_impl->placeholder;
-        if (!texA) { m_impl->prepared = false; return; }
+        if (!texA) { m_impl->prepared = false; return false; }
     }
     if (!texA) texA = texB;
     if (!texB) texB = texA;
@@ -809,6 +817,7 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
         int   rotA;
         int   rotB;
         int   dropSide;
+        int   passSide;
     };
     UBO ubo;
     ubo.dstSize[0]  = static_cast<float>(dstWidth);
@@ -846,6 +855,7 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
     ubo.seamHighlight = m_seamHighlight;
     ubo.diffGain    = m_diffGain;
     ubo.dropSide    = m_dropSide;
+    ubo.passSide    = passSide;
 
     // Geometry snapshot for the present pass's media-bounds fill.
     // Only overwrite a side's dims while it actually has a texture;
@@ -882,7 +892,8 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
     [enc setFragmentBytes:&ubo length:sizeof(ubo) atIndex:0];
     [enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
 
-    m_impl->prepared = false;   // consumed
+    if (consume) m_impl->prepared = false;
+    return true;
 }
 
 void DualCompositor::encodeLoadingSpinner(void *encoderPtr,

@@ -139,6 +139,26 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     m_scope->setMediaItemIdFn([this] { return audioRoutingScopeMediaItemId(); });
     connect(this, &WindowManager::audioRoutingScopeChanged, m_scope, &ScopeController::refresh);
 
+    // Per-clip scene chain: the OCIO manager resolves each displayed
+    // clip's chain (its pins, else the default). A is the clip on screen
+    // — the playlist clip under the playhead in a playlist — and B the
+    // dual B source.
+    if (m_ocio) {
+        auto updateOcioContext = [this] {
+            if (!m_ocio) return;
+            const QString a = audioRoutingScopeMediaItemId();
+            const QString b = m_project ? m_project->bSourceMediaId() : QString();
+            m_ocio->setViewContext(a, m_compositorMode != 0, a, b);
+        };
+        connect(this, &WindowManager::compositorModeChanged, this, updateOcioContext);
+        connect(this, &WindowManager::audioRoutingScopeChanged, this, updateOcioContext);
+        if (m_project) {
+            connect(m_project, &ProjectManager::activeItemIdChanged, this, updateOcioContext);
+            connect(m_project, &ProjectManager::bSourceChanged, this, updateOcioContext);
+        }
+        updateOcioContext();
+    }
+
     // Seed the process-wide scrub-audio mute from the persisted
     // setting — the engines only re-check the flag, never QSettings.
     ShuttleAudioEngine::setGlobalMute(scrubAudioMuted());
@@ -2022,6 +2042,33 @@ void WindowManager::tearDownDualIslandToSingleState()
 void WindowManager::setCompositorMode(int mode)
 {
     if (m_compositorMode == mode) return;
+
+    // A playlist is never a dual-view side (colour plan stage 2): entering
+    // dual from one loads the clip under the playhead as its own media
+    // item — its chip, OCIO pins and scopes are then that clip's — and
+    // enters dual on it at the matching source time. Leaving dual later
+    // returns to that clip, not the playlist.
+    if (m_compositorMode == 0 && mode != 0 && m_playlistActive && m_project
+        && !m_dualController) {
+        const Clip *c = playlistActiveClip();
+        const QString clipItem = (c && !c->isGap) ? c->mediaItemId : QString();
+        if (clipItem.isEmpty() || !m_project->findItem(clipItem)) {
+            toast(tr("No clip under the playhead to compare"), 1);
+            emit compositorModeChanged();   // the toggle snaps back
+            return;
+        }
+        const double srcSec = currentAudioSourceSeconds();
+        qInfo("setCompositorMode: playlist → dual on its clip '%s' at %.3f s",
+              qPrintable(clipItem), srcSec);
+        m_project->setActiveItem(clipItem);   // loads the clip in single view
+        setCompositorMode(mode);
+        if (m_dualController) {
+            seekToTime(srcSec);
+            qInfo("setCompositorMode: dual on the clip at frame %d",
+                  m_dualController->currentFrame());
+        }
+        return;
+    }
     const bool wasSingle = (m_compositorMode == 0);
     const bool nowSingle = (mode == 0);
     m_compositorMode = mode;
@@ -5692,6 +5739,15 @@ bool WindowManager::screenshotToClipboard()
 #else
     return false;
 #endif
+}
+
+QImage WindowManager::captureViewportImage()
+{
+#ifdef QCV_NATIVE_PLAYER
+    auto *pw = qobject_cast<qcv::PlayerWindow *>(m_playerWindow.data());
+    if (pw && pw->renderer()) return pw->renderer()->captureScreenshot();
+#endif
+    return {};
 }
 
 bool WindowManager::screenshotToFile()

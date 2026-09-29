@@ -19,13 +19,12 @@
 #include <QString>
 
 #include "color/linear_stage.h"
+#include "color/ocio_chain_spec.h"
 
 #include <functional>
 #include <memory>
 
 namespace qcv {
-
-class OCIOConfigManager;
 
 class D3D11OcioRenderer {
 public:
@@ -39,10 +38,10 @@ public:
     void shutdown();
     bool isInitialized() const;
 
-    // Build / rebuild the pixel shader + LUT textures from the active
-    // OCIO chain. Idempotent if the chain generation hasn't changed.
-    // Returns true on success.
-    bool rebuild(OCIOConfigManager *ocio);
+    // Build / rebuild the pixel shader + LUT textures for `spec`.
+    // Idempotent while the chain's shader identity is unchanged
+    // (OcioChainSpec::sameShader). Returns true on success.
+    bool rebuild(const OcioChainSpec &spec);
 
     // Linear-stage settings for the next rebuild() / apply() (gain +
     // knee, see color/linear_stage.h). A non-identity stage builds the
@@ -99,7 +98,7 @@ private:
     // render thread picks it up on the next rebuild() call. The
     // function only uses thread-safe D3D11 device methods (no
     // immediate-context calls) so it's safe off the render thread.
-    void doRebuildWork(int gen, bool wantSplit, OCIOConfigManager *ocio);
+    void doRebuildWork(const OcioChainSpec &spec, bool wantSplit);
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

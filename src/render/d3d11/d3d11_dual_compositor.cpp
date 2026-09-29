@@ -77,6 +77,9 @@ cbuffer Constants : register(b0) {
     float  seamHighlight; // 52 — split seam: 0 = faint grey, 1 = white
     float  diffGain;      // 56 — Difference mode: amplify abs(A-B)
     int    dropSide;      // 60 — drag-drop target highlight: 0 none, 1 A, 2 B
+    int    passSide;      // 64 — 0 both; 1 A only, 2 B only (per-side OCIO
+                          //   chains: same layout, the other side left
+                          //   transparent, Difference outputs the side)
 };
 
 Texture2D    srcA : register(t0);
@@ -115,40 +118,42 @@ float4 PSMain(VsOut input) : SV_TARGET
 {
     float2 uv    = input.uv;
     float2 dstPx = uv * dstSize;
+    bool   drawA = passSide != 2;
+    bool   drawB = passSide != 1;
 
     float4 color = float4(0, 0, 0, 0);
 
     if (mode == 1) {
         float halfW = dstSize.x * 0.5;
         if (dstPx.x < halfW) {
-            color = (aActive == 0)
+            color = (aActive == 0 || !drawA)
                 ? float4(0, 0, 0, 0)
                 : sampleFit(srcA, smp, dstPx, float2(0, 0),
                             float2(halfW, dstSize.y), srcSizeA, rotA);
         } else {
-            color = (bActive == 0)
+            color = (bActive == 0 || !drawB)
                 ? float4(0, 0, 0, 0)
                 : sampleFit(srcB, smp, dstPx, float2(halfW, 0),
                             float2(halfW, dstSize.y), srcSizeB, rotB);
         }
-        // Faint grey divider between the two sides.
-        if (abs(uv.x - 0.5) * dstSize.x < 1.0) {
+        // Faint grey divider between the two sides (A's canvas carries it).
+        if (drawA && abs(uv.x - 0.5) * dstSize.x < 1.0) {
             return float4(0.4, 0.4, 0.4, 1.0);
         }
     } else if (mode == 2) {
         if (uv.x < splitPos) {
-            color = (aActive == 0)
+            color = (aActive == 0 || !drawA)
                 ? float4(0, 0, 0, 0)
                 : sampleFit(srcA, smp, dstPx, float2(0, 0),
                             dstSize, srcSizeA, rotA);
         } else {
-            color = (bActive == 0)
+            color = (bActive == 0 || !drawB)
                 ? float4(0, 0, 0, 0)
                 : sampleFit(srcB, smp, dstPx, float2(0, 0),
                             dstSize, srcSizeB, rotB);
         }
         // Split seam — faint grey at rest, full white on hover/drag.
-        if (abs(uv.x - splitPos) * dstSize.x < 1.0) {
+        if (drawA && abs(uv.x - splitPos) * dstSize.x < 1.0) {
             float3 seam = lerp(float3(0.4, 0.4, 0.4),
                                float3(1.0, 1.0, 1.0),
                                saturate(seamHighlight));
@@ -165,15 +170,17 @@ float4 PSMain(VsOut input) : SV_TARGET
             ? float4(0, 0, 0, 0)
             : sampleFit(srcB, smp, dstPx, float2(0, 0), dstSize, srcSizeB,
                         rotB);
-        color = float4(abs(ca.rgb - cb.rgb) * diffGain, max(ca.a, cb.a));
+        if (passSide == 1)      color = ca;   // |A - B| after each chain
+        else if (passSide == 2) color = cb;
+        else color = float4(abs(ca.rgb - cb.rgb) * diffGain, max(ca.a, cb.a));
     } else {
-        color = (aActive == 0)
+        color = (aActive == 0 || !drawA)
             ? float4(0, 0, 0, 0)
             : sampleFit(srcA, smp, dstPx, float2(0, 0),
                         dstSize, srcSizeA, rotA);
     }
 
-    if (dropSide != 0) {
+    if (dropSide != 0 && (passSide == 0 || passSide == dropSide)) {
         bool inZone = true;
         if (mode == 1)      inZone = (dstPx.x < dstSize.x * 0.5) == (dropSide == 1);
         else if (mode == 2) inZone = (uv.x < splitPos) == (dropSide == 1);
@@ -217,7 +224,7 @@ struct DualCB {
     float seamHighlight;  // 48 : 52
     float diffGain;       // 52 : 56
     int   dropSide;       // 56 : 60 — drag-drop target highlight
-    float pad1;           // 60 : 64
+    int   passSide;       // 60 : 64 — 0 both, 1 A only, 2 B only
 };
 static_assert(sizeof(DualCB) == 64,
               "DualCB must match HLSL packing exactly.");
@@ -809,7 +816,8 @@ void D3D11DualCompositor::prepareFrames(void *ctxVoid)
     m_impl->prepared = true;
 }
 
-void D3D11DualCompositor::renderFrame(void *ctxVoid, int dstW, int dstH)
+void D3D11DualCompositor::renderFrame(void *ctxVoid, int dstW, int dstH,
+                                      int passSide, bool consume)
 {
     if (!m_impl || !m_impl->initialized) return;
     if (dstW <= 0 || dstH <= 0) return;
@@ -860,6 +868,7 @@ void D3D11DualCompositor::renderFrame(void *ctxVoid, int dstW, int dstH)
     cb.seamHighlight = m_impl->seamHighlight;
     cb.diffGain    = m_impl->diffGain;
     cb.dropSide    = m_impl->dropSide;
+    cb.passSide    = passSide;
     std::memcpy(mapped.pData, &cb, sizeof(cb));
     ctx->Unmap(m_impl->cbuf.Get(), 0);
 
@@ -920,8 +929,14 @@ void D3D11DualCompositor::renderFrame(void *ctxVoid, int dstW, int dstH)
     ctx->PSSetShaderResources(0, 2, nullSrvs);
 
     // Consume the prepared state — next frame must call prepareFrames
-    // again before renderFrame is valid.
-    m_impl->prepared = false;
+    // again before renderFrame is valid. The first of two per-side
+    // passes keeps it for the second.
+    if (consume) m_impl->prepared = false;
+}
+
+float D3D11DualCompositor::diffGain() const
+{
+    return m_impl ? m_impl->diffGain.load() : 1.0f;
 }
 
 } // namespace qcv

@@ -15,18 +15,31 @@
 // - PIMPL: OCIO C++ headers do NOT leak to consumers. video
 //   decoder, renderer, UI all see only Q_PROPERTY-friendly types.
 //
-// Phase 2.1 ships the data plumbing only — no shader generation,
-// no render integration. Those land in 2.2 / 2.3.
+// Colour plan stage 2 — per-clip scene chain. The scene side (Input,
+// Look, Scene LUT / CDL, knee) is a default plus per-clip pins; the
+// display side (Display, View, Display LUT) and the config are shared.
+// The active* / knee* properties are the chain of the clip in FOCUS
+// (single view: the clip on screen; dual view: the A or B tab, A while
+// ganged), and their setters route the edit:
+//   - single view: to the clip's pin when that slot is pinned, else to
+//     the default;
+//   - dual view: always to the focused clip's pin (editing a side is
+//     that clip's remembered state) — while ganged, A's.
+// Renderers never read these: they take snapshot(), an immutable
+// OcioChainSnapshot with one resolved OcioChainSpec per displayed side.
 
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QStringList>
 #include <atomic>
 #include <memory>
+#include <mutex>
 
 #include "linear_stage.h"
+#include "ocio_chain_spec.h"
 
 namespace qcv {
 
@@ -76,6 +89,22 @@ class OCIOConfigManager : public QObject
     // The knee start actually in use, as a fraction (BT.2390's value when
     // kneeStart < 0) — the slider's position.
     Q_PROPERTY(double kneeStartEffective READ kneeStartEffective NOTIFY kneeChanged)
+
+    // Per-clip scene chain. Which scene-side slots of the focused clip
+    // are pinned to it (else they follow the default).
+    Q_PROPERTY(bool inputPinned    READ inputPinned    NOTIFY activeChainChanged)
+    Q_PROPERTY(bool lookPinned     READ lookPinned     NOTIFY activeChainChanged)
+    Q_PROPERTY(bool sceneLutPinned READ sceneLutPinned NOTIFY activeChainChanged)
+    Q_PROPERTY(bool kneePinned     READ kneePinned     NOTIFY activeChainChanged)
+    // The clip whose chain the panel shows; empty = none (the default).
+    Q_PROPERTY(QString focusClipId READ focusClipId NOTIFY viewContextChanged)
+    Q_PROPERTY(bool    dualView    READ dualView    NOTIFY viewContextChanged)
+    Q_PROPERTY(QString clipIdA     READ clipIdA     NOTIFY viewContextChanged)
+    Q_PROPERTY(QString clipIdB     READ clipIdB     NOTIFY viewContextChanged)
+    // Dual view: B borrows A's scene chain (never written to B's pins).
+    Q_PROPERTY(bool ganged READ ganged WRITE setGanged NOTIFY viewContextChanged)
+    // Dual view: which side's scene chain the panel edits (0 = A, 1 = B).
+    Q_PROPERTY(int activeTab READ activeTab WRITE setActiveTab NOTIFY viewContextChanged)
 
 public:
     explicit OCIOConfigManager(QObject *parent = nullptr);
@@ -127,14 +156,14 @@ public:
     // on the sRGB display) or the config has no sRGB display.
     bool sdrCaptureDisplayView(QString *display, QString *view) const;
 
-    // Active chain (drives shader cache key in Phase 2.2+).
-    QString activeInput()           const { return m_activeInput; }
+    // The focused clip's chain (scene side resolved; display side shared).
+    QString activeInput()           const { return focusedScene().input; }
     QString activeDisplay()         const { return m_activeDisplay; }
     QString activeView()            const { return m_activeView; }
-    QString activeLook()            const { return m_activeLook; }
-    QString activeSceneLutPath()    const { return m_activeSceneLutPath; }
+    QString activeLook()            const { return focusedScene().look; }
+    QString activeSceneLutPath()    const { return focusedScene().sceneLutPath; }
     QString activeDisplayLutPath()  const { return m_activeDisplayLutPath; }
-    QString activeSceneLutCccId()   const { return m_activeSceneLutCccId; }
+    QString activeSceneLutCccId()   const { return focusedScene().sceneLutCccId; }
     void    setActiveSceneLutCccId(const QString &id);
     bool    engaged()               const { return m_engaged; }
 
@@ -157,10 +186,10 @@ public:
         return m_activeChainGeneration.load(std::memory_order_acquire);
     }
 
-    bool   kneeEnabled()    const { return m_kneeEnabled.load(std::memory_order_acquire); }
-    double kneeSourceNits() const { return m_kneeSourceNits.load(std::memory_order_acquire); }
-    double kneeTargetNits() const { return m_kneeTargetNits.load(std::memory_order_acquire); }
-    double kneeStart()      const { return m_kneeStart.load(std::memory_order_acquire); }
+    bool   kneeEnabled()    const { return focusedScene().kneeEnabled; }
+    double kneeSourceNits() const { return focusedScene().kneeSourceNits; }
+    double kneeTargetNits() const { return focusedScene().kneeTargetNits; }
+    double kneeStart()      const { return focusedScene().kneeStart; }
     void   setKneeEnabled(bool on);
     void   setKneeSourceNits(double nits);
     void   setKneeTargetNits(double nits);
@@ -170,8 +199,8 @@ public:
     double kneeStartNits() const;
     double kneeStartEffective() const;
 
-    // Render-thread snapshot of the stage settings; `gain` is the
-    // renderer's Brightness. Lock-free.
+    // The focused clip's stage settings; `gain` is the Brightness. GUI
+    // thread (renderers use snapshot()).
     LinearStageSettings linearStageSettings(float gain) const;
 
     // Bumps on every knee change — the D3D11 render-on-demand loop polls
@@ -180,14 +209,68 @@ public:
         return m_stageGeneration.load(std::memory_order_acquire);
     }
 
+    // ---- Per-clip scene chain ----
+    enum class Slot { Input, Look, SceneLut, Knee };
+
+    // What is on screen, from WindowManager: the single-view clip (the
+    // playlist clip under the playhead in a playlist), and the dual
+    // sides. Empty ids = nothing loaded (the default chain).
+    void setViewContext(const QString &singleClipId, bool dual,
+                        const QString &clipA, const QString &clipB);
+
+    QString focusClipId() const;
+    bool    dualView()    const { return m_dual; }
+    QString clipIdA()     const { return m_clipA; }
+    QString clipIdB()     const { return m_clipB; }
+    bool    ganged()      const { return m_ganged; }
+    void    setGanged(bool on);
+    int     activeTab()   const { return m_activeTab; }
+    void    setActiveTab(int tab);
+
+    bool inputPinned()    const { return slotPinned(Slot::Input); }
+    bool lookPinned()     const { return slotPinned(Slot::Look); }
+    bool sceneLutPinned() const { return slotPinned(Slot::SceneLut); }
+    bool kneePinned()     const { return slotPinned(Slot::Knee); }
+
+    // Pin the focused clip's current value of `slot` ("input", "look",
+    // "sceneLut", "knee") to it, or let it follow the default again.
+    Q_INVOKABLE void setSlotPinned(const QString &slot, bool pinned);
+    // Dual view: B's pins become A's effective scene chain.
+    Q_INVOKABLE void copyAChainToB();
+    Q_INVOKABLE bool clipHasPins(const QString &clipId) const;
+    Q_INVOKABLE void clearClipPins(const QString &clipId);
+    OcioScenePin clipPins(const QString &clipId) const { return m_pins.value(clipId); }
+
+    // Resolved chains. focusedSpec / specForClip: GUI thread.
+    OcioChainSpec focusedSpec() const;
+    OcioChainSpec specForClip(const QString &clipId) const;
+    // Render threads: what to draw with. Replaced whole on every change.
+    std::shared_ptr<const OcioChainSnapshot> snapshot() const;
+
 signals:
     void configChanged();
     void activeChainChanged();
     void availableConfigsChanged();
     void kneeChanged();
+    void viewContextChanged();
+    // A clip's pins changed (badges, stage 3).
+    void pinsChanged(const QString &clipId);
 
 private:
     void resetActiveDefaults();
+    // Rebuild the snapshot, bump the generation and notify — after any
+    // change to the default, a pin, the display side or the context.
+    void publish(bool knee = false);
+    OcioSceneChain resolveScene(const QString &clipId) const;
+    OcioSceneChain focusedScene() const { return resolveScene(focusClipId()); }
+    OcioChainSpec  specFor(const OcioSceneChain &scene) const;
+    bool slotPinned(Slot slot) const;
+    // Where an edit of `slot` lands: the focused clip's pin (created in
+    // dual view), or nullptr for the default.
+    OcioScenePin *editPin(Slot slot);
+    void notePinEdit(const QString &clipId);
+    // Knee edits start from the focused clip's effective knee.
+    template <typename Fn> void editKnee(Fn &&fn);
     bool isValidColorSpace(const QString &name) const;
     bool isValidDisplay(const QString &name) const;
     bool isValidViewForDisplay(const QString &display, const QString &view) const;
@@ -211,22 +294,23 @@ private:
     void enumerateConfigs();
 
     QString m_configIdentifier;
-    QString m_activeInput;
+    OcioSceneChain m_default;      // the scene side of every unpinned slot
     QString m_activeDisplay;
     QString m_activeView;
-    QString m_activeLook;
-    QString m_activeSceneLutPath;
     QString m_activeDisplayLutPath;
-    QString m_activeSceneLutCccId;
     bool    m_engaged = false;     // default disengaged — see Q_PROPERTY note
     std::atomic<int> m_activeChainGeneration{0};
+    std::atomic<int> m_stageGeneration{0};
 
-    std::atomic<bool>  m_kneeEnabled{false};
-    std::atomic<float> m_kneeSourceNits{1000.0f};
-    std::atomic<float> m_kneeTargetNits{1000.0f};
-    std::atomic<float> m_kneeStart{-1.0f};
-    std::atomic<int>   m_stageGeneration{0};
-    void bumpStage();
+    QHash<QString, OcioScenePin> m_pins;   // media item id → its pins
+    QString m_singleClip;
+    QString m_clipA, m_clipB;
+    bool    m_dual      = false;
+    bool    m_ganged    = false;
+    int     m_activeTab = 0;
+
+    mutable std::mutex m_snapshotMutex;
+    std::shared_ptr<const OcioChainSnapshot> m_snapshot;
 };
 
 } // namespace qcv

@@ -114,7 +114,15 @@ public:
     // SBS/Wipe/Single pass into `encoderPtr` (active id<MTLRender-
     // CommandEncoder> as void*). dstWidth/dstHeight come from the
     // drawable.
-    void renderFrame(void *encoderPtr, int dstWidth, int dstHeight);
+    //
+    // Per-side OCIO chains render the frame twice: passSide 1 draws A
+    // only, 2 B only (layout unchanged, the other side transparent,
+    // Difference yields the side itself). `consume` = false keeps this
+    // frame's prepared sources for the second pass. Returns false when
+    // it drew the loading spinner (or nothing) instead of the sides.
+    bool renderFrame(void *encoderPtr, int dstWidth, int dstHeight,
+                     int passSide = 0, bool consume = true);
+    float diffGain() const            { return m_diffGain; }
 
     // Encode the cold-transition spinner onto an EXISTING render
     // encoder (the caller's drawable pass). Used by the player

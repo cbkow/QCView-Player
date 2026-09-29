@@ -1,8 +1,8 @@
 // OcioChainBuilder — Phase 7.5 A.2.7.
 //
-// CPU-side OCIO group-transform construction. Given an
-// OCIOConfigManager (which holds the active Input / Look / Scene-LUT
-// / Display+View / Display-LUT chain), produces:
+// CPU-side OCIO group-transform construction. Given an OcioChainSpec
+// (one resolved Input / Look / Scene-LUT / Display+View / Display-LUT
+// chain, see ocio_chain_spec.h), produces:
 //   - A baked OCIO::GpuShaderDescRcPtr (LUT inventory + emitted GLSL
 //     function, function name "OCIODisplay")
 //   - The raw GLSL function body string
@@ -33,6 +33,7 @@
 #include <OpenColorIO/OpenColorIO.h>
 
 #include "linear_stage.h"
+#include "ocio_chain_spec.h"
 
 namespace qcv {
 
@@ -44,6 +45,16 @@ class OCIOConfigManager;
 struct DisplayViewOverride {
     QString display;
     QString view;
+
+    // The spec's SDR capture Display/View, or nullptr when it has none
+    // (already on the sRGB display). `storage` holds the result.
+    static const DisplayViewOverride *sdrFor(const OcioChainSpec &spec,
+                                             DisplayViewOverride &storage)
+    {
+        if (spec.sdrDisplay.isEmpty() || spec.sdrView.isEmpty()) return nullptr;
+        storage = {spec.sdrDisplay, spec.sdrView};
+        return &storage;
+    }
 };
 
 struct OcioChain {
@@ -94,10 +105,13 @@ public:
         Hlsl_Sm_5_0, // Native D3D11 path (compile via D3DCompile)  — Phase F.2.5
     };
 
-    // Build the OCIO chain for `ocio`'s currently active state. Pure
-    // OCIO — no GPU API touched. Safe to call from any thread that
-    // already serializes access to `ocio` (the caller is responsible
-    // for that; OCIOConfigManager itself is thread-safe to read).
+    // Build the OCIO chain for `spec`. Pure OCIO — no GPU API touched;
+    // safe on any thread (the spec is a value).
+    static OcioChain build(const OcioChainSpec &spec,
+                           Language language = Language::Glsl_4_0,
+                           const DisplayViewOverride *override = nullptr);
+    // The chain of the clip in focus (OCIOConfigManager::focusedSpec) —
+    // the QRhi path, which has one chain. GUI thread.
     static OcioChain build(OCIOConfigManager *ocio,
                            Language language = Language::Glsl_4_0,
                            const DisplayViewOverride *override = nullptr);
@@ -110,7 +124,7 @@ public:
     // incomplete, OCIO exception, etc.). If `errorOut` is non-null,
     // populates it with a human-readable diagnostic on failure.
     static OCIO_NAMESPACE::GroupTransformRcPtr buildGroupTransform(
-        OCIOConfigManager *ocio,
+        const OcioChainSpec &spec,
         OCIO_NAMESPACE::ConstConfigRcPtr cfg,
         QString *errorOut = nullptr,
         const DisplayViewOverride *override = nullptr);
@@ -121,7 +135,7 @@ public:
     // lacks the interchange role for the side, or the colourspace
     // entering the View is a data space — callers then fall back to the
     // unsplit chain and the stage is unavailable.
-    static OcioSplitChain buildSplit(OCIOConfigManager *ocio,
+    static OcioSplitChain buildSplit(const OcioChainSpec &spec,
                                      Language language,
                                      const DisplayViewOverride *override = nullptr);
 
@@ -143,7 +157,7 @@ public:
         InterchangeSide *sideOut, QString *errorOut = nullptr);
 
     // Split build (CPU transforms), same shape as buildSplit().
-    static bool buildSplitTransforms(OCIOConfigManager *ocio,
+    static bool buildSplitTransforms(const OcioChainSpec &spec,
                                      OCIO_NAMESPACE::ConstConfigRcPtr cfg,
                                      OcioSplitTransforms &out,
                                      QString *errorOut = nullptr,

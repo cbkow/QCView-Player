@@ -948,6 +948,9 @@ public:
     // desktop (panel_timeline.cpp screenshot calls).
     Q_INVOKABLE bool screenshotToClipboard();
     Q_INVOKABLE bool screenshotToFile();
+    // The viewport capture itself (what screenshotToFile saves), for dev
+    // hooks. Null without a native player or media.
+    QImage captureViewportImage();
 
     // Transient outcome feedback — routed to Main.qml's Toast via
     // toastRequested. The app's single voice for operations that

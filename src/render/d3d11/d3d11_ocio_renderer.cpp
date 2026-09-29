@@ -3,7 +3,6 @@
 #include "d3d11_ocio_renderer.h"
 
 #include "color/ocio_chain_builder.h"
-#include "color/ocio_config_manager.h"
 #include "d3d11_device_manager.h"
 #include "d3d11_ocio_luts.h"
 
@@ -126,7 +125,8 @@ struct D3D11OcioRenderer::Impl {
     // binds via MSL function parameter names.
     std::vector<LutResource> luts;
 
-    int     lastChainGeneration = -1;
+    OcioChainSpec lastSpec;               // the chain the active build (or its failure) is for
+    bool    lastValid           = false;   // … false = nothing built yet / invalidated
     bool    lastSplitKey        = false;   // whether the active build was asked to split
     QString lastError;
 
@@ -160,7 +160,7 @@ struct D3D11OcioRenderer::Impl {
     bool                       pendingReady = false;
     ComPtr<ID3D11PixelShader>  pendingPs;
     std::vector<LutResource>   pendingLuts;
-    int                        pendingGen   = -1;
+    OcioChainSpec              pendingSpec;
     bool                       pendingSplitKey     = false;
     bool                       pendingBuiltSplit   = false;
     InterchangeSide            pendingSide         = InterchangeSide::None;
@@ -254,7 +254,7 @@ void D3D11OcioRenderer::shutdown()
     m_impl->viewerCb.Reset();
     m_impl->luts.clear();
     m_impl->device = nullptr;
-    m_impl->lastChainGeneration = -1;
+    m_impl->lastValid = false;
 }
 
 bool D3D11OcioRenderer::isInitialized() const
@@ -301,14 +301,13 @@ float D3D11OcioRenderer::hdrKneeTargetNits() const
 void D3D11OcioRenderer::setSdrCapture(bool on)
 {
     m_impl->sdrCapture.store(on);
-    m_impl->lastChainGeneration = -1;
+    m_impl->lastValid = false;
 }
 
-bool D3D11OcioRenderer::rebuild(OCIOConfigManager *ocio)
+bool D3D11OcioRenderer::rebuild(const OcioChainSpec &spec)
 {
-    if (!ocio || !isInitialized()) return false;
+    if (!spec.complete() || !isInitialized()) return false;
 
-    const int  gen       = ocio->activeChainGeneration();
     const bool wantSplit = !linear_stage::isIdentity(m_impl->stage);
 
     // 1. Drain any pending result from a previously-finished worker.
@@ -317,7 +316,8 @@ bool D3D11OcioRenderer::rebuild(OCIOConfigManager *ocio)
         if (m_impl->pendingReady) {
             m_impl->ps                  = std::move(m_impl->pendingPs);
             m_impl->luts                = std::move(m_impl->pendingLuts);
-            m_impl->lastChainGeneration = m_impl->pendingGen;
+            m_impl->lastSpec            = m_impl->pendingSpec;
+            m_impl->lastValid           = true;
             m_impl->lastSplitKey        = m_impl->pendingSplitKey;
             m_impl->builtSplit          = m_impl->pendingBuiltSplit;
             m_impl->side                = m_impl->pendingSide;
@@ -332,11 +332,12 @@ bool D3D11OcioRenderer::rebuild(OCIOConfigManager *ocio)
         }
     }
 
-    // 2. Already at the right gen? Trust whatever the last worker
+    // 2. Already on this chain? Trust whatever the last worker
     //    produced — success means ps is non-null, failure means we
-    //    cached the failed gen here so the next frame doesn't
+    //    cached the failed chain here so the next frame doesn't
     //    re-spawn a worker compiling the same broken chain.
-    if (gen == m_impl->lastChainGeneration && wantSplit == m_impl->lastSplitKey) {
+    if (m_impl->lastValid && m_impl->lastSpec.sameShader(spec)
+        && wantSplit == m_impl->lastSplitKey) {
         return static_cast<bool>(m_impl->ps);
     }
 
@@ -348,29 +349,29 @@ bool D3D11OcioRenderer::rebuild(OCIOConfigManager *ocio)
         return static_cast<bool>(m_impl->ps);
     }
 
-    // 4. Spawn a worker for the new gen. Join any previous thread
+    // 4. Spawn a worker for the new chain. Join any previous thread
     //    object first (it's finished — rebuildInProgress would be
     //    false otherwise — just bookkeeping).
     if (m_impl->rebuildThread.joinable()) {
         m_impl->rebuildThread.join();
     }
     m_impl->rebuildInProgress.store(true);
-    m_impl->rebuildThread = std::thread([this, gen, wantSplit, ocio]() {
-        doRebuildWork(gen, wantSplit, ocio);
+    m_impl->rebuildThread = std::thread([this, spec, wantSplit]() {
+        doRebuildWork(spec, wantSplit);
         m_impl->rebuildInProgress.store(false);
     });
 
     return static_cast<bool>(m_impl->ps);
 }
 
-void D3D11OcioRenderer::doRebuildWork(int gen, bool wantSplit, OCIOConfigManager *ocio)
+void D3D11OcioRenderer::doRebuildWork(const OcioChainSpec &spec, bool wantSplit)
 {
-    auto stageEmpty = [this, gen, wantSplit](const QString &err) {
+    auto stageEmpty = [this, &spec, wantSplit](const QString &err) {
         {
             std::lock_guard lock(m_impl->swapMutex);
             m_impl->pendingPs.Reset();
             m_impl->pendingLuts.clear();
-            m_impl->pendingGen   = gen;
+            m_impl->pendingSpec  = spec;
             m_impl->pendingSplitKey   = wantSplit;
             m_impl->pendingBuiltSplit = false;
             m_impl->pendingError = err;
@@ -379,19 +380,17 @@ void D3D11OcioRenderer::doRebuildWork(int gen, bool wantSplit, OCIOConfigManager
         if (m_impl->wakeCallback) m_impl->wakeCallback();
     };
 
-    // The SDR mapping is a pure function of the active chain, so the
-    // generation cache stays valid for the capture instance too.
+    // The spec carries its SDR capture Display/View.
     DisplayViewOverride sdr;
-    const bool useSdr = m_impl->sdrCapture.load()
-        && ocio->sdrCaptureDisplayView(&sdr.display, &sdr.view);
-    const DisplayViewOverride *ov = useSdr ? &sdr : nullptr;
+    const DisplayViewOverride *ov =
+        m_impl->sdrCapture.load() ? DisplayViewOverride::sdrFor(spec, sdr) : nullptr;
 
     // Split chain for a non-identity linear stage. A chain that can't
     // split (no interchange role, data colourspace / view) runs unsplit
     // and the stage is skipped.
     OcioSplitChain split;
     if (wantSplit) {
-        split = OcioChainBuilder::buildSplit(ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0, ov);
+        split = OcioChainBuilder::buildSplit(spec, OcioChainBuilder::Language::Hlsl_Sm_5_0, ov);
         if (!split.ok) {
             qInfo("D3D11OcioRenderer: stage unavailable (%s) — unsplit chain",
                   qPrintable(split.errorMessage));
@@ -399,7 +398,7 @@ void D3D11OcioRenderer::doRebuildWork(int gen, bool wantSplit, OCIOConfigManager
     }
     OcioChain chain;
     if (!split.ok) {
-        chain = OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Hlsl_Sm_5_0, ov);
+        chain = OcioChainBuilder::build(spec, OcioChainBuilder::Language::Hlsl_Sm_5_0, ov);
         if (!chain.ok) {
             stageEmpty(chain.errorMessage);
             return;
@@ -485,9 +484,9 @@ void D3D11OcioRenderer::doRebuildWork(int gen, bool wantSplit, OCIOConfigManager
 
     int n3dKept = 0, n1dKept = 0;
     for (const auto &l : newLuts) (l.is3d ? n3dKept : n1dKept)++;
-    qInfo("D3D11OcioRenderer: worker built gen %d (compile %lldms, %d 3D + %d 1D LUTs; "
+    qInfo("D3D11OcioRenderer: worker built chain '%s' (compile %lldms, %d 3D + %d 1D LUTs; "
           "%d slots by reflection, %d by fallback) — staging for render-thread swap",
-          gen, static_cast<long long>(compileMs), n3dKept, n1dKept,
+          qPrintable(spec.scene.input), static_cast<long long>(compileMs), n3dKept, n1dKept,
           slotsByName, slotsFallback);
 
     // Stage the fresh pipeline + LUTs. The render thread will pick
@@ -497,7 +496,7 @@ void D3D11OcioRenderer::doRebuildWork(int gen, bool wantSplit, OCIOConfigManager
         std::lock_guard lock(m_impl->swapMutex);
         m_impl->pendingPs    = newPs;
         m_impl->pendingLuts  = std::move(newLuts);
-        m_impl->pendingGen   = gen;
+        m_impl->pendingSpec  = spec;
         m_impl->pendingSplitKey     = wantSplit;
         m_impl->pendingBuiltSplit   = split.ok;
         m_impl->pendingSide         = split.side;

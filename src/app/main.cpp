@@ -715,6 +715,60 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Dev aid: QCV_OCIO_PINS="a=<colourspace>;b=<colourspace>" pins each
+    // dual side's Input 4 s after launch — the way editing its tab does —
+    // for per-side chain checks without driving the Color panel.
+    // QCV_OCIO_PINS_EVERY=<ms> repeats it (switch stress: pins land on
+    // whatever is on screen).
+    if (qEnvironmentVariableIsSet("QCV_OCIO_PINS")) {
+        auto applyPins = [&windowManager] {
+            auto *ocio = windowManager.ocio();
+            if (!ocio) return;
+            const QStringList parts = qEnvironmentVariable("QCV_OCIO_PINS").split(QLatin1Char(';'));
+            for (const QString &part : parts) {
+                const QString side = part.section(QLatin1Char('='), 0, 0).trimmed().toLower();
+                const QString cs   = part.section(QLatin1Char('='), 1).trimmed();
+                ocio->setActiveTab(side == QLatin1String("b") ? 1 : 0);
+                ocio->setActiveInput(cs);
+            }
+            ocio->setActiveTab(0);
+            const auto snap = ocio->snapshot();
+            qInfo("QCV_OCIO_PINS: A=%s B=%s perSide=%d", qPrintable(snap->a.scene.input),
+                  qPrintable(snap->b.scene.input), snap->perSide() ? 1 : 0);
+        };
+        QTimer::singleShot(4000, &windowManager, applyPins);
+        const int every = qEnvironmentVariable("QCV_OCIO_PINS_EVERY").toInt();
+        if (every > 0) {
+            auto *t = new QTimer(&windowManager);
+            QObject::connect(t, &QTimer::timeout, &windowManager, applyPins);
+            t->start(every);
+        }
+    }
+    // Dev aid: QCV_COMP_MODE=<0..3> sets the compositor mode 4.5 s after
+    // launch (1 SBS, 2 Wipe, 3 Difference) — after --simulate-user's SBS.
+    if (qEnvironmentVariableIsSet("QCV_COMP_MODE")) {
+        const int mode = qEnvironmentVariable("QCV_COMP_MODE").toInt();
+        QTimer::singleShot(4500, &windowManager, [&windowManager, mode] {
+            qInfo("QCV_COMP_MODE: %d", mode);
+            windowManager.setCompositorMode(mode);
+        });
+    }
+    // Dev aid: QCV_CAPTURE_PNG=<path>[@<seconds>] saves the viewport capture
+    // (the SDR capture chain, per side in dual view) after <seconds>
+    // (default 7).
+    if (qEnvironmentVariableIsSet("QCV_CAPTURE_PNG")) {
+        const QString spec = qEnvironmentVariable("QCV_CAPTURE_PNG");
+        const QString path = spec.section(QLatin1Char('@'), 0, 0);
+        const double secs = spec.contains(QLatin1Char('@'))
+                                ? spec.section(QLatin1Char('@'), 1).toDouble() : 7.0;
+        QTimer::singleShot(static_cast<int>(secs * 1000), &windowManager, [&windowManager, path] {
+            const QImage img = windowManager.captureViewportImage();
+            qInfo("QCV_CAPTURE_PNG: %s %dx%d → %s", img.isNull() ? "FAILED" : "saved",
+                  img.width(), img.height(), qPrintable(path));
+            if (!img.isNull()) img.save(path);
+        });
+    }
+
     // Phase 7.7 Stage 3 — developer test entry. If `--dual-test PATH_A
     // PATH_B` is on the command line, enter dual mode after the
     // window comes up. Schedules a one-shot QTimer so the entry runs

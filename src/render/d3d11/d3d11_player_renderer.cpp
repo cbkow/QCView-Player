@@ -35,6 +35,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <d3d11.h>
+#include <d3dcompiler.h>
 #include <dcomp.h>
 #include <dxgi1_2.h>
 #include <ole2.h>
@@ -217,7 +218,7 @@ struct D3D11PlayerRenderer::Impl {
             scopes[k].encode(ctx, ocio, srvA, wA, hA, srvB, wB, hB);
         }
     }
-    int                              captureSdrGen   = -1;
+    OcioChainSpec                    captureSpec;       // last warmed
     bool                             captureNeedsSdr = false;
     ComPtr<ID3D11Texture2D>          compositeTex;     // RGBA16F at swapchain size
     ComPtr<ID3D11RenderTargetView>   compositeRtv;
@@ -289,6 +290,133 @@ struct D3D11PlayerRenderer::Impl {
     ComPtr<ID3D11ShaderResourceView> dualOcioOutSrv;
     int                              dualOcioOutW = 0;
     int                              dualOcioOutH = 0;
+
+    // Per-side OCIO chains (colour plan stage 2): when A and B resolve to
+    // different chains, A's canvas (dualCanvas) and B's run through their
+    // own instance, then combine in display space — A where A has
+    // coverage, else B; Difference = |A' − B'| × gain. Equal chains keep
+    // the single pass over the canvas.
+    struct RtTarget {
+        ComPtr<ID3D11Texture2D>           tex;
+        ComPtr<ID3D11RenderTargetView>    rtv;
+        ComPtr<ID3D11ShaderResourceView>  srv;
+        ComPtr<ID3D11UnorderedAccessView> uav;
+        int w = 0, h = 0;
+
+        // RGBA16F at w×h: a render target, or (uav) a compute target.
+        bool ensure(ID3D11Device *device, int W, int H, bool uavTarget = false)
+        {
+            if (tex && w == W && h == H && static_cast<bool>(uav) == uavTarget) return true;
+            *this = RtTarget{};
+            D3D11_TEXTURE2D_DESC td{};
+            td.Width     = static_cast<UINT>(W);
+            td.Height    = static_cast<UINT>(H);
+            td.MipLevels = 1;
+            td.ArraySize = 1;
+            td.Format    = DXGI_FORMAT_R16G16B16A16_FLOAT;
+            td.SampleDesc.Count = 1;
+            td.Usage     = D3D11_USAGE_DEFAULT;
+            td.BindFlags = D3D11_BIND_SHADER_RESOURCE
+                         | (uavTarget ? D3D11_BIND_UNORDERED_ACCESS : D3D11_BIND_RENDER_TARGET);
+            if (FAILED(device->CreateTexture2D(&td, nullptr, tex.GetAddressOf()))
+                || FAILED(device->CreateShaderResourceView(tex.Get(), nullptr, srv.GetAddressOf()))
+                || (uavTarget
+                        ? FAILED(device->CreateUnorderedAccessView(tex.Get(), nullptr, uav.GetAddressOf()))
+                        : FAILED(device->CreateRenderTargetView(tex.Get(), nullptr, rtv.GetAddressOf())))) {
+                qWarning("D3D11PlayerRenderer: RGBA16F target %dx%d alloc failed", W, H);
+                *this = RtTarget{};
+                return false;
+            }
+            w = W;
+            h = H;
+            return true;
+        }
+    };
+    D3D11OcioRenderer                ocioB;
+    D3D11OcioRenderer                captureOcioB;
+    RtTarget                         dualCanvasB;
+    RtTarget                         dualOcioOutB;
+    RtTarget                         dualCombined;
+    RtTarget                         capSideA, capSideB, capCombined;
+    ComPtr<ID3D11ComputeShader>      combineCs;
+    ComPtr<ID3D11Buffer>             combineCb;
+
+    bool ensureCombine(ID3D11Device *device)
+    {
+        if (combineCs) return true;
+        static const char *kCombineHlsl = R"(
+Texture2D<float4>   a   : register(t0);
+Texture2D<float4>   b   : register(t1);
+RWTexture2D<float4> dst : register(u0);
+cbuffer Params : register(b0) { uint width; uint height; int difference; float gain; };
+[numthreads(8, 8, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= width || id.y >= height) return;
+    float4 ca = a.Load(int3(id.xy, 0));
+    float4 cb = b.Load(int3(id.xy, 0));
+    float4 o;
+    if (difference != 0) {
+        // A side with no coverage is black, not its chain's black.
+        if (ca.a <= 0.0) ca = float4(0, 0, 0, 0);
+        if (cb.a <= 0.0) cb = float4(0, 0, 0, 0);
+        o = float4(abs(ca.rgb - cb.rgb) * gain, max(ca.a, cb.a));
+    } else {
+        o = ca.a > 0.0 ? ca : cb;
+    }
+    dst[id.xy] = o;
+}
+)";
+        ComPtr<ID3DBlob> blob, err;
+        if (FAILED(D3DCompile(kCombineHlsl, std::strlen(kCombineHlsl), "dual_combine", nullptr,
+                              nullptr, "main", "cs_5_0", 0, 0, blob.GetAddressOf(),
+                              err.GetAddressOf()))
+            || FAILED(device->CreateComputeShader(blob->GetBufferPointer(), blob->GetBufferSize(),
+                                                  nullptr, combineCs.GetAddressOf()))) {
+            qWarning("D3D11PlayerRenderer: dual combine shader failed: %s",
+                     err ? static_cast<const char *>(err->GetBufferPointer()) : "");
+            combineCs.Reset();
+            return false;
+        }
+        D3D11_BUFFER_DESC bd{};
+        bd.ByteWidth = 16;
+        bd.Usage     = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        if (FAILED(device->CreateBuffer(&bd, nullptr, combineCb.GetAddressOf()))) {
+            combineCs.Reset();
+            return false;
+        }
+        return true;
+    }
+
+    // The two corrected canvases → `target`. Returns `a` unchanged when
+    // the combine can't run.
+    ID3D11ShaderResourceView *combineSides(ID3D11DeviceContext *ctx, ID3D11Device *device,
+                                           ID3D11ShaderResourceView *a,
+                                           ID3D11ShaderResourceView *b, RtTarget &target,
+                                           int w, int h, bool difference, float gain)
+    {
+        if (!a || !b || !ensureCombine(device) || !target.ensure(device, w, h, true)) return a;
+        struct { uint32_t width, height; int32_t difference; float gain; } params{
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h), difference ? 1 : 0, gain};
+        ctx->UpdateSubresource(combineCb.Get(), 0, nullptr, &params, 0, 0);
+        // The OCIO passes left their outputs bound as render targets.
+        ctx->OMSetRenderTargets(0, nullptr, nullptr);
+        ID3D11ShaderResourceView *srvs[2] = {a, b};
+        ID3D11UnorderedAccessView *uav = target.uav.Get();
+        ID3D11Buffer *cb = combineCb.Get();
+        ctx->CSSetShader(combineCs.Get(), nullptr, 0);
+        ctx->CSSetShaderResources(0, 2, srvs);
+        ctx->CSSetConstantBuffers(0, 1, &cb);
+        ctx->CSSetUnorderedAccessViews(0, 1, &uav, nullptr);
+        ctx->Dispatch((static_cast<UINT>(w) + 7) / 8, (static_cast<UINT>(h) + 7) / 8, 1);
+        ID3D11ShaderResourceView *nullSrvs[2] = {};
+        ID3D11UnorderedAccessView *nullUav = nullptr;
+        ctx->CSSetShaderResources(0, 2, nullSrvs);
+        ctx->CSSetUnorderedAccessViews(0, 1, &nullUav, nullptr);
+        ctx->CSSetShader(nullptr, nullptr, 0);
+        return target.srv.Get();
+    }
 
     // Source-A video slot — one persistent ID3D11Texture2D updated
     // per FrameHandle::Cpu received from VideoDecoder. UpdateSubresource
@@ -564,6 +692,16 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
         // without waiting for the next decoded frame to nudge us.
         m_impl->ocio.setWakeCallback([this]{ requestUpdate(); });
     }
+    // Dual view's B side, when its chain differs from A's.
+    if (m_impl->ocioB.initialize()) {
+        m_impl->ocioB.setWakeCallback([this]{ requestUpdate(); });
+    } else {
+        qWarning("D3D11PlayerRenderer::init: B-side OCIO renderer init failed");
+    }
+    m_impl->captureOcioB.setSdrCapture(true);
+    if (!m_impl->captureOcioB.initialize()) {
+        qWarning("D3D11PlayerRenderer::init: B-side capture OCIO renderer init failed");
+    }
     m_impl->captureOcio.setSdrCapture(true);
     for (auto &sc : m_impl->scopes) {
         if (!sc.initialize()) qWarning("D3D11PlayerRenderer: scope renderer init failed");
@@ -710,6 +848,14 @@ void D3D11PlayerRenderer::shutdown()
     m_impl->annotations.shutdown();
     m_impl->ocio.shutdown();
     m_impl->captureOcio.shutdown();
+    m_impl->ocioB.shutdown();
+    m_impl->captureOcioB.shutdown();
+    m_impl->dualCanvasB  = {};
+    m_impl->dualOcioOutB = {};
+    m_impl->dualCombined = {};
+    m_impl->capSideA = m_impl->capSideB = m_impl->capCombined = {};
+    m_impl->combineCs.Reset();
+    m_impl->combineCb.Reset();
     for (auto &sc : m_impl->scopes) sc.shutdown();
     m_impl->releaseSingleIntermediates();
     m_impl->compositor.shutdown();
@@ -909,7 +1055,7 @@ void D3D11PlayerRenderer::renderThreadProc()
         // rebuild()) wouldn't otherwise run. Poll once per wake tick
         // (~16ms) and force a draw when the chain bumps.
         bool ocioBumped = false;
-        if (m_ocio && m_ocio->engaged()) {
+        if (m_ocio) {
             const int gen = m_ocio->activeChainGeneration();
             if (gen != lastOcioGen) {
                 lastOcioGen = gen;
@@ -1282,16 +1428,16 @@ void D3D11PlayerRenderer::drawFrame()
     // must all hold: a manager is attached, it's engaged, and the
     // active chain is buildable (rebuild() succeeds OR has succeeded
     // earlier on the same generation).
-    bool useOcio = (m_ocio != nullptr) && m_ocio->engaged() &&
-                   m_impl->ocio.isInitialized();
+    const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
+    bool useOcio = chains && chains->engaged && m_impl->ocio.isInitialized();
     if (useOcio) {
-        useOcio = rebuildOcio(m_impl->ocio);
+        useOcio = rebuildOcio(m_impl->ocio, chains->single);
     }
     // HDR10: signal the knee's target as the content peak while it
     // compresses for this display, else the 1000-nit default.
     m_impl->hdrSwapchain.setContentPeakNits(
         useOcio ? m_impl->ocio.hdrKneeTargetNits() : 0.0f);
-    warmCaptureOcio();
+    if (chains) warmCaptureOcio(chains->single);
 
     const int  W = m_impl->currentW;
     const int  H = m_impl->currentH;
@@ -1810,7 +1956,17 @@ void D3D11PlayerRenderer::drawDualFrame()
     m_impl->dualCompositor.prepareFrames(ctx);
     m_impl->countDualFrame(m_dualControllerPtr.load(std::memory_order_acquire));
 
-    // Pass 1 — dual composite into the canvas.
+    // Per-side chains: A and B resolve to different chains (their clips'
+    // pins differ, not ganged). Equal chains keep one pass, as before.
+    const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
+    bool perSide = chains && chains->engaged && chains->perSide()
+                   && m_impl->ocio.isInitialized() && m_impl->ocioB.isInitialized()
+                   && m_impl->dualCanvasB.ensure(device, canvasW, canvasH);
+    const bool  difference =
+        m_compMode.load(std::memory_order_acquire) == static_cast<int>(CompositorMode::Difference);
+    const float diffGain = m_diffGain.load(std::memory_order_acquire);
+
+    // Pass 1 — dual composite into the canvas (A only when per-side).
     {
         ID3D11RenderTargetView *canvasRtv = m_impl->dualCanvasRtv.Get();
         ctx->OMSetRenderTargets(1, &canvasRtv, nullptr);
@@ -1821,7 +1977,8 @@ void D3D11PlayerRenderer::drawDualFrame()
         vp.Height   = static_cast<float>(canvasH);
         vp.MinDepth = 0; vp.MaxDepth = 1;
         ctx->RSSetViewports(1, &vp);
-        m_impl->dualCompositor.renderFrame(ctx, canvasW, canvasH);
+        m_impl->dualCompositor.renderFrame(ctx, canvasW, canvasH,
+                                           perSide ? 1 : 0, /*consume=*/!perSide);
 
         // Hover-thumb corner overlays — drawn into the canvas BEFORE
         // OCIO so the thumb shares the main image's color treatment,
@@ -1854,16 +2011,32 @@ void D3D11PlayerRenderer::drawDualFrame()
         }
     }
 
-    // Pass 1b — OCIO over the canvas (one chain over the composited
-    // image, not per-side; matches Metal's behavior per Guide 01 §7).
+    // Pass 1 (B) — B's side into its own canvas.
+    if (perSide) {
+        ID3D11RenderTargetView *rtvB = m_impl->dualCanvasB.rtv.Get();
+        ctx->OMSetRenderTargets(1, &rtvB, nullptr);
+        const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        ctx->ClearRenderTargetView(rtvB, clear);
+        D3D11_VIEWPORT vp{};
+        vp.Width    = static_cast<float>(canvasW);
+        vp.Height   = static_cast<float>(canvasH);
+        vp.MinDepth = 0; vp.MaxDepth = 1;
+        ctx->RSSetViewports(1, &vp);
+        m_impl->dualCompositor.renderFrame(ctx, canvasW, canvasH, /*passSide=*/2,
+                                           /*consume=*/true);
+    }
+
+    // Pass 1b — OCIO over the canvas: A's chain, or each side's when
+    // they differ (then combined in display space).
     ID3D11ShaderResourceView *correctedSrv = m_impl->dualCanvasSrv.Get();
     {
-        bool useOcio = (m_ocio != nullptr) && m_ocio->engaged() &&
-                       m_impl->ocio.isInitialized();
-        if (useOcio) useOcio = rebuildOcio(m_impl->ocio);
-        m_impl->hdrSwapchain.setContentPeakNits(
-            useOcio ? m_impl->ocio.hdrKneeTargetNits() : 0.0f);
-        warmCaptureOcio();
+        bool useOcio = chains && chains->engaged && m_impl->ocio.isInitialized();
+        if (useOcio) useOcio = rebuildOcio(m_impl->ocio, chains->a);
+        // Dual view signals "unknown" HDR10 metadata: two sides can mean
+        // two knees (colour plan decision — no per-side logic).
+        m_impl->hdrSwapchain.setContentPeakNits(0.0f);
+        if (chains) warmCaptureOcio(chains->a);
+        if (perSide && m_impl->captureNeedsSdr) rebuildOcio(m_impl->captureOcioB, chains->b);
 
         if (useOcio) {
             // Lazy-create / resize the OCIO output intermediate at canvas size.
@@ -1909,6 +2082,20 @@ void D3D11PlayerRenderer::drawDualFrame()
                 m_impl->dualOcioOutRtv.Get(),
                 canvasW, canvasH);
             correctedSrv = m_impl->dualOcioOutSrv.Get();
+            if (perSide) {
+                // B's chain still compiling (or failed): B shows raw
+                // rather than vanishing.
+                ID3D11ShaderResourceView *srvB = m_impl->dualCanvasB.srv.Get();
+                if (rebuildOcio(m_impl->ocioB, chains->b)
+                    && m_impl->dualOcioOutB.ensure(device, canvasW, canvasH)) {
+                    m_impl->ocioB.apply(ctx, m_impl->dualCanvasB.srv.Get(),
+                                        m_impl->dualOcioOutB.rtv.Get(), canvasW, canvasH);
+                    srvB = m_impl->dualOcioOutB.srv.Get();
+                }
+                correctedSrv = m_impl->combineSides(ctx, device, correctedSrv, srvB,
+                                                    m_impl->dualCombined, canvasW, canvasH,
+                                                    difference, diffGain);
+            }
         }
     }
 
@@ -2114,21 +2301,18 @@ void D3D11PlayerRenderer::drawDualFrame()
     swapchain->Present(1 /*sync to vsync*/, 0);
 }
 
-void D3D11PlayerRenderer::warmCaptureOcio()
+void D3D11PlayerRenderer::warmCaptureOcio(const OcioChainSpec &spec)
 {
-    if (!m_ocio || !m_ocio->engaged() || !m_impl->captureOcio.isInitialized()) {
+    const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
+    if (!chains || !chains->engaged || !m_impl->captureOcio.isInitialized()) {
         return;
     }
-    const int gen = m_ocio->activeChainGeneration();
-    if (gen != m_impl->captureSdrGen) {
-        QString display, view;
-        m_impl->captureNeedsSdr = m_ocio->sdrCaptureDisplayView(&display, &view);
-        m_impl->captureSdrGen   = gen;
-    }
-    // Async: spawns the compile worker on a generation change, no-op
+    m_impl->captureSpec     = spec;
+    m_impl->captureNeedsSdr = !spec.sdrDisplay.isEmpty();
+    // Async: spawns the compile worker on a chain change, no-op
     // otherwise. Skipped when the live chain is already sRGB — the
     // capture then reuses the live pipeline.
-    if (m_impl->captureNeedsSdr) rebuildOcio(m_impl->captureOcio);
+    if (m_impl->captureNeedsSdr) rebuildOcio(m_impl->captureOcio, spec);
 }
 
 void D3D11PlayerRenderer::serviceScreenshotRequest(bool fromDualCanvas)
@@ -2268,13 +2452,17 @@ void D3D11PlayerRenderer::serviceScreenshotRequest(bool fromDualCanvas)
     // linear, HDR10 PQ, P3) use the SDR capture chain instead.
     {
         D3D11OcioRenderer *capOcio = nullptr;
-        if (m_ocio && m_ocio->engaged()) {
-            warmCaptureOcio();
+        const auto capChains = m_ocio ? m_ocio->snapshot() : nullptr;
+        if (capChains && capChains->engaged) {
+            // The chain on screen: A's on the dual canvas (B's is added
+            // below when the sides differ), single view the clip's.
+            const OcioChainSpec &spec = fromDualCanvas ? capChains->a : capChains->single;
+            warmCaptureOcio(spec);
             if (m_impl->captureNeedsSdr
-                && rebuildOcio(m_impl->captureOcio)) {
+                && rebuildOcio(m_impl->captureOcio, spec)) {
                 capOcio = &m_impl->captureOcio;
             } else if (m_impl->ocio.isInitialized()
-                       && rebuildOcio(m_impl->ocio)) {
+                       && rebuildOcio(m_impl->ocio, spec)) {
                 if (m_impl->captureNeedsSdr) {
                     qWarning("D3D11PlayerRenderer: SDR capture chain still "
                              "compiling — capturing with the live chain");
@@ -2282,8 +2470,47 @@ void D3D11PlayerRenderer::serviceScreenshotRequest(bool fromDualCanvas)
                 capOcio = &m_impl->ocio;
             }
         }
-        const bool useOcio = capOcio != nullptr;
-        if (useOcio) {
+        // Dual view with per-side chains: each side's canvas through its
+        // own chain, combined, then written out like an uncorrected source.
+        ID3D11ShaderResourceView *combinedSrv = nullptr;
+        if (capOcio && fromDualCanvas && capChains->perSide() && m_impl->dualCanvasB.srv
+            && m_impl->dualCanvasB.w == srcW && m_impl->dualCanvasB.h == srcH
+            && m_impl->capSideA.ensure(device, srcW, srcH)
+            && m_impl->capSideB.ensure(device, srcW, srcH)) {
+            D3D11OcioRenderer *capOcioB = nullptr;
+            if (m_impl->captureNeedsSdr && rebuildOcio(m_impl->captureOcioB, capChains->b)) {
+                capOcioB = &m_impl->captureOcioB;
+            } else if (m_impl->ocioB.isInitialized() && rebuildOcio(m_impl->ocioB, capChains->b)) {
+                capOcioB = &m_impl->ocioB;
+            }
+            // The dual canvas itself, not pass 1's copy: that one sits on
+            // an opaque black background, which would hide B in the combine
+            // (A wins wherever A has coverage).
+            capOcio->apply(ctx, m_impl->dualCanvasSrv.Get(),
+                           m_impl->capSideA.rtv.Get(), srcW, srcH);
+            ID3D11ShaderResourceView *srvB = m_impl->dualCanvasB.srv.Get();
+            if (capOcioB) {
+                capOcioB->apply(ctx, m_impl->dualCanvasB.srv.Get(),
+                                m_impl->capSideB.rtv.Get(), srcW, srcH);
+                srvB = m_impl->capSideB.srv.Get();
+            }
+            combinedSrv = m_impl->combineSides(
+                ctx, device, m_impl->capSideA.srv.Get(), srvB, m_impl->capCombined, srcW, srcH,
+                m_compMode.load(std::memory_order_acquire)
+                    == static_cast<int>(CompositorMode::Difference),
+                m_diffGain.load(std::memory_order_acquire));
+        }
+        const bool useOcio = capOcio != nullptr && !combinedSrv;
+        if (combinedSrv) {
+            ID3D11RenderTargetView *rtv = m_impl->captureDstRgba8Rtv.Get();
+            ctx->OMSetRenderTargets(1, &rtv, nullptr);
+            D3D11_VIEWPORT vp{};
+            vp.Width    = static_cast<float>(srcW);
+            vp.Height   = static_cast<float>(srcH);
+            vp.MinDepth = 0; vp.MaxDepth = 1;
+            ctx->RSSetViewports(1, &vp);
+            m_impl->compositor.renderSingle(ctx, combinedSrv, srcW, srcH, srcW, srcH, 0);
+        } else if (useOcio) {
             capOcio->apply(
                 ctx,
                 m_impl->captureSourceRgba16fSrv.Get(),
@@ -2430,15 +2657,15 @@ void D3D11PlayerRenderer::setViewerAids(float gamma, int channel)
     requestUpdate();
 }
 
-bool D3D11PlayerRenderer::rebuildOcio(D3D11OcioRenderer &r)
+bool D3D11PlayerRenderer::rebuildOcio(D3D11OcioRenderer &r, const OcioChainSpec &spec)
 {
-    r.setStage(m_ocio->linearStageSettings(m_gain.load(std::memory_order_relaxed)));
+    r.setStage(spec.stage(m_gain.load(std::memory_order_relaxed)));
     ViewerAids v;
     v.gamma   = m_viewerGamma.load(std::memory_order_relaxed);
     v.channel = static_cast<ChannelView>(
         std::clamp(m_viewerChannel.load(std::memory_order_relaxed), 0, 5));
     r.setViewer(v);
-    return r.rebuild(m_ocio);
+    return r.rebuild(spec);
 }
 
 void D3D11PlayerRenderer::setImageSeqCache(ImageSequenceCache *c)

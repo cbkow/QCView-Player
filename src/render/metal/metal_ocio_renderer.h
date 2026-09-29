@@ -27,13 +27,12 @@
 #include <QString>
 
 #include "color/linear_stage.h"
+#include "color/ocio_chain_spec.h"
 
 #include <atomic>
 #include <vector>
 
 namespace qcv {
-
-class OCIOConfigManager;
 
 class MetalOcioRenderer {
 public:
@@ -47,14 +46,15 @@ public:
     void shutdown();
     bool isInitialized() const;
 
-    // Build / rebuild the compute pipeline + LUT textures from the
-    // active OCIO chain. Idempotent if the chain hasn't changed (cached
-    // by the chain generation and whether the linear stage is identity).
+    // Build / rebuild the compute pipeline + LUT textures for `spec`.
+    // Idempotent if the chain hasn't changed (cached by the spec's shader
+    // identity, OcioChainSpec::sameShader, and whether the linear stage
+    // is identity).
     // Returns true when a pipeline is usable. With async on (the live
     // instance) a changed chain compiles on a background queue and the
     // previous pipeline keeps running until the new one is swapped in on
     // a later call; the first compile of a session is synchronous.
-    bool rebuild(OCIOConfigManager *ocio);
+    bool rebuild(const OcioChainSpec &spec);
 
     // Linear-stage settings for the next rebuild() / apply() (gain +
     // knee, see linear_stage.h). A non-identity stage builds the split

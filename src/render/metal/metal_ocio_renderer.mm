@@ -3,7 +3,6 @@
 #include "metal_ocio_renderer.h"
 
 #include "color/ocio_chain_builder.h"
-#include "color/ocio_config_manager.h"
 #include "metal_device_manager.h"
 #include "metal_ocio_luts.h"
 
@@ -120,22 +119,20 @@ id<MTLComputePipelineState> compileKernel(id<MTLDevice> device, const QString &k
     return pso;
 }
 
-// Build a pipeline for the active chain. Pure function of its inputs —
-// safe on a background queue (MTLDevice is thread-safe; the OCIO reads
-// mirror what the D3D11 compile worker already does).
-Built buildPipeline(id<MTLDevice> device, OCIOConfigManager *ocio,
+// Build a pipeline for `spec`. Pure function of its inputs — safe on a
+// background queue (MTLDevice is thread-safe; the spec is a value).
+Built buildPipeline(id<MTLDevice> device, const OcioChainSpec &spec,
                     bool sdrCapture, bool wantSplit)
 {
     Built out;
-    // The SDR mapping is a pure function of the active chain, so the
-    // generation cache stays valid for the capture instance too.
+    // The spec carries its SDR capture Display/View.
     DisplayViewOverride sdr;
-    const bool useSdr = sdrCapture && ocio->sdrCaptureDisplayView(&sdr.display, &sdr.view);
-    const DisplayViewOverride *ov = useSdr ? &sdr : nullptr;
+    const DisplayViewOverride *ov =
+        sdrCapture ? DisplayViewOverride::sdrFor(spec, sdr) : nullptr;
 
     if (wantSplit) {
         OcioSplitChain chain =
-            OcioChainBuilder::buildSplit(ocio, OcioChainBuilder::Language::Msl_2_0, ov);
+            OcioChainBuilder::buildSplit(spec, OcioChainBuilder::Language::Msl_2_0, ov);
         if (chain.ok) {
             int nextTex = 2;   // 0 = src, 1 = dst
             QString args, preCall, postCall;
@@ -174,7 +171,7 @@ Built buildPipeline(id<MTLDevice> device, OCIOConfigManager *ocio,
               qPrintable(chain.errorMessage));
     }
 
-    OcioChain chain = OcioChainBuilder::build(ocio, OcioChainBuilder::Language::Msl_2_0, ov);
+    OcioChain chain = OcioChainBuilder::build(spec, OcioChainBuilder::Language::Msl_2_0, ov);
     if (!chain.ok) {
         out.error = chain.errorMessage;
         return out;
@@ -210,18 +207,19 @@ struct MetalOcioRenderer::Impl {
     id<MTLSamplerState> sampler = nil;
 
     Built active;
-    int   activeGen   = -1;   // chain generation the active build (or its failure) is for
-    bool  activeSplit = false; // ... and whether it was asked to split
+    OcioChainSpec activeSpec;          // the chain the active build (or its failure) is for
+    bool  activeValid = false;         // … false = nothing built yet / invalidated
+    bool  activeSplit = false;         // ... and whether it was asked to split
 
     // Background compile (async instances). One job at a time; the
     // result waits in `pending` until the render thread swaps it in.
     dispatch_queue_t queue = nullptr;
     std::mutex       pendingMutex;
     std::unique_ptr<Built> pending;
-    int   pendingGen   = -1;
+    OcioChainSpec pendingSpec;
     bool  pendingSplit = false;
     bool  jobRunning   = false;
-    int   jobGen       = -1;
+    OcioChainSpec jobSpec;
     bool  jobSplit     = false;
 
     LinearStageSettings stage;
@@ -235,7 +233,7 @@ struct MetalOcioRenderer::Impl {
 
     QString lastError;
 
-    void install(Built &&b, int gen, bool split)
+    void install(Built &&b, const OcioChainSpec &spec, bool split)
     {
         if (b.pipeline || !active.pipeline) {
             // A failed build doesn't replace a working pipeline; it is
@@ -247,7 +245,8 @@ struct MetalOcioRenderer::Impl {
         }
         if (active.pipeline) lastError.clear();
         else                 lastError = active.error;
-        activeGen   = gen;
+        activeSpec  = spec;
+        activeValid = true;
         activeSplit = split;
     }
 };
@@ -295,8 +294,8 @@ void MetalOcioRenderer::shutdown()
         m_impl->pending.reset();
         m_impl->jobRunning = false;
     }
-    m_impl->active    = Built{};
-    m_impl->activeGen = -1;
+    m_impl->active      = Built{};
+    m_impl->activeValid = false;
     m_impl->sampler   = nil;
     m_impl->outputTex = nil;
     m_impl->outputW   = 0;
@@ -326,8 +325,8 @@ const QString &MetalOcioRenderer::lastError() const
 
 void MetalOcioRenderer::setSdrCapture(bool on)
 {
-    m_impl->sdrCapture = on;
-    m_impl->activeGen  = -1;
+    m_impl->sdrCapture  = on;
+    m_impl->activeValid = false;
 }
 
 void MetalOcioRenderer::setStage(const LinearStageSettings &stage)
@@ -345,49 +344,50 @@ void MetalOcioRenderer::setAsync(bool on)
     m_impl->async = on;
 }
 
-bool MetalOcioRenderer::rebuild(OCIOConfigManager *ocio)
+bool MetalOcioRenderer::rebuild(const OcioChainSpec &spec)
 {
-    if (!ocio || !isInitialized()) return false;
+    if (!spec.complete() || !isInitialized()) return false;
     Impl &i = *m_impl;
 
-    const int  gen       = ocio->activeChainGeneration();
     const bool wantSplit = !linear_stage::isIdentity(i.stage);
 
     // 1. A finished background build waiting to be swapped in?
     if (i.async) {
         std::unique_ptr<Built> ready;
-        int readyGen = -1;
+        OcioChainSpec readySpec;
         bool readySplit = false;
         {
             std::lock_guard lock(i.pendingMutex);
             if (i.pending) {
                 ready = std::move(i.pending);
-                readyGen = i.pendingGen;
+                readySpec = i.pendingSpec;
                 readySplit = i.pendingSplit;
             }
         }
         if (ready) {
-            i.install(std::move(*ready), readyGen, readySplit);
+            i.install(std::move(*ready), readySpec, readySplit);
             if (i.active.pipeline) {
-                qInfo("MetalOcioRenderer: swapped in chain gen %d (%s, %zu LUTs)",
-                      readyGen, i.active.split ? "split" : "unsplit", i.active.luts.size());
+                qInfo("MetalOcioRenderer: swapped in chain '%s' (%s, %zu LUTs)",
+                      qPrintable(readySpec.scene.input), i.active.split ? "split" : "unsplit",
+                      i.active.luts.size());
             }
         }
     }
 
     // 2. Already current?
-    if (gen == i.activeGen && wantSplit == i.activeSplit) {
+    if (i.activeValid && i.activeSpec.sameShader(spec) && wantSplit == i.activeSplit) {
         return i.active.pipeline != nil;
     }
 
     // 3. Synchronous build: capture instances, and the first build of a
     //    session (nothing to keep showing meanwhile).
     if (!i.async || !i.active.pipeline) {
-        Built b = buildPipeline(i.device, ocio, i.sdrCapture, wantSplit);
-        i.install(std::move(b), gen, wantSplit);
+        Built b = buildPipeline(i.device, spec, i.sdrCapture, wantSplit);
+        i.install(std::move(b), spec, wantSplit);
         if (i.active.pipeline) {
-            qInfo("MetalOcioRenderer: rebuilt for chain gen %d (%s, %zu LUTs)",
-                  gen, i.active.split ? "split" : "unsplit", i.active.luts.size());
+            qInfo("MetalOcioRenderer: rebuilt for chain '%s' (%s, %zu LUTs)",
+                  qPrintable(spec.scene.input), i.active.split ? "split" : "unsplit",
+                  i.active.luts.size());
         }
         return i.active.pipeline != nil;
     }
@@ -395,24 +395,22 @@ bool MetalOcioRenderer::rebuild(OCIOConfigManager *ocio)
     // 4. Background build; keep the current pipeline until it lands.
     {
         std::lock_guard lock(i.pendingMutex);
-        if (i.jobRunning && i.jobGen == gen && i.jobSplit == wantSplit) {
-            return true;   // already compiling this key
-        }
         if (i.jobRunning) {
             return true;   // one job at a time; re-evaluated when it lands
         }
         i.jobRunning = true;
-        i.jobGen     = gen;
+        i.jobSpec    = spec;
         i.jobSplit   = wantSplit;
     }
     id<MTLDevice> device = i.device;
     const bool sdrCapture = i.sdrCapture;
     Impl *impl = m_impl;
+    const OcioChainSpec jobSpec = spec;
     dispatch_async(i.queue, ^{
-        auto b = std::make_unique<Built>(buildPipeline(device, ocio, sdrCapture, wantSplit));
+        auto b = std::make_unique<Built>(buildPipeline(device, jobSpec, sdrCapture, wantSplit));
         std::lock_guard lock(impl->pendingMutex);
         impl->pending      = std::move(b);
-        impl->pendingGen   = gen;
+        impl->pendingSpec  = jobSpec;
         impl->pendingSplit = wantSplit;
         impl->jobRunning   = false;
     });

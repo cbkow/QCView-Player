@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "color/ocio_chain_spec.h"
 #include "render/iplayer_renderer.h"
 
 #include <atomic>
@@ -132,10 +133,10 @@ private:
     void serviceScreenshotRequest(bool fromDualCanvas = false);
     // Keep the SDR capture chain compiled ahead of time — the GUI only
     // waits 250 ms for a capture and D3DCompile can take seconds.
-    void warmCaptureOcio();
-    // setStage (gain + knee from m_ocio) then rebuild(), for the live and
+    void warmCaptureOcio(const OcioChainSpec &spec);
+    // setStage (gain + the spec's knee) then rebuild(), for the live and
     // capture OCIO instances alike.
-    bool rebuildOcio(D3D11OcioRenderer &r);
+    bool rebuildOcio(D3D11OcioRenderer &r, const OcioChainSpec &spec);
 
     struct Impl;
     std::unique_ptr<Impl>      m_impl;

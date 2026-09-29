@@ -1,0 +1,130 @@
+// probe-ocio-pins — the per-clip scene chain's routing rules (colour plan
+// stage 2), on OCIOConfigManager alone:
+//   - single view: edits go to the default unless the clip's slot is
+//     pinned; pins follow the clip; unpinning returns to the default;
+//   - dual view: every edit pins the focused side's clip; the B tab edits
+//     B; ganged, B resolves to A's chain without touching B's pins, and
+//     ungang brings B's pins back; "Copy A's chain to B" writes them;
+//   - the snapshot: per-side only when the sides differ; knee-only
+//     differences keep the shader shared (sameShader).
+//
+// Usage:  probe-ocio-pins <config.ocio>
+
+#include "color/ocio_config_manager.h"
+
+#include <QCoreApplication>
+
+#include <cstdio>
+
+using namespace qcv;
+
+namespace {
+
+int g_failed = 0;
+
+void check(bool ok, const char *what)
+{
+    std::printf("%s  %s\n", ok ? "ok  " : "FAIL", what);
+    if (!ok) ++g_failed;
+}
+
+} // namespace
+
+int main(int argc, char **argv)
+{
+    QCoreApplication app(argc, argv);
+    if (argc < 2) {
+        std::fprintf(stderr, "usage: probe-ocio-pins <config.ocio>\n");
+        return 2;
+    }
+    OCIOConfigManager mgr;
+    if (!mgr.loadConfigFile(QString::fromUtf8(argv[1]))) {
+        std::fprintf(stderr, "cannot load %s\n", argv[1]);
+        return 2;
+    }
+    const QStringList cs = mgr.colorspaces();
+    if (cs.size() < 4) {
+        std::fprintf(stderr, "config has too few colourspaces\n");
+        return 2;
+    }
+    const QString def = mgr.activeInput();
+    // Three inputs different from the default and each other.
+    QStringList picks;
+    for (const QString &c : cs) {
+        if (c != def && !picks.contains(c)) picks << c;
+        if (picks.size() == 3) break;
+    }
+    const QString x = picks[0], y = picks[1], z = picks[2];
+
+    // ---- Single view ----
+    mgr.setViewContext("clip1", false, "clip1", "");
+    mgr.setActiveInput(x);
+    check(mgr.activeInput() == x && !mgr.inputPinned(), "single: unpinned edit sets the default");
+    mgr.setViewContext("clip2", false, "clip2", "");
+    check(mgr.activeInput() == x, "single: the default follows to another clip");
+
+    mgr.setSlotPinned("input", true);
+    check(mgr.inputPinned(), "single: pin the Input to clip2");
+    mgr.setActiveInput(y);
+    check(mgr.activeInput() == y, "single: pinned edit changes clip2");
+    mgr.setViewContext("clip1", false, "clip1", "");
+    check(mgr.activeInput() == x && !mgr.inputPinned(), "single: clip1 keeps the default");
+    mgr.setViewContext("clip2", false, "clip2", "");
+    check(mgr.activeInput() == y && mgr.inputPinned(), "single: clip2 keeps its pin");
+    check(mgr.snapshot()->single.scene.input == y, "snapshot: single view draws clip2's pin");
+    mgr.setSlotPinned("input", false);
+    check(mgr.activeInput() == x && !mgr.clipHasPins("clip2"),
+          "single: unpin returns to the default and drops the empty pin");
+
+    // ---- Dual view ----
+    mgr.setViewContext("clipA", true, "clipA", "clipB");
+    mgr.setActiveTab(0);
+    mgr.setActiveInput(y);
+    check(mgr.clipHasPins("clipA") && mgr.inputPinned(), "dual: an A edit pins clipA");
+    mgr.setActiveTab(1);
+    check(mgr.focusClipId() == "clipB" && mgr.activeInput() == x,
+          "dual: the B tab shows clipB (still the default)");
+    mgr.setActiveInput(z);
+    check(mgr.clipHasPins("clipB"), "dual: a B edit pins clipB");
+    {
+        const auto snap = mgr.snapshot();
+        check(snap->a.scene.input == y && snap->b.scene.input == z && snap->perSide(),
+              "snapshot: sides differ → per-side chains");
+    }
+    check(mgr.specForClip("clipA").scene.input == y && mgr.specForClip("clipB").scene.input == z,
+          "dual: pins are the clips' remembered state");
+
+    mgr.setGanged(true);
+    {
+        const auto snap = mgr.snapshot();
+        check(snap->b.scene.input == y && !snap->perSide(),
+              "gang: B draws A's chain, one pass");
+    }
+    check(mgr.focusClipId() == "clipA", "gang: the panel edits A");
+    check(mgr.specForClip("clipB").scene.input == z, "gang: B's own pin is untouched");
+    mgr.setGanged(false);
+    check(mgr.snapshot()->b.scene.input == z, "ungang: B's own pin returns");
+
+    mgr.copyAChainToB();
+    check(mgr.specForClip("clipB").scene.input == y && !mgr.snapshot()->perSide(),
+          "copy A → B: B's pins become A's chain");
+
+    // Knee-only difference: two chains, one shader.
+    mgr.setActiveTab(1);
+    mgr.setKneeEnabled(true);
+    mgr.setKneeSourceNits(4000);
+    {
+        const auto snap = mgr.snapshot();
+        check(snap->perSide() && snap->a.sameShader(snap->b)
+                  && snap->b.scene.kneeSourceNits == 4000.0f && !snap->a.scene.kneeEnabled,
+              "knee on B only: per-side, same shader");
+    }
+
+    // Leaving dual: single view shows A's clip with its pins.
+    mgr.setViewContext("clipA", false, "clipA", "clipB");
+    check(mgr.focusClipId() == "clipA" && mgr.activeInput() == y,
+          "single again: A's clip keeps its pin");
+
+    std::printf("\n%s (%d failed)\n", g_failed ? "FAILED" : "all passed", g_failed);
+    return g_failed ? 1 : 0;
+}

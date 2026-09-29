@@ -410,23 +410,25 @@ void ScopeController::resolve()
         } catch (const OCIO::Exception &) {}
     }
 
-    // One side's tier, colourspace and badge. OCIO engaged: the user's
-    // Input, for both dual sides — the picture runs one chain, and the
-    // scopes show what it shows. OCIO off: each file's own assumption,
-    // from the live config, else the built-in one (labelled).
+    // One side's tier, colourspace and badge. OCIO engaged: that side's
+    // Input — the clip's pin, else the default; B's is A's while ganged —
+    // so the scopes show what the picture shows. OCIO off: each file's
+    // own assumption, from the live config, else the built-in one
+    // (labelled).
     struct Side {
         ScopeTier tier = ScopeTier::Signal;
         QString   colorspace, configPath, badge, mismatch;
         bool      hdr = false;
         Reading   r;
     };
-    const QString input = m_ocio ? m_ocio->activeInput() : QString();
-    auto interpret = [&](const QVariantMap &item) {
+    const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
+    const bool engaged = chains && chains->engaged;
+    auto interpret = [&](const QVariantMap &item, const QString &input) {
         Side sd;
         sd.r = read(item, cfg);
         const Reading rf = fallbackCfg ? read(item, fallbackCfg) : Reading{};
         const bool fallbackNames = !usable(cfg, sd.r.assumed) && usable(fallbackCfg, rf.assumed);
-        if (m_ocio && m_ocio->engaged() && usable(cfg, input)) {
+        if (engaged && usable(cfg, input)) {
             sd.tier = ScopeTier::Input;
             sd.colorspace = input;
             sd.hdr = scaleFor(cfg, input) == ScopeScale::Hdr;
@@ -456,7 +458,10 @@ void ScopeController::resolve()
         return sd;
     };
 
-    const Side a = interpret(m_project ? m_project->mediaItemMap(mediaItemIdA()) : QVariantMap{});
+    const QString inputA = !chains ? QString()
+                         : (m_dualView ? chains->a.scene.input : chains->single.scene.input);
+    const Side a = interpret(m_project ? m_project->mediaItemMap(mediaItemIdA()) : QVariantMap{},
+                             inputA);
     m_config.tier = a.tier;
     m_config.colorspace = a.colorspace;
     m_config.configPath = a.configPath;
@@ -473,7 +478,7 @@ void ScopeController::resolve()
     if (m_dualView && m_project) {
         const QVariantMap itemB = m_project->bSourceItemMap();
         if (!itemB.isEmpty()) {
-            const Side b = interpret(itemB);
+            const Side b = interpret(itemB, chains ? chains->b.scene.input : QString());
             m_config.tierB = b.tier;
             m_config.colorspaceB = b.colorspace;
             m_config.configPathB = b.configPath;

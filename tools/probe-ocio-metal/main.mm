@@ -68,7 +68,7 @@ void cpuRef(OCIOConfigManager &mgr, OCIO::ConstConfigRcPtr cfg,
         }
     };
     if (linear_stage::isIdentity(st)) {
-        auto cpu = cfg->getProcessor(OcioChainBuilder::buildGroupTransform(&mgr, cfg))
+        auto cpu = cfg->getProcessor(OcioChainBuilder::buildGroupTransform(mgr.focusedSpec(), cfg))
                        ->getDefaultCPUProcessor();
         for (auto &v : out) cpu->applyRGB(v.data());
         const OcioChain c = OcioChainBuilder::build(&mgr, OcioChainBuilder::Language::Msl_2_0);
@@ -76,7 +76,7 @@ void cpuRef(OCIOConfigManager &mgr, OCIO::ConstConfigRcPtr cfg,
         return;
     }
     OcioSplitTransforms t;
-    OcioChainBuilder::buildSplitTransforms(&mgr, cfg, t);
+    OcioChainBuilder::buildSplitTransforms(mgr.focusedSpec(), cfg, t);
     auto pre  = cfg->getProcessor(t.pre)->getDefaultCPUProcessor();
     auto post = cfg->getProcessor(t.post)->getDefaultCPUProcessor();
     const LinearStageGpu g = linear_stage::resolve(st, t.side, t.displayIsSdr);
@@ -568,7 +568,7 @@ int main(int argc, char **argv)
             r.initialize();
             r.setStage(v.st);
             r.setViewer(v.va);
-            if (!r.rebuild(&mgr)) {
+            if (!r.rebuild(mgr.focusedSpec())) {
                 std::printf("FAIL build  %s | %s | %s / %s [%s]: %s\n", c.config, c.input,
                             c.display, c.view, v.name, qPrintable(r.lastError()));
                 ++failures;

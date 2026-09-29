@@ -38,6 +38,10 @@ Button {
     property int    iconSize: Theme.iconSizeToolbar
     property color  iconColor: "transparent"  // transparent => track text color
     property string tooltipText: ""
+    // Text elision when a layout gives the button less than its natural
+    // width (Layout.maximumWidth / fillWidth). ElideNone keeps the
+    // natural width, as before.
+    property int    elideMode: Text.ElideNone
     // Corner rounding. Raised defaults to radiusBase for buttons
     // sitting on card planes; INLINE toolbar buttons (e.g. the
     // dual-view bar's mode toggles) override to 0 — inline elements
@@ -122,11 +126,19 @@ Button {
         border.width: 0
     }
 
+    // Natural width from the label's unelided text, so an eliding label
+    // can take its width from availableWidth without a binding loop.
+    implicitWidth: leftPadding + rightPadding
+                   + (buttonIcon.visible ? buttonIcon.width : 0)
+                   + (buttonIcon.visible && buttonLabel.visible ? rowContent.spacing : 0)
+                   + (buttonLabel.visible ? buttonLabel.implicitWidth : 0)
+
     contentItem: Row {
         id: rowContent
         spacing: 6
 
         Icon {
+            id: buttonIcon
             visible: root.iconName.length > 0
             name: root.iconName
             size: root.iconSize
@@ -134,7 +146,14 @@ Button {
             anchors.verticalCenter: parent.verticalCenter
         }
         Label {
+            id: buttonLabel
             visible: root.text.length > 0
+            width: root.elideMode === Text.ElideNone
+                   ? implicitWidth
+                   : Math.max(0, Math.min(implicitWidth,
+                         root.availableWidth
+                         - (buttonIcon.visible ? buttonIcon.width + rowContent.spacing : 0)))
+            elide: root.elideMode
             text: root.text
             color: pal.fg
             font.family: Theme.fontFamily

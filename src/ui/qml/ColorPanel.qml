@@ -348,6 +348,106 @@ Pane {
             }
         }
 
+        // ---- Dual view: whose scene chain the panel edits. The scene side
+        // (Input, Look, Scene LUT, knee) belongs to each side's clip —
+        // editing a tab pins that clip; the display side stays shared.
+        // Ganged, B borrows A's chain (B's own pins are kept, not
+        // overwritten) and the panel shows one chain.
+        Rectangle {
+            id: dualStrip
+            readonly property var ocio: WindowManager.ocio
+            readonly property var project: WindowManager.project
+            readonly property bool shown: !!ocio && ocio.dualView
+            readonly property string nameA: shown && project && ocio.clipIdA.length > 0
+                                            ? (project.mediaItemMap(ocio.clipIdA).name || "") : ""
+            readonly property string nameB: shown && project && ocio.clipIdB.length > 0
+                                            ? (project.mediaItemMap(ocio.clipIdB).name || "") : ""
+            Layout.fillWidth: true
+            Layout.preferredHeight: shown ? 34 : 0
+            visible: shown
+            color: Theme.surface
+
+            Rectangle {
+                anchors.left:   parent.left
+                anchors.right:  parent.right
+                anchors.bottom: parent.bottom
+                height: Theme.dividerWidth
+                color:  Theme.divider
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.spacingLoose
+                anchors.rightMargin: Theme.spacingLoose
+                spacing: Theme.spacing
+
+                Text {
+                    text: qsTr("Scene chain")
+                    color: Theme.textMuted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeTiny
+                    font.bold: true
+                    font.capitalization: Font.AllUppercase
+                    font.letterSpacing: 0.8
+                }
+                FlatButton {
+                    checkable: true
+                    checked: !!dualStrip.ocio && dualStrip.ocio.activeTab === 0
+                    text: qsTr("A · %1").arg(dualStrip.nameA || qsTr("(none)"))
+                    tooltipText: qsTr("%1\nEdit A's scene chain — changes stay with this clip")
+                                     .arg(dualStrip.nameA || qsTr("(none)"))
+                    elideMode: Text.ElideMiddle
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 80
+                    Layout.maximumWidth: implicitWidth
+                    onClicked: dualStrip.ocio.activeTab = 0
+                }
+                FlatButton {
+                    checkable: true
+                    enabled: !!dualStrip.ocio && !dualStrip.ocio.ganged
+                    checked: !!dualStrip.ocio && dualStrip.ocio.activeTab === 1
+                             && !dualStrip.ocio.ganged
+                    text: dualStrip.ocio && dualStrip.ocio.ganged
+                          ? qsTr("B · ganged to A")
+                          : qsTr("B · %1").arg(dualStrip.nameB || qsTr("(none)"))
+                    tooltipText: dualStrip.ocio && dualStrip.ocio.ganged
+                                 ? qsTr("B uses A's scene chain — ungang to edit B's own")
+                                 : qsTr("%1\nEdit B's scene chain — changes stay with this clip")
+                                       .arg(dualStrip.nameB || qsTr("(none)"))
+                    elideMode: Text.ElideMiddle
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 80
+                    Layout.maximumWidth: implicitWidth
+                    onClicked: dualStrip.ocio.activeTab = 1
+                }
+                Item { Layout.fillWidth: true }
+                FlatButton {
+                    variant: "raised"
+                    checkable: true
+                    checked: !!dualStrip.ocio && dualStrip.ocio.ganged
+                    iconName: checked ? "link" : "link-break"
+                    text: qsTr("Gang")
+                    tooltipText: checked
+                                 ? qsTr("Ganged: B borrows A's scene chain. Click to give B its own again.")
+                                 : qsTr("Gang: B borrows A's scene chain, for like-for-like comparisons. B's own pins are kept.")
+                    onClicked: dualStrip.ocio.ganged = !dualStrip.ocio.ganged
+                }
+                FlatButton {
+                    variant: "raised"
+                    iconName: "copy"
+                    text: qsTr("Copy A → B")
+                    enabled: !!dualStrip.ocio && dualStrip.ocio.clipIdA.length > 0
+                             && dualStrip.ocio.clipIdB.length > 0
+                             && dualStrip.ocio.clipIdA !== dualStrip.ocio.clipIdB
+                    tooltipText: qsTr("Pin A's scene chain to B's clip")
+                    onClicked: {
+                        dualStrip.ocio.copyAChainToB();
+                        WindowManager.toast(qsTr("A's scene chain copied to B"), 0);
+                    }
+                }
+            }
+        }
+
         // ---- Reel grid (middle, fills available height)
         RowLayout {
             Layout.fillWidth: true
@@ -612,6 +712,8 @@ Pane {
                 model: WindowManager.ocio ? WindowManager.ocio.colorspaces : []
                 currentText: WindowManager.ocio
                              ? WindowManager.ocio.activeInput : ""
+                pinSlot: "input"
+                pinned: !!WindowManager.ocio && WindowManager.ocio.inputPinned
                 onSelected: (entry) => WindowManager.ocio.activeInput = entry
             }
             ReelColumn {
@@ -627,6 +729,8 @@ Pane {
                              && WindowManager.ocio.activeLook.length > 0
                              ? WindowManager.ocio.activeLook
                              : qsTr("(none)")
+                pinSlot: "look"
+                pinned: !!WindowManager.ocio && WindowManager.ocio.lookPinned
                 onSelected: (entry) => WindowManager.ocio.activeLook =
                     (entry === qsTr("(none)") ? "" : entry)
             }
@@ -645,6 +749,8 @@ Pane {
                 showCccId: /\.(ccc|cdl)$/i.test(path)
                 cccId: WindowManager.ocio ? WindowManager.ocio.activeSceneLutCccId : ""
                 onCccIdEdited: (id) => WindowManager.ocio.activeSceneLutCccId = id
+                pinSlot: "sceneLut"
+                pinned: !!WindowManager.ocio && WindowManager.ocio.sceneLutPinned
             }
 
             // Highlight Knee — the chain step between the scene side and
@@ -980,6 +1086,41 @@ Pane {
     // Set expandable=true and the parent owns `expanded`. Collapsed
     // state renders a slim strip with rotated title — saves horizontal
     // space for reels that aren't typically active (e.g. Look).
+    // Per-clip scene chain: a scene-side slot (Input, Look, Scene LUT,
+    // knee) either follows the default or is pinned to the clip in focus.
+    // Hidden when no clip is loaded. In dual view an edit pins the side's
+    // clip on its own; the toggle still shows and clears it.
+    component PinToggle: Item {
+        id: pinToggle
+        property string slot: ""
+        property bool   pinned: false
+        implicitWidth: 18
+        implicitHeight: 18
+        visible: !!WindowManager.ocio && WindowManager.ocio.focusClipId.length > 0
+
+        Icon {
+            anchors.centerIn: parent
+            name: "push-pin"
+            size: Theme.iconSizeSmall
+            color: pinToggle.pinned ? Theme.accent
+                                    : (pinMa.containsMouse ? Theme.textPrimary : Theme.textMuted)
+            opacity: pinToggle.pinned || pinMa.containsMouse ? 1.0 : 0.55
+        }
+        MouseArea {
+            id: pinMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: WindowManager.ocio.setSlotPinned(pinToggle.slot, !pinToggle.pinned)
+            FlatToolTip {
+                visible: pinMa.containsMouse
+                text: pinToggle.pinned
+                      ? qsTr("Pinned to this clip — click to follow the default")
+                      : qsTr("Follows the default — click to pin to this clip")
+            }
+        }
+    }
+
     component ReelColumn: ColumnLayout {
         id: reel
         property string title: ""
@@ -990,6 +1131,9 @@ Pane {
         property bool   expandable: false
         property bool   expanded: true
         property string collapsedIconName: "list-bullets"
+        // Scene-side slot name for the pin toggle ("" = display side).
+        property string pinSlot: ""
+        property bool   pinned: false
         signal selected(string entry)
 
         Layout.minimumWidth: (expandable && !expanded) ? 32 : 130
@@ -1017,6 +1161,15 @@ Pane {
                 font.bold: true
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 0.8
+            }
+            PinToggle {
+                anchors.left: titleProbe.right
+                anchors.leftMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+                visible: reel.pinSlot.length > 0 && titleProbe.visible
+                         && !!WindowManager.ocio && WindowManager.ocio.focusClipId.length > 0
+                slot: reel.pinSlot
+                pinned: reel.pinned
             }
             Icon {
                 visible: reel.expandable && reel.expanded
@@ -1189,6 +1342,14 @@ Pane {
 
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
+                    visible: reel.pinned
+                    name: "push-pin"
+                    size: Theme.iconSizeSmall
+                    color: Theme.accent
+                }
+
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
                     name: reel.collapsedIconName
                     size: 20
                     // Grey icon (no green/success cue) — keeps the
@@ -1231,9 +1392,14 @@ Pane {
         readonly property var ocio: WindowManager.ocio
         readonly property bool on: !!ocio && ocio.kneeEnabled
         readonly property bool available: !!ocio && ocio.kneeAvailable
-        readonly property var video: WindowManager.project
-                                     && WindowManager.project.activeItem
-                                     ? WindowManager.project.activeItem.video : null
+        // The clip whose chain the panel shows (dual view: the A/B tab).
+        readonly property var video: {
+            const p = WindowManager.project;
+            if (!p) return null;
+            const id = ocio ? ocio.focusClipId : "";
+            const item = id.length > 0 ? p.mediaItemMap(id) : p.activeItem;
+            return item ? item.video : null;
+        }
         readonly property int fileMaxCll: video ? (video.maxCll || 0) : 0
         readonly property real fileMastering: video ? (video.masteringMaxNits || 0) : 0
 
@@ -1257,6 +1423,14 @@ Pane {
                 font.bold: true
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 0.8
+            }
+            PinToggle {
+                anchors.left: kneeTitle.right
+                anchors.leftMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+                visible: knee.expanded && !!knee.ocio && knee.ocio.focusClipId.length > 0
+                slot: "knee"
+                pinned: !!knee.ocio && knee.ocio.kneePinned
             }
             Icon {
                 visible: knee.expanded
@@ -1515,6 +1689,13 @@ Pane {
                 }
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
+                    visible: !!knee.ocio && knee.ocio.kneePinned
+                    name: "push-pin"
+                    size: Theme.iconSizeSmall
+                    color: Theme.accent
+                }
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
                     name: "sun-horizon"
                     size: 20
                     color: knee.on ? Theme.warning
@@ -1538,6 +1719,9 @@ Pane {
         property bool   expanded: false
         property bool   showCccId: false
         property string cccId: ""
+        // Scene-side slot name for the pin toggle ("" = display side).
+        property string pinSlot: ""
+        property bool   pinned: false
         signal pickRequested()
         signal clearRequested()
         signal cccIdEdited(string id)
@@ -1570,6 +1754,15 @@ Pane {
                 font.bold: true
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 0.8
+            }
+            PinToggle {
+                anchors.left: titleProbe.right
+                anchors.leftMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+                visible: tile.pinSlot.length > 0 && tile.expanded
+                         && !!WindowManager.ocio && WindowManager.ocio.focusClipId.length > 0
+                slot: tile.pinSlot
+                pinned: tile.pinned
             }
             Icon {
                 visible: tile.expanded
@@ -1781,6 +1974,14 @@ Pane {
                         font.capitalization: Font.AllUppercase
                         font.letterSpacing: 0.8
                     }
+                }
+
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    visible: tile.pinned
+                    name: "push-pin"
+                    size: Theme.iconSizeSmall
+                    color: Theme.accent
                 }
 
                 Icon {

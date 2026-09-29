@@ -490,10 +490,11 @@ QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
     // With the Highlight Knee on, the export includes it: it is a chain
     // step, like a Look. Brightness (gain) is a viewing aid and never
     // baked, so the stage is resolved at gain 1.0.
-    const LinearStageSettings stage = linearStageSettings(1.0f);
+    const OcioChainSpec spec = focusedSpec();
+    const LinearStageSettings stage = spec.stage(1.0f);
     if (stage.kneeEnabled) {
         OcioSplitTransforms split;
-        if (OcioChainBuilder::buildSplitTransforms(this, m_impl->config, split, &err)) {
+        if (OcioChainBuilder::buildSplitTransforms(spec, m_impl->config, split, &err)) {
             try {
                 OCIO::ConstCPUProcessorRcPtr pre = m_impl->config->getProcessor(split.pre)
                     ->getOptimizedCPUProcessor(OCIO::OPTIMIZATION_DEFAULT);
@@ -518,7 +519,7 @@ QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
     }
 
     OCIO::GroupTransformRcPtr group =
-        OcioChainBuilder::buildGroupTransform(this, m_impl->config, &err);
+        OcioChainBuilder::buildGroupTransform(spec, m_impl->config, &err);
     if (!group) {
         return err.isEmpty() ? QStringLiteral("Chain build failed") : err;
     }
@@ -538,16 +539,21 @@ QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
 
 void OCIOConfigManager::setActiveInput(const QString &name)
 {
-    if (m_activeInput == name) return;
     // Empty = clear (slot becomes passthrough — Guide 05 D6).
     if (!name.isEmpty() && !isValidColorSpace(name)) {
         qWarning("OCIOConfigManager: rejected unknown Input colorspace '%s'",
                  qPrintable(name));
         return;
     }
-    m_activeInput = name;
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    if (OcioScenePin *pin = editPin(Slot::Input)) {
+        if (pin->input && *pin->input == name) return;
+        pin->input = name;
+        notePinEdit(focusClipId());
+    } else {
+        if (m_default.input == name) return;
+        m_default.input = name;
+    }
+    publish();
 }
 
 void OCIOConfigManager::setActiveDisplay(const QString &name)
@@ -569,8 +575,7 @@ void OCIOConfigManager::setActiveDisplay(const QString &name)
     } else if (m_activeDisplay.isEmpty()) {
         m_activeView.clear();
     }
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    publish();
 }
 
 void OCIOConfigManager::setActiveView(const QString &name)
@@ -583,26 +588,29 @@ void OCIOConfigManager::setActiveView(const QString &name)
         return;
     }
     m_activeView = name;
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    publish();
 }
 
 void OCIOConfigManager::setActiveLook(const QString &name)
 {
-    if (m_activeLook == name) return;
     if (!name.isEmpty() && !isValidLook(name)) {
         qWarning("OCIOConfigManager: rejected unknown Look '%s'",
                  qPrintable(name));
         return;
     }
-    m_activeLook = name;
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    if (OcioScenePin *pin = editPin(Slot::Look)) {
+        if (pin->look && *pin->look == name) return;
+        pin->look = name;
+        notePinEdit(focusClipId());
+    } else {
+        if (m_default.look == name) return;
+        m_default.look = name;
+    }
+    publish();
 }
 
 void OCIOConfigManager::setActiveSceneLutPath(const QString &path)
 {
-    if (m_activeSceneLutPath == path) return;
     if (!path.isEmpty()) {
         if (!QFileInfo::exists(path)) {
             qWarning("OCIOConfigManager: Scene LUT file not found: %s",
@@ -616,19 +624,32 @@ void OCIOConfigManager::setActiveSceneLutPath(const QString &path)
             return;
         }
     }
-    m_activeSceneLutPath = path;
-    m_activeSceneLutCccId.clear();   // a new file starts at its first correction
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    // A new file starts at its first correction.
+    if (OcioScenePin *pin = editPin(Slot::SceneLut)) {
+        if (pin->sceneLut && pin->sceneLut->path == path) return;
+        pin->sceneLut = OcioScenePin::SceneLut{path, QString()};
+        notePinEdit(focusClipId());
+    } else {
+        if (m_default.sceneLutPath == path) return;
+        m_default.sceneLutPath = path;
+        m_default.sceneLutCccId.clear();
+    }
+    publish();
 }
 
 void OCIOConfigManager::setActiveSceneLutCccId(const QString &id)
 {
     const QString v = id.trimmed();
-    if (m_activeSceneLutCccId == v) return;
-    m_activeSceneLutCccId = v;
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    if (OcioScenePin *pin = editPin(Slot::SceneLut)) {
+        if (pin->sceneLut && pin->sceneLut->cccId == v) return;
+        const OcioSceneChain cur = focusedScene();
+        pin->sceneLut = OcioScenePin::SceneLut{cur.sceneLutPath, v};
+        notePinEdit(focusClipId());
+    } else {
+        if (m_default.sceneLutCccId == v) return;
+        m_default.sceneLutCccId = v;
+    }
+    publish();
 }
 
 void OCIOConfigManager::setActiveDisplayLutPath(const QString &path)
@@ -648,83 +669,89 @@ void OCIOConfigManager::setActiveDisplayLutPath(const QString &path)
         }
     }
     m_activeDisplayLutPath = path;
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    publish();
 }
 
 void OCIOConfigManager::setEngaged(bool b)
 {
     if (m_engaged == b) return;
     m_engaged = b;
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    publish();
 }
 
 // -------- Highlight Knee --------
 
-void OCIOConfigManager::bumpStage()
+template <typename Fn>
+void OCIOConfigManager::editKnee(Fn &&fn)
 {
-    m_stageGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit kneeChanged();
+    if (OcioScenePin *pin = editPin(Slot::Knee)) {
+        const OcioSceneChain cur = focusedScene();
+        OcioScenePin::Knee k = pin->knee.value_or(OcioScenePin::Knee{
+            cur.kneeEnabled, cur.kneeSourceNits, cur.kneeTargetNits, cur.kneeStart});
+        const OcioScenePin::Knee before = k;
+        fn(k.enabled, k.sourceNits, k.targetNits, k.start);
+        if (pin->knee && before.enabled == k.enabled && before.sourceNits == k.sourceNits
+            && before.targetNits == k.targetNits && before.start == k.start) {
+            return;
+        }
+        pin->knee = k;
+        notePinEdit(focusClipId());
+    } else {
+        const OcioSceneChain before = m_default;
+        fn(m_default.kneeEnabled, m_default.kneeSourceNits, m_default.kneeTargetNits,
+           m_default.kneeStart);
+        if (before == m_default) return;
+    }
+    publish(/*knee=*/true);
 }
 
 void OCIOConfigManager::setKneeEnabled(bool on)
 {
-    if (m_kneeEnabled.load() == on) return;
-    m_kneeEnabled.store(on, std::memory_order_release);
-    bumpStage();
+    editKnee([on](bool &e, float &, float &, float &) { e = on; });
 }
 
 void OCIOConfigManager::setKneeSourceNits(double nits)
 {
     const float v = static_cast<float>(std::clamp(nits, 100.0, 10000.0));
-    if (std::abs(m_kneeSourceNits.load() - v) < 1e-3f) return;
-    m_kneeSourceNits.store(v, std::memory_order_release);
-    bumpStage();
+    editKnee([v](bool &, float &src, float &, float &) {
+        if (std::abs(src - v) >= 1e-3f) src = v;
+    });
 }
 
 void OCIOConfigManager::setKneeTargetNits(double nits)
 {
     const float v = static_cast<float>(std::clamp(nits, 100.0, 10000.0));
-    if (std::abs(m_kneeTargetNits.load() - v) < 1e-3f) return;
-    m_kneeTargetNits.store(v, std::memory_order_release);
-    bumpStage();
+    editKnee([v](bool &, float &, float &tgt, float &) {
+        if (std::abs(tgt - v) >= 1e-3f) tgt = v;
+    });
 }
 
 void OCIOConfigManager::setKneeStart(double fraction)
 {
     const float v = fraction < 0.0 ? -1.0f
                                    : static_cast<float>(std::clamp(fraction, 0.0, 0.99));
-    if (std::abs(m_kneeStart.load() - v) < 1e-5f) return;
-    m_kneeStart.store(v, std::memory_order_release);
-    bumpStage();
+    editKnee([v](bool &, float &, float &, float &start) {
+        if (std::abs(start - v) >= 1e-5f) start = v;
+    });
 }
 
 LinearStageSettings OCIOConfigManager::linearStageSettings(float gain) const
 {
-    LinearStageSettings s;
-    s.gain           = gain;
-    s.kneeEnabled    = m_kneeEnabled.load(std::memory_order_acquire);
-    s.kneeSourceNits = m_kneeSourceNits.load(std::memory_order_acquire);
-    s.kneeTargetNits = m_kneeTargetNits.load(std::memory_order_acquire);
-    s.kneeStart      = m_kneeStart.load(std::memory_order_acquire);
-    return s;
+    return specFor(focusedScene()).stage(gain);
 }
 
 bool OCIOConfigManager::kneeAvailable() const
 {
     if (!m_impl->config) return false;
     OcioSplitTransforms t;
-    return OcioChainBuilder::buildSplitTransforms(
-        const_cast<OCIOConfigManager *>(this), m_impl->config, t);
+    return OcioChainBuilder::buildSplitTransforms(focusedSpec(), m_impl->config, t);
 }
 
 bool OCIOConfigManager::displayIsSdr() const
 {
     if (!m_impl->config) return true;
     OcioSplitTransforms t;
-    if (!OcioChainBuilder::buildSplitTransforms(
-            const_cast<OCIOConfigManager *>(this), m_impl->config, t)) {
+    if (!OcioChainBuilder::buildSplitTransforms(focusedSpec(), m_impl->config, t)) {
         return true;
     }
     return t.displayIsSdr;
@@ -741,7 +768,216 @@ double OCIOConfigManager::kneeStartNits() const
 {
     const LinearStageGpu g = linear_stage::resolve(
         linearStageSettings(1.0f), InterchangeSide::Display, displayIsSdr());
-    return linear_stage::kneeStartNits(g.p1[0], m_kneeSourceNits.load());
+    return linear_stage::kneeStartNits(g.p1[0], focusedScene().kneeSourceNits);
+}
+
+// -------- Per-clip scene chain --------
+
+void OCIOConfigManager::setViewContext(const QString &singleClipId, bool dual,
+                                       const QString &clipA, const QString &clipB)
+{
+    if (m_singleClip == singleClipId && m_dual == dual && m_clipA == clipA
+        && m_clipB == clipB) {
+        return;
+    }
+    m_singleClip = singleClipId;
+    m_dual       = dual;
+    m_clipA      = clipA;
+    m_clipB      = clipB;
+    emit viewContextChanged();
+    publish(/*knee=*/true);   // the focused knee may differ too
+}
+
+QString OCIOConfigManager::focusClipId() const
+{
+    if (!m_dual) return m_singleClip;
+    return (m_activeTab == 1 && !m_ganged) ? m_clipB : m_clipA;
+}
+
+void OCIOConfigManager::setGanged(bool on)
+{
+    if (m_ganged == on) return;
+    m_ganged = on;
+    emit viewContextChanged();
+    publish(/*knee=*/true);
+}
+
+void OCIOConfigManager::setActiveTab(int tab)
+{
+    tab = tab == 1 ? 1 : 0;
+    if (m_activeTab == tab) return;
+    m_activeTab = tab;
+    emit viewContextChanged();
+    publish(/*knee=*/true);
+}
+
+namespace {
+
+std::optional<OcioScenePin::Knee> kneeOf(const OcioSceneChain &c)
+{
+    return OcioScenePin::Knee{c.kneeEnabled, c.kneeSourceNits, c.kneeTargetNits, c.kneeStart};
+}
+
+} // namespace
+
+bool OCIOConfigManager::slotPinned(Slot slot) const
+{
+    const auto it = m_pins.constFind(focusClipId());
+    if (it == m_pins.constEnd()) return false;
+    switch (slot) {
+    case Slot::Input:    return it->input.has_value();
+    case Slot::Look:     return it->look.has_value();
+    case Slot::SceneLut: return it->sceneLut.has_value();
+    case Slot::Knee:     return it->knee.has_value();
+    }
+    return false;
+}
+
+OcioScenePin *OCIOConfigManager::editPin(Slot slot)
+{
+    const QString clip = focusClipId();
+    if (clip.isEmpty()) return nullptr;
+    // Dual view: editing a side is that clip's remembered state.
+    if (m_dual) return &m_pins[clip];
+    return slotPinned(slot) ? &m_pins[clip] : nullptr;
+}
+
+void OCIOConfigManager::notePinEdit(const QString &clipId)
+{
+    emit pinsChanged(clipId);
+}
+
+void OCIOConfigManager::setSlotPinned(const QString &slotName, bool pinned)
+{
+    const QString clip = focusClipId();
+    if (clip.isEmpty()) return;
+    const OcioSceneChain cur = focusedScene();
+    OcioScenePin &pin = m_pins[clip];
+    if (slotName == QLatin1String("input")) {
+        pin.input = pinned ? std::optional<QString>(cur.input) : std::nullopt;
+    } else if (slotName == QLatin1String("look")) {
+        pin.look = pinned ? std::optional<QString>(cur.look) : std::nullopt;
+    } else if (slotName == QLatin1String("sceneLut")) {
+        pin.sceneLut = pinned ? std::optional<OcioScenePin::SceneLut>(
+                                    OcioScenePin::SceneLut{cur.sceneLutPath, cur.sceneLutCccId})
+                              : std::nullopt;
+    } else if (slotName == QLatin1String("knee")) {
+        pin.knee = pinned ? kneeOf(cur) : std::nullopt;
+    } else {
+        qWarning("OCIOConfigManager: unknown slot '%s'", qPrintable(slotName));
+    }
+    if (pin.empty()) m_pins.remove(clip);
+    notePinEdit(clip);
+    publish(/*knee=*/true);
+}
+
+void OCIOConfigManager::copyAChainToB()
+{
+    if (m_clipA.isEmpty() || m_clipB.isEmpty() || m_clipA == m_clipB) return;
+    const OcioSceneChain a = resolveScene(m_clipA);
+    OcioScenePin pin;
+    pin.input    = a.input;
+    pin.look     = a.look;
+    pin.sceneLut = OcioScenePin::SceneLut{a.sceneLutPath, a.sceneLutCccId};
+    pin.knee     = kneeOf(a);
+    m_pins[m_clipB] = pin;
+    notePinEdit(m_clipB);
+    publish(/*knee=*/true);
+}
+
+bool OCIOConfigManager::clipHasPins(const QString &clipId) const
+{
+    return m_pins.contains(clipId);
+}
+
+void OCIOConfigManager::clearClipPins(const QString &clipId)
+{
+    if (!m_pins.remove(clipId)) return;
+    notePinEdit(clipId);
+    publish(/*knee=*/true);
+}
+
+OcioSceneChain OCIOConfigManager::resolveScene(const QString &clipId) const
+{
+    OcioSceneChain s = m_default;
+    if (clipId.isEmpty()) return s;
+    const auto it = m_pins.constFind(clipId);
+    if (it == m_pins.constEnd()) return s;
+    // A pin naming something the current config lacks (pinned under
+    // another config) falls back to the default for that slot.
+    if (it->input && (it->input->isEmpty() || isValidColorSpace(*it->input))) {
+        s.input = *it->input;
+    }
+    if (it->look && (it->look->isEmpty() || isValidLook(*it->look))) s.look = *it->look;
+    if (it->sceneLut) {
+        s.sceneLutPath  = it->sceneLut->path;
+        s.sceneLutCccId = it->sceneLut->cccId;
+    }
+    if (it->knee) {
+        s.kneeEnabled    = it->knee->enabled;
+        s.kneeSourceNits = it->knee->sourceNits;
+        s.kneeTargetNits = it->knee->targetNits;
+        s.kneeStart      = it->knee->start;
+    }
+    return s;
+}
+
+OcioChainSpec OCIOConfigManager::specFor(const OcioSceneChain &scene) const
+{
+    OcioChainSpec spec;
+    spec.configPath     = m_impl->config ? m_configIdentifier : QString();
+    spec.scene          = scene;
+    spec.display        = m_activeDisplay;
+    spec.view           = m_activeView;
+    spec.displayLutPath = m_activeDisplayLutPath;
+    QString d, v;
+    if (sdrCaptureDisplayView(&d, &v)) {
+        spec.sdrDisplay = d;
+        spec.sdrView    = v;
+    }
+    return spec;
+}
+
+OcioChainSpec OCIOConfigManager::focusedSpec() const
+{
+    return specFor(focusedScene());
+}
+
+OcioChainSpec OCIOConfigManager::specForClip(const QString &clipId) const
+{
+    return specFor(resolveScene(clipId));
+}
+
+std::shared_ptr<const OcioChainSnapshot> OCIOConfigManager::snapshot() const
+{
+    std::lock_guard lock(m_snapshotMutex);
+    return m_snapshot;
+}
+
+void OCIOConfigManager::publish(bool knee)
+{
+    // A dual-view edit that changed nothing can leave an empty pin.
+    m_pins.removeIf([](const auto &it) { return it.value().empty(); });
+    auto snap = std::make_shared<OcioChainSnapshot>();
+    snap->engaged = m_engaged;
+    snap->dual    = m_dual;
+    // The display side and the SDR capture pair are shared: resolve once.
+    const OcioChainSpec base = specFor(m_default);
+    auto withScene = [&base](const OcioSceneChain &scene) {
+        OcioChainSpec s = base;
+        s.scene = scene;
+        return s;
+    };
+    snap->single = withScene(resolveScene(m_singleClip));
+    snap->a      = withScene(resolveScene(m_clipA));
+    snap->b      = m_ganged ? snap->a : withScene(resolveScene(m_clipB));
+    snap->generation = m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+    {
+        std::lock_guard lock(m_snapshotMutex);
+        m_snapshot = std::move(snap);
+    }
+    if (knee) m_stageGeneration.fetch_add(1, std::memory_order_acq_rel);
+    emit activeChainChanged();
 }
 
 // -------- private --------
@@ -757,29 +993,32 @@ void OCIOConfigManager::resetActiveDefaults()
     // where there's no chain to engage with, and (b) the constructor's
     // default initializer in the header (engaged = false on launch).
     if (!m_impl->config) {
-        m_activeInput.clear();
+        m_default = OcioSceneChain{};
         m_activeDisplay.clear();
         m_activeView.clear();
-        m_activeLook.clear();
-        m_activeSceneLutPath.clear();
         m_activeDisplayLutPath.clear();
         m_engaged = false;
-        emit activeChainChanged();
+        publish(/*knee=*/true);
         return;
     }
+    // The knee settings are the user's, not the config's: keep them.
+    const OcioSceneChain prev = m_default;
+    m_default = OcioSceneChain{};
+    m_default.kneeEnabled    = prev.kneeEnabled;
+    m_default.kneeSourceNits = prev.kneeSourceNits;
+    m_default.kneeTargetNits = prev.kneeTargetNits;
+    m_default.kneeStart      = prev.kneeStart;
 
     // Default Input — try 'color_picking' role (sRGB-equivalent in
     // most configs); fall back to 'scene_linear'; then to the first
     // colorspace.
     if (const char *cs = m_impl->config->getRoleColorSpace("color_picking"); cs && *cs) {
-        m_activeInput = QString::fromUtf8(cs);
+        m_default.input = QString::fromUtf8(cs);
     } else if (const char *cs = m_impl->config->getRoleColorSpace("scene_linear"); cs && *cs) {
-        m_activeInput = QString::fromUtf8(cs);
+        m_default.input = QString::fromUtf8(cs);
     } else if (m_impl->config->getNumColorSpaces() > 0) {
-        m_activeInput = QString::fromUtf8(
+        m_default.input = QString::fromUtf8(
             m_impl->config->getColorSpaceNameByIndex(0));
-    } else {
-        m_activeInput.clear();
     }
 
     // Default Display — config's default display.
@@ -814,12 +1053,9 @@ void OCIOConfigManager::resetActiveDefaults()
         m_activeView.clear();
     }
 
-    m_activeLook.clear();
-    m_activeSceneLutPath.clear();
     m_activeDisplayLutPath.clear();
     // m_engaged intentionally preserved — see comment at top of fn.
-    m_activeChainGeneration.fetch_add(1, std::memory_order_acq_rel);
-    emit activeChainChanged();
+    publish(/*knee=*/true);
 }
 
 bool OCIOConfigManager::isValidColorSpace(const QString &name) const

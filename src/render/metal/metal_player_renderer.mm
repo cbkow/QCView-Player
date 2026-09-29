@@ -380,6 +380,84 @@ struct MetalPlayerRenderer::Impl {
     int                     compositeRawDualW = 0;
     int                     compositeRawDualH = 0;
 
+    // Per-side OCIO chains (colour plan stage 2): when A and B resolve to
+    // different chains, A's canvas (compositeRawDual) and B's canvas run
+    // through their own instance, then combine in display space — A where
+    // A has coverage, else B; Difference = |A' − B'| × gain.
+    MetalOcioRenderer           ocioB;
+    MetalOcioRenderer           captureOcioB;
+    id<MTLTexture>              compositeRawDualB = nil;
+    id<MTLTexture>              dualCombined      = nil;   // live
+    id<MTLTexture>              captureCombined   = nil;   // capture
+    id<MTLComputePipelineState> combinePso        = nil;
+
+    bool ensureCombinePso()
+    {
+        if (combinePso) return true;
+        static const char *kCombineMsl = R"(
+#include <metal_stdlib>
+using namespace metal;
+struct CombineParams { int difference; float gain; };
+kernel void dual_combine(texture2d<float, access::read>  a   [[texture(0)]],
+                         texture2d<float, access::read>  b   [[texture(1)]],
+                         texture2d<float, access::write> dst [[texture(2)]],
+                         constant CombineParams &p           [[buffer(0)]],
+                         uint2 gid [[thread_position_in_grid]])
+{
+    if (gid.x >= dst.get_width() || gid.y >= dst.get_height()) return;
+    float4 ca = a.read(gid);
+    float4 cb = b.read(gid);
+    float4 o;
+    if (p.difference != 0) {
+        // A side with no coverage is black, not its chain's black.
+        if (ca.a <= 0.0) ca = float4(0.0);
+        if (cb.a <= 0.0) cb = float4(0.0);
+        o = float4(abs(ca.rgb - cb.rgb) * p.gain, max(ca.a, cb.a));
+    } else {
+        o = ca.a > 0.0 ? ca : cb;
+    }
+    dst.write(o, gid);
+}
+)";
+        NSError *err = nil;
+        id<MTLLibrary> lib = [device newLibraryWithSource:@(kCombineMsl) options:nil error:&err];
+        id<MTLFunction> fn = lib ? [lib newFunctionWithName:@"dual_combine"] : nil;
+        combinePso = fn ? [device newComputePipelineStateWithFunction:fn error:&err] : nil;
+        if (!combinePso) {
+            qWarning("MetalPlayerRenderer: dual combine pipeline failed: %s",
+                     err ? [err.localizedDescription UTF8String] : "(no error)");
+        }
+        return combinePso != nil;
+    }
+
+    // The two corrected canvases → `target` (reallocated to their size).
+    // Returns `a` unchanged when the combine can't run.
+    id<MTLTexture> combineSides(id<MTLCommandBuffer> cb, id<MTLTexture> a, id<MTLTexture> b,
+                                __strong id<MTLTexture> &target, bool difference, float gain)
+    {
+        if (!a || !b || !ensureCombinePso()) return a;
+        if (!target || target.width != a.width || target.height != a.height) {
+            MTLTextureDescriptor *d = [MTLTextureDescriptor
+                texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float
+                                             width:a.width height:a.height mipmapped:NO];
+            d.storageMode = MTLStorageModePrivate;
+            d.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+            target = [device newTextureWithDescriptor:d];
+            if (!target) return a;
+        }
+        struct { int difference; float gain; } params{difference ? 1 : 0, gain};
+        id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
+        [enc setComputePipelineState:combinePso];
+        [enc setTexture:a atIndex:0];
+        [enc setTexture:b atIndex:1];
+        [enc setTexture:target atIndex:2];
+        [enc setBytes:&params length:sizeof(params) atIndex:0];
+        [enc dispatchThreads:MTLSizeMake(a.width, a.height, 1)
+       threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+        [enc endEncoding];
+        return target;
+    }
+
     int frameCount = 0;
 };
 
@@ -471,6 +549,15 @@ bool MetalPlayerRenderer::init(PlayerWindow *window)
     if (!m_impl->captureOcio.initialize()) {
         qWarning("MetalPlayerRenderer: capture OCIO renderer init failed");
     }
+    // Dual view's B side, when its chain differs from A's.
+    if (!m_impl->ocioB.initialize()) {
+        qWarning("MetalPlayerRenderer: B-side OCIO renderer init failed");
+    }
+    m_impl->ocioB.setAsync(true);
+    m_impl->captureOcioB.setSdrCapture(true);
+    if (!m_impl->captureOcioB.initialize()) {
+        qWarning("MetalPlayerRenderer: B-side capture OCIO renderer init failed");
+    }
     for (auto &sc : m_impl->scopes) {
         if (!sc.initialize()) qWarning("MetalPlayerRenderer: scope renderer init failed");
     }
@@ -555,6 +642,8 @@ void MetalPlayerRenderer::shutdown()
     m_impl->pixbufBridge.shutdown();
     m_impl->ocio.shutdown();
     m_impl->captureOcio.shutdown();
+    m_impl->ocioB.shutdown();
+    m_impl->captureOcioB.shutdown();
     for (auto &sc : m_impl->scopes) sc.shutdown();
     m_impl->annotations.shutdown();
     m_impl->videoFrameRgba           = nil;
@@ -575,6 +664,10 @@ void MetalPlayerRenderer::shutdown()
     m_impl->compositeRawDual         = nil;
     m_impl->compositeRawDualW        = 0;
     m_impl->compositeRawDualH        = 0;
+    m_impl->compositeRawDualB        = nil;
+    m_impl->dualCombined             = nil;
+    m_impl->captureCombined          = nil;
+    m_impl->combinePso               = nil;
     m_impl->compositor.shutdown();
     m_impl->presentCompositor.shutdown();
     m_impl->captureCompositor.shutdown();
@@ -994,6 +1087,26 @@ void MetalPlayerRenderer::drawFrame()
                 [m_impl->device newTextureWithDescriptor:desc];
             m_impl->compositeRawDualW = canvasW;
             m_impl->compositeRawDualH = canvasH;
+            m_impl->compositeRawDualB = nil;   // B's canvas follows, on demand
+        }
+
+        // Per-side chains: A and B resolve to different chains (their
+        // clips' pins differ, not ganged). Equal chains keep one pass
+        // over the canvas, exactly as before.
+        const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
+        bool perSide = chains && chains->engaged && chains->perSide()
+                       && m_impl->ocio.isInitialized() && m_impl->ocioB.isInitialized();
+        if (perSide && !m_impl->compositeRawDualB) {
+            MTLTextureDescriptor *desc =
+                [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:
+                    MTLPixelFormatRGBA16Float
+                    width:canvasW height:canvasH mipmapped:NO];
+            desc.storageMode = MTLStorageModePrivate;
+            desc.usage = MTLTextureUsageShaderRead
+                       | MTLTextureUsageShaderWrite
+                       | MTLTextureUsageRenderTarget;
+            m_impl->compositeRawDualB = [m_impl->device newTextureWithDescriptor:desc];
+            if (!m_impl->compositeRawDualB) perSide = false;
         }
 
         // Re-init presentCompositor at the layer's pixel format if
@@ -1031,9 +1144,12 @@ void MetalPlayerRenderer::drawFrame()
                 [cb renderCommandEncoderWithDescriptor:rpd];
             // Dual compositor draws at canvas size, not drawable
             // size. The present blit handles the canvas → drawable
-            // upscale below.
-            m_impl->dualCompositor.renderFrame(
-                (__bridge void *)enc, canvasW, canvasH);
+            // upscale below. Per-side: A only here, B below.
+            const bool drewSides = m_impl->dualCompositor.renderFrame(
+                (__bridge void *)enc, canvasW, canvasH,
+                perSide ? 1 : 0, /*consume=*/!perSide);
+            // The spinner (no frames yet) has no sides to split.
+            if (!drewSides) perSide = false;
 
             // Phase 3.H.5 — hover-thumbnail corner overlays for dual
             // flow. Same drawing pass as the dual composite (writes
@@ -1080,6 +1196,22 @@ void MetalPlayerRenderer::drawFrame()
             [enc endEncoding];
         }
 
+        // ---- Pass 1 (B): B's side into its own canvas ----
+        if (perSide) {
+            MTLRenderPassDescriptor *rpd =
+                [MTLRenderPassDescriptor renderPassDescriptor];
+            rpd.colorAttachments[0].texture     = m_impl->compositeRawDualB;
+            rpd.colorAttachments[0].loadAction  = MTLLoadActionClear;
+            rpd.colorAttachments[0].clearColor  = MTLClearColorMake(0, 0, 0, 0);
+            rpd.colorAttachments[0].storeAction = MTLStoreActionStore;
+            id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rpd];
+            m_impl->dualCompositor.renderFrame((__bridge void *)enc, canvasW, canvasH,
+                                               /*passSide=*/2, /*consume=*/true);
+            [enc endEncoding];
+        }
+        const bool difference = m_compMode == CompositorMode::Difference;
+        const float diffGain  = m_impl->dualCompositor.diffGain();
+
         // ---- Pass 1b: OCIO compute pass (compositeRawDual → corrected) ----
         // Per Guide 01 §7 OCIO is post-composite — one chain over the
         // canvas, not per-side. Reuses the same MetalOcioRenderer the
@@ -1088,11 +1220,10 @@ void MetalPlayerRenderer::drawFrame()
         // no pipeline, `dualCorrected` aliases compositeRawDual (no
         // copy) and the present blit reads from the raw canvas.
         void *dualCorrected = (__bridge void *)m_impl->compositeRawDual;
-        if (m_ocio && m_ocio->engaged()) {
-            m_impl->ocio.setStage(m_ocio->linearStageSettings(
-                    m_gain.load(std::memory_order_relaxed)));
-                m_impl->ocio.setViewer(currentViewerAids());
-                m_impl->ocio.rebuild(m_ocio);
+        if (chains && chains->engaged) {
+            m_impl->ocio.setStage(chains->a.stage(m_gain.load(std::memory_order_relaxed)));
+            m_impl->ocio.setViewer(currentViewerAids());
+            m_impl->ocio.rebuild(chains->a);
             if (m_impl->ocio.hasPipeline()) {
                 void *ocioOut = m_impl->ocio.apply(
                     (__bridge void *)cb,
@@ -1100,6 +1231,22 @@ void MetalPlayerRenderer::drawFrame()
                     m_impl->compositeRawDualW,
                     m_impl->compositeRawDualH);
                 if (ocioOut) dualCorrected = ocioOut;
+            }
+            if (perSide) {
+                m_impl->ocioB.setStage(chains->b.stage(m_gain.load(std::memory_order_relaxed)));
+                m_impl->ocioB.setViewer(currentViewerAids());
+                m_impl->ocioB.rebuild(chains->b);
+                // B's chain still compiling (or failed): B shows raw
+                // rather than vanishing.
+                void *outB = m_impl->ocioB.hasPipeline()
+                    ? m_impl->ocioB.apply((__bridge void *)cb,
+                                          (__bridge void *)m_impl->compositeRawDualB,
+                                          canvasW, canvasH)
+                    : nullptr;
+                if (!outB) outB = (__bridge void *)m_impl->compositeRawDualB;
+                dualCorrected = (__bridge void *)m_impl->combineSides(
+                    cb, (__bridge id<MTLTexture>)dualCorrected, (__bridge id<MTLTexture>)outB,
+                    m_impl->dualCombined, difference, diffGain);
             }
         }
 
@@ -1296,11 +1443,11 @@ void MetalPlayerRenderer::drawFrame()
                     [m_impl->device newTextureWithDescriptor:dstDesc];
 
                 void *capCorrected = (__bridge void *)m_impl->compositeRawDual;
-                if (m_ocio && m_ocio->engaged()) {
-                    m_impl->captureOcio.setStage(m_ocio->linearStageSettings(
-                    m_gain.load(std::memory_order_relaxed)));
-                m_impl->captureOcio.setViewer(currentViewerAids());
-                m_impl->captureOcio.rebuild(m_ocio);
+                if (chains && chains->engaged) {
+                    m_impl->captureOcio.setStage(
+                        chains->a.stage(m_gain.load(std::memory_order_relaxed)));
+                    m_impl->captureOcio.setViewer(currentViewerAids());
+                    m_impl->captureOcio.rebuild(chains->a);
                     if (m_impl->captureOcio.hasPipeline()) {
                         void *ocioOut = m_impl->captureOcio.apply(
                             (__bridge void *)cb,
@@ -1308,6 +1455,23 @@ void MetalPlayerRenderer::drawFrame()
                             m_impl->compositeRawDualW,
                             m_impl->compositeRawDualH);
                         if (ocioOut) capCorrected = ocioOut;
+                    }
+                    if (perSide) {
+                        m_impl->captureOcioB.setStage(
+                            chains->b.stage(m_gain.load(std::memory_order_relaxed)));
+                        m_impl->captureOcioB.setViewer(currentViewerAids());
+                        m_impl->captureOcioB.rebuild(chains->b);
+                        void *outB = m_impl->captureOcioB.hasPipeline()
+                            ? m_impl->captureOcioB.apply(
+                                  (__bridge void *)cb,
+                                  (__bridge void *)m_impl->compositeRawDualB,
+                                  canvasW, canvasH)
+                            : nullptr;
+                        if (!outB) outB = (__bridge void *)m_impl->compositeRawDualB;
+                        capCorrected = (__bridge void *)m_impl->combineSides(
+                            cb, (__bridge id<MTLTexture>)capCorrected,
+                            (__bridge id<MTLTexture>)outB,
+                            m_impl->captureCombined, difference, diffGain);
                     }
                 }
 
@@ -1886,12 +2050,12 @@ void MetalPlayerRenderer::drawFrame()
     // composited canvas, not per-side. When OCIO is disengaged,
     // compositeCorrected just aliases compositeRaw (no copy).
     void *compositeCorrected = (__bridge void *)m_impl->compositeRaw;
-    if (haveSourceTexture && m_ocio && m_ocio->engaged()
+    const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
+    if (haveSourceTexture && chains && chains->engaged
         && m_impl->compositeRaw) {
-        m_impl->ocio.setStage(m_ocio->linearStageSettings(
-                    m_gain.load(std::memory_order_relaxed)));
-                m_impl->ocio.setViewer(currentViewerAids());
-                m_impl->ocio.rebuild(m_ocio);
+        m_impl->ocio.setStage(chains->single.stage(m_gain.load(std::memory_order_relaxed)));
+        m_impl->ocio.setViewer(currentViewerAids());
+        m_impl->ocio.rebuild(chains->single);
         if (m_impl->ocio.hasPipeline()) {
             void *ocioOut = m_impl->ocio.apply(
                 (__bridge void *)cb,
@@ -2216,11 +2380,12 @@ void MetalPlayerRenderer::drawFrame()
             // ---- Pass 2: OCIO compute (in-place if engaged) ----
             void *correctedTex =
                 (__bridge void *)m_impl->captureSourceRgba16f;
-            if (m_ocio && m_ocio->engaged()) {
-                m_impl->captureOcio.setStage(m_ocio->linearStageSettings(
-                    m_gain.load(std::memory_order_relaxed)));
+            const auto capChains = m_ocio ? m_ocio->snapshot() : nullptr;
+            if (capChains && capChains->engaged) {
+                m_impl->captureOcio.setStage(
+                    capChains->single.stage(m_gain.load(std::memory_order_relaxed)));
                 m_impl->captureOcio.setViewer(currentViewerAids());
-                m_impl->captureOcio.rebuild(m_ocio);
+                m_impl->captureOcio.rebuild(capChains->single);
                 if (m_impl->captureOcio.hasPipeline()) {
                     void *ocioOut = m_impl->captureOcio.apply(
                         (__bridge void *)capCb,

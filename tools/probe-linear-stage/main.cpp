@@ -60,9 +60,9 @@ void runChain(OCIOConfigManager &mgr, OCIO::ConstConfigRcPtr cfg,
     mgr.setActiveView(QString::fromUtf8(view));
 
     OCIO::GroupTransformRcPtr whole =
-        OcioChainBuilder::buildGroupTransform(&mgr, cfg);
+        OcioChainBuilder::buildGroupTransform(mgr.focusedSpec(), cfg);
     OcioSplitTransforms split;
-    if (!whole || !OcioChainBuilder::buildSplitTransforms(&mgr, cfg, split)) {
+    if (!whole || !OcioChainBuilder::buildSplitTransforms(mgr.focusedSpec(), cfg, split)) {
         ++failed;
         return;
     }
@@ -125,7 +125,7 @@ void kneeCheck(OCIOConfigManager &mgr, OCIO::ConstConfigRcPtr cfg,
     mgr.setActiveView(QString::fromUtf8(view));
     OcioSplitTransforms split;
     QString err;
-    if (!OcioChainBuilder::buildSplitTransforms(&mgr, cfg, split, &err)) {
+    if (!OcioChainBuilder::buildSplitTransforms(mgr.focusedSpec(), cfg, split, &err)) {
         std::printf("  knee %s → %s/%s: split failed: %s\n", input, display, view,
                     qPrintable(err));
         return;
