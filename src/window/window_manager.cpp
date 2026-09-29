@@ -6155,6 +6155,23 @@ void WindowManager::installGlobalKeyFilter(QQuickWindow *window)
     }
 }
 
+QQuickItem *WindowManager::popupTextFieldFocused() const
+{
+    // An open popup window (ThemedMenu, the Input picker) whose focused
+    // item is a text field — see eventFilter.
+    for (QWindow *w : QGuiApplication::topLevelWindows()) {
+        auto *pw = qobject_cast<QQuickWindow *>(w);
+        if (!pw || !pw->isVisible()) continue;
+        if (pw->type() != Qt::Popup && !pw->inherits("QQuickPopupWindow")) continue;
+        QQuickItem *field = pw->activeFocusItem();
+        if (field && field->property("cursorPosition").isValid()
+            && field->property("selectionStart").isValid()) {
+            return field;
+        }
+    }
+    return nullptr;
+}
+
 bool WindowManager::eventFilter(QObject *watched, QEvent *event)
 {
     const QEvent::Type t = event->type();
@@ -6253,11 +6270,61 @@ bool WindowManager::eventFilter(QObject *watched, QEvent *event)
         return QObject::eventFilter(watched, event);
     }
 
+    // A QML Shortcut (the project panel's Delete / Backspace — which
+    // delete the selected items — Ctrl+A, F2) fires unless the focused
+    // item claims the key in a ShortcutOverride first. Qt asks the main
+    // window's focus item, never a popup's text field, so while one is
+    // being typed in (the Input picker's filter) claim every key for it.
+    if (t == QEvent::ShortcutOverride && popupTextFieldFocused()) {
+        event->accept();
+        return true;
+    }
+
     if (t != QEvent::KeyPress && t != QEvent::KeyRelease) {
         return QObject::eventFilter(watched, event);
     }
 
     auto *ke = static_cast<QKeyEvent *>(event);
+
+    // Popup windows (ThemedMenu's Popup.Window menus, and the project
+    // panel's Input picker inside one) never become the focus window, so
+    // QGuiApplication::focusObject() below still names the MAIN window's
+    // focus item: a letter typed into the picker's filter would be eaten
+    // as a transport shortcut. Keys belong to an open popup instead:
+    //   - delivered to the popup window (or an item in it) → pass through
+    //     untouched (its filter, its arrow keys, Escape);
+    //   - delivered to the main window while a popup's text field holds
+    //     focus → hand them to that field.
+    // QCV_KEY_DEBUG=1 logs which route a platform takes.
+    {
+        static const bool keyDebug = qEnvironmentVariableIsSet("QCV_KEY_DEBUG");
+        auto isPopupWindow = [](QWindow *w) {
+            return w && (w->type() == Qt::Popup || w->inherits("QQuickPopupWindow"));
+        };
+        QWindow *keyWin = qobject_cast<QWindow *>(watched);
+        if (!keyWin) {
+            if (auto *item = qobject_cast<QQuickItem *>(watched)) keyWin = item->window();
+        }
+        if (isPopupWindow(keyWin)) {
+            if (keyDebug && t == QEvent::KeyPress) {
+                qInfo("keys: popup route (%s) key=%d", watched->metaObject()->className(),
+                      ke->key());
+            }
+            return QObject::eventFilter(watched, event);
+        }
+        if (qobject_cast<QWindow *>(watched)) {
+            if (QQuickItem *field = popupTextFieldFocused()) {
+                if (keyDebug && t == QEvent::KeyPress) {
+                    qInfo("keys: main-window route → popup field key=%d", ke->key());
+                }
+                QKeyEvent copy(ke->type(), ke->key(), ke->modifiers(), ke->nativeScanCode(),
+                               ke->nativeVirtualKey(), ke->nativeModifiers(), ke->text(),
+                               ke->isAutoRepeat(), ke->count());
+                QCoreApplication::sendEvent(field, &copy);
+                return true;
+            }
+        }
+    }
 
     // Bail when a text input has focus so users can still type
     // letters in note bodies, save-dialog name fields, etc. Use

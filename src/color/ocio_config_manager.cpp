@@ -956,6 +956,21 @@ void OCIOConfigManager::copyClipChain(const QString &fromClipId, const QStringLi
     if (any) publish(/*knee=*/true);
 }
 
+QStringList OCIOConfigManager::inputsInUse() const
+{
+    QStringList out;
+    if (!m_default.input.isEmpty()) out << m_default.input;
+    QStringList own;
+    for (const OcioScenePin &pin : m_pins) {
+        if (pin.input && !pin.input->isEmpty() && !out.contains(*pin.input)
+            && !own.contains(*pin.input) && isValidColorSpace(*pin.input)) {
+            own << *pin.input;
+        }
+    }
+    own.sort(Qt::CaseInsensitive);
+    return out + own;
+}
+
 void OCIOConfigManager::resetClipChains(const QStringList &clipIds)
 {
     bool any = false;

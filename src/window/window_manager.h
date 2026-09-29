@@ -918,6 +918,9 @@ public:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    // The focused text field of an open popup window (a menu, the Input
+    // picker), or nullptr — keys and shortcut overrides go to it.
+    QQuickItem *popupTextFieldFocused() const;
 
 public:
 

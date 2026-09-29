@@ -245,6 +245,11 @@ public:
     Q_INVOKABLE void setInputForClips(const QStringList &clipIds, const QString &colourspace);
     Q_INVOKABLE void copyClipChain(const QString &fromClipId, const QStringList &toClipIds);
     Q_INVOKABLE void resetClipChains(const QStringList &clipIds);
+    // The Inputs in use in the project: the default first, then every
+    // clip's own, no repeats — the bulk Input picker's top section.
+    Q_INVOKABLE QStringList inputsInUse() const;
+    // The default chain's Input (what an untouched clip shows).
+    Q_INVOKABLE QString defaultInput() const { return m_default.input; }
     OcioScenePin clipPins(const QString &clipId) const { return m_pins.value(clipId); }
     // Persistence (MediaItem::ocioClip): one clip's pins, and every
     // clip's at once when a project loads (replaces all, one publish).

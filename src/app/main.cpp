@@ -820,6 +820,44 @@ int main(int argc, char *argv[])
             }
         });
     }
+    // Dev aid: QCV_INPUT_PICKER_GRAB=<dir>[@<filter>] opens the project
+    // panel's row menu and its Input picker with every media item selected
+    // (5 s after launch), types <filter>, and saves each top-level window
+    // (the popups) to <dir>/popup_<n>.png.
+    if (qEnvironmentVariableIsSet("QCV_INPUT_PICKER_GRAB")) {
+        const QString spec = qEnvironmentVariable("QCV_INPUT_PICKER_GRAB");
+        const QString dir = spec.section(QLatin1Char('@'), 0, 0);
+        const QString filter = spec.section(QLatin1Char('@'), 1);
+        QTimer::singleShot(5000, &engine, [&engine, filter] {
+            if (engine.rootObjects().isEmpty()) return;
+            if (auto *rail = engine.rootObjects().first()->findChild<QObject *>(
+                    QStringLiteral("leftRail"))) {
+                QMetaObject::invokeMethod(rail, "testOpenInputPicker",
+                                          Q_ARG(QVariant, filter));
+            }
+        });
+        QTimer::singleShot(8000, &engine, [&engine] {
+            if (engine.rootObjects().isEmpty()) return;
+            if (auto *rail = engine.rootObjects().first()->findChild<QObject *>(
+                    QStringLiteral("leftRail"))) {
+                QVariant text;
+                QMetaObject::invokeMethod(rail, "testInputFilterText", Q_RETURN_ARG(QVariant, text));
+                qInfo("QCV_INPUT_PICKER_GRAB: filter now '%s'", qPrintable(text.toString()));
+            }
+        });
+        QTimer::singleShot(8200, &engine, [dir] {
+            int n = 0;
+            for (QWindow *w : QGuiApplication::topLevelWindows()) {
+                auto *qw = qobject_cast<QQuickWindow *>(w);
+                if (!qw || !qw->isVisible()) continue;
+                const QImage img = qw->grabWindow();
+                const QString path = QStringLiteral("%1/popup_%2.png").arg(dir).arg(n++);
+                qInfo("QCV_INPUT_PICKER_GRAB: %s %dx%d → %s", qw->metaObject()->className(),
+                      img.width(), img.height(), qPrintable(path));
+                if (!img.isNull()) img.save(path);
+            }
+        });
+    }
     // Dev aid: QCV_PRESET_TEST="<a|b>;<preset name>" applies a preset from
     // that dual tab 5 s after launch and logs both sides' chains.
     if (qEnvironmentVariableIsSet("QCV_PRESET_TEST")) {

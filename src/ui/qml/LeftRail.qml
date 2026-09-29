@@ -25,6 +25,7 @@ import Qcv
 // Layout above passes the full rail height straight through.
 Rectangle {
     id: root
+    objectName: "leftRail"   // dev hook QCV_INPUT_PICKER_GRAB
     implicitWidth: 280
     // Darker well (aesthetics pass 2) — sections render as raised
     // card planes on this, mirroring the right rail's treatment.
@@ -789,6 +790,25 @@ Rectangle {
     property var    ctxChainIds: []
     property string ctxSourceClipId: ""
     property string ctxSourceClipName: ""
+    // Dev hook QCV_INPUT_PICKER_GRAB: select every chainable media item,
+    // open the row menu and its Input picker, type `filter`.
+    function testOpenInputPicker(filter) {
+        const flat = WindowManager.project ? (WindowManager.project.flatItems || []) : [];
+        let first = "";
+        for (let i = 0; i < flat.length; ++i) {
+            const t = flat[i].type || 0;
+            if (t !== 0 && t !== 2 && t !== 3 && t !== 6) continue;
+            if (!first) { first = flat[i].id; root.selectItem(first, 0); }
+            else root.selectItem(flat[i].id, Qt.ControlModifier);
+        }
+        root.openRowMenu(first);
+        inputSubMenu.open();
+        inputFilter.text = filter;
+    }
+    function testInputFilterText() {
+        const n = WindowManager.project ? (WindowManager.project.flatItems || []).length : -1;
+        return inputFilter.text + "' · items " + n + " · selected " + root.selectedItemIds.length + " '";
+    }
     function openRowMenu(rowItemId) {
         // Standard right-click selection semantics: if the clicked
         // row isn't already part of the selection, replace selection
@@ -815,19 +835,168 @@ Rectangle {
         MenuSeparator {}
         // Clip chain (the Color panel's Clip group) for every selected
         // clip at once.
+        // Input for every selected clip: a flyout picker rather than a
+        // flat list (configs carry 60–100+ colourspaces) — a filter field
+        // that takes typing straight away, the Inputs already in use in
+        // the project on top, then the whole list, scrolling. Enter picks
+        // the first match; ↓ moves into the list.
         ThemedMenu {
             id: inputSubMenu
             title: qsTr("Input")
             enabled: root.ctxChainIds.length > 0 && !!WindowManager.ocio
-            Instantiator {
-                model: WindowManager.ocio ? WindowManager.ocio.colorspaces : []
-                delegate: MenuItem {
-                    required property string modelData
-                    text: modelData
-                    onTriggered: WindowManager.ocio.setInputForClips(root.ctxChainIds, modelData)
+            width: 300   // camera colourspace names run long
+            onOpened: {
+                inputFilter.text = "";
+                inputList.currentIndex = -1;
+                inputFilter.forceActiveFocus();
+            }
+
+            Item {
+                id: inputPicker
+                implicitWidth: 300
+                implicitHeight: 380
+                property string filterText: ""
+                readonly property var used: WindowManager.ocio
+                    ? (WindowManager.ocio.pinsRevision, WindowManager.ocio.inputsInUse()) : []
+                readonly property string defaultInput: WindowManager.ocio
+                    ? (WindowManager.ocio.pinsRevision, WindowManager.ocio.defaultInput()) : ""
+                readonly property var entries: {
+                    const f = filterText.trim().toLowerCase();
+                    const all = WindowManager.ocio ? WindowManager.ocio.colorspaces : [];
+                    const out = [];
+                    const hit = (n) => f.length === 0 || n.toLowerCase().indexOf(f) >= 0;
+                    for (let i = 0; i < used.length; ++i)
+                        if (hit(used[i])) out.push({ name: used[i], section: qsTr("In this project") });
+                    for (let i = 0; i < all.length; ++i)
+                        if (hit(all[i])) out.push({ name: all[i], section: qsTr("All") });
+                    return out;
                 }
-                onObjectAdded: (index, object) => inputSubMenu.insertItem(index, object)
-                onObjectRemoved: (index, object) => inputSubMenu.removeItem(object)
+                function apply(name) {
+                    if (!name || !WindowManager.ocio) return;
+                    WindowManager.ocio.setInputForClips(root.ctxChainIds, name);
+                    rowContextMenu.dismiss();
+                }
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacing
+                    spacing: Theme.spacing
+
+                    Text {
+                        text: root.ctxChainIds.length === 1
+                              ? qsTr("Input for 1 clip")
+                              : qsTr("Input for %1 clips").arg(root.ctxChainIds.length)
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.bold: true
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8
+                    }
+                    FlatTextField {
+                        id: inputFilter
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Filter…")
+                        onTextChanged: {
+                            inputPicker.filterText = text;
+                            inputList.currentIndex = -1;
+                        }
+                        Keys.onReturnPressed: inputPicker.apply(
+                            inputPicker.entries.length > 0 ? inputPicker.entries[0].name : "")
+                        Keys.onEnterPressed: inputPicker.apply(
+                            inputPicker.entries.length > 0 ? inputPicker.entries[0].name : "")
+                        Keys.onDownPressed: {
+                            if (inputPicker.entries.length === 0) return;
+                            inputList.currentIndex = 0;
+                            inputList.forceActiveFocus();
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        color: Theme.surfaceRecess
+                        radius: Theme.radiusSmall
+                        clip: true
+
+                        ListView {
+                            id: inputList
+                            anchors.fill: parent
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            model: inputPicker.entries
+                            currentIndex: -1
+                            keyNavigationEnabled: true
+                            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                            Keys.onReturnPressed: if (currentIndex >= 0)
+                                inputPicker.apply(inputPicker.entries[currentIndex].name)
+                            Keys.onEnterPressed: if (currentIndex >= 0)
+                                inputPicker.apply(inputPicker.entries[currentIndex].name)
+                            Keys.onUpPressed: (event) => {
+                                if (currentIndex <= 0) inputFilter.forceActiveFocus();
+                                else event.accepted = false;
+                            }
+
+                            section.property: "section"
+                            section.criteria: ViewSection.FullString
+                            section.delegate: Rectangle {
+                                required property string section
+                                width: ListView.view.width
+                                height: 18
+                                color: Theme.surfaceRecess
+                                Text {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 6
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: section
+                                    color: Theme.textMuted
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeTiny
+                                    font.bold: true
+                                    font.capitalization: Font.AllUppercase
+                                    font.letterSpacing: 0.5
+                                }
+                            }
+                            delegate: Rectangle {
+                                id: inputRow
+                                required property var modelData
+                                required property int index
+                                width: ListView.view.width
+                                height: Theme.rowHeightDense
+                                color: inputRowMa.containsMouse || ListView.isCurrentItem
+                                       ? Theme.surfaceHover : "transparent"
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 6
+                                    anchors.rightMargin: 6
+                                    spacing: Theme.spacing
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: inputRow.modelData.name
+                                        color: Theme.textPrimary
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        visible: inputRow.modelData.section === qsTr("In this project")
+                                                 && inputRow.modelData.name === inputPicker.defaultInput
+                                        text: qsTr("default")
+                                        color: Theme.textMuted
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeTiny
+                                    }
+                                }
+                                MouseArea {
+                                    id: inputRowMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: inputPicker.apply(inputRow.modelData.name)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         MenuItem {
