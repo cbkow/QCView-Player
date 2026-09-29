@@ -52,6 +52,8 @@ public:
     void setHdrMode(HdrMode mode) override;
     void setBrightness(float brightness) override;
     void setViewerAids(float gamma, int channel) override;
+    void setScopeConfig(const ScopeConfig &config) override;
+    bool scopeImage(QImage *out, quint64 *serial, ScopeKind kind) override;
     ViewerAids currentViewerAids() const;
     void setImageSeqCache(ImageSequenceCache *c) override;
     void setVideoDecoder(VideoDecoder *d) override;

@@ -125,6 +125,18 @@ public:
                                      Language language,
                                      const DisplayViewOverride *override = nullptr);
 
+    // Vectorscope conversion (Assumed / Input tiers): `colorspace` → the
+    // interchange role on its own reference-space side, so no View is
+    // crossed. Function "OCIOScope", prefix "ocio_scope_". `sideOut`
+    // tells the caller which fixed matrix takes it to linear Rec.2020
+    // (linear_stage::resolve). Fails for data colourspaces / a missing
+    // role; the scope then falls back to its Signal tier.
+    static OcioChain buildScope(OCIOConfigManager *ocio, Language language,
+                                const QString &colorspace, InterchangeSide *sideOut);
+    static OCIO_NAMESPACE::TransformRcPtr buildScopeTransform(
+        OCIO_NAMESPACE::ConstConfigRcPtr cfg, const QString &colorspace,
+        InterchangeSide *sideOut, QString *errorOut = nullptr);
+
     // Split build (CPU transforms), same shape as buildSplit().
     static bool buildSplitTransforms(OCIOConfigManager *ocio,
                                      OCIO_NAMESPACE::ConstConfigRcPtr cfg,

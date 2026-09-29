@@ -4,6 +4,8 @@
 add_executable(probe-ocio-metal
     main.mm
     ${CMAKE_SOURCE_DIR}/src/render/metal/metal_ocio_renderer.mm
+    ${CMAKE_SOURCE_DIR}/src/render/metal/metal_ocio_luts.mm
+    ${CMAKE_SOURCE_DIR}/src/render/metal/metal_scope_renderer.mm
     ${CMAKE_SOURCE_DIR}/src/render/metal/metal_device_manager.mm
 )
 

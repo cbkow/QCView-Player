@@ -18,6 +18,8 @@
 
 #include <QImage>
 
+#include "color/scope_math.h"
+
 #include <vector>
 
 namespace qcv {
@@ -115,6 +117,16 @@ public:
     // channel view (0 RGB, 1 R, 2 G, 3 B, 4 A, 5 luma), applied after the
     // OCIO chain on the live view and in captures. Need OCIO engaged.
     virtual void setViewerAids(float /*gamma*/, int /*channel*/) {}
+    // Vectorscope (color/scope_math.h). The GUI resolves the tier /
+    // colourspace and sends the whole config; while config.active the
+    // renderer records a scope update into each drawn frame (never
+    // waiting on the GPU). scopeImage() returns the newest finished
+    // 512² image and its serial — any thread.
+    // One config per scope kind (vectorscope, waveform); routed by
+    // config.kind, each with its own renderer and image.
+    virtual void setScopeConfig(const ScopeConfig & /*config*/) {}
+    virtual bool scopeImage(QImage * /*out*/, quint64 * /*serial*/,
+                            ScopeKind /*kind*/ = ScopeKind::Vectorscope) { return false; }
     virtual void setImageSeqCache(ImageSequenceCache *c)   = 0;
     virtual void setVideoDecoder(VideoDecoder *d)          = 0;
     // Source B decoder — fed into the compositor's srcB slot for

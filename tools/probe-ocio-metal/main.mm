@@ -13,8 +13,11 @@
 #include "color/ocio_config_manager.h"
 #include "render/metal/metal_device_manager.h"
 #include "render/metal/metal_ocio_renderer.h"
+#include "render/metal/metal_scope_renderer.h"
+#include "color/scope_math.h"
 
 #include <QGuiApplication>
+#include <QPainter>
 #include <QWindow>
 
 #import <Metal/Metal.h>
@@ -24,6 +27,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -113,6 +117,141 @@ bool gpuRun(id<MTLDevice> dev, id<MTLCommandQueue> q, MetalOcioRenderer &r,
     return true;
 }
 
+// Scope: a synthetic 64×48 image of known colours through the real
+// MetalScopeRenderer vs scope_math::bin on the CPU (with the OCIO CPU
+// processor for the converted tier). Tap = source size (< 960), so each
+// thread samples one texel centre exactly: counts must match bin for bin.
+int scopeCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr,
+               OCIO::ConstConfigRcPtr cfg, const char *label, const ScopeConfig &sc)
+{
+    const int W = 64, H = 48;
+    std::vector<float> px(W * H * 4);
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            float *p = &px[(y * W + x) * 4];
+            // A spread of saturated, neutral and out-of-range values.
+            p[0] = (x % 8) / 7.0f * 1.1f - 0.05f;
+            p[1] = (y % 6) / 5.0f;
+            p[2] = ((x / 8 + y / 6) % 5) / 4.0f;
+            p[3] = (x == 0 && y == 0) ? 0.0f : 1.0f;   // one transparent pixel, skipped
+        }
+    }
+    MTLTextureDescriptor *td = [MTLTextureDescriptor
+        texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float width:W height:H mipmapped:NO];
+    id<MTLTexture> src = [dev newTextureWithDescriptor:td];
+    [src replaceRegion:MTLRegionMake2D(0, 0, W, H) mipmapLevel:0 withBytes:px.data()
+           bytesPerRow:W * 16];
+
+    MetalScopeRenderer scope;
+    scope.initialize();
+    scope.setConfig(sc);
+    id<MTLCommandBuffer> cb = [q commandBuffer];
+    if (!scope.encode((__bridge void *)cb, &mgr, (__bridge void *)src, W, H)) {
+        std::printf("FAIL scope %s: encode skipped\n", label);
+        return 1;
+    }
+    [cb commit];
+    [cb waitUntilCompleted];
+    std::vector<uint32_t> gpu, gpuOog;
+    scope.readCounts(gpu, gpuOog);
+
+    // CPU reference.
+    const bool converted = sc.tier != ScopeTier::Signal;
+    InterchangeSide side = InterchangeSide::None;
+    OCIO::ConstCPUProcessorRcPtr cpu;
+    if (converted) {
+        auto t = OcioChainBuilder::buildScopeTransform(cfg, sc.colorspace, &side);
+        cpu = cfg->getProcessor(t)->getDefaultCPUProcessor();
+    }
+    const ScopeAccumGpu u = scope_math::resolveAccum(sc, side, converted, W, H, 0);
+    std::vector<uint32_t> ref(kScopeGrid * kScopeGrid, 0), refOog(kScopeGrid * kScopeGrid, 0);
+    for (int i = 0; i < W * H; ++i) {
+        if (px[i * 4 + 3] <= 0.0f) continue;
+        float rgb[3] = {px[i * 4], px[i * 4 + 1], px[i * 4 + 2]};
+        if (cpu) cpu->applyRGB(rgb);
+        int bx, by; bool oog;
+        scope_math::bin(u, rgb, bx, by, oog, ((i % W) + 0.5f) / W);
+        ref[by * kScopeGrid + bx]++;
+        if (oog) refOog[by * kScopeGrid + bx]++;
+    }
+    // OCIO's GPU path approximates some curves (PQ via a LUT), so a few
+    // pixels can land one bin over. Count moved pixels, and fail if any
+    // GPU count has no CPU count within ±2 bins.
+    uint64_t total = 0, moved2 = 0, oogMoved2 = 0;
+    int far = 0;
+    for (int by = 0; by < kScopeGrid; ++by) {
+        for (int bx = 0; bx < kScopeGrid; ++bx) {
+            const size_t c = static_cast<size_t>(by) * kScopeGrid + bx;
+            total += gpu[c];
+            moved2 += gpu[c] > ref[c] ? gpu[c] - ref[c] : ref[c] - gpu[c];
+            oogMoved2 += gpuOog[c] > refOog[c] ? gpuOog[c] - refOog[c] : refOog[c] - gpuOog[c];
+            if (gpu[c] == 0) continue;
+            bool near = false;
+            for (int dy = -2; dy <= 2 && !near; ++dy) {
+                for (int dx = -2; dx <= 2 && !near; ++dx) {
+                    const int x = bx + dx, y = by + dy;
+                    if (x >= 0 && y >= 0 && x < kScopeGrid && y < kScopeGrid)
+                        near = ref[static_cast<size_t>(y) * kScopeGrid + x] > 0;
+                }
+            }
+            if (!near) ++far;
+        }
+    }
+    const int n = W * H - 1;
+    // One bin is 1/512 of the scope — invisible. The image repeats ~240
+    // colours, so one colour a bin over moves all its copies at once.
+    const bool ok = total == static_cast<uint64_t>(n) && far == 0;
+    std::printf("%s scope %-26s total %llu/%d, moved %llu px (≤ 2 bins), far %d, oog moved %llu\n",
+                ok ? "ok  " : "FAIL", label, (unsigned long long)total, n,
+                (unsigned long long)(moved2 / 2), far, (unsigned long long)(oogMoved2 / 2));
+    QImage img;
+    quint64 serial = 0;
+    if (!scope.latestImage(&img, &serial) || img.isNull()) {
+        std::printf("FAIL scope %s: no image\n", label);
+        return 1;
+    }
+    if (const char *dir = std::getenv("PROBE_SCOPE_DIR")) {
+        QImage onBlack(img.size(), QImage::Format_RGB32);
+        onBlack.fill(Qt::black);
+        QPainter(&onBlack).drawImage(0, 0, img);
+        onBlack.save(QString::fromUtf8(dir) + QLatin1Char('/')
+                     + QString::fromUtf8(label).replace(QLatin1Char(' '), QLatin1Char('_'))
+                     + QStringLiteral(".png"));
+    }
+    return ok ? 0 : 1;
+}
+
+// In-app conditions: 1920×1080 RGBA16F bars, tapped at 960×540.
+void barsCheck(id<MTLDevice> dev, id<MTLCommandQueue> q, OCIOConfigManager &mgr,
+               const ScopeConfig &sc)
+{
+    const int W = 1920, H = 1080;
+    std::vector<__fp16> px(W * H * 4);
+    const float bars[6][3] = {{1,0,0},{0,1,0},{0,0,1},{0,1,1},{1,0,1},{1,1,0}};
+    for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+        __fp16 *p = &px[(y * W + x) * 4];
+        const float *c = bars[std::min(x / 320, 5)];
+        p[0] = c[0]; p[1] = c[1]; p[2] = c[2]; p[3] = 1;
+    }
+    MTLTextureDescriptor *td = [MTLTextureDescriptor
+        texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:W height:H mipmapped:NO];
+    id<MTLTexture> src = [dev newTextureWithDescriptor:td];
+    [src replaceRegion:MTLRegionMake2D(0, 0, W, H) mipmapLevel:0 withBytes:px.data() bytesPerRow:W * 8];
+    MetalScopeRenderer scope;
+    scope.initialize();
+    scope.setConfig(sc);
+    id<MTLCommandBuffer> cb = [q commandBuffer];
+    scope.encode((__bridge void *)cb, &mgr, (__bridge void *)src, W, H);
+    [cb commit];
+    [cb waitUntilCompleted];
+    std::vector<uint32_t> g, o;
+    scope.readCounts(g, o);
+    std::printf("bars check (%s):", qPrintable(sc.colorspace));
+    for (int c = 0; c < kScopeGrid * kScopeGrid; ++c)
+        if (g[c] > 1000) std::printf(" (%d,%d)=%u", c % kScopeGrid, c / kScopeGrid, g[c]);
+    std::printf("\n");
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -191,6 +330,58 @@ int main(int argc, char **argv)
                         v.name, r.stageActive() ? 1 : 0, worst, c.config, c.input, c.display,
                         c.view);
         }
+    }
+    // ---- Scope ----
+    {
+        const std::string cfgPath = root + "/Blender5.2/config.ocio";
+        OCIOConfigManager mgr;
+        mgr.loadConfigFile(QString::fromStdString(cfgPath));
+        auto cfg = OCIO::Config::CreateFromFile(cfgPath.c_str());
+        ScopeConfig sc;
+        sc.active = true;
+        sc.tier = ScopeTier::Signal;
+        failures += scopeCheck(dev, q, mgr, cfg, "signal 709", sc);
+        sc.zoom = 2;
+        failures += scopeCheck(dev, q, mgr, cfg, "signal 709 zoom 2", sc);
+        sc.zoom = 1;
+        sc.tier = ScopeTier::Input;
+        sc.colorspace = "Rec.1886";
+        sc.scale = ScopeScale::Sdr;
+        failures += scopeCheck(dev, q, mgr, cfg, "input Rec.1886 SDR", sc);
+        sc.colorspace = "Rec.2100-PQ";
+        sc.scale = ScopeScale::Hdr;
+        failures += scopeCheck(dev, q, mgr, cfg, "input Rec.2100-PQ HDR", sc);
+        sc.colorspace = "Linear Rec.2020";
+        sc.scale = ScopeScale::Sdr;
+        failures += scopeCheck(dev, q, mgr, cfg, "input Linear 2020 SDR", sc);
+        ScopeConfig wf;
+        wf.active = true;
+        wf.kind = ScopeKind::Waveform;
+        wf.tier = ScopeTier::Signal;
+        failures += scopeCheck(dev, q, mgr, cfg, "waveform signal", wf);
+        wf.tier = ScopeTier::Input;
+        wf.colorspace = "Rec.2100-PQ";
+        wf.scale = ScopeScale::Hdr;
+        failures += scopeCheck(dev, q, mgr, cfg, "waveform nits HDR 1k", wf);
+        wf.waveformPeakNits = 4000;
+        failures += scopeCheck(dev, q, mgr, cfg, "waveform nits HDR 4k", wf);
+        wf.waveformPeakNits = 300;
+        failures += scopeCheck(dev, q, mgr, cfg, "waveform nits HDR 300", wf);
+    }
+    {
+        const std::string cfgPath = root + "/ACES_2.0/config.ocio";
+        OCIOConfigManager mgr;
+        mgr.loadConfigFile(QString::fromStdString(cfgPath));
+        auto cfg = OCIO::Config::CreateFromFile(cfgPath.c_str());
+        ScopeConfig sc;
+        sc.active = true;
+        sc.tier = ScopeTier::Assumed;
+        sc.colorspace = "Rec.1886 Rec.709 - Display";
+        sc.scale = ScopeScale::Sdr;
+        failures += scopeCheck(dev, q, mgr, cfg, "ACES Rec.1886 SDR", sc);
+        barsCheck(dev, q, mgr, sc);
+        sc.tier = ScopeTier::Signal;
+        barsCheck(dev, q, mgr, sc);
     }
     std::printf("%d failure(s)\n", failures);
     return failures ? 2 : 0;

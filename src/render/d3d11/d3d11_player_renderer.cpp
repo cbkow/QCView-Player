@@ -7,6 +7,7 @@
 #include "d3d11_gpu_upload_thread.h"
 #include "d3d11_hdr_swapchain.h"
 #include "d3d11_ocio_renderer.h"
+#include "d3d11_scope_renderer.h"
 #include "d3d11_texture_pool.h"
 #include "d3d11_vulkan_decode_bridge.h"
 #include "d3d11va_decode_bridge.h"          // Phase K.1
@@ -167,6 +168,32 @@ struct D3D11PlayerRenderer::Impl {
     // background by warmCaptureOcio() whenever the chain changes and
     // the live display isn't already sRGB.
     D3D11OcioRenderer                captureOcio;
+
+    // Vectorscope. Config set from the GUI under scopeMutex; encoded on
+    // the render thread into each drawn frame (never waits on the GPU).
+    // [0] vectorscope, [1] waveform — same renderer, different binning.
+    D3D11ScopeRenderer               scopes[2];
+    std::mutex                       scopeMutex;
+    ScopeConfig                      scopeConfig[2];
+
+    void encodeScope(ID3D11DeviceContext *ctx, OCIOConfigManager *ocio,
+                     ID3D11ShaderResourceView *srvA, int wA, int hA,
+                     ID3D11ShaderResourceView *srvB, int wB, int hB)
+    {
+        for (int k = 0; k < 2; ++k) {
+            ScopeConfig c;
+            {
+                std::lock_guard lk(scopeMutex);
+                c = scopeConfig[k];
+            }
+            if (!c.active || !srvA) {
+                scopes[k].releaseIfIdle();
+                continue;
+            }
+            scopes[k].setConfig(c);
+            scopes[k].encode(ctx, ocio, srvA, wA, hA, srvB, wB, hB);
+        }
+    }
     int                              captureSdrGen   = -1;
     bool                             captureNeedsSdr = false;
     ComPtr<ID3D11Texture2D>          compositeTex;     // RGBA16F at swapchain size
@@ -512,6 +539,9 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
         m_impl->ocio.setWakeCallback([this]{ requestUpdate(); });
     }
     m_impl->captureOcio.setSdrCapture(true);
+    for (auto &sc : m_impl->scopes) {
+        if (!sc.initialize()) qWarning("D3D11PlayerRenderer: scope renderer init failed");
+    }
     if (!m_impl->captureOcio.initialize()) {
         qWarning("D3D11PlayerRenderer::init: capture OCIO renderer init failed: %s",
                  qPrintable(m_impl->captureOcio.lastError()));
@@ -642,6 +672,7 @@ void D3D11PlayerRenderer::shutdown()
     m_impl->annotations.shutdown();
     m_impl->ocio.shutdown();
     m_impl->captureOcio.shutdown();
+    for (auto &sc : m_impl->scopes) sc.shutdown();
     m_impl->releaseSingleIntermediates();
     m_impl->compositor.shutdown();
     m_impl->videoA.srv.Reset();
@@ -848,6 +879,11 @@ void D3D11PlayerRenderer::renderThreadProc()
         if (dirty || gotNewFrame || ocioBumped
             || m_loadingActive.load(std::memory_order_acquire)) {
             drawFrame();
+        } else {
+            // Paused: a scope dispatched by the last draw lands here.
+            void *ctx = D3D11DeviceManager::instance().context();
+            m_impl->scopes[0].collectPending(ctx);
+            m_impl->scopes[1].collectPending(ctx);
         }
 
         std::unique_lock lk(m_wakeMutex);
@@ -1553,6 +1589,12 @@ void D3D11PlayerRenderer::drawFrame()
     // we read the back buffer we just rendered (FLIP_DISCARD rotates
     // buffer 0 to the next render target on Present — capturing
     // post-Present would read the wrong one).
+    // Vectorscope tap (source → scope image; lags by design). Binds its
+    // own targets; everything after rebinds theirs.
+    m_impl->encodeScope(ctx, m_ocio, m_impl->videoA.srv.Get(),
+                        m_impl->videoA.width, m_impl->videoA.height,
+                        nullptr, 0, 0);
+
     if (m_impl->screenshotPending.load(std::memory_order_acquire)) {
         serviceScreenshotRequest();
     }
@@ -1968,6 +2010,16 @@ void D3D11PlayerRenderer::drawDualFrame()
         }
     }
 
+    // Vectorscope tap: the per-side sources this frame composited.
+    {
+        const auto ls = m_impl->dualCompositor.lastSources();
+        auto *a = static_cast<ID3D11ShaderResourceView *>(ls.srvA ? ls.srvA : ls.srvB);
+        const int aw = ls.srvA ? ls.wA : ls.wB, ah = ls.srvA ? ls.hA : ls.hB;
+        m_impl->encodeScope(ctx, m_ocio, a, aw, ah,
+                            ls.srvA ? static_cast<ID3D11ShaderResourceView *>(ls.srvB) : nullptr,
+                            ls.wB, ls.hB);
+    }
+
     if (m_impl->screenshotPending.load(std::memory_order_acquire)) {
         serviceScreenshotRequest(/*fromDualCanvas=*/true);
     }
@@ -2266,6 +2318,20 @@ void D3D11PlayerRenderer::setBrightness(float brightness)
     // off there is no stage and the UI disables the control.
     m_gain.store(brightness, std::memory_order_relaxed);
     requestUpdate();
+}
+
+void D3D11PlayerRenderer::setScopeConfig(const ScopeConfig &config)
+{
+    {
+        std::lock_guard lk(m_impl->scopeMutex);
+        m_impl->scopeConfig[config.kind == ScopeKind::Waveform ? 1 : 0] = config;
+    }
+    requestUpdate();
+}
+
+bool D3D11PlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind)
+{
+    return m_impl->scopes[kind == ScopeKind::Waveform ? 1 : 0].latestImage(out, serial);
 }
 
 void D3D11PlayerRenderer::setViewerAids(float gamma, int channel)

@@ -272,6 +272,52 @@ bool OcioChainBuilder::buildSplitTransforms(OCIOConfigManager *ocio,
     }
 }
 
+OCIO::TransformRcPtr OcioChainBuilder::buildScopeTransform(
+    OCIO::ConstConfigRcPtr cfg, const QString &colorspace,
+    InterchangeSide *sideOut, QString *errorOut)
+{
+    auto fail = [&](const QString &msg) -> OCIO::TransformRcPtr {
+        if (errorOut) *errorOut = msg;
+        return nullptr;
+    };
+    if (!cfg) return fail(QStringLiteral("OcioChainBuilder: null OCIO config"));
+    const QByteArray cs = colorspace.toUtf8();
+    OCIO::ConstColorSpaceRcPtr space = cfg->getColorSpace(cs.constData());
+    if (!space) return fail(QStringLiteral("OcioChainBuilder: unknown colourspace '%1'").arg(colorspace));
+    if (space->isData()) return fail(QStringLiteral("OcioChainBuilder: '%1' is data").arg(colorspace));
+    const bool scene = space->getReferenceSpaceType() == OCIO::REFERENCE_SPACE_SCENE;
+    const char *role = scene ? "aces_interchange" : "cie_xyz_d65_interchange";
+    if (!cfg->hasRole(role)) {
+        return fail(QStringLiteral("OcioChainBuilder: config has no %1 role")
+                        .arg(QString::fromUtf8(role)));
+    }
+    OCIO::ColorSpaceTransformRcPtr t = OCIO::ColorSpaceTransform::Create();
+    t->setSrc(cs.constData());
+    t->setDst(cfg->getRoleColorSpace(role));
+    if (sideOut) *sideOut = scene ? InterchangeSide::Scene : InterchangeSide::Display;
+    return t;
+}
+
+OcioChain OcioChainBuilder::buildScope(OCIOConfigManager *ocio, Language language,
+                                       const QString &colorspace, InterchangeSide *sideOut)
+{
+    OcioChain out;
+    if (!ocio) {
+        out.errorMessage = QStringLiteral("OcioChainBuilder: null OCIOConfigManager");
+        return out;
+    }
+    try {
+        OCIO::ConstConfigRcPtr cfg = OCIO::Config::CreateFromFile(
+            ocio->configIdentifier().toUtf8().constData());
+        OCIO::TransformRcPtr t = buildScopeTransform(cfg, colorspace, sideOut, &out.errorMessage);
+        if (!t) return out;
+        return extractShader(cfg, t, toGpuLanguage(language), "OCIOScope", "ocio_scope_");
+    } catch (const OCIO::Exception &e) {
+        out.errorMessage = QStringLiteral("OCIO build: %1").arg(e.what());
+        return out;
+    }
+}
+
 OcioChain OcioChainBuilder::build(OCIOConfigManager *ocio, Language language,
                                   const DisplayViewOverride *override)
 {

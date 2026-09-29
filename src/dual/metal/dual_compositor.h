@@ -143,6 +143,22 @@ public:
     };
     const LastLayout &lastLayout() const { return m_lastLayout; }
 
+    // The per-side source textures this frame's renderFrame() sampled
+    // (id<MTLTexture> as void*, not retained, stored raw dims), for the
+    // vectorscope tap recorded later in the same command buffer. Take-once:
+    // returns and clears, so a later frame can never see freed textures.
+    // Null when a side had no texture (or is past its clip end).
+    struct LastSources {
+        void *texA = nullptr; int wA = 0, hA = 0;
+        void *texB = nullptr; int wB = 0, hB = 0;
+    };
+    LastSources takeLastSources()
+    {
+        LastSources s = m_lastSources;
+        m_lastSources = LastSources{};
+        return s;
+    }
+
     // Impl is exposed for free-function helpers in the .mm (spinner
     // pipeline + encode). Nothing outside dual_compositor.mm
     // references it.
@@ -171,6 +187,7 @@ private:
     std::atomic<int>   m_rotQA{0};
     std::atomic<int>   m_rotQB{0};
     LastLayout m_lastLayout;
+    LastSources m_lastSources;
 };
 
 } // namespace qcv::dual

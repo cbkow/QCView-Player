@@ -20,6 +20,7 @@
 #include "metal_hdr_swapchain.h"
 #include "metal_upload_ring.h"
 #include "metal_ocio_renderer.h"
+#include "metal_scope_renderer.h"
 #include "metal_texture_pool.h"
 #include "metal_yuv_renderer.h"
 #include "render/player_window.h"
@@ -155,6 +156,32 @@ struct MetalPlayerRenderer::Impl {
     // (see MetalOcioRenderer::setSdrCapture). Separate instance so a
     // screenshot never rebuilds or overwrites the live pipeline/output.
     MetalOcioRenderer    captureOcio;
+
+    // Vectorscope. Config set from the GUI under scopeMutex, copied to
+    // the scope renderer on the render thread each frame.
+    // [0] vectorscope, [1] waveform — same renderer, different binning.
+    MetalScopeRenderer   scopes[2];
+    std::mutex           scopeMutex;
+    ScopeConfig          scopeConfig[2];
+
+    // Record the scopes for this frame (or let them go idle).
+    void encodeScope(id<MTLCommandBuffer> cb, OCIOConfigManager *ocio,
+                     void *srcA, int wA, int hA, void *srcB, int wB, int hB)
+    {
+        for (int k = 0; k < 2; ++k) {
+            ScopeConfig c;
+            {
+                std::lock_guard lk(scopeMutex);
+                c = scopeConfig[k];
+            }
+            if (!c.active || !srcA) {
+                scopes[k].releaseIfIdle();
+                continue;
+            }
+            scopes[k].setConfig(c);
+            scopes[k].encode((__bridge void *)cb, ocio, srcA, wA, hA, srcB, wB, hB);
+        }
+    }
 
     // Phase 7.5 B.6.5 — annotation strokes.
     MetalAnnotationRenderer annotations;
@@ -416,6 +443,9 @@ bool MetalPlayerRenderer::init(PlayerWindow *window)
     if (!m_impl->captureOcio.initialize()) {
         qWarning("MetalPlayerRenderer: capture OCIO renderer init failed");
     }
+    for (auto &sc : m_impl->scopes) {
+        if (!sc.initialize()) qWarning("MetalPlayerRenderer: scope renderer init failed");
+    }
 
     // Phase 7.5 B.6.5: annotation render pipeline at the active
     // pixel format (re-baked when HDR mode flips, same as compositor).
@@ -496,6 +526,7 @@ void MetalPlayerRenderer::shutdown()
     m_impl->pixbufBridge.shutdown();
     m_impl->ocio.shutdown();
     m_impl->captureOcio.shutdown();
+    for (auto &sc : m_impl->scopes) sc.shutdown();
     m_impl->annotations.shutdown();
     m_impl->videoFrameRgba           = nil;
     m_impl->videoHandle              = FrameHandle{};
@@ -581,6 +612,17 @@ void MetalPlayerRenderer::setViewerAids(float gamma, int channel)
 {
     m_viewerGamma.store(gamma, std::memory_order_relaxed);
     m_viewerChannel.store(channel, std::memory_order_relaxed);
+}
+
+void MetalPlayerRenderer::setScopeConfig(const ScopeConfig &config)
+{
+    std::lock_guard lk(m_impl->scopeMutex);
+    m_impl->scopeConfig[config.kind == ScopeKind::Waveform ? 1 : 0] = config;
+}
+
+bool MetalPlayerRenderer::scopeImage(QImage *out, quint64 *serial, ScopeKind kind)
+{
+    return m_impl->scopes[kind == ScopeKind::Waveform ? 1 : 0].latestImage(out, serial);
 }
 
 ViewerAids MetalPlayerRenderer::currentViewerAids() const
@@ -1023,6 +1065,15 @@ void MetalPlayerRenderer::drawFrame()
                     m_impl->compositeRawDualH);
                 if (ocioOut) dualCorrected = ocioOut;
             }
+        }
+
+        // ---- Vectorscope tap: the per-side sources dual_fs sampled ----
+        {
+            const auto ls = m_impl->dualCompositor.takeLastSources();
+            void *a = ls.texA ? ls.texA : ls.texB;   // B alone still scopes
+            const int aw = ls.texA ? ls.wA : ls.wB, ah = ls.texA ? ls.hA : ls.hB;
+            m_impl->encodeScope(cb, m_ocio, a, aw, ah,
+                                ls.texA ? ls.texB : nullptr, ls.wB, ls.hB);
         }
 
         // ---- Pass 2: present blit canvas → drawable ----
@@ -1792,6 +1843,17 @@ void MetalPlayerRenderer::drawFrame()
         m_impl->lastSourceTexture  = (__bridge id<MTLTexture>)sourceTexture;
         m_impl->lastSourceW        = sourceW;
         m_impl->lastSourceH        = sourceH;
+    }
+
+    // ---- Vectorscope tap (source(s) → scope image; lags by design) ----
+    if (haveSourceTexture) {
+        const bool hybridB = m_decoderB && m_impl->videoFrameRgbaB;
+        m_impl->encodeScope(cb, m_ocio, sourceTexture, sourceW, sourceH,
+                            hybridB ? (__bridge void *)m_impl->videoFrameRgbaB : nullptr,
+                            hybridB ? m_impl->videoFrameWB : 0,
+                            hybridB ? m_impl->videoFrameHB : 0);
+    } else {
+        for (auto &sc : m_impl->scopes) sc.releaseIfIdle();
     }
 
     // ---- Render Pass 2: drawable ----

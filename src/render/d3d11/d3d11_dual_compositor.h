@@ -112,6 +112,15 @@ public:
     };
     const LastLayout &lastLayout() const;
 
+    // The per-side source SRVs (ID3D11ShaderResourceView*, not AddRef'd)
+    // and stored dims the last prepared frame holds, for the vectorscope
+    // tap later in the same frame. Null when a side has no frame.
+    struct LastSources {
+        void *srvA = nullptr; int wA = 0, hA = 0;
+        void *srvB = nullptr; int wB = 0, hB = 0;
+    };
+    LastSources lastSources() const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;

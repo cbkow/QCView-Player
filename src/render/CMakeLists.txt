@@ -79,6 +79,10 @@ if(APPLE)
         metal/cv_pixbuf_metal_bridge.mm
         metal/metal_ocio_renderer.h
         metal/metal_ocio_renderer.mm
+        metal/metal_ocio_luts.h
+        metal/metal_ocio_luts.mm
+        metal/metal_scope_renderer.h
+        metal/metal_scope_renderer.mm
         metal/metal_annotation_renderer.h
         metal/metal_annotation_renderer.mm
         # Task #107/#108 commit 2 — qcv_render-side adapter that
@@ -104,6 +108,8 @@ if(APPLE)
         metal/metal_yuv_renderer.mm
         metal/cv_pixbuf_metal_bridge.mm
         metal/metal_ocio_renderer.mm
+        metal/metal_ocio_luts.mm
+        metal/metal_scope_renderer.mm
         metal/metal_annotation_renderer.mm
         metal/dual_pixbuf_converter_impl.mm
         PROPERTIES COMPILE_FLAGS "-fobjc-arc"
@@ -165,6 +171,10 @@ if(WIN32)
         # size) and writes to the swapchain back buffer.
         d3d11/d3d11_ocio_renderer.h
         d3d11/d3d11_ocio_renderer.cpp
+        d3d11/d3d11_ocio_luts.h
+        d3d11/d3d11_ocio_luts.cpp
+        d3d11/d3d11_scope_renderer.h
+        d3d11/d3d11_scope_renderer.cpp
         # Phase F.2.7 — D3D11 annotation + safety-overlay renderer.
         # Consumes TessellatedMesh from the cross-platform tessellator
         # (annotations/stroke_tessellator.{h,cpp}) — same data shape

@@ -487,6 +487,19 @@ void D3D11DualCompositor::setFrameSource(IDualFrameSource *source)
     m_impl->lastLayout = LastLayout{};
 }
 
+D3D11DualCompositor::LastSources D3D11DualCompositor::lastSources() const
+{
+    LastSources s;
+    if (!m_impl) return s;
+    s.srvA = m_impl->cachedA.srv.Get();
+    s.wA   = m_impl->cachedA.width;
+    s.hA   = m_impl->cachedA.height;
+    s.srvB = m_impl->cachedB.srv.Get();
+    s.wB   = m_impl->cachedB.width;
+    s.hB   = m_impl->cachedB.height;
+    return s;
+}
+
 const D3D11DualCompositor::LastLayout &D3D11DualCompositor::lastLayout() const
 {
     static const LastLayout kNone{};

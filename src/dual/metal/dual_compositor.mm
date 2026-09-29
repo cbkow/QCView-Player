@@ -700,6 +700,9 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
 
 void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
 {
+    // Raw pointers into this frame's textures only: never let a frame that
+    // returns early leave the previous frame's (possibly freed) ones.
+    m_lastSources = LastSources{};
     if (!isInitialized() || !encoderPtr) return;
     if (dstWidth <= 0 || dstHeight <= 0) return;
     if (!m_controller) return;
@@ -848,6 +851,13 @@ void DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight)
     } else if (!bPastEnd) {
         m_lastLayout.bValid = false;
     }
+
+    m_lastSources.texA = aActive ? (__bridge void *)texA : nullptr;
+    m_lastSources.wA   = m_impl->srcAW;
+    m_lastSources.hA   = m_impl->srcAH;
+    m_lastSources.texB = bActive ? (__bridge void *)texB : nullptr;
+    m_lastSources.wB   = m_impl->srcBW;
+    m_lastSources.hB   = m_impl->srcBH;
 
     [enc setRenderPipelineState:m_impl->pipeline];
     [enc setFragmentTexture:texA atIndex:0];
