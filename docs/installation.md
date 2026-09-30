@@ -55,6 +55,7 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 What's new in 2.5.1
 
 - **Dual view: frame stepping** — stepping with ←/→ (or Q/E) no longer re-decodes the whole GOP on the B-frame / long-GOP side on every press, and that side no longer flashes back to the keyframe while it catches up. Both sides land on the exact frame at once. Jumps hold the previous frame until the new one is ready instead of showing the run-up.
+- **Project panel** — the loaded item is a rounded blue chip with an outline, the same as the current clip in the Inspector's playlist list; the left accent rule is gone.
 
 What's new in 2.5.0
 

@@ -505,7 +505,9 @@ Rectangle {
             // brighter cobalt than Theme.selection) so a row that's
             // both selected and loaded still reads as "loaded".
             // Rows read as chips, like the Inspector's playlist rows: the
-            // fill is inset (2 px between rows) with small rounded corners.
+            // fill is inset (2 px between rows) with small rounded corners,
+            // and the loaded item carries the same 1 px accent border the
+            // playlist's current clip does (no left rule).
             Rectangle {
                 id: rowFill
                 anchors.fill: parent
@@ -520,17 +522,8 @@ Rectangle {
                             ? Theme.selection
                             : (rowMa.containsMouse
                                  ? Theme.surfaceHover : "transparent"))
-            }
-            // Active (currently-loaded) media — accent left-rule, inside
-            // the chip.
-            Rectangle {
-                visible: rowItem.isActive
-                anchors.left:   rowFill.left
-                anchors.top:    rowFill.top
-                anchors.bottom: rowFill.bottom
-                width: 2
-                radius: 1
-                color: Theme.accent
+                border.color: Theme.accent
+                border.width: rowItem.isActive ? 1 : 0
             }
 
             // Phosphor icon for the media type. Mapped from
