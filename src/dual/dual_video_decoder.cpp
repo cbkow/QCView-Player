@@ -170,6 +170,7 @@ bool DualVideoDecoder::open(const QString &path)
     m_stopRequested.store(false, std::memory_order_release);
     m_pendingSeekTarget.store(-1, std::memory_order_release);
     m_decodeTarget.store(0, std::memory_order_release);
+    m_catchUp.store(false, std::memory_order_release);
 
     // Warm the next frames' bytes ahead of the decoder (read_ahead.h).
     m_readAheadId.store(ReadAhead::instance().attach(
@@ -325,8 +326,37 @@ void DualVideoDecoder::seekTo(int frameNumber)
     if (m_frameCount > 0 && frameNumber >= m_frameCount) {
         frameNumber = m_frameCount - 1;
     }
-    m_pendingSeekTarget.store(frameNumber, std::memory_order_release);
     m_decodeTarget.store(frameNumber, std::memory_order_release);
+
+    // A frame the ring already holds, or one a short forward decode
+    // reaches, is a new target, not a seek. Every seek flushes the ring
+    // and re-decodes from the keyframe; for a one-frame step on a
+    // long-GOP side that was a whole GOP per press, and the run-up
+    // showed on screen (2026-09-30: dual step regression on Windows,
+    // worse on the zero-copy path because each burst frame's render
+    // wake contends with the decoder on the shared device).
+    bool needsSeek = true;
+    bool buffered  = false;
+    {
+        std::lock_guard<std::mutex> lk(m_bufferMutex);
+        auto it = m_frameMap.find(frameNumber);
+        if (it != m_frameMap.end() && m_ring[it->second].valid) {
+            needsSeek = false;
+            buffered  = true;
+        } else if (m_ringCount > 0) {
+            int bufMax = std::numeric_limits<int>::min();
+            for (int i = 0; i < m_ringCount; ++i) {
+                const int idx = (m_ringHead + i) % kRingSize;
+                if (m_ring[idx].valid) bufMax = std::max(bufMax, m_ring[idx].frameNumber);
+            }
+            if (bufMax != std::numeric_limits<int>::min()
+                && frameNumber > bufMax && frameNumber <= bufMax + kRingSize) {
+                needsSeek = false;   // needsMoreFrames decodes forward to it
+            }
+        }
+    }
+    m_catchUp.store(!buffered, std::memory_order_release);
+    if (needsSeek) m_pendingSeekTarget.store(frameNumber, std::memory_order_release);
     {
         std::lock_guard<std::mutex> lk(m_decodeCvMutex);
     }
@@ -353,7 +383,14 @@ std::shared_ptr<DualFrame> DualVideoDecoder::getBufferedFrame(int frameNumber) c
         // decoder's rate, dropping frames. Anything further away
         // (a real seek / scrub miss) still returns null so the
         // caller's hold-last behaviour is unchanged.
-        {
+        // Not while catching up to a requested frame (a seek's burst
+        // from the keyframe, or a forward run to a target ahead of the
+        // ring): those are the run-up, and showing them plays the GOP
+        // backwards-then-forwards on every step. The caller holds its
+        // last good frame until the target lands. Chase mode during
+        // playback (target advanced by the clock, not a request) still
+        // gets the fallback.
+        if (!m_catchUp.load(std::memory_order_acquire)) {
             int bestIdx = -1, bestFn = -1;
             for (int i = 0; i < m_ringCount; ++i) {
                 const int idx = (m_ringHead + i) % kRingSize;
@@ -1143,6 +1180,15 @@ void DualVideoDecoder::addCurrentFrameToBuffer(AVFrame *frame, int frameNumber)
     // requestUpdate() is thread-safe. This is what redraws the
     // viewport after a timeline seek while paused, when
     // currentFrameChanged already fired before the decode finished.
+    // Not for a catch-up's run-up frames (below the target): nothing
+    // to show yet, and on Windows every wake is a render that competes
+    // with the decoder for the shared D3D11 device. The frame at or
+    // past the target ends the catch-up.
+    if (frameNumber < m_decodeTarget.load(std::memory_order_acquire)) {
+        if (m_catchUp.load(std::memory_order_acquire)) return;
+    } else {
+        m_catchUp.store(false, std::memory_order_release);
+    }
     FrameAvailableCallback cb;
     {
         std::lock_guard<std::mutex> lk(m_callbackMutex);
@@ -1298,6 +1344,11 @@ void DualVideoDecoder::performSeek(int targetFrame, AVPacket *pkt, AVFrame *fram
     constexpr int kBurstMax = 1024;
     int decoded = 0;
     int want = targetFrame;
+    struct BurstScope {
+        std::atomic<bool> &f;
+        explicit BurstScope(std::atomic<bool> &flag) : f(flag) { f.store(true, std::memory_order_release); }
+        ~BurstScope() { f.store(false, std::memory_order_release); }
+    } burstScope(m_catchUp);
     while (decoded < kBurstMax && !m_stopRequested.load(std::memory_order_acquire)) {
         if (!decodeOneFrame(frame, pkt)) break;
         ++decoded;
@@ -1339,6 +1390,7 @@ void DualVideoDecoder::decodeThreadFunc()
         if (seekTarget >= 0) {
             if (forwardRunReaches(seekTarget)) {
                 m_decodeTarget.store(seekTarget, std::memory_order_release);
+                m_catchUp.store(true, std::memory_order_release);
             } else {
                 performSeek(seekTarget, pkt, frame);
                 continue;
@@ -1431,6 +1483,9 @@ void DualVideoDecoder::decodeThreadFunc()
                           m_decodeTarget.load(std::memory_order_relaxed));
                 }
             }
+            // EOF or error — idle on the CV until shutdown / seek. The
+            // target is out of reach; let the nearest-frame fallback show.
+            m_catchUp.store(false, std::memory_order_release);
             // EOF or error — idle on the CV until shutdown / seek.
             std::unique_lock<std::mutex> lk(m_decodeCvMutex);
             m_decodeCv.wait_for(lk, std::chrono::milliseconds(50), [this] {

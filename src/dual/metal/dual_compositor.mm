@@ -449,6 +449,24 @@ void DualCompositor::shutdown()
 
 namespace {
 
+// Dev aid: QCV_DUAL_PULL_LOG=1 logs, per side, each change in what the
+// compositor pulls for a master frame (frame shown vs asked for) — the
+// same hook as the D3D11 adapter's, for frame-step verification.
+void logPull(char side, int master, const std::shared_ptr<qcv::dual::DualFrame> &f)
+{
+    static const bool on = qEnvironmentVariableIsSet("QCV_DUAL_PULL_LOG");
+    if (!on) return;
+    static int lastMaster[2] = {-2, -2};
+    static int lastFrame[2]  = {-2, -2};
+    const int i  = (side == 'A') ? 0 : 1;
+    const int fn = f ? f->frameNumber : -1;
+    if (lastMaster[i] == master && lastFrame[i] == fn) return;
+    lastMaster[i] = master;
+    lastFrame[i]  = fn;
+    qInfo("DualPull[%c]: master %d -> %s%d%s", side, master,
+          f ? "" : "NULL(", fn, f ? "" : ")");
+}
+
 // Lazy build of the spinner pipeline. Same pixel-format-rebake rule
 // as the main compositor. Kept inline since it's only used by
 // renderFrame's cold-transition branch.
@@ -589,6 +607,8 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
 
     auto frameA = m_controller->pullFrameA(masterFrame);
     auto frameB = m_controller->pullFrameB(masterFrame);
+    logPull('A', masterFrame, frameA);
+    logPull('B', masterFrame, frameB);
 
     const bool aPastEnd = m_controller->aPastEnd(masterFrame);
     const bool bPastEnd = m_controller->bPastEnd(masterFrame);

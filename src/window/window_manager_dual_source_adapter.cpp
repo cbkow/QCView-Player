@@ -5,6 +5,8 @@
 #include "dual/i_dual_source.h"
 
 #include <QImage>
+#include <QtLogging>
+#include <QtGlobal>
 
 namespace qcv {
 
@@ -86,6 +88,24 @@ DualFramePayload payloadFromDualFrame(
     return out;
 }
 
+// Dev aid: QCV_DUAL_PULL_LOG=1 logs, per side, each change in what the
+// compositor pulls for a master frame (frame number shown vs asked for),
+// which is the ground truth for frame-step verification.
+void logPull(char side, int master, const std::shared_ptr<qcv::dual::DualFrame> &f)
+{
+    static const bool on = qEnvironmentVariableIsSet("QCV_DUAL_PULL_LOG");
+    if (!on) return;
+    static int lastMaster[2] = {-2, -2};
+    static int lastFrame[2]  = {-2, -2};
+    const int i  = (side == 'A') ? 0 : 1;
+    const int fn = f ? f->frameNumber : -1;
+    if (lastMaster[i] == master && lastFrame[i] == fn) return;
+    lastMaster[i] = master;
+    lastFrame[i]  = fn;
+    qInfo("DualPull[%c]: master %d -> %s%d%s", side, master,
+          f ? "" : "NULL(", fn, f ? "" : ")");
+}
+
 } // namespace
 
 WindowManagerDualSourceAdapter::WindowManagerDualSourceAdapter(
@@ -122,7 +142,9 @@ bool WindowManagerDualSourceAdapter::bPastEnd(int master)
 DualFramePayload WindowManagerDualSourceAdapter::pullA(int master)
 {
     if (!m_controller) return {};
-    DualFramePayload p = payloadFromDualFrame(m_controller->pullFrameA(master));
+    auto fa = m_controller->pullFrameA(master);
+    logPull('A', master, fa);
+    DualFramePayload p = payloadFromDualFrame(fa);
     // Stuff the per-side videoRangeOverride into the payload so the
     // compositor's bridge call honors the Inspector pill on the A
     // side's source MediaItem. Mirrors single-flow's read of
@@ -134,7 +156,9 @@ DualFramePayload WindowManagerDualSourceAdapter::pullA(int master)
 DualFramePayload WindowManagerDualSourceAdapter::pullB(int master)
 {
     if (!m_controller) return {};
-    DualFramePayload p = payloadFromDualFrame(m_controller->pullFrameB(master));
+    auto fb = m_controller->pullFrameB(master);
+    logPull('B', master, fb);
+    DualFramePayload p = payloadFromDualFrame(fb);
     p.rangeOverride = m_controller->rangeOverrideB();
     return p;
 }

@@ -250,6 +250,11 @@ private:
     // ---- Decode-ahead state ----
     std::atomic<int>  m_decodeTarget{0};
     std::atomic<int>  m_pendingSeekTarget{-1};
+    // True while the decoder catches up to a requested frame the ring
+    // did not have (seekTo / a seek burst / a forward run): the nearest-
+    // frame fallback and the run-up frames' render wakes are held back,
+    // so the caller keeps its last good frame until the target lands.
+    std::atomic<bool> m_catchUp{false};
     // Intra-only codec (ProRes / DNxHR / FFV1 / RAW…): every frame is a
     // keyframe, so a seek costs one decode. Enables chase mode in the
     // decode loop when the source can't keep up with the playhead.
