@@ -521,7 +521,7 @@ Rectangle {
                        : (rowItem.isSelected
                             ? Theme.selection
                             : (rowMa.containsMouse
-                                 ? Theme.surfaceHover : "transparent"))
+                                 ? Theme.surfaceHover : Theme.surface))
                 border.color: Theme.accent
                 border.width: rowItem.isActive ? 1 : 0
             }
