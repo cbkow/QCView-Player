@@ -52,6 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.1
+
+- **Dual view: frame stepping** — stepping with ←/→ (or Q/E) no longer re-decodes the whole GOP on the B-frame / long-GOP side on every press, and that side no longer flashes back to the keyframe while it catches up. Both sides land on the exact frame at once. Jumps hold the previous frame until the new one is ready instead of showing the run-up.
+
 What's new in 2.5.0
 
 - **Colour per clip** — each clip now keeps its own Input, Look, Scene LUT and Highlight Knee (the Color panel's **Clip** group). The Output, View and Display LUT (the **View** group) stay shared by everything on screen. In dual view, A and B each render through their own chain; pick a side with the **A** / **B** tabs. Clip chains are saved with the project, and clips that have one show a badge in the project panel and on the A/B source chips.
