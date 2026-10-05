@@ -8,6 +8,10 @@
 #include <chrono>
 #include <cstring>
 
+#if !defined(_WIN32)
+#  include <sys/mman.h>
+#endif
+
 namespace qcv {
 
 namespace {
@@ -175,6 +179,19 @@ void HostBridgeSource::workerLoop()
 
         if (!producerAlive(ring)) {
             ring = qcbae::SharedRing();
+#if !defined(_WIN32)
+            // A POSIX ring nobody unlinks stays in the kernel with every page
+            // it ever held (hundreds of MiB at 6K) until reboot, and a host
+            // that crashed or was force-quit never got to. Its producer is
+            // gone, so the name is dead weight: remove it. A host starting up
+            // creates its ring afresh either way. (The gap between the open
+            // above and this unlink is microseconds; a host that created its
+            // ring inside it would publish unseen until its next resize.)
+            // Windows needs nothing: a section goes with its last handle.
+            if (::shm_unlink(ringName.c_str()) == 0)
+                qInfo("HostBridgeSource: removed the ring a dead producer left (%s)",
+                      ringName.c_str());
+#endif
             if (everLive) m_reconnects.fetch_add(1, std::memory_order_acq_rel);
             setStatus(everLive ? Reconnecting : Connecting,
                       sentence(QStringLiteral("%1 is not running").arg(m_hostApp)));
