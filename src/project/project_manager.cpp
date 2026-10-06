@@ -1220,10 +1220,16 @@ bool ProjectManager::detectImageSequence(const QString &filePath,
     // Build the printf-style pattern by concatenation — QString::arg
     // can't be used here because the literal `%0<padding>d` collides
     // with arg's own %N placeholders. The result for padding=4 is
-    // e.g. "shot_%04d.png".
-    outPattern    = base + sep
+    // e.g. "shot_%04d.png". A literal '%' in the name is doubled so it
+    // cannot act as a conversion in the snprintf consumers (the cache,
+    // the hover-thumbnail and Inspector resolvers) — the same escape
+    // the single-still import applies.
+    const auto printfEscape = [](QString s) {
+        return s.replace(QLatin1Char('%'), QStringLiteral("%%"));
+    };
+    outPattern    = printfEscape(base) + printfEscape(sep)
                   + QStringLiteral("%0") + QString::number(padding)
-                  + QStringLiteral("d.") + ext;
+                  + QStringLiteral("d.") + printfEscape(ext);
     outStartFrame = minFrame;
     outEndFrame   = maxFrame;
     outPadding    = padding;

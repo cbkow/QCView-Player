@@ -7,6 +7,14 @@
 // wide entry points there. The EXR path already does this through
 // MemoryMappedIStream; this is the same rule for the FILE* loaders and
 // libtiff.
+//
+// std::filesystem is not a substitute. On MSVC a path built from a
+// std::string is decoded in the ANSI code page: a UTF-8 CJK name is
+// mangled when its bytes happen to form valid characters there, and the
+// constructor THROWS when they do not (GitHub issue #6 — a Chinese
+// folder either played nothing or took the app down, depending on the
+// byte count of its name). Keep paths as UTF-8 strings and go through
+// the wide entry points here.
 
 #pragma once
 
@@ -17,6 +25,8 @@
 #  define WIN32_LEAN_AND_MEAN
 #  define NOMINMAX
 #  include <windows.h>
+#else
+#  include <sys/stat.h>
 #endif
 
 namespace qcv::utf8file {
@@ -46,6 +56,35 @@ inline std::FILE *open(const std::string &utf8Path, const char *mode)
 #else
     return std::fopen(utf8Path.c_str(), mode);
 #endif
+}
+
+// Does a file or directory exist at this UTF-8 path? Never throws — the
+// std::filesystem equivalent does on Windows for a name the ANSI code
+// page cannot decode (see above).
+inline bool exists(const std::string &utf8Path)
+{
+#ifdef _WIN32
+    const std::wstring wpath = toWide(utf8Path);
+    if (wpath.empty()) return false;
+    return GetFileAttributesW(wpath.c_str()) != INVALID_FILE_ATTRIBUTES;
+#else
+    struct stat st {};
+    return ::stat(utf8Path.c_str(), &st) == 0;
+#endif
+}
+
+// dir + '/' + file, as UTF-8. The directory may already end in a
+// separator (either kind on Windows).
+inline std::string join(const std::string &dir, const std::string &file)
+{
+    if (dir.empty()) return file;
+    const char last = dir.back();
+#ifdef _WIN32
+    const bool sep = last == '/' || last == '\\';
+#else
+    const bool sep = last == '/';
+#endif
+    return sep ? dir + file : dir + '/' + file;
 }
 
 } // namespace qcv::utf8file

@@ -4,6 +4,7 @@
 #include "jpeg_image_loader.h"
 #include "png_image_loader.h"
 #include "tiff_image_loader.h"
+#include "utf8_file.h"
 
 #include <QSettings>
 #include <QtLogging>
@@ -11,7 +12,6 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
 #include <utility>
 
 namespace qcv {
@@ -114,7 +114,20 @@ bool ImageSequenceCache::initialize(int start_frame, int end_frame, double fps,
         // path so multi-part files probe correctly.
         static_cast<EXRImageLoader*>(probe.get())->setLayer(m_exrLayer);
     }
-    if (!probe->getDimensions(framePath(0), m_width, m_height)) {
+    // A probe that throws (a loader surprised by the file, or any path
+    // conversion gone wrong) must fail this open, not the process: this
+    // runs on the GUI thread with no handler above it.
+    bool probed = false;
+    try {
+        probed = probe->getDimensions(framePath(0), m_width, m_height);
+    } catch (const std::exception &e) {
+        qWarning("ImageSequenceCache: probe threw for '%s': %s",
+                 framePath(0).c_str(), e.what());
+    } catch (...) {
+        qWarning("ImageSequenceCache: probe threw for '%s'",
+                 framePath(0).c_str());
+    }
+    if (!probed) {
         qWarning("ImageSequenceCache: probe failed for '%s'",
                  framePath(0).c_str());
         return false;
@@ -502,9 +515,11 @@ std::string ImageSequenceCache::framePath(int frame_number) const
     const int fileFrame = frame_number + m_startFrame;
     char buf[1024];
     std::snprintf(buf, sizeof(buf), m_pattern.c_str(), fileFrame);
-    std::filesystem::path dir(m_directory);
-    std::filesystem::path file(buf);
-    return (dir / file).string();
+    // Plain UTF-8 concatenation, the same shape the hover-thumbnail and
+    // Inspector resolvers use. NOT std::filesystem::path: on MSVC that
+    // decodes the narrow string in the ANSI code page, which mangles a
+    // CJK directory or throws outright (issue #6; utf8_file.h).
+    return utf8file::join(m_directory, buf);
 }
 
 void ImageSequenceCache::recomputeByteBudget(int width, int height)
@@ -883,8 +898,10 @@ void ImageSequenceCache::ioWorkerLoop()
                     [path = item.path, layer, mode, ext, express]()
                     -> std::shared_ptr<PixelData> {
                         try {
-                            std::error_code ec;
-                            if (!std::filesystem::exists(path, ec) || ec) {
+                            // utf8file::exists, not std::filesystem — the
+                            // latter throws on MSVC for a path the ANSI
+                            // code page cannot decode (issue #6).
+                            if (!utf8file::exists(path)) {
                                 return MakeGapSentinel();
                             }
                             auto loader = createLoaderForExtension(ext);
