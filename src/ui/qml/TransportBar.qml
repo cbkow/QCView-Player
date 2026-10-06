@@ -285,7 +285,7 @@ Pane {
 
         // ---- In / Out / Clear ------------------------------------
         FlatButton {
-            iconName: "sign-in"
+            iconName: "sign-out"
             enabled: root.hasMedia && !root.inPlaylist
             checkable: true
             checked: WindowManager.inPoint >= 0 && !root.inPlaylist
@@ -302,7 +302,7 @@ Pane {
             }
         }
         FlatButton {
-            iconName: "sign-out"
+            iconName: "sign-in"
             enabled: root.hasMedia && !root.inPlaylist
             checkable: true
             checked: WindowManager.outPoint >= 0 && !root.inPlaylist
