@@ -37,6 +37,24 @@ enum class MediaType {
                          // DualPlaybackController's synced clock pump).
 };
 
+// Per-clip transfer / encoding override — how the scopes (and, with OCIO
+// off, nothing else yet) interpret a source whose tags are missing or
+// wrong: an untagged PQ export, an SRT stream, a QCBridge Transmit feed
+// (After Effects' working space carries no tag by nature). Auto follows
+// the tags / format rules; the rest name an encoding the scope resolves
+// to the live config's colourspace (color/scope_names.h). With OCIO on
+// the clip's Input still wins; the override then only informs the
+// Inspector and the scope's mismatch note. Mutated via
+// `ProjectManager::setTransferOverride`, persisted with the project.
+enum class TransferOverride {
+    Auto      = 0,
+    SdrRec709 = 1,   // Rec.1886 / Rec.709 display-encoded
+    Pq2020    = 2,   // ST 2084 PQ, Rec.2020 primaries
+    PqP3D65   = 3,   // ST 2084 PQ, P3-D65 primaries
+    Hlg       = 4,   // Rec.2100 HLG
+    Linear    = 5,   // scene-linear, Rec.709 primaries (EXR / AE linear)
+};
+
 // Per-clip YUV range override (Phase 3.G, Guide 07 D10). Default Auto
 // uses FFmpeg-detected color_range; Full / Limited force the
 // interpretation regardless of stream metadata. Consumed by the YUV→
@@ -399,6 +417,10 @@ struct MediaItem {
     // `ProjectManager::setVideoRangeOverride` so the inspector can
     // edit it without re-extracting metadata.
     VideoRange              videoRangeOverride = VideoRange::Auto;
+
+    // Per-clip transfer / encoding override (see TransferOverride).
+    // Mutated via `ProjectManager::setTransferOverride`; persisted.
+    TransferOverride        transferOverride = TransferOverride::Auto;
 
     // Per-clip pixel-aspect override. Default Square renders the stored
     // (square-pixel) frame untouched. Detected applies video.sar*;

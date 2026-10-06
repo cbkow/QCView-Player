@@ -84,6 +84,13 @@ public:
     virtual QString codecName() const = 0;
     virtual QString pixelFormatName() const = 0;
     virtual bool    hasAudio() const { return false; }
+    // The stream's colour tags as FFmpeg names ("smpte2084", "bt2020",
+    // "bt2020nc"), empty when the source has none to give — a network
+    // stream's codec parameters carry them; a QCBridge feed is the host's
+    // working space, untagged by nature. Change with metadataChanged.
+    virtual QString colorTransfer() const { return {}; }
+    virtual QString colorPrimaries() const { return {}; }
+    virtual QString colorMatrix() const { return {}; }
     virtual int     reconnectCount() const = 0;
     // The latest frame carried inf or NaN (never clamped upstream).
     virtual bool    nonFinite() const { return false; }

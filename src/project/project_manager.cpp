@@ -1020,6 +1020,53 @@ bool ProjectManager::setVideoRangeOverride(const QString &itemId, int range)
     return true;
 }
 
+bool ProjectManager::setTransferOverride(const QString &itemId, int transfer)
+{
+    const int idx = findIndexInPool(itemId);
+    if (idx < 0) return false;
+    MediaItem &it = m_mediaPool[idx];
+    // Anything with pixels the scopes read: video, stills, sequences, live.
+    if (it.type != MediaType::Video && it.type != MediaType::Image
+        && it.type != MediaType::ImageSequence && it.type != MediaType::LiveStream) {
+        return false;
+    }
+    const TransferOverride next =
+        (transfer >= 0 && transfer <= static_cast<int>(TransferOverride::Linear))
+            ? static_cast<TransferOverride>(transfer) : TransferOverride::Auto;
+    if (it.transferOverride == next) return true;
+    it.transferOverride = next;
+    markDirty();
+    emit transferOverrideChanged(itemId, static_cast<int>(next));
+    // The scopes re-resolve on these (ScopeController listens to both).
+    if (m_activeItemId == itemId || m_bSourceMediaId == itemId) {
+        emit activeItemIdChanged();
+        emit bSourceChanged();
+    }
+    return true;
+}
+
+void ProjectManager::setLiveVideoTags(const QString &itemId, const QString &transfer,
+                                      const QString &primaries, const QString &matrix)
+{
+    const int idx = findIndexInPool(itemId);
+    if (idx < 0) return;
+    MediaItem &it = m_mediaPool[idx];
+    if (it.type != MediaType::LiveStream) return;
+    if (it.video.colorTransfer == transfer && it.video.colorPrimaries == primaries
+        && it.video.colorspace == matrix) {
+        return;
+    }
+    it.video.colorTransfer  = transfer;
+    it.video.colorPrimaries = primaries;
+    it.video.colorspace     = matrix;
+    // Session facts, not project state: no markDirty. The scopes and the
+    // Inspector re-read through the same signals an override uses.
+    if (m_activeItemId == itemId || m_bSourceMediaId == itemId) {
+        emit activeItemIdChanged();
+        emit bSourceChanged();
+    }
+}
+
 bool ProjectManager::setOcioClip(const QString &itemId, const QVariantMap &pins)
 {
     const int idx = findIndexInPool(itemId);
@@ -1411,6 +1458,9 @@ QVariantMap ProjectManager::mediaItemMap(const QString &id) const
     // override the YUV→RGB conversion.
     out[QStringLiteral("videoRangeOverride")] =
         static_cast<int>(it.videoRangeOverride);
+    // Per-clip transfer / encoding override (TransferOverride as int).
+    out[QStringLiteral("transferOverride")] =
+        static_cast<int>(it.transferOverride);
 
     // Per-clip pixel-aspect override (0 = Square, 1 = Detected,
     // 2 = Custom) + the custom rational. Top-level (not under `video`)
@@ -1506,6 +1556,18 @@ QVariantMap ProjectManager::mediaItemMap(const QString &id) const
                 v[QStringLiteral("startFrame")] = startFrame;
             }
         }
+        out[QStringLiteral("video")] = v;
+    } else if (it.type == MediaType::LiveStream
+               && (!it.video.colorTransfer.isEmpty() || !it.video.colorPrimaries.isEmpty()
+                   || !it.video.colorspace.isEmpty())) {
+        // A stream is never probed (videoLoaded stays false, so the
+        // Inspector's file cards stay hidden), but its session tags —
+        // learned on connect (setLiveVideoTags) — are what the scopes'
+        // Assumed tier reads. Just those three.
+        QVariantMap v;
+        v[QStringLiteral("colorspace")]     = it.video.colorspace;
+        v[QStringLiteral("colorPrimaries")] = it.video.colorPrimaries;
+        v[QStringLiteral("colorTransfer")]  = it.video.colorTransfer;
         out[QStringLiteral("video")] = v;
     }
 

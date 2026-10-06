@@ -323,6 +323,7 @@ void ScopeController::resolve()
     struct Reading {
         QString assumed, why;
         bool    tagged = false;
+        bool    set = false;      // the user's transfer override, not a tag
         bool    still = false, exr = false;
         int     matrix = 1;
     };
@@ -341,6 +342,26 @@ void ScopeController::resolve()
                || space.contains(QLatin1String("601"))) ? 0 : 1;
         r.tagged = !transfer.isEmpty() && transfer != QLatin1String("unknown")
                    && transfer != QLatin1String("unspecified");
+        // The clip's transfer override (Inspector / live strip pill) beats
+        // tags and format rules: it exists for sources whose tags are
+        // missing or wrong — untagged PQ exports, SRT streams, a QCBridge
+        // Transmit feed. Reads as "set" so the Input mismatch note can
+        // word it as the user's call rather than the file's.
+        const int override_ = item.value(QStringLiteral("transferOverride"), 0).toInt();
+        if (override_ > 0) {
+            switch (override_) {
+            case 2:  r.assumed = firstKnown(cfgX, scope_names::kPq2020);    break;
+            case 3:  r.assumed = firstKnown(cfgX, scope_names::kPqP3);      break;
+            case 4:  r.assumed = firstKnown(cfgX, scope_names::kHlg);       break;
+            case 5:  r.assumed = firstKnown(cfgX, scope_names::kExrLinear); break;
+            default: r.assumed = firstKnown(cfgX, scope_names::kSdrVideo);  break;
+            }
+            r.tagged = true;
+            r.set = true;
+            r.why = tr("set");
+            r.assumed = canonicalName(cfgX, r.assumed);
+            return r;
+        }
         if (r.still) {
             if (r.exr) {
                 r.assumed = firstKnown(cfgX, scope_names::kExrLinear);
@@ -397,6 +418,19 @@ void ScopeController::resolve()
         return ScopeScale::Sdr;
     };
 
+    // Nits per 1.0 of a side's linear value on the HDR scale: a
+    // display-referred HDR decode (PQ / HLG via the display interchange)
+    // is absolute, 1.0 = 100 nits by OCIO's convention; an SDR-encoded or
+    // scene-referred source's 1.0 is reference white, 203 nits (BT.2408 —
+    // the amber line), chris's call 2026-10-06 over the earlier 100.
+    auto whiteFor = [&](const OCIO::ConstConfigRcPtr &cfgX, const QString &cs, bool hdr) {
+        if (!hdr) return 203.0f;
+        OCIO::ConstColorSpaceRcPtr c = cfgX ? cfgX->getColorSpace(cs.toUtf8().constData())
+                                            : OCIO::ConstColorSpaceRcPtr();
+        const bool scene = c && c->getReferenceSpaceType() == OCIO::REFERENCE_SPACE_SCENE;
+        return scene ? 203.0f : 100.0f;
+    };
+
     // The built-in fallback config, for files the live config can't name
     // (loaded only when it is a different file).
     const QString fallbackPath =
@@ -419,6 +453,7 @@ void ScopeController::resolve()
         ScopeTier tier = ScopeTier::Signal;
         QString   colorspace, configPath, badge, mismatch;
         bool      hdr = false;
+        float     white = 100.0f;   // nits per 1.0 linear (whiteFor)
         Reading   r;
     };
     const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
@@ -432,24 +467,30 @@ void ScopeController::resolve()
             sd.tier = ScopeTier::Input;
             sd.colorspace = input;
             sd.hdr = scaleFor(cfg, input) == ScopeScale::Hdr;
+            sd.white = whiteFor(cfg, input, sd.hdr);
             sd.badge = tr("Input · %1").arg(input);
             if (sd.r.tagged && !sd.r.assumed.isEmpty()
                 && canonicalName(cfg, sd.r.assumed) != canonicalName(cfg, input)) {
-                sd.mismatch = tr("⚠ File tagged %1 · Input: %2").arg(sd.r.assumed, input);
+                sd.mismatch = (sd.r.set ? tr("⚠ Set to %1 · Input: %2")
+                                        : tr("⚠ File tagged %1 · Input: %2"))
+                                  .arg(sd.r.assumed, input);
             } else if (sd.r.tagged && fallbackNames) {
-                sd.mismatch = tr("⚠ File tagged %1 — not in this config · Input: %2")
+                sd.mismatch = (sd.r.set ? tr("⚠ Set to %1 — not in this config · Input: %2")
+                                        : tr("⚠ File tagged %1 — not in this config · Input: %2"))
                                   .arg(rf.assumed, input);
             }
         } else if (usable(cfg, sd.r.assumed)) {
             sd.tier = ScopeTier::Assumed;
             sd.colorspace = sd.r.assumed;
             sd.hdr = scaleFor(cfg, sd.colorspace) == ScopeScale::Hdr;
+            sd.white = whiteFor(cfg, sd.colorspace, sd.hdr);
             sd.badge = tr("Assumed · %1 (%2)").arg(sd.r.assumed, sd.r.why);
         } else if (fallbackNames) {
             sd.tier = ScopeTier::Assumed;
             sd.colorspace = rf.assumed;
             sd.configPath = fallbackPath;
             sd.hdr = scaleFor(fallbackCfg, sd.colorspace) == ScopeScale::Hdr;
+            sd.white = whiteFor(fallbackCfg, sd.colorspace, sd.hdr);
             sd.badge = tr("Assumed · %1 (%2, built-in config)").arg(rf.assumed, rf.why);
         } else {
             sd.badge = sd.r.exr || sd.r.still ? tr("Signal · RGB, nominal curve")
@@ -467,6 +508,7 @@ void ScopeController::resolve()
     m_config.configPath = a.configPath;
     m_config.signalMatrix = a.r.matrix;
     m_config.signalNominalCurve = a.r.exr;
+    m_config.whiteNits = a.white;
     m_badge = a.badge;
     m_mismatch = a.mismatch;
     m_config.tierB = a.tier;
@@ -475,6 +517,7 @@ void ScopeController::resolve()
     bool bHdr = a.hdr;
     m_config.signalMatrixB = a.r.matrix;
     m_config.signalNominalCurveB = a.r.exr;
+    m_config.whiteNitsB = a.white;
     if (m_dualView && m_project) {
         const QVariantMap itemB = m_project->bSourceItemMap();
         if (!itemB.isEmpty()) {
@@ -485,6 +528,7 @@ void ScopeController::resolve()
             bHdr = b.hdr;
             m_config.signalMatrixB = b.r.matrix;
             m_config.signalNominalCurveB = b.r.exr;
+            m_config.whiteNitsB = b.white;
             if (b.badge != a.badge) m_badge = tr("A %1  ·  B %2").arg(a.badge, b.badge);
             if (m_mismatch.isEmpty()) m_mismatch = b.mismatch;
         }
@@ -575,6 +619,9 @@ void ScopeController::buildGeometry()
     if (m_config.tier == ScopeTier::Signal) return;
 
     const ScopeScale scale = m_config.scale;
+    // On the HDR scale 1.0 of these targets is reference white, 203 nits
+    // (where an SDR / scene-referred side's white lands — whiteFor).
+    constexpr float kTargetWhite = 203.0f;
     // Colour-bar targets in the scale's own primaries at 100 % (1.0 =
     // SDR white) and 75 % (encoded 0.75 → 0.75^2.4 linear).
     struct Bar { const char *label; float r, g, b; };
@@ -587,7 +634,7 @@ void ScopeController::buildGeometry()
             if (scale == ScopeScale::Sdr) rec709To2020(c, l);
             else { l[0] = c[0]; l[1] = c[1]; l[2] = c[2]; }
             float x, y;
-            scope_math::targetPoint(l, scale, m_zoom, x, y);
+            scope_math::targetPoint(l, scale, m_zoom, x, y, kTargetWhite);
             QVariantMap t = point(x, y);
             t[QStringLiteral("label")] = QString::fromLatin1(bar.label);
             t[QStringLiteral("full")]  = level == 1.0f;
@@ -607,7 +654,7 @@ void ScopeController::buildGeometry()
                 else if (g.kind == 1) p3To2020(c, l);
                 else { l[0] = c[0]; l[1] = c[1]; l[2] = c[2]; }
                 float x, y;
-                scope_math::targetPoint(l, scale, m_zoom, x, y);
+                scope_math::targetPoint(l, scale, m_zoom, x, y, kTargetWhite);
                 pts << x << y;
             }
             QVariantMap h;

@@ -96,6 +96,9 @@ public:
     }
     QString codecName() const override;
     QString pixelFormatName() const override;
+    QString colorTransfer() const override;
+    QString colorPrimaries() const override;
+    QString colorMatrix() const override;
 
     // Polled by the live strip's 1 s QML Timer (deltas → fps/Mbps).
     double statFramesReceived() const override {
@@ -124,7 +127,9 @@ private:
                       const char *srcLabel = "sw→RGBA");
     void setStatus(Status s);
     void setSessionMetadata(int w, int h, const QString &codec,
-                            const QString &pixFmt, bool hasAudio);
+                            const QString &pixFmt, bool hasAudio,
+                            const QString &transfer = {}, const QString &primaries = {},
+                            const QString &matrix = {});
     bool interruptibleSleep(int ms);   // false when close() interrupted it
 
     static int interruptCb(void *opaque);
@@ -147,9 +152,12 @@ private:
     std::atomic<qint64>   m_bytesReceived{0};
     std::atomic<qint64>   m_liveSinceMs{0};   // steady_clock ms; 0 = not live
 
-    mutable std::mutex    m_metaMutex;   // guards the two strings below
+    mutable std::mutex    m_metaMutex;   // guards the strings below
     QString               m_codecName;
     QString               m_pixelFormatName;
+    QString               m_colorTransfer;     // FFmpeg names from the codec
+    QString               m_colorPrimaries;    // parameters; empty = untagged
+    QString               m_colorMatrix;
 
     std::mutex            m_frameCbMutex;
     std::function<void()> m_frameCb;

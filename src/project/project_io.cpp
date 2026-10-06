@@ -432,6 +432,11 @@ QJsonObject mediaItemToJson(const MediaItem &it, const QString &projectDir)
     o[QStringLiteral("adobe")]         = adobeMetadataToJson(it.adobe);
     o[QStringLiteral("videoRangeOverride")] =
         videoRangeToString(it.videoRangeOverride);
+    // Transfer override as its enum value; absent / 0 = Auto.
+    if (it.transferOverride != TransferOverride::Auto) {
+        o[QStringLiteral("transferOverride")] =
+            static_cast<int>(it.transferOverride);
+    }
     o[QStringLiteral("pixelAspectMode")] =
         static_cast<int>(it.pixelAspectMode);
     o[QStringLiteral("customParNum")]  = it.customParNum;
@@ -465,6 +470,11 @@ MediaItem mediaItemFromJson(const QJsonObject &o, const QString &projectDir)
     it.adobe         = adobeMetadataFromJson(o.value(QStringLiteral("adobe")).toObject());
     it.videoRangeOverride = videoRangeFromString(
         o.value(QStringLiteral("videoRangeOverride")).toString());
+    {
+        const int t = o.value(QStringLiteral("transferOverride")).toInt(0);
+        it.transferOverride = (t >= 0 && t <= static_cast<int>(TransferOverride::Linear))
+            ? static_cast<TransferOverride>(t) : TransferOverride::Auto;
+    }
     // Default Square (0) when missing — matches the struct default;
     // custom PAR defaults 1/1 and is only honored when mode == Custom.
     it.pixelAspectMode = static_cast<PixelAspectMode>(

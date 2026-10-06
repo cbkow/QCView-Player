@@ -17,12 +17,14 @@ extern "C" {
 #include <libavutil/hwcontext.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
 #include <libswscale/swscale.h>
 }
 #include "vulkan_hw_device_ctx.h"   // firstSoftwareFormat (all platforms)
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 
 // CoreVideo raw helpers (defined in frame_handle.mm on Apple, no-op
 // stubs in frame_handle_nonapple.cpp) — same pattern as VideoDecoder.
@@ -330,10 +332,21 @@ bool LiveStreamDecoder::connectOnce()
     const char *pixName = av_get_pix_fmt_name(
         static_cast<AVPixelFormat>(vs->codecpar->format));
     if (!pixName) pixName = "?";
+    // The stream's colour tags, so the scopes can read a PQ / HLG feed
+    // as such (the item is never probed). FFmpeg's names match what the
+    // file probe stores ("smpte2084", "bt2020", "bt2020nc"); unspecified
+    // stays empty = untagged.
+    auto tagName = [](const char *n) {
+        return n && std::strcmp(n, "unknown") != 0 && std::strcmp(n, "unspecified") != 0
+            ? QString::fromUtf8(n) : QString();
+    };
     setSessionMetadata(vs->codecpar->width, vs->codecpar->height,
                        QString::fromUtf8(codec->name),
                        QString::fromUtf8(pixName),
-                       sawAudio);
+                       sawAudio,
+                       tagName(av_color_transfer_name(vs->codecpar->color_trc)),
+                       tagName(av_color_primaries_name(vs->codecpar->color_primaries)),
+                       tagName(av_color_space_name(vs->codecpar->color_space)));
     qInfo("LiveStreamDecoder: connected — %s %dx%d pix_fmt=%s audio=%s (%s)",
           codec->name, vs->codecpar->width, vs->codecpar->height,
           pixName, sawAudio ? "yes" : "no", qPrintable(m_url));
@@ -578,7 +591,10 @@ void LiveStreamDecoder::setStatus(Status s)
 
 void LiveStreamDecoder::setSessionMetadata(int w, int h, const QString &codec,
                                            const QString &pixFmt,
-                                           bool hasAudio)
+                                           bool hasAudio,
+                                           const QString &transfer,
+                                           const QString &primaries,
+                                           const QString &matrix)
 {
     m_width.store(w, std::memory_order_release);
     m_height.store(h, std::memory_order_release);
@@ -587,9 +603,30 @@ void LiveStreamDecoder::setSessionMetadata(int w, int h, const QString &codec,
         std::lock_guard<std::mutex> lk(m_metaMutex);
         m_codecName       = codec;
         m_pixelFormatName = pixFmt;
+        m_colorTransfer   = transfer;
+        m_colorPrimaries  = primaries;
+        m_colorMatrix     = matrix;
     }
     QMetaObject::invokeMethod(this, [this] { emit metadataChanged(); },
                               Qt::QueuedConnection);
+}
+
+QString LiveStreamDecoder::colorTransfer() const
+{
+    std::lock_guard<std::mutex> lk(m_metaMutex);
+    return m_colorTransfer;
+}
+
+QString LiveStreamDecoder::colorPrimaries() const
+{
+    std::lock_guard<std::mutex> lk(m_metaMutex);
+    return m_colorPrimaries;
+}
+
+QString LiveStreamDecoder::colorMatrix() const
+{
+    std::lock_guard<std::mutex> lk(m_metaMutex);
+    return m_colorMatrix;
 }
 
 } // namespace qcv

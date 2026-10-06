@@ -80,7 +80,7 @@ float3 qs_ycc(float3 e, int m)
 // One pixel in scope space (scope_math::classify): (Y′, Cb, Cr), outside
 // the scale's gamut, HDR luminance in nits, brightest channel.
 void qs_classify(float3 rgb, float4 to0, float4 to1, float4 to2, float4 p0, float4 p1,
-                 out float3 ycc, out bool outside, out float nits, out float chan)
+                 float4 p2, out float3 ycc, out bool outside, out float nits, out float chan)
 {
     outside = false;
     nits = 0.0;
@@ -97,10 +97,14 @@ void qs_classify(float3 rgb, float4 to0, float4 to1, float4 to2, float4 p0, floa
             ycc = qs_ycc(e, 1);
         } else {
             outside = any(l < -0.002);
-            nits = 100.0 * dot(float3(0.2627, 0.6780, 0.0593), l);
-            chan = 100.0 * max(l.r, max(l.g, l.b));
-            float3 e = sign(l) * float3(qs_pq(abs(l.r) * 0.01), qs_pq(abs(l.g) * 0.01),
-                                        qs_pq(abs(l.b) * 0.01));
+            // p2.w = nits per 1.0 linear (100 display-referred, 203 SDR /
+            // scene white) — scope_math::classify.
+            float white = p2.w > 0.0 ? p2.w : 100.0;
+            nits = white * dot(float3(0.2627, 0.6780, 0.0593), l);
+            chan = white * max(l.r, max(l.g, l.b));
+            float k = white / 10000.0;
+            float3 e = sign(l) * float3(qs_pq(abs(l.r) * k), qs_pq(abs(l.g) * k),
+                                        qs_pq(abs(l.b) * k));
             ycc = qs_ycc(e, 2);
         }
     } else {
@@ -140,7 +144,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint3 tg : SV_GroupID)
     float3 ycc;
     bool outside;
     float nits, chan;
-    qs_classify(c.rgb, to0, to1, to2, p0, p1, ycc, outside, nits, chan);
+    qs_classify(c.rgb, to0, to1, to2, p0, p1, p2, ycc, outside, nits, chan);
     int bx, by;
     if (p2.x > 0.5) {
         // Waveform: column × Y′ / nits (scope_math::bin / waveformRange).
@@ -180,7 +184,7 @@ void PSMain(VsOut input)
     float3 ycc;
     bool outside;
     float nits, chan;
-    qs_classify(rgb, to0, to1, to2, p0, p1, ycc, outside, nits, chan);
+    qs_classify(rgb, to0, to1, to2, p0, p1, p2, ycc, outside, nits, chan);
     bool hdr = p0.x > 0.5 && p0.y > 0.5;
     uint side = (uint)p1.w;
     uint prev;

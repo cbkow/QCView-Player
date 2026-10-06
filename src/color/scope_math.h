@@ -68,6 +68,12 @@ struct ScopeConfig {
     int        waveformPeakNits = 1000;  // waveform HDR scale: top of the face, nits
     quint32    peakEpoch = 0;            // ScopeController's peak reset count, echoed
                                          // back in ScopePeaks (drops in-flight images)
+    // Nits per 1.0 of the side's linear interchange value on the HDR
+    // scale. 100 for display-referred HDR (PQ / HLG decode to absolute
+    // luminance, 1.0 = 100 nits by OCIO's convention); 203 for SDR-encoded
+    // and scene-referred sources, whose 1.0 is reference white — BT.2408's
+    // 203 nits, the amber line on the waveform. SDR scale: unused.
+    float      whiteNits = 100.0f;
 
     // Dual: side B's own interpretation (its tags can differ from A's —
     // an SDR B beside a PQ A). The scale stays shared.
@@ -76,6 +82,7 @@ struct ScopeConfig {
     QString    configPathB;
     int        signalMatrixB = 1;
     bool       signalNominalCurveB = false;
+    float      whiteNitsB = 100.0f;
 
     // This config as seen by one side (0 = A, 1 = B): B's interpretation
     // moved into the main fields.
@@ -88,6 +95,7 @@ struct ScopeConfig {
             c.configPath = configPathB;
             c.signalMatrix = signalMatrixB;
             c.signalNominalCurve = signalNominalCurveB;
+            c.whiteNits = whiteNitsB;
         }
         return c;
     }
@@ -99,7 +107,8 @@ struct ScopeAccumGpu {
     float p0[4];   // x = converted (0/1), y = scale (0 SDR, 1 HDR), z = zoom, w = signal matrix
     float p1[4];   // x = nominal curve (0/1), y = tap width, z = tap height, w = side (0 A, 1 B)
     float p2[4];   // x = kind (0 vectorscope, 1 waveform), y = waveform HDR top (nits),
-                   // z = pass (0 accumulate, 1 peak), w unused
+                   // z = pass (0 accumulate, 1 peak), w = nits per 1.0 linear
+                   // (ScopeConfig::whiteNits: 100 display-referred, 203 SDR / scene)
 };
 
 // Waveform peaks of the newest image, per side: the waveform's level
@@ -167,6 +176,7 @@ inline ScopeAccumGpu resolveAccum(const ScopeConfig &c, InterchangeSide side,
     g.p1[3] = static_cast<float>(sideIndex);
     g.p2[0] = c.kind == ScopeKind::Waveform ? 1.0f : 0.0f;
     g.p2[1] = static_cast<float>(std::clamp(c.waveformPeakNits, 100, 10000));
+    g.p2[3] = c.whiteNits > 0.0f ? c.whiteNits : 100.0f;
     return g;
 }
 
@@ -226,10 +236,14 @@ inline ScopePixel classify(const ScopeAccumGpu &g, const float *rgbIn)
             ycc(1, e, p.y, p.cb, p.cr);
         } else {
             p.oog = l[0] < -0.002f || l[1] < -0.002f || l[2] < -0.002f;
-            p.nits = 100.0f * (0.2627f * l[0] + 0.6780f * l[1] + 0.0593f * l[2]);
-            p.channel = 100.0f * std::max({l[0], l[1], l[2]});
+            // Nits per unit of the side's linear value (p2.w): 100 for a
+            // display-referred HDR decode, 203 for SDR / scene white.
+            const float white = g.p2[3] > 0.0f ? g.p2[3] : 100.0f;
+            p.nits = white * (0.2627f * l[0] + 0.6780f * l[1] + 0.0593f * l[2]);
+            p.channel = white * std::max({l[0], l[1], l[2]});
             for (int i = 0; i < 3; ++i) {
-                e[i] = std::copysign(linear_stage::pqEncode(std::abs(l[i]) * 0.01f), l[i]);
+                e[i] = std::copysign(linear_stage::pqEncode(std::abs(l[i]) * white / 10000.0f),
+                                     l[i]);
             }
             ycc(2, e, p.y, p.cb, p.cr);
         }
@@ -283,8 +297,9 @@ inline void bin(const ScopeAccumGpu &g, const float *rgbIn, int &bx, int &by, bo
 
 // Graticule helper: where a scale-space colour lands, as (x, y) in 0..1
 // of the scope (same mapping as the kernel). `lin2020` is linear
-// Rec.2020, 1.0 = 100 nits.
-inline void targetPoint(const float *lin2020, ScopeScale scale, int zoom, float &x, float &y)
+// Rec.2020, 1.0 = `whiteNits` nits on the HDR scale (ScopeConfig::whiteNits).
+inline void targetPoint(const float *lin2020, ScopeScale scale, int zoom, float &x, float &y,
+                        float whiteNits = 100.0f)
 {
     float e[3], yy, cb, cr;
     if (scale == ScopeScale::Sdr) {
@@ -294,7 +309,8 @@ inline void targetPoint(const float *lin2020, ScopeScale scale, int zoom, float 
         ycc(1, e, yy, cb, cr);
     } else {
         for (int i = 0; i < 3; ++i) {
-            e[i] = std::copysign(linear_stage::pqEncode(std::abs(lin2020[i]) * 0.01f), lin2020[i]);
+            e[i] = std::copysign(linear_stage::pqEncode(std::abs(lin2020[i]) * whiteNits / 10000.0f),
+                                 lin2020[i]);
         }
         ycc(2, e, yy, cb, cr);
     }

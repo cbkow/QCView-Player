@@ -107,10 +107,14 @@ constexpr const char *kAccumBodyTail = R"(
             ycc = qs_ycc(e, 1);
         } else {
             outside = any(l < -0.002);
-            nits = 100.0 * dot(float3(0.2627, 0.6780, 0.0593), l);
-            chan = 100.0 * max(l.r, max(l.g, l.b));
-            float3 e = sign(l) * float3(qs_pq(abs(l.r) * 0.01), qs_pq(abs(l.g) * 0.01),
-                                        qs_pq(abs(l.b) * 0.01));
+            // u.p2.w = nits per 1.0 linear (100 display-referred, 203 SDR /
+            // scene white) — scope_math::classify.
+            float white = u.p2.w > 0.0 ? u.p2.w : 100.0;
+            nits = white * dot(float3(0.2627, 0.6780, 0.0593), l);
+            chan = white * max(l.r, max(l.g, l.b));
+            float k = white / 10000.0;
+            float3 e = sign(l) * float3(qs_pq(abs(l.r) * k), qs_pq(abs(l.g) * k),
+                                        qs_pq(abs(l.b) * k));
             ycc = qs_ycc(e, 2);
         }
     } else {

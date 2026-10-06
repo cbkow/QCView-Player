@@ -196,6 +196,21 @@ public:
     // source so the override takes effect immediately.
     Q_INVOKABLE bool setVideoRangeOverride(const QString &itemId, int range);
 
+    // Per-clip transfer / encoding override (`qcv::TransferOverride` cast
+    // to int: 0 = Auto, 1 = SDR Rec.709, 2 = PQ Rec.2020, 3 = PQ P3-D65,
+    // 4 = HLG, 5 = Linear). Video, image and live items. Emits
+    // transferOverrideChanged, and activeItemIdChanged / bSourceChanged
+    // when the item is on screen so the scopes and Inspector re-resolve.
+    Q_INVOKABLE bool setTransferOverride(const QString &itemId, int transfer);
+
+    // A live session's colour tags (FFmpeg names: "smpte2084", "bt2020",
+    // "bt2020nc"…), learned when the stream connects — a stream is never
+    // probed, so this is the only way its tags reach the item. Empty
+    // strings clear them. Not persisted as such; the scopes read them
+    // through mediaItemMap's `video` block.
+    void setLiveVideoTags(const QString &itemId, const QString &transfer,
+                          const QString &primaries, const QString &matrix);
+
     // Per-clip pixel-aspect override. `mode` is PixelAspectMode cast to
     // int (0 = Square, 1 = Detected, 2 = Custom); parNum/parDen are the
     // custom pixel aspect (honored only when mode == Custom, clamped to
@@ -391,6 +406,10 @@ signals:
     // updates the persisted MediaItem field; the live render-side
     // YUV→RGB compute stays on its old setting until next reopen.
     void videoRangeOverrideChanged(const QString &itemId, int range);
+
+    // Per-clip transferOverride changed (value = qcv::TransferOverride
+    // as int). The Inspector bumps its pill revision on it.
+    void transferOverrideChanged(const QString &itemId, int transfer);
 
     // Per-clip pixel-aspect override changed. WindowManager hooks this
     // to push the resulting effective ratio into the live renderer

@@ -86,6 +86,7 @@ Rectangle {
         target: WindowManager.project
         function onAudioRoutingModeChanged(itemId, mode) { root.inspectorPillRev++ }
         function onVideoRangeOverrideChanged(itemId, range) { root.inspectorPillRev++ }
+        function onTransferOverrideChanged(itemId, transfer) { root.inspectorPillRev++ }
         function onPixelAspectChanged(itemId, mode, num, den) { root.inspectorPillRev++ }
     }
 
@@ -1073,6 +1074,69 @@ Rectangle {
                                 WindowManager.project
                                     .setVideoRangeOverride(
                                         targetId, modelData.key);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---- Transfer / encoding override ----
+            // How the scopes read this clip when its tags are missing or
+            // wrong (an untagged PQ export): Auto follows the tags, the
+            // rest name an encoding. With OCIO on the clip's Input still
+            // drives the picture and the scopes; the pill then feeds the
+            // scope's mismatch note. Same target-item resolution as Range.
+            KvChipRow {
+                id: transferRow
+                label: qsTr("Transfer")
+                Layout.topMargin: 4
+                visible: root.itemType === 0
+
+                readonly property var transferTargetItem: {
+                    root.inspectorPillRev;   // dependency tag — see InspectorPanel root
+                    if (!rangeRow.rangeTargetItemId || !WindowManager.project) return null;
+                    return WindowManager.project.mediaItemMap(rangeRow.rangeTargetItemId);
+                }
+                readonly property int activeTransfer:
+                    transferTargetItem && transferTargetItem.transferOverride !== undefined
+                        ? transferTargetItem.transferOverride : 0
+                // Auto's resolved value from the tags, so the reviewer sees
+                // what Auto means for this file before overriding it.
+                readonly property string detectedLabel: {
+                    if (!content.vmeta) return qsTr("Auto");
+                    const t = (content.vmeta.colorTransfer || "").toLowerCase();
+                    const p = (content.vmeta.colorPrimaries || "").toLowerCase();
+                    if (t === "smpte2084") {
+                        return (p.indexOf("432") >= 0 || p.indexOf("431") >= 0 || p.indexOf("p3") >= 0)
+                            ? qsTr("Auto (PQ P3)") : qsTr("Auto (PQ 2020)");
+                    }
+                    if (t.indexOf("arib") >= 0 || t.indexOf("hlg") >= 0) return qsTr("Auto (HLG)");
+                    if (t.length === 0 || t === "unknown" || t === "unspecified")
+                        return qsTr("Auto (SDR, untagged)");
+                    return qsTr("Auto (SDR)");
+                }
+
+                Repeater {
+                    model: [
+                        { key: 0, useDetected: true,  label: qsTr("Auto") },
+                        { key: 1, useDetected: false, label: qsTr("SDR 709") },
+                        { key: 2, useDetected: false, label: qsTr("PQ 2020") },
+                        { key: 3, useDetected: false, label: qsTr("PQ P3") },
+                        { key: 4, useDetected: false, label: qsTr("HLG") },
+                        { key: 5, useDetected: false, label: qsTr("Linear") },
+                    ]
+
+                    FlatChip {
+                        required property var modelData
+                        active: modelData.key === transferRow.activeTransfer
+                        interactive: !!rangeRow.rangeTargetItemId
+                        label: modelData.useDetected ? transferRow.detectedLabel
+                                                     : modelData.label
+                        onClicked: {
+                            const targetId = rangeRow.rangeTargetItemId;
+                            if (targetId && WindowManager.project) {
+                                WindowManager.project
+                                    .setTransferOverride(targetId, modelData.key);
                             }
                         }
                     }

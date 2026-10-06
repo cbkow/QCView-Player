@@ -1266,6 +1266,8 @@ private:
     // live worker feeds.
     void startLiveStream(const MediaItem &item);
     void stopLiveStream();
+    // A live receiver's colour tags onto its media item (setLiveVideoTags).
+    void pushLiveTags(LiveSource *src, const QString &itemId);
 
     // Phase 3.H.1 — kick a Playlist load. Resolves entries against
     // the pool, builds the playlist timeline, and (for Stage 1) opens

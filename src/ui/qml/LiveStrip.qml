@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Qcv
 
@@ -196,6 +197,65 @@ Rectangle {
             Layout.topMargin: 6
             Layout.bottomMargin: 6
             color: Theme.divider
+        }
+
+        // ---- Transfer / encoding — how the scopes read this feed ----
+        // A stream's tags arrive with the session (SRT) or never do (a
+        // QCBridge feed is the host's working space); Auto follows them,
+        // the rest name an encoding. Same per-item override as the
+        // Inspector's Transfer pill (ProjectManager.setTransferOverride).
+        FlatChip {
+            id: transferChip
+            property int rev: 0
+            Connections {
+                target: WindowManager.project
+                function onTransferOverrideChanged(itemId, transfer) { transferChip.rev++ }
+                function onActiveItemIdChanged() { transferChip.rev++ }
+            }
+            readonly property string itemId:
+                WindowManager.project ? WindowManager.project.activeItemId : ""
+            readonly property var item: {
+                rev;
+                return itemId && WindowManager.project
+                    ? WindowManager.project.mediaItemMap(itemId) : null;
+            }
+            readonly property int value:
+                item && item.transferOverride !== undefined ? item.transferOverride : 0
+            readonly property var names: [
+                qsTr("Auto"), qsTr("SDR 709"), qsTr("PQ 2020"),
+                qsTr("PQ P3"), qsTr("HLG"), qsTr("Linear")]
+            readonly property string autoLabel: {
+                const v = item && item.video ? item.video : null;
+                const t = v ? String(v.colorTransfer || "").toLowerCase() : "";
+                const p = v ? String(v.colorPrimaries || "").toLowerCase() : "";
+                if (t === "smpte2084")
+                    return (p.indexOf("432") >= 0 || p.indexOf("431") >= 0 || p.indexOf("p3") >= 0)
+                        ? qsTr("Auto · PQ P3") : qsTr("Auto · PQ 2020");
+                if (t.indexOf("arib") >= 0 || t.indexOf("hlg") >= 0) return qsTr("Auto · HLG");
+                if (t.length === 0) return qsTr("Auto · SDR, untagged");
+                return qsTr("Auto · SDR");
+            }
+            visible: !!root.live
+            active: value !== 0
+            label: value === 0 ? autoLabel : names[value]
+            tooltip: qsTr("How the scopes read this feed (Transfer override)")
+            onClicked: transferMenu.popup()
+            ThemedMenu {
+                id: transferMenu
+                Repeater {
+                    model: 6
+                    MenuItem {
+                        required property int index
+                        text: transferChip.names[index]
+                        checkable: true
+                        checked: transferChip.value === index
+                        onTriggered: {
+                            if (transferChip.itemId && WindowManager.project)
+                                WindowManager.project.setTransferOverride(transferChip.itemId, index);
+                        }
+                    }
+                }
+            }
         }
 
         // ---- Colour panel — the one panel that matters live -------

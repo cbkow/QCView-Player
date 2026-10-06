@@ -19,6 +19,7 @@
 #include "decode/qcbae/host_bridge_url.h"
 #ifdef QCV_HAS_HOST_BRIDGE
 #include "decode/host_bridge_source.h"
+#include "dual/dual_live_source.h"
 #endif
 #include "dual/dual_image_seq_source.h"
 #include "dual/dual_playback_controller.h"
@@ -2402,6 +2403,23 @@ void WindowManager::setCompositorMode(int mode)
                 if (auto *sb = m_dualController->sourceB())
                     sb->setFrameAvailableCallback(wakeRenderer);
             }
+            // A live side's colour tags onto its item (as startLiveStream
+            // does for single view). The receiver lives as long as the
+            // island's source; the connection dies with it.
+            {
+                auto hookLive = [this](qcv::dual::IDualSource *s, const QString &id) {
+                    auto *live = dynamic_cast<qcv::dual::DualLiveSource *>(s);
+                    if (!live || !live->live() || id.isEmpty()) return;
+                    LiveSource *src = live->live();
+                    pushLiveTags(src, id);
+                    connect(src, &LiveSource::metadataChanged, this,
+                            [this, src, id] { pushLiveTags(src, id); }, Qt::QueuedConnection);
+                };
+                hookLive(m_dualController->sourceA(),
+                         m_project ? m_project->activeItemId() : QString());
+                hookLive(m_dualController->sourceB(),
+                         m_project ? m_project->bSourceMediaId() : QString());
+            }
 
             // Honor each image-seq side's stored per-item cache stride
             // (dual previously ignored it — single flow applies the
@@ -4238,9 +4256,25 @@ void WindowManager::startLiveStream(const MediaItem &item)
         return;
     }
 
+    // The stream's colour tags (an SRT feed's codec parameters; none from
+    // a QCBridge feed) go onto the item as they are learned, so the
+    // scopes' Assumed tier and the Inspector read a PQ stream as PQ.
+    // Queued: the receiver emits from its worker thread.
+    pushLiveTags(m_liveDecoder.get(), item.id);
+    connect(m_liveDecoder.get(), &LiveSource::metadataChanged, this,
+            [this, src = m_liveDecoder.get(), id = item.id] { pushLiveTags(src, id); },
+            Qt::QueuedConnection);
+
     m_liveActive = true;
     emit liveActiveChanged();
     emit liveDecoderChanged();
+}
+
+void WindowManager::pushLiveTags(LiveSource *src, const QString &itemId)
+{
+    if (!src || !m_project) return;
+    m_project->setLiveVideoTags(itemId, src->colorTransfer(), src->colorPrimaries(),
+                                src->colorMatrix());
 }
 
 void WindowManager::stopLiveStream()
