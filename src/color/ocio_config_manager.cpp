@@ -482,14 +482,23 @@ bool OCIOConfigManager::sdrCaptureDisplayView(QString *display, QString *view) c
 
 QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
 {
-    if (!m_impl->config) {
-        return QStringLiteral("No OCIO config loaded");
-    }
     if (outPath.isEmpty()) {
         return QStringLiteral("Output path is empty");
     }
     if (cubeSize < 2) {
         return QStringLiteral("Cube size must be ≥ 2 (got %1)").arg(cubeSize);
+    }
+    // minColor: the focused clip's whole chain through the CPU twin —
+    // Input (the LUT's input domain is that encoding's 0..1 codes) →
+    // knee → AgX → rendering → display encoding. No config involved.
+    if (m_engine == 1 && m_minColor) {
+        const MinColorGpu g = mincolor::resolve(m_minColor->focused(), /*sdrCapture=*/false,
+                                                /*edrLinear=*/false);
+        return OcioLutBaker::writeCube([&](float *rgb) { mincolor::apply(g, rgb); },
+                                       outPath, cubeSize);
+    }
+    if (!m_impl->config) {
+        return QStringLiteral("No OCIO config loaded");
     }
 
     QString err;
@@ -701,7 +710,14 @@ void OCIOConfigManager::setMinColorEngine(MinColorEngine *engine)
     if (m_minColor) disconnect(m_minColor, nullptr, this, nullptr);
     m_minColor = engine;
     if (m_minColor) {
+        m_minColor->setFocusClipFn([this] { return focusClipId(); });
         connect(m_minColor, &MinColorEngine::chainChanged, this, [this] { publish(); });
+        // Badges re-read through pinsRevision whichever engine pinned.
+        connect(m_minColor, &MinColorEngine::pinsRevisionChanged, this,
+                [this] { bumpPinsRevision(); });
+        // The panel shows the focused clip's minColor chain too.
+        connect(this, &OCIOConfigManager::viewContextChanged, m_minColor,
+                &MinColorEngine::chainChanged);
     }
     m_engine = QSettings().value(QStringLiteral("minColor/engine"), 0).toInt() == 1 ? 1 : 0;
     publish();
@@ -870,6 +886,7 @@ void OCIOConfigManager::notePinEdit(const QString &clipId)
 
 QString OCIOConfigManager::clipBadge(const QString &clipId) const
 {
+    if (m_engine == 1 && m_minColor) return m_minColor->clipBadge(clipId);
     const auto it = m_pins.constFind(clipId);
     if (clipId.isEmpty() || it == m_pins.constEnd() || it->empty()) return {};
     if (m_shortNamesConfig != m_configIdentifier) {
@@ -893,6 +910,7 @@ QString OCIOConfigManager::clipBadge(const QString &clipId) const
 
 QString OCIOConfigManager::clipBadgeTooltip(const QString &clipId) const
 {
+    if (m_engine == 1 && m_minColor) return m_minColor->clipBadgeTooltip(clipId);
     const auto it = m_pins.constFind(clipId);
     if (clipId.isEmpty() || it == m_pins.constEnd() || it->empty()) return {};
     QStringList lines{tr("Set on this clip:")};
@@ -914,6 +932,12 @@ QString OCIOConfigManager::clipBadgeTooltip(const QString &clipId) const
 
 void OCIOConfigManager::setSlotPinned(const QString &slotName, bool pinned)
 {
+    // The minColor engine's clip-side slots live on the engine (same
+    // focus clip, its own pins).
+    if (slotName.startsWith(QLatin1String("mc"))) {
+        if (m_minColor) m_minColor->setSlotPinned(slotName, pinned);
+        return;
+    }
     const QString clip = focusClipId();
     if (clip.isEmpty()) return;
     const OcioSceneChain cur = focusedScene();
@@ -1106,14 +1130,19 @@ void OCIOConfigManager::publish(bool knee)
     snap->a      = withScene(resolveScene(m_clipA));
     snap->b      = withScene(resolveScene(m_clipB));
     if (snap->engine == ColorEngine::MinColor) {
-        // One chain for every side until per-clip pins land (carry-over
-        // step); the renderers draw it with the fixed minColor kernel.
-        const MinColorGpu gpu = mincolor::resolve(m_minColor->chain(), /*sdrCapture=*/false,
-                                                  /*edrLinear=*/false);
-        for (OcioChainSpec *spec : {&snap->single, &snap->a, &snap->b}) {
-            spec->engine   = ColorEngine::MinColor;
-            spec->minColor = gpu;
-        }
+        // Each side's chain = the default with its clip's pins (Input,
+        // Knee); the view half is shared. Resolved twice: for the
+        // viewport (its display mode) and for captures (sRGB at 100 nits).
+        const bool edr = m_minColor->edrLinear();
+        auto fill = [&](OcioChainSpec &spec, const QString &clipId) {
+            const MinColorChain chain = m_minColor->resolveFor(clipId);
+            spec.engine      = ColorEngine::MinColor;
+            spec.minColor    = mincolor::resolve(chain, /*sdrCapture=*/false, edr);
+            spec.minColorSdr = mincolor::resolve(chain, /*sdrCapture=*/true, /*edrLinear=*/false);
+        };
+        fill(snap->single, m_singleClip);
+        fill(snap->a, m_clipA);
+        fill(snap->b, m_clipB);
     }
     // Distinct shaders only (knee values are uniforms); the on-screen
     // chains first, then the rest — capped, the renderers' caches are

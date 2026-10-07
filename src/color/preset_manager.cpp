@@ -1,4 +1,5 @@
 #include "preset_manager.h"
+#include "mincolor_engine.h"
 
 #include "ocio_config_manager.h"
 
@@ -16,11 +17,16 @@
 
 namespace qcv {
 
-PresetManager::PresetManager(OCIOConfigManager *ocio, QObject *parent)
-    : QObject(parent), m_ocio(ocio)
+PresetManager::PresetManager(OCIOConfigManager *ocio, MinColorEngine *minColor, QObject *parent)
+    : QObject(parent), m_ocio(ocio), m_minColor(minColor)
 {
     loadBuiltIns();
+    loadMinColorBuiltIns();
     loadUserPresetsFromDisk();
+    if (m_minColor) {
+        connect(m_minColor, &MinColorEngine::chainChanged,
+                this, &PresetManager::onActiveChainChanged);
+    }
 
     // Track invalidation: any chain edit that didn't come from
     // applyPreset itself toggles us into "modified" state; switching
@@ -242,11 +248,49 @@ void PresetManager::loadBuiltIns()
     emit presetsChanged();
 }
 
+int PresetManager::activeEngine() const
+{
+    return m_ocio ? m_ocio->engine() : 0;
+}
+
+// minColor's built-ins: one per display encoding, every one of them
+// un-tone-mapped (an OpenDRT look is only ever an explicit choice —
+// chris, 2026-10-07), with Blender's AgX as one extra on the SDR encode.
+void PresetManager::loadMinColorBuiltIns()
+{
+    struct Seed { const char *name; int display; Preset::Kind kind; bool agx; };
+    static const Seed kSeeds[] = {
+        {"sRGB 2.2 / Rec.709",           1, Preset::SdrSrgb,    false},
+        {"Rec.1886 / Rec.709",           0, Preset::SdrSrgb,    false},
+        {"Display P3",                   2, Preset::SdrP3,      false},
+        {"Rec.2100 PQ (P3 limited)",     6, Preset::HdrPq,      false},
+        {"Rec.2100 HLG (P3 limited)",    7, Preset::HdrPq,      false},
+        {"Linear Rec.709 (EDR)",        13, Preset::HdrEdrSrgb, false},
+        {"Linear Rec.2020 (EDR)",       12, Preset::HdrEdrP3,   false},
+        {"AgX → sRGB 2.2",               1, Preset::SdrSrgb,    true},
+    };
+    for (const Seed &sd : kSeeds) {
+        MinColorChain chain;   // Input Rec.709 / Rec.1886, knee off, un-tone-mapped
+        chain.output.display = sd.display;
+        chain.agx.enabled    = sd.agx;
+        Preset p;
+        p.name     = QString::fromUtf8(sd.name);
+        p.section  = QStringLiteral("minColor");
+        p.builtIn  = true;
+        p.kind     = sd.kind;
+        p.engine   = 1;
+        p.minColor = chain.toVariant();
+        m_presets.append(p);
+    }
+}
+
 QVariantList PresetManager::availablePresetEntries() const
 {
     QVariantList out;
     out.reserve(m_presets.size());
+    const int engine = activeEngine();
     for (const Preset &p : m_presets) {
+        if (p.engine != engine) continue;
         QVariantMap entry;
         entry[QStringLiteral("name")]    = p.name;
         entry[QStringLiteral("section")] = p.section;
@@ -260,7 +304,8 @@ QStringList PresetManager::availablePresets() const
 {
     QStringList out;
     out.reserve(m_presets.size());
-    for (const Preset &p : m_presets) out << p.name;
+    const int engine = activeEngine();
+    for (const Preset &p : m_presets) if (p.engine == engine) out << p.name;
     return out;
 }
 
@@ -282,6 +327,22 @@ bool PresetManager::applyPreset(const QString &name)
     }
 
     m_applying = true;
+
+    // A minColor preset: the whole chain onto the engine, the engine
+    // selected, On — the same deliberate "I want this look" as below.
+    if (p->engine == 1) {
+        if (!m_minColor) { m_applying = false; return false; }
+        m_minColor->setChain(MinColorChain::fromVariant(p->minColor));
+        m_ocio->setEngine(1);
+        m_ocio->setEngaged(true);
+        m_applying = false;
+        bool changedMc = false;
+        if (m_activePresetName != name) { m_activePresetName = name; changedMc = true; }
+        if (m_modified) { m_modified = false; emit modifiedChanged(); }
+        if (changedMc) emit activePresetChanged();
+        return true;
+    }
+    if (m_ocio->engine() != 0) m_ocio->setEngine(0);
 
     // Switch config first if needed — the input/display/view names
     // in the preset are interpreted in the target config's name
@@ -339,6 +400,11 @@ bool PresetManager::applyPreset(const QString &name)
 bool PresetManager::currentMatchesPreset(const Preset &p) const
 {
     if (!m_ocio) return false;
+    if (p.engine == 1) {
+        return m_minColor && m_ocio->engine() == 1
+            && m_minColor->chain() == MinColorChain::fromVariant(p.minColor);
+    }
+    if (m_ocio->engine() != 0) return false;
     // configName comparison handles the empty-config case for the
     // "None (Passthrough)" preset (configName is empty; current
     // configName is whatever's loaded — they won't match, so None
@@ -365,9 +431,23 @@ bool PresetManager::currentMatchesPreset(const Preset &p) const
 void PresetManager::onActiveChainChanged()
 {
     if (m_applying) return;
+    // The engine segment changes which presets the reel lists.
+    const int engine = activeEngine();
+    if (engine != m_listedEngine) {
+        m_listedEngine = engine;
+        emit presetsChanged();
+    }
     if (m_activePresetName.isEmpty()) return;
     const Preset *p = findByName(m_activePresetName);
     if (!p) return;
+    // An engine switch leaves the other engine's preset behind: the
+    // name no longer describes what's on screen.
+    if (p->engine != engine) {
+        m_activePresetName.clear();
+        emit activePresetChanged();
+        if (m_modified) { m_modified = false; emit modifiedChanged(); }
+        return;
+    }
     const bool nowModified = !currentMatchesPreset(*p);
     if (nowModified != m_modified) {
         m_modified = nowModified;
@@ -395,15 +475,13 @@ void PresetManager::onConfigChanged()
 
 void PresetManager::stepPreset(int delta)
 {
-    if (m_presets.isEmpty()) return;
-    int idx = -1;
-    for (int i = 0; i < m_presets.size(); ++i) {
-        if (m_presets[i].name == m_activePresetName) { idx = i; break; }
-    }
+    const QStringList names = availablePresets();   // the active engine's
+    if (names.isEmpty()) return;
+    int idx = names.indexOf(m_activePresetName);
     if (idx < 0) idx = 0;
-    int next = (idx + delta) % m_presets.size();
-    if (next < 0) next += m_presets.size();
-    applyPreset(m_presets[next].name);
+    int next = (idx + delta) % names.size();
+    if (next < 0) next += names.size();
+    applyPreset(names[next]);
 }
 
 // ---- Phase 2.5e.2: save + persistence ----
@@ -469,6 +547,14 @@ PresetManager::captureCurrentAsPreset(const QString &name) const
     p.name = name;
     p.section = QStringLiteral("Custom");
     p.builtIn = false;
+    p.engine = activeEngine();
+    if (p.engine == 1 && m_minColor) {
+        p.minColor = m_minColor->chain().toVariant();
+        const int kind = m_minColor->displayKindOf(m_minColor->chain().output.display);
+        p.kind = kind == 1 || kind == 2 ? Preset::HdrPq
+               : kind == 3 ? Preset::HdrEdrSrgb : Preset::SdrSrgb;
+        return p;
+    }
     if (m_ocio) {
         p.configName     = m_ocio->activeConfigName();
         p.input          = m_ocio->activeInput();
@@ -688,6 +774,15 @@ void PresetManager::loadUserPresetsFromDisk()
         p.kneeTargetNits = kneeObj.value(QStringLiteral("target_nits")).toDouble(1000.0);
         p.kneeStart      = kneeObj.value(QStringLiteral("start")).toDouble(-1.0);
         p.kind           = inferKindFromOutput(p.output);
+        p.engine         = o.value(QStringLiteral("engine")).toInt(0) == 1 ? 1 : 0;
+        if (p.engine == 1) {
+            p.minColor = o.value(QStringLiteral("minColor")).toObject().toVariantMap();
+            const int d = p.minColor.value(QStringLiteral("output")).toMap()
+                              .value(QStringLiteral("display"), 1).toInt();
+            const int kind = m_minColor ? m_minColor->displayKindOf(d) : 0;
+            p.kind = kind == 1 || kind == 2 ? Preset::HdrPq
+                   : kind == 3 ? Preset::HdrEdrSrgb : Preset::SdrSrgb;
+        }
         m_presets.append(p);
         ++loaded;
     }
@@ -734,6 +829,10 @@ bool PresetManager::writeUserPresetsToDisk() const
         obj[QStringLiteral("name")]       = p.name;
         obj[QStringLiteral("configName")] = p.configName;
         obj[QStringLiteral("slots")]      = slotsObj;
+        if (p.engine == 1) {
+            obj[QStringLiteral("engine")]   = 1;
+            obj[QStringLiteral("minColor")] = QJsonObject::fromVariantMap(p.minColor);
+        }
         // Per-entry timestamps for the Manage modal (.e.4) — modified
         // refreshes on each write; created sticks to the file's
         // existing value if we can find it, else now.

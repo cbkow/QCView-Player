@@ -20,10 +20,12 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 
 namespace qcv {
 
 class OCIOConfigManager;
+class MinColorEngine;
 
 class PresetManager : public QObject
 {
@@ -91,12 +93,18 @@ public:
         double  kneeTargetNits = 1000.0;
         double  kneeStart      = -1.0;
         QString sceneLutCccId;    // CDL collection correction (empty = first)
+        // Which engine the preset is for (ColorEngine as int): 0 = OCIO,
+        // the slots above; 1 = minColor, `minColor` = MinColorChain::
+        // toVariant(). The reel lists only the active engine's presets.
+        int         engine = 0;
+        QVariantMap minColor;
     };
 
     // Constructor wires to the OCIOConfigManager that the manager
     // applies presets to. The OCIO manager must outlive this manager;
     // typically both are owned by WindowManager.
-    explicit PresetManager(OCIOConfigManager *ocio, QObject *parent = nullptr);
+    explicit PresetManager(OCIOConfigManager *ocio, MinColorEngine *minColor,
+                           QObject *parent = nullptr);
     ~PresetManager() override;
 
     QStringList   availablePresets() const;
@@ -144,6 +152,8 @@ private slots:
 
 private:
     void loadBuiltIns();
+    void loadMinColorBuiltIns();
+    int  activeEngine() const;
     const Preset *findByName(const QString &name) const;
     Preset *findByNameMutable(const QString &name);
     bool currentMatchesPreset(const Preset &p) const;
@@ -153,6 +163,7 @@ private:
     bool writeUserPresetsToDisk() const;
 
     OCIOConfigManager *m_ocio = nullptr;
+    MinColorEngine    *m_minColor = nullptr;
     QList<Preset>      m_presets;
     QString            m_activePresetName;
     bool               m_modified = false;
@@ -166,6 +177,7 @@ private:
     // logic. Manual reel edits go through the same setters but with
     // m_applying false → modified state updates correctly.
     bool               m_applying = false;
+    int                m_listedEngine = 0;   // the engine the reel last listed
 };
 
 } // namespace qcv

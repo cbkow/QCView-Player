@@ -1,4 +1,5 @@
 #include "scope_controller.h"
+#include "color/mincolor_engine.h"
 
 #include "color/ocio_config_manager.h"
 #include "color/scope_names.h"
@@ -470,11 +471,60 @@ void ScopeController::resolve()
     };
     const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
     const bool engaged = chains && chains->engaged;
-    auto interpret = [&](const QVariantMap &item, const QString &input) {
+    const bool minColorOn = engaged && chains->engine == ColorEngine::MinColor && m_minColor;
+    // minColor's Input (gamut + transfer) as a colourspace of the live or
+    // built-in config, for the encodings they name; camera logs → Signal.
+    auto minColorName = [&](const QString &clipId, const OCIO::ConstConfigRcPtr &cfgX) {
+        const MinColorInput in = m_minColor->resolveFor(clipId).input;
+        const bool p3   = in.gamut == DRT_IN_P3D65;
+        const bool r2020 = in.gamut == DRT_IN_REC2020;
+        switch (in.transfer) {
+        case DRT_OETF_PQ_100:
+            return firstKnown(cfgX, p3 ? scope_names::kPqP3 : scope_names::kPq2020);
+        case DRT_OETF_HLG_1000:
+            return firstKnown(cfgX, scope_names::kHlg);
+        case DRT_OETF_REC1886: case DRT_OETF_SRGB: case DRT_OETF_POWER_2_2:
+        case DRT_OETF_BT709_CAMERA:
+            if (in.gamut == DRT_IN_REC709) return firstKnown(cfgX, scope_names::kSdrVideo);
+            if (p3)   return firstKnown(cfgX, scope_names::kStill);   // sRGB-ish P3: best effort
+            return QString();
+        case DRT_OETF_LINEAR:
+            if (in.gamut == DRT_IN_REC709) return firstKnown(cfgX, scope_names::kExrLinear);
+            if (in.gamut == DRT_IN_AP1)    return firstKnown(cfgX, {"ACEScg", "ACES - ACEScg"});
+            if (in.gamut == DRT_IN_AP0)    return firstKnown(cfgX, {"ACES2065-1", "ACES - ACES2065-1"});
+            if (r2020) return firstKnown(cfgX, {"Linear Rec.2020", "Linear Rec.2020 (2020)"});
+            if (p3)    return firstKnown(cfgX, {"Linear P3-D65", "Linear P3"});
+            return QString();
+        default:
+            return QString();
+        }
+    };
+    auto interpret = [&](const QVariantMap &item, const QString &input, const QString &clipId) {
         Side sd;
         sd.r = read(item, cfg);
         const Reading rf = fallbackCfg ? read(item, fallbackCfg) : Reading{};
         const bool fallbackNames = !usable(cfg, sd.r.assumed) && usable(fallbackCfg, rf.assumed);
+        if (minColorOn) {
+            const QString mc = canonicalName(cfg, minColorName(clipId, cfg));
+            if (usable(cfg, mc)) {
+                sd.tier = ScopeTier::Input;
+                sd.colorspace = mc;
+                sd.hdr = scaleFor(cfg, mc) == ScopeScale::Hdr;
+                sd.white = whiteFor(cfg, mc, sd.hdr);
+                sd.badge = tr("Input · minColor %1").arg(mc);
+            } else if (const QString mf = canonicalName(fallbackCfg, minColorName(clipId, fallbackCfg));
+                       usable(fallbackCfg, mf)) {
+                sd.tier = ScopeTier::Input;
+                sd.colorspace = mf;
+                sd.configPath = fallbackPath;
+                sd.hdr = scaleFor(fallbackCfg, mf) == ScopeScale::Hdr;
+                sd.white = whiteFor(fallbackCfg, mf, sd.hdr);
+                sd.badge = tr("Input · minColor %1 (built-in config)").arg(mf);
+            } else {
+                sd.badge = tr("Signal · minColor Input not convertible");
+            }
+            return sd;
+        }
         if (engaged && usable(cfg, input)) {
             sd.tier = ScopeTier::Input;
             sd.colorspace = input;
@@ -514,7 +564,7 @@ void ScopeController::resolve()
     const QString inputA = !chains ? QString()
                          : (m_dualView ? chains->a.scene.input : chains->single.scene.input);
     const Side a = interpret(m_project ? m_project->mediaItemMap(mediaItemIdA()) : QVariantMap{},
-                             inputA);
+                             inputA, mediaItemIdA());
     m_config.tier = a.tier;
     m_config.colorspace = a.colorspace;
     m_config.configPath = a.configPath;
@@ -533,7 +583,8 @@ void ScopeController::resolve()
     if (m_dualView && m_project) {
         const QVariantMap itemB = m_project->bSourceItemMap();
         if (!itemB.isEmpty()) {
-            const Side b = interpret(itemB, chains ? chains->b.scene.input : QString());
+            const Side b = interpret(itemB, chains ? chains->b.scene.input : QString(),
+                                     m_project->bSourceMediaId());
             m_config.tierB = b.tier;
             m_config.colorspaceB = b.colorspace;
             m_config.configPathB = b.configPath;

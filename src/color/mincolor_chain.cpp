@@ -20,6 +20,38 @@ int clampIndex(int v, int count) { return (v >= 0 && v < count) ? v : 0; }
 
 } // namespace
 
+QVariantMap MinColorPin::toVariant() const
+{
+    QVariantMap m;
+    if (input) {
+        QVariantMap in;
+        in[QStringLiteral("gamut")]    = input->gamut;
+        in[QStringLiteral("transfer")] = input->transfer;
+        in[QStringLiteral("limited")]  = input->limited;
+        m[QStringLiteral("input")] = in;
+    }
+    if (knee) {
+        QVariantMap kn;
+        kn[QStringLiteral("enabled")]    = knee->enabled;
+        kn[QStringLiteral("sourceNits")] = double(knee->sourceNits);
+        kn[QStringLiteral("targetNits")] = double(knee->targetNits);
+        kn[QStringLiteral("start")]      = double(knee->start);
+        m[QStringLiteral("knee")] = kn;
+    }
+    return m;
+}
+
+MinColorPin MinColorPin::fromVariant(const QVariantMap &m)
+{
+    MinColorPin p;
+    if (m.contains(QStringLiteral("input")) || m.contains(QStringLiteral("knee"))) {
+        const MinColorChain c = MinColorChain::fromVariant(m);
+        if (m.contains(QStringLiteral("input"))) p.input = c.input;
+        if (m.contains(QStringLiteral("knee")))  p.knee  = c.knee;
+    }
+    return p;
+}
+
 QVariantMap MinColorChain::toVariant() const
 {
     QVariantMap m;

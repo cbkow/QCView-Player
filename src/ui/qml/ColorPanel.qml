@@ -469,9 +469,8 @@ Pane {
 
                 // Caption in the reels' title row, so the lists line up.
                 Text {
-                    text: root.minColorMode ? qsTr("minColor presets: carry-over step")
-                          : presetColumn.setupTab === 0 ? qsTr("Sets clip + view")
-                                                        : qsTr("Names every column uses")
+                    text: presetColumn.setupTab === 0 ? qsTr("Sets clip + view")
+                                                      : qsTr("Names every column uses")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeTiny
@@ -493,7 +492,7 @@ Pane {
 
                 FlatTextField {
                     id: presetFilterField
-                    visible: presetColumn.setupTab === 0 && !root.minColorMode
+                    visible: presetColumn.setupTab === 0
                     Layout.fillWidth: true
                     placeholderText: qsTr("Filter…")
                     onTextChanged: presetColumn.filterText = text
@@ -516,15 +515,8 @@ Pane {
                     }
                 }
 
-                // minColor: no preset list yet (the carry-over step seeds one
-                // from minColorAE's looks and displays); the well stays empty.
-                Item {
-                    visible: root.minColorMode
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                }
                 Rectangle {
-                    visible: presetColumn.setupTab === 0 && !root.minColorMode
+                    visible: presetColumn.setupTab === 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     // Recessed well — darker than the panel so the
@@ -817,6 +809,8 @@ Pane {
                         model: root.minColor ? root.minColor.inputGamutNames : []
                         currentText: root.minColor
                                      ? root.minColor.inputGamutNames[root.minColor.inputGamut] : ""
+                        pinSlot: "mcInput"
+                        pinned: !!root.minColor && root.minColor.inputPinned
                         onSelected: (entry) => {
                             const i = root.minColor.inputGamutNames.indexOf(entry);
                             if (i >= 0) root.minColor.inputGamut = i;
@@ -828,6 +822,8 @@ Pane {
                         model: root.minColor ? root.minColor.inputTransferNames : []
                         currentText: root.minColor
                                      ? root.minColor.inputTransferNames[root.minColor.inputTransfer] : ""
+                        pinSlot: "mcInput"
+                        pinned: !!root.minColor && root.minColor.inputPinned
                         onSelected: (entry) => {
                             const i = root.minColor.inputTransferNames.indexOf(entry);
                             if (i >= 0) root.minColor.inputTransfer = i;
@@ -839,6 +835,7 @@ Pane {
                     KneeColumn {
                         visible: root.minColorMode
                         ocio: root.minColor
+                        kneeSlot: "mcKnee"
                         expanded: lutTileSettings.kneeExpanded
                         onExpandedChanged: lutTileSettings.kneeExpanded = expanded
                     }
@@ -1622,6 +1619,9 @@ Pane {
         // The object whose knee this column edits: the OCIO manager, or the
         // minColor engine (same property names, see MinColorEngine).
         property var ocio: WindowManager.ocio
+        // The pin slot name the ↺ clears ("knee" on the OCIO manager,
+        // "mcKnee" on the minColor engine, both through ocio.setSlotPinned).
+        property string kneeSlot: "knee"
         readonly property bool on: !!ocio && ocio.kneeEnabled
         readonly property bool available: !!ocio && ocio.kneeAvailable
         // The clip whose chain the panel shows (dual view: the A/B tab).
@@ -1661,7 +1661,7 @@ Pane {
                 anchors.leftMargin: 4
                 anchors.verticalCenter: parent.verticalCenter
                 visible: knee.expanded && !!knee.ocio && knee.ocio.kneePinned
-                slot: "knee"
+                slot: knee.kneeSlot
             }
             Icon {
                 visible: knee.expanded

@@ -16,8 +16,11 @@
 
 #include "mincolor_chain.h"
 
+#include <QHash>
 #include <QObject>
 #include <QStringList>
+
+#include <functional>
 
 namespace qcv {
 
@@ -61,8 +64,13 @@ class MinColorEngine : public QObject
     // never pinned until per-clip pins land, and targets 100 nits when
     // the Display encoding is an SDR power curve.
     Q_PROPERTY(bool    kneeAvailable      READ kneeAvailable      CONSTANT)
-    Q_PROPERTY(bool    kneePinned         READ kneePinned         CONSTANT)
-    Q_PROPERTY(QString focusClipId        READ focusClipId        CONSTANT)
+    // Per-clip pins (the Input and Knee the focused clip keeps): the
+    // panel's ↺ and ClipSetDot read these; `pinsRevision` bumps on any
+    // pin change so badges re-read.
+    Q_PROPERTY(bool    inputPinned        READ inputPinned        NOTIFY chainChanged)
+    Q_PROPERTY(bool    kneePinned         READ kneePinned         NOTIFY chainChanged)
+    Q_PROPERTY(QString focusClipId        READ focusClipId        NOTIFY chainChanged)
+    Q_PROPERTY(int     pinsRevision       READ pinsRevision       NOTIFY pinsRevisionChanged)
     Q_PROPERTY(bool    displayIsSdr       READ displayIsSdr       NOTIFY chainChanged)
     Q_PROPERTY(double  kneeStartEffective READ kneeStartEffective NOTIFY chainChanged)
     Q_PROPERTY(double  kneeStartNits      READ kneeStartNits      NOTIFY chainChanged)
@@ -81,20 +89,43 @@ class MinColorEngine : public QObject
 public:
     explicit MinColorEngine(QObject *parent = nullptr);
 
+    // The default chain (every unpinned slot) — what the panel edits when
+    // no clip is focused, and what presets capture and apply.
     const MinColorChain &chain() const { return m_chain; }
     void setChain(const MinColorChain &c);
+    // The chain a clip renders with: the default with its pins applied.
+    MinColorChain resolveFor(const QString &clipId) const;
+    // What the panel shows and edits: the focused clip's chain.
+    MinColorChain focused() const { return resolveFor(focusClipId()); }
 
-    int  inputGamut() const    { return m_chain.input.gamut; }
-    int  inputTransfer() const { return m_chain.input.transfer; }
-    bool inputLimited() const  { return m_chain.input.limited; }
+    // The clip whose chain the panel edits — OCIOConfigManager owns the
+    // view context (single clip, dual A / B, the active tab) and hands
+    // it over through this. Empty = the default.
+    void setFocusClipFn(std::function<QString()> fn) { m_focusFn = std::move(fn); }
+    // Pins, mirrored to the project by WindowManager (pinsChanged) and
+    // loaded back on project open.
+    void setSlotPinned(const QString &slot, bool pinned);   // "mcInput" / "mcKnee"
+    QVariantMap clipPinsVariant(const QString &clipId) const;
+    void replaceAllPins(const QHash<QString, QVariantMap> &pins);
+    QString clipBadge(const QString &clipId) const;
+    QString clipBadgeTooltip(const QString &clipId) const;
+    int  pinsRevision() const { return m_pinsRevision; }
+    // The swapchain is display-linear (macOS EDR): a linear Display
+    // hand-off is scaled by peak / 100 (mincolor::resolve).
+    void setEdrLinear(bool on);
+    bool edrLinear() const { return m_edrLinear; }
+
+    int  inputGamut() const    { return focused().input.gamut; }
+    int  inputTransfer() const { return focused().input.transfer; }
+    bool inputLimited() const  { return focused().input.limited; }
     void setInputGamut(int v);
     void setInputTransfer(int v);
     void setInputLimited(bool v);
 
-    bool   kneeEnabled() const    { return m_chain.knee.enabled; }
-    double kneeSourceNits() const { return m_chain.knee.sourceNits; }
-    double kneeTargetNits() const { return m_chain.knee.targetNits; }
-    double kneeStart() const      { return m_chain.knee.start; }
+    bool   kneeEnabled() const    { return focused().knee.enabled; }
+    double kneeSourceNits() const { return focused().knee.sourceNits; }
+    double kneeTargetNits() const { return focused().knee.targetNits; }
+    double kneeStart() const      { return focused().knee.start; }
     void setKneeEnabled(bool v);
     void setKneeSourceNits(double v);
     void setKneeTargetNits(double v);
@@ -152,8 +183,9 @@ public:
     QStringList displayNames() const       { return mincolor::displayNames(); }
     int displayKind() const;
     bool    kneeAvailable() const { return true; }
-    bool    kneePinned() const    { return false; }
-    QString focusClipId() const   { return {}; }
+    bool    inputPinned() const;
+    bool    kneePinned() const;
+    QString focusClipId() const   { return m_focusFn ? m_focusFn() : QString(); }
     bool    displayIsSdr() const  { return displayKind() == 0; }
     double  kneeStartEffective() const;
     double  kneeStartNits() const;
@@ -162,12 +194,23 @@ public:
 
 signals:
     void chainChanged();
+    void pinsChanged(const QString &clipId);
+    void pinsRevisionChanged();
 
 private:
     template <typename T> void set(T &field, const T &value);
+    // Clip-side fields: edit the focused clip's pin when one is focused,
+    // else the default.
+    template <typename T> void setInputField(T MinColorInput::*field, const T &value);
+    template <typename T> void setKneeField(T MinColorKnee::*field, const T &value);
     void persist() const;
+    void notePinEdit(const QString &clipId);
 
     MinColorChain m_chain;
+    QHash<QString, MinColorPin> m_pins;   // media item id → its pins
+    std::function<QString()> m_focusFn;
+    int  m_pinsRevision = 0;
+    bool m_edrLinear = false;
 };
 
 } // namespace qcv

@@ -34,6 +34,7 @@
 #include <QVariantMap>
 
 #include <cstring>
+#include <optional>
 
 namespace qcv {
 
@@ -114,6 +115,16 @@ struct MinColorOutput {
             && hdrPurity == o.hdrPurity && greyNits == o.greyNits;
     }
     bool operator!=(const MinColorOutput &o) const { return !(*this == o); }
+};
+
+// A clip's pins: the Input and / or Knee it keeps regardless of the
+// default (the OCIO engine's OcioScenePin, for the two clip-side steps).
+struct MinColorPin {
+    std::optional<MinColorInput> input;
+    std::optional<MinColorKnee>  knee;
+    bool empty() const { return !input && !knee; }
+    QVariantMap toVariant() const;
+    static MinColorPin fromVariant(const QVariantMap &m);
 };
 
 // One side's whole chain, resolved (the clip's Input and Knee, the view's

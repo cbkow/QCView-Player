@@ -457,6 +457,10 @@ struct MediaItem {
     // copy; WindowManager mirrors it here via ProjectManager::setOcioClip
     // and hands every item's back when a project loads.
     QVariantMap             ocioClip;
+    // Per-clip minColor pins (MinColorEngine::clipPinsVariant): the
+    // Input and / or Knee the clip keeps under the minColor engine. Set
+    // slots only; empty = follows the default. Persisted.
+    QVariantMap             minColorClip;
 
     // Phase 7.8 — DualPair save state. Populated when type ==
     // DualPair; default-constructed otherwise.

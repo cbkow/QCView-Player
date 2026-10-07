@@ -2,8 +2,10 @@
 #include "linear_stage.h"
 
 #include <QSettings>
+#include <QtLogging>
 
 #include <algorithm>
+#include <iterator>
 
 namespace qcv {
 
@@ -40,14 +42,158 @@ void MinColorEngine::setChain(const MinColorChain &c)
     emit chainChanged();
 }
 
-void MinColorEngine::setInputGamut(int v)    { set(m_chain.input.gamut, std::clamp(v, 0, DRT_IN_GAMUT_COUNT - 1)); }
-void MinColorEngine::setInputTransfer(int v) { set(m_chain.input.transfer, std::clamp(v, 0, DRT_OETF_INVERSE_FIRST - 1)); }
-void MinColorEngine::setInputLimited(bool v) { set(m_chain.input.limited, v); }
+// ---- Clip side: pins ----------------------------------------------------
 
-void MinColorEngine::setKneeEnabled(bool v)      { set(m_chain.knee.enabled, v); }
-void MinColorEngine::setKneeSourceNits(double v) { set(m_chain.knee.sourceNits, float(std::clamp(v, 1.0, 10000.0))); }
-void MinColorEngine::setKneeTargetNits(double v) { set(m_chain.knee.targetNits, float(std::clamp(v, 1.0, 10000.0))); }
-void MinColorEngine::setKneeStart(double v)      { set(m_chain.knee.start, float(v < 0.0 ? -1.0 : std::clamp(v, 0.0, 0.99))); }
+MinColorChain MinColorEngine::resolveFor(const QString &clipId) const
+{
+    MinColorChain c = m_chain;
+    if (clipId.isEmpty()) return c;
+    const auto it = m_pins.constFind(clipId);
+    if (it == m_pins.constEnd()) return c;
+    if (it->input) c.input = *it->input;
+    if (it->knee)  c.knee  = *it->knee;
+    return c;
+}
+
+bool MinColorEngine::inputPinned() const
+{
+    const auto it = m_pins.constFind(focusClipId());
+    return it != m_pins.constEnd() && it->input.has_value();
+}
+
+bool MinColorEngine::kneePinned() const
+{
+    const auto it = m_pins.constFind(focusClipId());
+    return it != m_pins.constEnd() && it->knee.has_value();
+}
+
+void MinColorEngine::notePinEdit(const QString &clipId)
+{
+    ++m_pinsRevision;
+    emit pinsRevisionChanged();
+    emit pinsChanged(clipId);
+    emit chainChanged();
+}
+
+template <typename T>
+void MinColorEngine::setInputField(T MinColorInput::*field, const T &value)
+{
+    const QString clip = focusClipId();
+    if (clip.isEmpty()) { set(m_chain.input.*field, value); return; }
+    MinColorPin &pin = m_pins[clip];
+    if (!pin.input) pin.input = resolveFor(clip).input;
+    if ((*pin.input).*field == value) return;
+    (*pin.input).*field = value;
+    notePinEdit(clip);
+}
+
+template <typename T>
+void MinColorEngine::setKneeField(T MinColorKnee::*field, const T &value)
+{
+    const QString clip = focusClipId();
+    if (clip.isEmpty()) { set(m_chain.knee.*field, value); return; }
+    MinColorPin &pin = m_pins[clip];
+    if (!pin.knee) pin.knee = resolveFor(clip).knee;
+    if ((*pin.knee).*field == value) return;
+    (*pin.knee).*field = value;
+    notePinEdit(clip);
+}
+
+void MinColorEngine::setInputGamut(int v)    { setInputField(&MinColorInput::gamut, std::clamp(v, 0, DRT_IN_GAMUT_COUNT - 1)); }
+void MinColorEngine::setInputTransfer(int v) { setInputField(&MinColorInput::transfer, std::clamp(v, 0, DRT_OETF_INVERSE_FIRST - 1)); }
+void MinColorEngine::setInputLimited(bool v) { setInputField(&MinColorInput::limited, v); }
+
+void MinColorEngine::setKneeEnabled(bool v)      { setKneeField(&MinColorKnee::enabled, v); }
+void MinColorEngine::setKneeSourceNits(double v) { setKneeField(&MinColorKnee::sourceNits, float(std::clamp(v, 1.0, 10000.0))); }
+void MinColorEngine::setKneeTargetNits(double v) { setKneeField(&MinColorKnee::targetNits, float(std::clamp(v, 1.0, 10000.0))); }
+void MinColorEngine::setKneeStart(double v)      { setKneeField(&MinColorKnee::start, float(v < 0.0 ? -1.0 : std::clamp(v, 0.0, 0.99))); }
+
+void MinColorEngine::setSlotPinned(const QString &slot, bool pinned)
+{
+    const QString clip = focusClipId();
+    if (clip.isEmpty()) return;
+    const MinColorChain cur = resolveFor(clip);
+    MinColorPin &pin = m_pins[clip];
+    if (slot == QLatin1String("mcInput")) {
+        pin.input = pinned ? std::optional<MinColorInput>(cur.input) : std::nullopt;
+    } else if (slot == QLatin1String("mcKnee")) {
+        pin.knee = pinned ? std::optional<MinColorKnee>(cur.knee) : std::nullopt;
+    } else {
+        qWarning("MinColorEngine: unknown slot '%s'", qPrintable(slot));
+        return;
+    }
+    if (pin.empty()) m_pins.remove(clip);
+    notePinEdit(clip);
+}
+
+QVariantMap MinColorEngine::clipPinsVariant(const QString &clipId) const
+{
+    return m_pins.value(clipId).toVariant();
+}
+
+void MinColorEngine::replaceAllPins(const QHash<QString, QVariantMap> &pins)
+{
+    m_pins.clear();
+    for (auto it = pins.constBegin(); it != pins.constEnd(); ++it) {
+        const MinColorPin p = MinColorPin::fromVariant(it.value());
+        if (!p.empty()) m_pins.insert(it.key(), p);
+    }
+    ++m_pinsRevision;
+    emit pinsRevisionChanged();
+    emit chainChanged();
+}
+
+QString MinColorEngine::clipBadge(const QString &clipId) const
+{
+    const auto it = m_pins.constFind(clipId);
+    if (clipId.isEmpty() || it == m_pins.constEnd() || it->empty()) return {};
+    QStringList parts;
+    if (it->input) {
+        // The gamut, and the transfer when it isn't the gamut's own
+        // display curve or linear — "Rec.709", "ARRI WG4 LogC4".
+        QString g = mincolor::inputGamutNames().value(it->input->gamut);
+        g.replace(QStringLiteral("Wide Gamut"), QStringLiteral("WG"));
+        const int t = it->input->transfer;
+        const bool plain = t == DRT_OETF_LINEAR || t == DRT_OETF_REC1886 || t == DRT_OETF_SRGB
+                        || t == DRT_OETF_POWER_2_2;
+        // Short transfer names, by DRT_OETF_* index (opendrt_params.h).
+        static const char *const kShort[] = {
+            "Linear", "DaVinci", "T-Log", "ACEScct", "LogC3", "LogC4", "Log3G10", "V-Log",
+            "S-Log3", "F-Log2", "1886", "sRGB", "2.2", "709 cam", "PQ", "HLG"};
+        const QString tn = (t >= 0 && t < int(std::size(kShort))) ? QString::fromLatin1(kShort[t])
+                                                                  : QString::number(t);
+        parts << (plain ? g : g + QLatin1Char(' ') + tn);
+    }
+    if (it->knee && it->knee->enabled) parts << tr("Knee");
+    return parts.isEmpty() ? tr("Clip chain") : parts.join(QStringLiteral(" + "));
+}
+
+QString MinColorEngine::clipBadgeTooltip(const QString &clipId) const
+{
+    const auto it = m_pins.constFind(clipId);
+    if (clipId.isEmpty() || it == m_pins.constEnd() || it->empty()) return {};
+    QStringList lines{tr("Set on this clip (minColor):")};
+    if (it->input) {
+        lines << tr("Input: %1 · %2%3")
+                     .arg(mincolor::inputGamutNames().value(it->input->gamut),
+                          mincolor::inputTransferNames().value(it->input->transfer),
+                          it->input->limited ? tr(" · limited range") : QString());
+    }
+    if (it->knee) {
+        lines << (it->knee->enabled
+                      ? tr("Highlight Knee: on · %1 → %2 nits")
+                            .arg(qRound(it->knee->sourceNits)).arg(qRound(it->knee->targetNits))
+                      : tr("Highlight Knee: off"));
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
+void MinColorEngine::setEdrLinear(bool on)
+{
+    if (m_edrLinear == on) return;
+    m_edrLinear = on;
+    emit chainChanged();
+}
 
 void MinColorEngine::setAgxEnabled(bool v)      { set(m_chain.agx.enabled, v); }
 void MinColorEngine::setAgxTarget(int v)        { set(m_chain.agx.target, std::clamp(v, 0, 2)); }

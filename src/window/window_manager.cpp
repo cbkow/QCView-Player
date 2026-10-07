@@ -107,7 +107,7 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     , m_scrubDecoder(new ScrubDecoder(m_videoDecoder, this))
     , m_ocio(new OCIOConfigManager(this))
     , m_minColor(new MinColorEngine(this))
-    , m_presets(new PresetManager(m_ocio, this))
+    , m_presets(new PresetManager(m_ocio, m_minColor, this))
     , m_audio(new AudioPlayer(this))
     , m_project(new ProjectManager(this))
     , m_timeline(new TimelineController(this))
@@ -135,6 +135,7 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             return nullptr;
         },
         this);
+    m_scope->setMinColorEngine(m_minColor);
     connect(this, &WindowManager::compositorModeChanged, this, [this] {
         m_scope->setDualView(m_compositorMode != 0);
     });
@@ -158,6 +159,9 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         // The clip chains live in the project: mirror every edit onto the
         // media item, and hand them all back when a project loads (before
         // its restored clip does).
+        connect(m_minColor, &MinColorEngine::pinsChanged, this, [this](const QString &id) {
+            if (m_project && m_minColor) m_project->setMinColorClip(id, m_minColor->clipPinsVariant(id));
+        });
         connect(m_ocio, &OCIOConfigManager::pinsChanged, this, [this](const QString &id) {
             if (m_project && m_ocio) m_project->setOcioClip(id, m_ocio->clipPinsVariant(id));
         });
@@ -165,10 +169,13 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             connect(m_project, &ProjectManager::mediaPoolLoaded, this, [this] {
                 if (!m_ocio || !m_project) return;
                 QHash<QString, QVariantMap> all;
+                QHash<QString, QVariantMap> allMc;
                 for (const MediaItem &it : m_project->mediaPool()) {
-                    if (!it.ocioClip.isEmpty()) all.insert(it.id, it.ocioClip);
+                    if (!it.ocioClip.isEmpty())     all.insert(it.id, it.ocioClip);
+                    if (!it.minColorClip.isEmpty()) allMc.insert(it.id, it.minColorClip);
                 }
                 m_ocio->replaceAllPins(all);
+                if (m_minColor) m_minColor->replaceAllPins(allMc);
             });
         }
         connect(this, &WindowManager::audioRoutingScopeChanged, this, updateOcioContext);
@@ -6980,6 +6987,15 @@ void WindowManager::setHdrMode(int mode)
 {
     if (mode == m_hdrMode) return;
     m_hdrMode = mode;
+    // minColor scales a linear Display hand-off to the EDR swapchain's
+    // 1.0 = 100 nits (macOS maps Hdr10 onto the linear swapchain too).
+    if (m_minColor) {
+#ifdef Q_OS_MACOS
+        m_minColor->setEdrLinear(mode == 2 || mode == 3 || mode == 4);
+#else
+        m_minColor->setEdrLinear(mode == 2 || mode == 3);
+#endif
+    }
 
 #ifdef QCV_NATIVE_PLAYER
     // Phase 7.5 B.3 native path: the CAMetalLayer can be

@@ -447,6 +447,8 @@ QJsonObject mediaItemToJson(const MediaItem &it, const QString &projectDir)
     o[QStringLiteral("dualPair")]      = dualPairToJson(it.dualPair);
     if (!it.ocioClip.isEmpty())
         o[QStringLiteral("ocioClip")] = QJsonObject::fromVariantMap(it.ocioClip);
+    if (!it.minColorClip.isEmpty())
+        o[QStringLiteral("minColorClip")] = QJsonObject::fromVariantMap(it.minColorClip);
     return o;
 }
 
@@ -497,6 +499,7 @@ MediaItem mediaItemFromJson(const QJsonObject &o, const QString &projectDir)
         o.value(QStringLiteral("audioRoutingMode")).toInt(0));
     it.dualPair      = dualPairFromJson(o.value(QStringLiteral("dualPair")).toObject());
     it.ocioClip      = o.value(QStringLiteral("ocioClip")).toObject().toVariantMap();
+    it.minColorClip  = o.value(QStringLiteral("minColorClip")).toObject().toVariantMap();
     return it;
 }
 

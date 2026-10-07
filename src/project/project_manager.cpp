@@ -1078,6 +1078,17 @@ bool ProjectManager::setOcioClip(const QString &itemId, const QVariantMap &pins)
     return true;
 }
 
+bool ProjectManager::setMinColorClip(const QString &itemId, const QVariantMap &pins)
+{
+    const int idx = findIndexInPool(itemId);
+    if (idx < 0) return false;
+    MediaItem &it = m_mediaPool[idx];
+    if (it.minColorClip == pins) return true;
+    it.minColorClip = pins;
+    markDirty();
+    return true;
+}
+
 bool ProjectManager::setRotationOverride(const QString &itemId, int deg)
 {
     const int idx = findIndexInPool(itemId);

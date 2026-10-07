@@ -233,6 +233,8 @@ public:
     // The clip's own OCIO chain (MediaItem::ocioClip); an empty map clears
     // it. Marks the project dirty; no reload.
     bool setOcioClip(const QString &itemId, const QVariantMap &pins);
+    // Same for the minColor engine's pins (MediaItem::minColorClip).
+    bool setMinColorClip(const QString &itemId, const QVariantMap &pins);
 
     // Set the per-clip audio routing mode. `mode` is a
     // `qcv::AudioRoutingMode` cast to int (0 = Auto, 1 = Downmix5_1,

@@ -111,8 +111,11 @@ enum class ColorEngine : int { Ocio = 0, MinColor = 1 };
 struct OcioChainSpec {
     ColorEngine    engine = ColorEngine::Ocio;
     // minColor engine: the side's resolved blocks (every change is a
-    // uniform update on one kernel; nothing else below applies).
+    // uniform update on one kernel; nothing else below applies), and the
+    // same chain resolved for captures (sRGB display at 100 nits — the
+    // capture instances draw with this one, as sdrDisplay / sdrView do).
     MinColorGpu    minColor;
+    MinColorGpu    minColorSdr;
 
     QString        configPath;   // OCIOConfigManager::configIdentifier()
     OcioSceneChain scene;

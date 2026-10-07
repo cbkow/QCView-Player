@@ -37,6 +37,7 @@ namespace qcv {
 class BackdropImageProvider;
 class IPlayerRenderer;
 class OCIOConfigManager;
+class MinColorEngine;
 class ProjectManager;
 
 class ScopeController : public QObject
@@ -97,6 +98,9 @@ public:
     // project's active item.
     void setMediaItemIdFn(std::function<QString()> fn) { m_mediaItemIdFn = std::move(fn); }
 
+    // The minColor engine: when it is the engaged engine, each side's
+    // Input maps to a config colourspace the scope can convert (or Signal).
+    void setMinColorEngine(MinColorEngine *e) { m_minColor = e; }
     void setImageProvider(BackdropImageProvider *p) { m_provider = p; }
     void setWaveformImageProvider(BackdropImageProvider *p) { m_waveProvider = p; }
     // Dual view: overlay A (cyan) and B (orange).
@@ -153,6 +157,7 @@ private:
     QString mediaItemIdA() const;
 
     OCIOConfigManager     *m_ocio = nullptr;
+    MinColorEngine        *m_minColor = nullptr;
     ProjectManager        *m_project = nullptr;
     RendererFn             m_renderer;
     std::function<QString()> m_mediaItemIdFn;

@@ -507,7 +507,7 @@ bool MetalOcioRenderer::rebuild(const OcioChainSpec &spec)
         // The chain is uniforms: take this frame's blocks, make sure the
         // one kernel exists, and make it active. A background compile
         // (initialize) lands here; a capture instance compiles in line.
-        i.mcBlocks = spec.minColor;
+        i.mcBlocks = i.sdrCapture ? spec.minColorSdr : spec.minColor;
         {
             std::lock_guard lock(i.mcMutex);
             if (i.mcPending) {
