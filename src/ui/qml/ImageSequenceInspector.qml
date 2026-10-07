@@ -172,6 +172,59 @@ Rectangle {
             }
         }
 
+        // ---- Transfer / encoding override — how the scopes read this
+        // sequence (or still: a still is a one-frame sequence) when the
+        // format rule is wrong for it: Auto = EXR → scene-linear, else
+        // sRGB. Same per-item override as the video Inspector's Transfer
+        // pill (ProjectManager.setTransferOverride); with OCIO on the
+        // Input still drives the picture and the pill feeds the scope's
+        // mismatch note.
+        KvChipRow {
+            id: transferRow
+            label: qsTr("Transfer")
+
+            // The map is re-read when the caller's `item` binding
+            // re-evaluates (activeItemIdChanged / bSourceChanged, which
+            // the setter emits); the counter covers a same-id re-read
+            // that the binding optimiser would otherwise skip.
+            property int rev: 0
+            Connections {
+                target: WindowManager.project
+                function onTransferOverrideChanged(itemId, transfer) { transferRow.rev++ }
+            }
+            readonly property int activeTransfer: {
+                rev;
+                if (!root.item || !root.item.id || !WindowManager.project) return 0;
+                const m = WindowManager.project.mediaItemMap(root.item.id);
+                return m && m.transferOverride !== undefined ? m.transferOverride : 0;
+            }
+            readonly property string detectedLabel:
+                content.isEXR ? qsTr("Auto (Linear, EXR)") : qsTr("Auto (sRGB)")
+
+            Repeater {
+                model: [
+                    { key: 0, useDetected: true,  label: qsTr("Auto") },
+                    { key: 1, useDetected: false, label: qsTr("SDR 709") },
+                    { key: 2, useDetected: false, label: qsTr("PQ 2020") },
+                    { key: 3, useDetected: false, label: qsTr("PQ P3") },
+                    { key: 4, useDetected: false, label: qsTr("HLG") },
+                    { key: 5, useDetected: false, label: qsTr("Linear") },
+                ]
+                FlatChip {
+                    required property var modelData
+                    active: modelData.key === transferRow.activeTransfer
+                    interactive: !!(root.item && root.item.id)
+                    label: modelData.useDetected ? transferRow.detectedLabel
+                                                 : modelData.label
+                    onClicked: {
+                        if (WindowManager.project && root.item && root.item.id)
+                            WindowManager.project.setTransferOverride(
+                                root.item.id, modelData.key);
+                    }
+                }
+            }
+        }
+
         // ---- Range readout — shared KvRow rules (fixed label
         // column, mono values one size down).
         ColumnLayout {
