@@ -76,7 +76,7 @@ An optional step between the scene side and the View that compresses highlights 
 
 - **Source peak** — the brightest level in the source (nits). **Use file MaxCLL** takes it from the file's HDR metadata when present.
 - **Target peak** — the display's peak (100 nits on an SDR display).
-- **Knee start** — where the compression begins; defaults to the BT.2390 knee. Double-click the slider to reset it.
+- **Knee start** — where the compression begins; defaults to the BT.2390 knee, whose shoulder is BT.2390's own curve. A start you set by hand uses a monotonic shoulder instead, so the picture never rises above the target peak however high you start the knee. Double-click the slider to reset it.
 
 While the knee is compressing, an amber **KNEE** pill sits in the viewport bar as a reminder that the picture is not 1:1. The knee is part of the clip's chain and is saved in presets.
 

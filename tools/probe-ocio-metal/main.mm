@@ -540,6 +540,9 @@ int main(int argc, char **argv)
     struct Variant { const char *name; LinearStageSettings st; ViewerAids va; };
     LinearStageSettings gain2;  gain2.gain = 2.0f;
     LinearStageSettings knee;   knee.kneeEnabled = true; knee.kneeSourceNits = 1000.0f;
+    // A hand-set start above BT.2390's point: the hyperbola shoulder (the
+    // Hermite overshoots the target there), GPU vs CPU.
+    LinearStageSettings kneeHand = knee; kneeHand.kneeStart = 0.9f;
     ViewerAids gamma2;   gamma2.gamma = 2.0f;
     ViewerAids luma;     luma.channel = ChannelView::Luma;
     ViewerAids alpha;    alpha.channel = ChannelView::Alpha;
@@ -551,6 +554,7 @@ int main(int argc, char **argv)
                                 {"luma", LinearStageSettings{}, luma},
                                 {"alpha", LinearStageSettings{}, alpha},
                                 {"knee+gam", knee, gamma2},
+                                {"knee 0.9", kneeHand, ViewerAids{}},
                                 {"green", gain2, green}};
 
     int failures = namesCheck(root);

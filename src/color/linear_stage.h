@@ -8,10 +8,18 @@
 // Blender's viewport fills with exposure + curves between its "to scene
 // linear" and "scene linear to display" processors. Ours holds:
 //   - gain: the Brightness / Exposure multiplier (1.0 = identity)
-//   - knee: a BT.2390-style Hermite shoulder applied in PQ space to
-//     max(R,G,B), with all three channels scaled by the same ratio so hue
-//     holds. Compresses [knee start, source peak] onto [knee start,
-//     target peak]; values at or above the source peak land on the target.
+//   - knee: a shoulder applied in PQ space to max(R,G,B), with all three
+//     channels scaled by the same ratio so hue holds. Compresses [knee
+//     start, source peak] onto [knee start, target peak]; values at or
+//     above the source peak land on the target. With the default start
+//     it is BT.2390's Hermite. A hand-set start uses a hyperbola instead:
+//     the Hermite overshoots the target when it starts above BT.2390's
+//     own point (1000 → 100 nits from a 0.9 start put 200 nits at 110,
+//     0.98 at 134) and the hyperbola cannot — in PQ, with x the position
+//     past the start and s = (1 − ks) / (ml − ks): f(x) = s·x / (1 + (s − 1)·x),
+//     f(0) = 0 at slope s (no kink), f(1) = 1, monotonic. Same two
+//     shoulders as minColorAE's Knee (core/mincolor_knee.h), which was
+//     ported from here and found the overshoot.
 //
 // The stage runs in linear Rec.2020 — the fixed matrices below map each
 // interchange role to it and back. Both interchange spaces put 1.0 at
@@ -83,7 +91,8 @@ struct LinearStageGpu {
     float to0[4], to1[4], to2[4];        // interchange → linear Rec.2020
     float from0[4], from1[4], from2[4];  // linear Rec.2020 → interchange
     float p0[4];   // x = gain, y = knee on (0/1), z = PQ(source peak), w = target / source (PQ-normalized)
-    float p1[4];   // x = knee start (PQ-normalized), yzw unused
+    float p1[4];   // x = knee start (PQ-normalized), y = auto start (1 = BT.2390's,
+                   // Hermite shoulder; 0 = hand-set, hyperbola), zw unused
 };
 
 namespace linear_stage {
@@ -171,6 +180,7 @@ inline LinearStageGpu resolve(const LinearStageSettings &s,
     g.p0[2] = pqSrc;
     g.p0[3] = maxLum;
     g.p1[0] = ks;
+    g.p1[1] = s.kneeStart < 0.0f ? 1.0f : 0.0f;
     return g;
 }
 
@@ -240,9 +250,14 @@ inline void apply(float *rgb, const LinearStageGpu &g)
             float e2 = e1;
             if (e1 >= ks) {
                 const float t = (e1 - ks) / (1.0f - ks);
-                const float t2 = t * t, t3 = t2 * t;
-                e2 = (2 * t3 - 3 * t2 + 1) * ks + (t3 - 2 * t2 + t) * (1 - ks)
-                   + (-2 * t3 + 3 * t2) * ml;
+                if (g.p1[1] > 0.5f) {   // BT.2390's start: its Hermite
+                    const float t2 = t * t, t3 = t2 * t;
+                    e2 = (2 * t3 - 3 * t2 + 1) * ks + (t3 - 2 * t2 + t) * (1 - ks)
+                       + (-2 * t3 + 3 * t2) * ml;
+                } else {                // hand-set start: monotonic hyperbola
+                    const float sl = (1.0f - ks) / (ml - ks);
+                    e2 = ks + (ml - ks) * (sl * t / (1.0f + (sl - 1.0f) * t));
+                }
             }
             const float m2 = pqDecode(e2 * g.p0[2]) * 100.0f;
             const float k = m2 / m;
@@ -294,10 +309,15 @@ static float4 qcvLinearStage(float4 c, constant QcvStage &s)
             float e2 = e1;
             if (e1 >= ks) {
                 float t = (e1 - ks) / (1.0 - ks);
-                float t2 = t * t, t3 = t2 * t;
-                e2 = (2.0 * t3 - 3.0 * t2 + 1.0) * ks
-                   + (t3 - 2.0 * t2 + t) * (1.0 - ks)
-                   + (-2.0 * t3 + 3.0 * t2) * ml;
+                if (s.p1.y > 0.5) {
+                    float t2 = t * t, t3 = t2 * t;
+                    e2 = (2.0 * t3 - 3.0 * t2 + 1.0) * ks
+                       + (t3 - 2.0 * t2 + t) * (1.0 - ks)
+                       + (-2.0 * t3 + 3.0 * t2) * ml;
+                } else {
+                    float sl = (1.0 - ks) / (ml - ks);
+                    e2 = ks + (ml - ks) * (sl * t / (1.0 + (sl - 1.0) * t));
+                }
             }
             r *= (qcv_pq_dec(e2 * s.p0.z) * 100.0) / m;
         }
@@ -377,10 +397,15 @@ float4 qcvLinearStage(float4 c)
             float e2 = e1;
             if (e1 >= ks) {
                 float t = (e1 - ks) / (1.0 - ks);
-                float t2 = t * t, t3 = t2 * t;
-                e2 = (2.0 * t3 - 3.0 * t2 + 1.0) * ks
-                   + (t3 - 2.0 * t2 + t) * (1.0 - ks)
-                   + (-2.0 * t3 + 3.0 * t2) * ml;
+                if (qcvP1.y > 0.5) {
+                    float t2 = t * t, t3 = t2 * t;
+                    e2 = (2.0 * t3 - 3.0 * t2 + 1.0) * ks
+                       + (t3 - 2.0 * t2 + t) * (1.0 - ks)
+                       + (-2.0 * t3 + 3.0 * t2) * ml;
+                } else {
+                    float sl = (1.0 - ks) / (ml - ks);
+                    e2 = ks + (ml - ks) * (sl * t / (1.0 + (sl - 1.0) * t));
+                }
             }
             r *= (qcv_pq_dec(e2 * qcvP0.z) * 100.0) / m;
         }
