@@ -375,8 +375,8 @@ ApplicationWindow {
         // honours menuBar.height for its layout, so this fully hides
         // the strip without recreating the menu (which would lose
         // popup wiring + accelerator state).
-        height: root.inFullscreen ? 0 : implicitHeight
-        visible: !root.inFullscreen
+        height: root.chromeless ? 0 : implicitHeight
+        visible: !root.chromeless
         // Windows renders this QML menu bar in-window (macOS uses
         // the native top-of-screen bar, which ignores this).
         // surfaceRecess tone (user-tuned) + a bottom hairline: the
@@ -567,6 +567,11 @@ ApplicationWindow {
                 text: qsTr("Minimal Mode")
                 shortcut: "Ctrl+0"
                 onTriggered: root.viewMinimal()
+            }
+            Action {
+                text: root.compactMode ? qsTr("Exit Compact Mode") : qsTr("Compact Mode")
+                shortcut: "Ctrl+Shift+0"
+                onTriggered: root.toggleCompact()
             }
             Action {
                 text: qsTr("Show All Panels")
@@ -782,26 +787,34 @@ ApplicationWindow {
     // exactly the panel state the user had configured.
     readonly property bool inFullscreen:
         borderlessFs || visibility === ApplicationWindow.FullScreen
-    readonly property bool fxLeftRail:    leftRailVisible    && !inFullscreen
-    readonly property bool fxRightRail:   rightRailVisible   && !inFullscreen
+    // Compact Mode (Cmd/Ctrl+Shift+0): the same chrome gate as
+    // fullscreen in a normal window — viewport plus the 22 px
+    // CompactStrip below it. Minimal Mode (Cmd/Ctrl+0) is a different
+    // thing: a layout preset that collapses the rails. Like fullscreen,
+    // leaving Compact restores exactly the panels the user had, since
+    // the underlying *Visible flags are never touched.
+    property bool compactMode: false
+    readonly property bool chromeless: inFullscreen || compactMode
+    readonly property bool fxLeftRail:    leftRailVisible    && !chromeless
+    readonly property bool fxRightRail:   rightRailVisible   && !chromeless
     // Live mode swaps the timeline/transport rows for the LiveStrip —
     // nothing to scrub, no frame count; a disabled transport would
     // read as broken rather than live. In dual the same holds only when
     // BOTH sides are live (dualSeekable false): with one clocked side the
     // timeline and transport belong to it.
-    readonly property bool fxTimeline:    timelineVisible    && !inFullscreen
+    readonly property bool fxTimeline:    timelineVisible    && !chromeless
                                           && !WindowManager.liveActive
                                           && WindowManager.dualSeekable
-    readonly property bool fxTransport:   transportVisible   && !inFullscreen
+    readonly property bool fxTransport:   transportVisible   && !chromeless
                                           && !WindowManager.liveActive
                                           && WindowManager.dualSeekable
     readonly property bool fxLiveStrip:   WindowManager.liveActive
-                                          && !inFullscreen
-    readonly property bool fxStatusStrip: statusStripVisible && !inFullscreen
-    readonly property bool fxColorPanel:  colorPanelVisible  && !inFullscreen
+                                          && !chromeless
+    readonly property bool fxStatusStrip: statusStripVisible && !chromeless
+    readonly property bool fxColorPanel:  colorPanelVisible  && !chromeless
     readonly property bool fxNotesPanel:
         notesPanelVisible
-        && !inFullscreen
+        && !chromeless
         && WindowManager.annotationsAllowed
     onFxNotesPanelChanged: WindowManager.setNotesPanelVisible(fxNotesPanel)
 
@@ -1000,6 +1013,11 @@ ApplicationWindow {
     function viewAllPanels() {
         viewDefault();
     }
+    // Compact Mode — see the chromeless gate above. Nothing to
+    // remember on the way in: the panel flags stay as they were and
+    // come back on the way out.
+    function toggleCompact() { compactMode = !compactMode; }
+    function exitCompact()   { compactMode = false; }
 
     function cycleBackgroundMode() {
         const cur = WindowManager.backgroundMode;
@@ -1076,11 +1094,14 @@ ApplicationWindow {
     // Phase 3.H.4 — gate Esc on actually-fullscreen so it doesn't
     // swallow inline rename / edit-cancel Esc handlers when the
     // window isn't fullscreen.
+    // Esc leaves the chromeless state entirely: fullscreen and
+    // Compact Mode both, in one press — the user wants their UI back.
     Shortcut {
         sequence: "Escape"
         enabled: root.borderlessFs
                  || root.visibility === ApplicationWindow.FullScreen
-        onActivated: root.exitFullscreen()
+                 || root.compactMode
+        onActivated: { root.exitFullscreen(); root.exitCompact(); }
     }
     // Menu items' `shortcut` properties handle the file/view
     // accelerators (Cmd+O, Cmd+S, Cmd+1..4, etc.). Standalone
@@ -1178,8 +1199,8 @@ ApplicationWindow {
 
                     ViewportOverlay {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.inFullscreen ? 0 : 36
-                        visible: !root.inFullscreen
+                        Layout.preferredHeight: root.chromeless ? 0 : 36
+                        visible: !root.chromeless
                         // Rail open buttons live here (in the top bar)
                         // when a rail is fully closed; the rail header
                         // owns the close button while open.
@@ -1441,13 +1462,22 @@ ApplicationWindow {
         // outside fullscreen — these are core playback readouts, NOT
         // part of the opt-in statusStripVisible diagnostics bar (that
         // flag gates the decoder-chips StatusStrip at the very bottom).
+        // Compact Mode's one band: timecode, scrub line, fullscreen, exit.
+        CompactStrip {
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.compactMode && !root.inFullscreen ? 22 : 0
+            visible: root.compactMode && !root.inFullscreen
+            timeline: timelinePanel
+            onExitRequested: root.exitCompact()
+            onFullscreenRequested: root.toggleFullscreen()
+        }
         TimelineStatus {
             Layout.fillWidth: true
             // Thin readout row (matches the bottom StatusStrip's 22px).
             Layout.preferredHeight:
-                (root.inFullscreen || WindowManager.liveActive
+                (root.chromeless || WindowManager.liveActive
                  || !WindowManager.dualSeekable) ? 0 : 22
-            visible: !root.inFullscreen && !WindowManager.liveActive
+            visible: !root.chromeless && !WindowManager.liveActive
                      && WindowManager.dualSeekable
         }
 

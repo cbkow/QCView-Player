@@ -18,6 +18,7 @@ set(QCVIEW_QML_FILES
     TransportBar.qml
     TimelinePanel.qml
     TimelineStatus.qml
+    CompactStrip.qml
     ViewportOverlay.qml
     ColorPanel.qml
     StatusStrip.qml
@@ -87,6 +88,7 @@ qt_add_qml_module(qcview
         ${CMAKE_CURRENT_SOURCE_DIR}/TransportBar.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/TimelinePanel.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/TimelineStatus.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/CompactStrip.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ViewportOverlay.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ColorPanel.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/StatusStrip.qml

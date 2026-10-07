@@ -1099,6 +1099,13 @@ Pane {
     // inside scrollContent, NOT viewport space). Children of
     // scrollContent use this directly; the wrapper's `x: -scrollX`
     // shifts everything visually.
+    // Scrub gesture by timeline seconds, for surfaces outside this
+    // panel (the Compact Mode strip): the same state machine the
+    // track and ruler MouseAreas run, minus the pixel mapping.
+    function scrubBeginAt(seconds) { scrubArea.pressAt(seconds); }
+    function scrubMoveTo(seconds)  { scrubArea.moveTo(seconds); }
+    function scrubEndAt(seconds)   { scrubArea.releaseAt(seconds); }
+
     function timeToX(seconds) { return seconds * pps; }
     // xToTime converts a VIEWPORT-space mouse x to time. Centralizes
     // the scroll offset — every site that takes mouse.x and wants
@@ -2568,7 +2575,8 @@ Pane {
                     return Math.round(seconds * dec.fps);
                 }
 
-                function doPress(viewX) {
+                function doPress(viewX) { pressAt(xToTime(viewX)); }
+                function pressAt(seconds) {
                     if (!loaded) return;
                     // Phase 3.H.5 — drag = scrubbing, not hovering.
                     // Drop the corner thumb so it doesn't sit there
@@ -2576,7 +2584,6 @@ Pane {
                     // preview.
                     hoverThumbRequestThrottle.stop();
                     WindowManager.clearHoverThumbnail();
-                    const seconds = xToTime(viewX);
                     if (isDual) {
                         // Dual scrub gesture (Phase 7.x — dual scrub
                         // decoders). beginScrub parks streaming decode
@@ -2661,9 +2668,9 @@ Pane {
                     WindowManager.beginScrubAudio(seconds);
                 }
 
-                function doMove(viewX) {
+                function doMove(viewX) { moveTo(xToTime(viewX)); }
+                function moveTo(seconds) {
                     if (!loaded) return;
-                    const seconds = xToTime(viewX);
                     if (isDual) {
                         const dualFps = WindowManager.dualController.fps;
                         const masterFrame = dualFps > 0
@@ -2708,9 +2715,9 @@ Pane {
                     WindowManager.scrubAudioMove(seconds);
                 }
 
-                function doRelease(viewX) {
+                function doRelease(viewX) { releaseAt(xToTime(viewX)); }
+                function releaseAt(seconds) {
                     if (!loaded) return;
-                    const seconds = xToTime(viewX);
                     // Stop scrub audio FIRST — the commit/resume
                     // paths below re-seat the normal audio pipeline.
                     WindowManager.endScrubAudio();
