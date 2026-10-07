@@ -132,7 +132,7 @@ MinColorChain MinColorChain::fromVariant(const QVariantMap &m)
         c.output.tonescale = std::clamp(out.value(QStringLiteral("tonescale"), 0).toInt(), 0, drt::kTonescaleCount);
         c.output.cwp       = std::clamp(out.value(QStringLiteral("cwp"), 0).toInt(), 0, drt::kCwpCount);
         c.output.cwpLimit  = float(out.value(QStringLiteral("cwpLimit"), 0.25).toDouble());
-        c.output.display   = clampIndex(out.value(QStringLiteral("display"), 1).toInt(), drt::kDisplayCount);
+        c.output.display   = clampIndex(out.value(QStringLiteral("display"), 1).toInt(), mincolor::kDisplayTotal);
         c.output.surround  = std::clamp(out.value(QStringLiteral("surround"), 0).toInt(), 0, 2);
         c.output.peakNits  = float(out.value(QStringLiteral("peakNits"), 100.0).toDouble());
         c.output.greyBoost = float(out.value(QStringLiteral("greyBoost"), 0.13).toDouble());
@@ -196,18 +196,30 @@ MinColorGpu resolve(const MinColorChain &chain, bool sdrCapture, bool edrLinear)
     s.tonescale = std::clamp(chain.output.tonescale, 0, drt::kTonescaleCount);
     s.cwp       = std::clamp(chain.output.cwp, 0, drt::kCwpCount);
     s.cwp_lm    = chain.output.cwpLimit;
-    // The sRGB 2.2 / Rec.709 preset for captures (kDisplays[1]).
-    s.display   = sdrCapture ? 1 : clampIndex(chain.output.display, drt::kDisplayCount);
+    // The sRGB 2.2 / Rec.709 preset for captures (kDisplays[1]). An
+    // extra (QCView) display resolves through the vendored linear
+    // hand-off and takes its own gamut after.
+    const int displayIndex = sdrCapture ? 1 : clampIndex(chain.output.display, kDisplayTotal);
+    const bool extra = displayIndex >= drt::kDisplayCount;
+    s.display   = extra ? linearDisplayIndex(DRT_DG_WORKING) : displayIndex;
+    if (s.display < 0) s.display = 0;
     drt::DrtParams out = drt::drt_resolve(s);
     // Surround is the viewing room, set by hand (presets never write it),
     // and the view is ours: both are read per pixel, not derived, so they
     // can follow drt_resolve. Surround does feed the tonescale constants,
     // so derive again when it differs from the preset's.
     out.out_view = openDrt ? 0 : 1;
+    bool rederive = false;
     if (out.tn_su != chain.output.surround) {
         out.tn_su = std::clamp(chain.output.surround, 0, 2);
-        out = drt::drt_derive(out);
+        rederive = true;
     }
+    if (extra) {
+        out.display_gamut = displayGamut(displayIndex);
+        out.eotf          = displayEotf(displayIndex);
+        rederive = true;
+    }
+    if (rederive) out = drt::drt_derive(out);
     g.out = out;
 
     g.flags.kneeOn = chain.knee.enabled ? 1 : 0;
@@ -215,7 +227,7 @@ MinColorGpu resolve(const MinColorChain &chain, bool sdrCapture, bool edrLinear)
     // EDR (display-linear swapchain, 1.0 = 100 nits): OpenDRT's linear
     // hand-off puts its peak at 1.0 (ts_dsc = 100 / Lp), so scale by
     // peak / 100. Un-tone-mapped and AgX already put 100 nits at 1.0.
-    const bool linearOut = drt::kDisplays[s.display].eotf == DRT_EOTF_LINEAR;
+    const bool linearOut = displayEotf(displayIndex) == DRT_EOTF_LINEAR;
     g.flags.outScale = (edrLinear && linearOut && openDrt) ? s.tn_Lp / 100.0f : 1.0f;
     return g;
 }
@@ -232,11 +244,26 @@ void apply(const MinColorGpu &g, float *rgb)
     rgb[2] = c.z * g.flags.outScale;
 }
 
-int linearDisplayIndex(int displayGamut)
+int displayEotf(int index)
 {
-    for (int i = 0; i < drt::kDisplayCount; ++i) {
-        if (drt::kDisplays[i].eotf == DRT_EOTF_LINEAR && drt::kDisplays[i].display_gamut == displayGamut)
-            return i;
+    if (index >= 0 && index < drt::kDisplayCount) return drt::kDisplays[index].eotf;
+    const int e = index - drt::kDisplayCount;
+    if (e >= 0 && e < kExtraDisplayCount) return kExtraDisplays[e].eotf;
+    return DRT_EOTF_POWER_2_2;
+}
+
+int displayGamut(int index)
+{
+    if (index >= 0 && index < drt::kDisplayCount) return drt::kDisplays[index].display_gamut;
+    const int e = index - drt::kDisplayCount;
+    if (e >= 0 && e < kExtraDisplayCount) return kExtraDisplays[e].displayGamut;
+    return DRT_DG_REC709;
+}
+
+int linearDisplayIndex(int gamut)
+{
+    for (int i = 0; i < kDisplayTotal; ++i) {
+        if (displayEotf(i) == DRT_EOTF_LINEAR && displayGamut(i) == gamut) return i;
     }
     return -1;
 }
@@ -282,6 +309,7 @@ QStringList displayNames()
 {
     QStringList out;
     for (int i = 0; i < drt::kDisplayCount; ++i) out << QString::fromUtf8(drt::kDisplays[i].name);
+    for (const ExtraDisplay &d : kExtraDisplays) out << QString::fromUtf8(d.name);
     return out;
 }
 

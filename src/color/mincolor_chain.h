@@ -189,6 +189,19 @@ void apply(const MinColorGpu &g, float *rgb);
 // (DRT_DG_WORKING / REC709 / …), or -1.
 int linearDisplayIndex(int displayGamut);
 
+// QCView's own display entries after the vendored drt::kDisplays: the
+// macOS EDR P3 swapchain wants linear P3-D65, which upstream's table
+// has no hand-off for. Indices continue from drt::kDisplayCount.
+struct ExtraDisplay { const char *name; int eotf; int displayGamut; };
+inline constexpr ExtraDisplay kExtraDisplays[] = {
+    {"None - Linear / P3-D65", DRT_EOTF_LINEAR, DRT_DG_P3D65},
+};
+inline constexpr int kExtraDisplayCount = 1;
+inline constexpr int kDisplayTotal = drt::kDisplayCount + kExtraDisplayCount;
+// EOTF / gamut of any display index, vendored or extra.
+int displayEotf(int index);
+int displayGamut(int index);
+
 // Name tables for the panel reels (drt::k* tables, by index).
 QStringList inputGamutNames();
 QStringList inputTransferNames();    // the non-inverse entries only

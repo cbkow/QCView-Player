@@ -49,6 +49,8 @@ int main(int argc, char **argv)
     MinColorChain knee = base;    knee.knee.enabled = true; knee.knee.sourceNits = 1000.0f; knee.knee.targetNits = 100.0f;
     MinColorChain pq = opendrt;   pq.output.display = 6; pq.output.peakNits = 1000.0f;   // Rec.2100 PQ
     MinColorChain edr = opendrt;  edr.output.display = mincolor::linearDisplayIndex(DRT_DG_REC709); edr.output.peakNits = 1000.0f;
+    MinColorChain p3 = untoned;   p3.output.display = mincolor::linearDisplayIndex(DRT_DG_P3D65);   // QCView extra: macOS EDR P3
+    MinColorChain p3drt = opendrt; p3drt.output.display = p3.output.display; p3drt.output.peakNits = 1000.0f;
 
     std::printf("minColor engine, CPU twin (linear Rec.709 in -> display code out)\n");
     const float *inputs[] = {white, grey, red, hot};
@@ -63,6 +65,9 @@ int main(int argc, char **argv)
         run("OpenDRT, Rec.2100 PQ 1000 nits", pq, v);
         run("OpenDRT, linear 709 1000 nits EDR", edr, v, false, true);
         run("OpenDRT, SDR capture of PQ chain", pq, v, true, false);
+        run("un-tone-mapped, linear P3-D65 EDR", p3, v, false, true);
+        run("OpenDRT, linear P3 1000 nits EDR", p3drt, v, false, true);
+        run("un-tone-mapped, SDR capture of P3", p3, v, true, false);
         if (haveCustom) break;
     }
     return 0;

@@ -253,31 +253,70 @@ int PresetManager::activeEngine() const
     return m_ocio ? m_ocio->engine() : 0;
 }
 
-// minColor's built-ins: one per display encoding, every one of them
-// un-tone-mapped (an OpenDRT look is only ever an explicit choice —
-// chris, 2026-10-07), with Blender's AgX as one extra on the SDR encode.
+// minColor's built-ins (chris, 2026-10-07): the working-space inputs a
+// review actually meets — ACEScg, ACES 2065-1, linear Rec.709 and Rec.2020
+// (each un-tone-mapped and, for the two linear ones, through AgX) and a
+// P3-D65 PQ master — each to the sRGB display for SDR, to a linear P3-D65
+// hand-off for macOS EDR, and to Rec.2100 PQ for Windows HDR10. Every
+// preset is un-tone-mapped unless it says AgX; an OpenDRT look is only
+// ever an explicit choice. "Netflicker SDR" is the PQ master knee'd
+// 1000 → 100 nits with the start at 0.95 for an SDR review.
 void PresetManager::loadMinColorBuiltIns()
 {
-    struct Seed { const char *name; int display; Preset::Kind kind; bool agx; };
-    static const Seed kSeeds[] = {
-        {"sRGB 2.2 / Rec.709",           1, Preset::SdrSrgb,    false},
-        {"Rec.1886 / Rec.709",           0, Preset::SdrSrgb,    false},
-        {"Display P3",                   2, Preset::SdrP3,      false},
-        {"Rec.2100 PQ (P3 limited)",     6, Preset::HdrPq,      false},
-        {"Rec.2100 HLG (P3 limited)",    7, Preset::HdrPq,      false},
-        {"Linear Rec.709 (EDR)",        13, Preset::HdrEdrSrgb, false},
-        {"Linear Rec.2020 (EDR)",       12, Preset::HdrEdrP3,   false},
-        {"AgX → sRGB 2.2",               1, Preset::SdrSrgb,    true},
+    enum Out { Srgb, EdrP3, Pq2020 };
+    struct Seed {
+        const char *name; int gamut; int transfer; bool agx; bool knee; Out out;
     };
+    static const Seed kSeeds[] = {
+        {"ACEScg → sRGB",                     DRT_IN_AP1,     DRT_OETF_LINEAR, false, false, Srgb},
+        {"ACEScg → EDR P3 (macOS)",           DRT_IN_AP1,     DRT_OETF_LINEAR, false, false, EdrP3},
+        {"ACEScg → Rec.2100 PQ (Windows)",    DRT_IN_AP1,     DRT_OETF_LINEAR, false, false, Pq2020},
+        {"ACES 2065-1 → sRGB",                DRT_IN_AP0,     DRT_OETF_LINEAR, false, false, Srgb},
+        {"ACES 2065-1 → EDR P3 (macOS)",      DRT_IN_AP0,     DRT_OETF_LINEAR, false, false, EdrP3},
+        {"ACES 2065-1 → Rec.2100 PQ (Windows)", DRT_IN_AP0,   DRT_OETF_LINEAR, false, false, Pq2020},
+        {"Linear Rec.709 → sRGB",             DRT_IN_REC709,  DRT_OETF_LINEAR, false, false, Srgb},
+        {"Linear Rec.709 AgX → sRGB",         DRT_IN_REC709,  DRT_OETF_LINEAR, true,  false, Srgb},
+        {"Linear Rec.709 → EDR P3 (macOS)",   DRT_IN_REC709,  DRT_OETF_LINEAR, false, false, EdrP3},
+        {"Linear Rec.709 → Rec.2100 PQ (Windows)", DRT_IN_REC709, DRT_OETF_LINEAR, false, false, Pq2020},
+        {"Linear Rec.2020 → sRGB",            DRT_IN_REC2020, DRT_OETF_LINEAR, false, false, Srgb},
+        {"Linear Rec.2020 AgX → sRGB",        DRT_IN_REC2020, DRT_OETF_LINEAR, true,  false, Srgb},
+        {"Linear Rec.2020 → EDR P3 (macOS)",  DRT_IN_REC2020, DRT_OETF_LINEAR, false, false, EdrP3},
+        {"Linear Rec.2020 → Rec.2100 PQ (Windows)", DRT_IN_REC2020, DRT_OETF_LINEAR, false, false, Pq2020},
+        {"Netflicker SDR (P3 PQ 1000 → 100, knee 0.95)", DRT_IN_P3D65, DRT_OETF_PQ_100, false, true, Srgb},
+        {"P3 PQ → EDR P3 (macOS)",            DRT_IN_P3D65,   DRT_OETF_PQ_100, false, false, EdrP3},
+        {"P3 PQ → Rec.2100 PQ (Windows)",     DRT_IN_P3D65,   DRT_OETF_PQ_100, false, false, Pq2020},
+    };
+    const int edrP3 = mincolor::linearDisplayIndex(DRT_DG_P3D65);
     for (const Seed &sd : kSeeds) {
-        MinColorChain chain;   // Input Rec.709 / Rec.1886, knee off, un-tone-mapped
-        chain.output.display = sd.display;
+        MinColorChain chain;
+        chain.input.gamut    = sd.gamut;
+        chain.input.transfer = sd.transfer;
         chain.agx.enabled    = sd.agx;
+        chain.knee.enabled   = sd.knee;
+        if (sd.knee) {
+            chain.knee.sourceNits = 1000.0f;
+            chain.knee.targetNits = 100.0f;
+            chain.knee.start      = 0.95f;
+        }
         Preset p;
+        switch (sd.out) {
+        case Srgb:
+            chain.output.display = 1;                 // sRGB Display - 2.2 Power / Rec.709
+            p.kind = Preset::SdrSrgb;
+            break;
+        case EdrP3:
+            chain.output.display = edrP3 >= 0 ? edrP3 : 1;
+            p.kind = Preset::HdrEdrP3;
+            break;
+        case Pq2020:
+            chain.output.display  = 6;                // Rec.2100 - PQ / Rec.2020 (P3 Limited)
+            chain.output.peakNits = 1000.0f;
+            p.kind = Preset::HdrPq;
+            break;
+        }
         p.name     = QString::fromUtf8(sd.name);
         p.section  = QStringLiteral("minColor");
         p.builtIn  = true;
-        p.kind     = sd.kind;
         p.engine   = 1;
         p.minColor = chain.toVariant();
         m_presets.append(p);
@@ -550,9 +589,12 @@ PresetManager::captureCurrentAsPreset(const QString &name) const
     p.engine = activeEngine();
     if (p.engine == 1 && m_minColor) {
         p.minColor = m_minColor->chain().toVariant();
-        const int kind = m_minColor->displayKindOf(m_minColor->chain().output.display);
+        const int display = m_minColor->chain().output.display;
+        const int kind = m_minColor->displayKindOf(display);
         p.kind = kind == 1 || kind == 2 ? Preset::HdrPq
-               : kind == 3 ? Preset::HdrEdrSrgb : Preset::SdrSrgb;
+               : kind == 3 ? (mincolor::displayGamut(display) == DRT_DG_P3D65 ? Preset::HdrEdrP3
+                                                                              : Preset::HdrEdrSrgb)
+               : (mincolor::displayGamut(display) == DRT_DG_P3D65 ? Preset::SdrP3 : Preset::SdrSrgb);
         return p;
     }
     if (m_ocio) {
@@ -781,7 +823,9 @@ void PresetManager::loadUserPresetsFromDisk()
                               .value(QStringLiteral("display"), 1).toInt();
             const int kind = m_minColor ? m_minColor->displayKindOf(d) : 0;
             p.kind = kind == 1 || kind == 2 ? Preset::HdrPq
-                   : kind == 3 ? Preset::HdrEdrSrgb : Preset::SdrSrgb;
+                   : kind == 3 ? (mincolor::displayGamut(d) == DRT_DG_P3D65 ? Preset::HdrEdrP3
+                                                                            : Preset::HdrEdrSrgb)
+                   : (mincolor::displayGamut(d) == DRT_DG_P3D65 ? Preset::SdrP3 : Preset::SdrSrgb);
         }
         m_presets.append(p);
         ++loaded;

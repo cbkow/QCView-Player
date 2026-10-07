@@ -231,7 +231,7 @@ void MinColorEngine::setLook(int v)            { set(m_chain.output.look, std::c
 void MinColorEngine::setTonescale(int v)       { set(m_chain.output.tonescale, std::clamp(v, 0, drt::kTonescaleCount), &MinColorEngine::outputChanged); }
 void MinColorEngine::setCreativeWhite(int v)   { set(m_chain.output.cwp, std::clamp(v, 0, drt::kCwpCount), &MinColorEngine::outputChanged); }
 void MinColorEngine::setCreativeWhiteLimit(double v) { set(m_chain.output.cwpLimit, float(std::clamp(v, 0.0, 1.0)), &MinColorEngine::outputChanged); }
-void MinColorEngine::setDisplay(int v)         { set(m_chain.output.display, std::clamp(v, 0, drt::kDisplayCount - 1), &MinColorEngine::outputChanged); }
+void MinColorEngine::setDisplay(int v)         { set(m_chain.output.display, std::clamp(v, 0, mincolor::kDisplayTotal - 1), &MinColorEngine::outputChanged); }
 void MinColorEngine::setSurround(int v)        { set(m_chain.output.surround, std::clamp(v, 0, 2), &MinColorEngine::outputChanged); }
 void MinColorEngine::setPeakNits(double v)     { set(m_chain.output.peakNits, float(std::clamp(v, 48.0, 10000.0)), &MinColorEngine::outputChanged); }
 void MinColorEngine::setGreyBoost(double v)    { set(m_chain.output.greyBoost, float(std::clamp(v, 0.0, 1.0)), &MinColorEngine::outputChanged); }
@@ -240,8 +240,8 @@ void MinColorEngine::setGreyNits(double v)     { set(m_chain.output.greyNits, fl
 
 int MinColorEngine::displayKindOf(int index) const
 {
-    if (index < 0 || index >= drt::kDisplayCount) return 0;
-    switch (drt::kDisplays[index].eotf) {
+    if (index < 0 || index >= mincolor::kDisplayTotal) return 0;
+    switch (mincolor::displayEotf(index)) {
     case DRT_EOTF_PQ:     return 1;
     case DRT_EOTF_HLG:    return 2;
     case DRT_EOTF_LINEAR: return 3;
