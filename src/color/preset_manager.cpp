@@ -259,32 +259,33 @@ int PresetManager::activeEngine() const
 // P3-D65 PQ master — each to the sRGB display for SDR, to a linear P3-D65
 // hand-off for macOS EDR, and to Rec.2100 PQ for Windows HDR10. Every
 // preset is un-tone-mapped unless it says AgX; an OpenDRT look is only
-// ever an explicit choice. "Netflicker SDR" is the PQ master knee'd
-// 1000 → 100 nits with the start at 0.95 for an SDR review.
+// ever an explicit choice. "Netflicker SDR" is the PQ master straight to
+// sRGB; the knee stays the user's call (chris: 1000 → 100 at 0.95 is the
+// usual setting, but the preset never turns it on).
 void PresetManager::loadMinColorBuiltIns()
 {
     enum Out { Srgb, EdrP3, Pq2020 };
     struct Seed {
-        const char *name; int gamut; int transfer; bool agx; bool knee; Out out;
+        const char *name; int gamut; int transfer; bool agx; Out out;
     };
     static const Seed kSeeds[] = {
-        {"ACEScg → sRGB",                     DRT_IN_AP1,     DRT_OETF_LINEAR, false, false, Srgb},
-        {"ACEScg → EDR P3 (macOS)",           DRT_IN_AP1,     DRT_OETF_LINEAR, false, false, EdrP3},
-        {"ACEScg → Rec.2100 PQ (Windows)",    DRT_IN_AP1,     DRT_OETF_LINEAR, false, false, Pq2020},
-        {"ACES 2065-1 → sRGB",                DRT_IN_AP0,     DRT_OETF_LINEAR, false, false, Srgb},
-        {"ACES 2065-1 → EDR P3 (macOS)",      DRT_IN_AP0,     DRT_OETF_LINEAR, false, false, EdrP3},
-        {"ACES 2065-1 → Rec.2100 PQ (Windows)", DRT_IN_AP0,   DRT_OETF_LINEAR, false, false, Pq2020},
-        {"Linear Rec.709 → sRGB",             DRT_IN_REC709,  DRT_OETF_LINEAR, false, false, Srgb},
-        {"Linear Rec.709 AgX → sRGB",         DRT_IN_REC709,  DRT_OETF_LINEAR, true,  false, Srgb},
-        {"Linear Rec.709 → EDR P3 (macOS)",   DRT_IN_REC709,  DRT_OETF_LINEAR, false, false, EdrP3},
-        {"Linear Rec.709 → Rec.2100 PQ (Windows)", DRT_IN_REC709, DRT_OETF_LINEAR, false, false, Pq2020},
-        {"Linear Rec.2020 → sRGB",            DRT_IN_REC2020, DRT_OETF_LINEAR, false, false, Srgb},
-        {"Linear Rec.2020 AgX → sRGB",        DRT_IN_REC2020, DRT_OETF_LINEAR, true,  false, Srgb},
-        {"Linear Rec.2020 → EDR P3 (macOS)",  DRT_IN_REC2020, DRT_OETF_LINEAR, false, false, EdrP3},
-        {"Linear Rec.2020 → Rec.2100 PQ (Windows)", DRT_IN_REC2020, DRT_OETF_LINEAR, false, false, Pq2020},
-        {"Netflicker SDR (P3 PQ 1000 → 100, knee 0.95)", DRT_IN_P3D65, DRT_OETF_PQ_100, false, true, Srgb},
-        {"P3 PQ → EDR P3 (macOS)",            DRT_IN_P3D65,   DRT_OETF_PQ_100, false, false, EdrP3},
-        {"P3 PQ → Rec.2100 PQ (Windows)",     DRT_IN_P3D65,   DRT_OETF_PQ_100, false, false, Pq2020},
+        {"ACEScg → sRGB",                     DRT_IN_AP1,     DRT_OETF_LINEAR, false, Srgb},
+        {"ACEScg → EDR P3 (macOS)",           DRT_IN_AP1,     DRT_OETF_LINEAR, false, EdrP3},
+        {"ACEScg → Rec.2100 PQ (Windows)",    DRT_IN_AP1,     DRT_OETF_LINEAR, false, Pq2020},
+        {"ACES 2065-1 → sRGB",                DRT_IN_AP0,     DRT_OETF_LINEAR, false, Srgb},
+        {"ACES 2065-1 → EDR P3 (macOS)",      DRT_IN_AP0,     DRT_OETF_LINEAR, false, EdrP3},
+        {"ACES 2065-1 → Rec.2100 PQ (Windows)", DRT_IN_AP0,   DRT_OETF_LINEAR, false, Pq2020},
+        {"Linear Rec.709 → sRGB",             DRT_IN_REC709,  DRT_OETF_LINEAR, false, Srgb},
+        {"Linear Rec.709 AgX → sRGB",         DRT_IN_REC709,  DRT_OETF_LINEAR, true, Srgb},
+        {"Linear Rec.709 → EDR P3 (macOS)",   DRT_IN_REC709,  DRT_OETF_LINEAR, false, EdrP3},
+        {"Linear Rec.709 → Rec.2100 PQ (Windows)", DRT_IN_REC709, DRT_OETF_LINEAR, false, Pq2020},
+        {"Linear Rec.2020 → sRGB",            DRT_IN_REC2020, DRT_OETF_LINEAR, false, Srgb},
+        {"Linear Rec.2020 AgX → sRGB",        DRT_IN_REC2020, DRT_OETF_LINEAR, true, Srgb},
+        {"Linear Rec.2020 → EDR P3 (macOS)",  DRT_IN_REC2020, DRT_OETF_LINEAR, false, EdrP3},
+        {"Linear Rec.2020 → Rec.2100 PQ (Windows)", DRT_IN_REC2020, DRT_OETF_LINEAR, false, Pq2020},
+        {"Netflicker SDR (P3 PQ → sRGB)",     DRT_IN_P3D65,   DRT_OETF_PQ_100, false, Srgb},
+        {"P3 PQ → EDR P3 (macOS)",            DRT_IN_P3D65,   DRT_OETF_PQ_100, false, EdrP3},
+        {"P3 PQ → Rec.2100 PQ (Windows)",     DRT_IN_P3D65,   DRT_OETF_PQ_100, false, Pq2020},
     };
     const int edrP3 = mincolor::linearDisplayIndex(DRT_DG_P3D65);
     for (const Seed &sd : kSeeds) {
@@ -292,12 +293,6 @@ void PresetManager::loadMinColorBuiltIns()
         chain.input.gamut    = sd.gamut;
         chain.input.transfer = sd.transfer;
         chain.agx.enabled    = sd.agx;
-        chain.knee.enabled   = sd.knee;
-        if (sd.knee) {
-            chain.knee.sourceNits = 1000.0f;
-            chain.knee.targetNits = 100.0f;
-            chain.knee.start      = 0.95f;
-        }
         Preset p;
         switch (sd.out) {
         case Srgb:
