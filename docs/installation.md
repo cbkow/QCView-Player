@@ -52,6 +52,16 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.2
+
+- **minColor engine** — a second colour engine beside OCIO, built from the minColor core that also powers the minColorAE plugin. Pick **OCIO** or **minColor** in the Color panel's preset bar; the one On / Off switch covers both. The chain is **Input** (gamut + transfer, per clip) → **Highlight Knee** (per clip) → **AgX** → **Rendering** (Un-tone-mapped or OpenDRT) → **Display**. Per-clip pins, badges, presets, screenshots, LUT export and the scopes all work the same way as under OCIO, and each engine keeps its own settings and preset list when you switch.
+- **minColor presets** — ACEScg, ACES 2065-1, Linear Rec.709 (with and without AgX), Linear Rec.2020 (with and without AgX) and P3 PQ, each to sRGB for SDR, to EDR P3 (macOS) and to Rec.2100 PQ (Windows). All are un-tone-mapped; OpenDRT is only ever a choice you make in the Rendering reel.
+- **Highlight Knee** — a hand-set knee start now always bends smoothly without overshooting (the old curve could dip above the display peak with a late start).
+- **Scopes** — a per-clip **Transfer** override pill on video, image sequences and stills for files whose transfer is untagged or wrong, live streams carry their own tags, and the waveform has manual scale chips (**Auto · % · nits**). SDR and scene-referred white sit at 100 nits on the nits scale.
+- **Image sequences on Windows** — frame paths with non-Latin characters (CJK and others) load again (#6).
+- **Transport bar** — the in and out point icons were the wrong way round.
+- **Mercury Transmit** — a producer that quit without closing no longer leaves a stale frame ring behind.
+
 What's new in 2.5.1
 
 - **Dual view: frame stepping** — stepping with ←/→ (or Q/E) no longer re-decodes the whole GOP on the B-frame / long-GOP side on every press, and that side no longer flashes back to the keyframe while it catches up. Both sides land on the exact frame at once. Jumps hold the previous frame until the new one is ready instead of showing the run-up.
