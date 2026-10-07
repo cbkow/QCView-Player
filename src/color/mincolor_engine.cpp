@@ -1,4 +1,5 @@
 #include "mincolor_engine.h"
+#include "linear_stage.h"
 
 #include <QSettings>
 
@@ -85,6 +86,27 @@ int MinColorEngine::displayKindOf(int index) const
 int MinColorEngine::displayKind() const
 {
     return displayKindOf(m_chain.output.display);
+}
+
+// The knee's effective start (BT.2390's for the current peaks when the
+// user hasn't set one) and its nits read-out — linear_stage's maths, the
+// same the OCIO stage and the vendored drt_knee use.
+double MinColorEngine::kneeStartEffective() const
+{
+    if (m_chain.knee.start >= 0.0f) return m_chain.knee.start;
+    const float src = std::max(m_chain.knee.sourceNits, 1.0f);
+    const float tgt = displayIsSdr() ? 100.0f : std::max(m_chain.knee.targetNits, 1.0f);
+    const float maxLum = linear_stage::pqEncode(tgt / 10000.0f) / linear_stage::pqEncode(src / 10000.0f);
+    return linear_stage::bt2390KneeStart(maxLum) / std::max(maxLum, 1e-6f);
+}
+
+double MinColorEngine::kneeStartNits() const
+{
+    const float src = std::max(m_chain.knee.sourceNits, 1.0f);
+    const float tgt = displayIsSdr() ? 100.0f : std::max(m_chain.knee.targetNits, 1.0f);
+    const float maxLum = linear_stage::pqEncode(tgt / 10000.0f) / linear_stage::pqEncode(src / 10000.0f);
+    const float ks = float(kneeStartEffective()) * maxLum;
+    return linear_stage::kneeStartNits(ks, src);
 }
 
 } // namespace qcv

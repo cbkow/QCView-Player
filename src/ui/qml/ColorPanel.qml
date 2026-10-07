@@ -77,6 +77,7 @@ Pane {
         property bool displayLutExpanded: false
         property bool lookExpanded: false        // Phase 2.5 polish: Look collapsed by default
         property bool kneeExpanded: false
+        property bool agxExpanded: false
     }
 
     // Shared LUT picker, target-routed.
@@ -833,6 +834,15 @@ Pane {
                         }
                     }
 
+                    // ---- minColor: the knee (QCView's own maths, from
+                    // the vendored core) between Input and the view.
+                    KneeColumn {
+                        visible: root.minColorMode
+                        ocio: root.minColor
+                        expanded: lutTileSettings.kneeExpanded
+                        onExpandedChanged: lutTileSettings.kneeExpanded = expanded
+                    }
+
                     ReelColumn {
                         visible: !root.minColorMode
                         title: qsTr("Input")
@@ -933,15 +943,24 @@ Pane {
                     Layout.fillHeight: true
                     spacing: Theme.spacingLoose
 
-                    // ---- minColor: the rendering and the display encoding.
+                    // ---- minColor: AgX, the rendering and the display encoding.
+                    AgxColumn {
+                        visible: root.minColorMode
+                        expanded: lutTileSettings.agxExpanded
+                        onExpandedChanged: lutTileSettings.agxExpanded = expanded
+                    }
                     ReelColumn {
                         visible: root.minColorMode
-                        title: qsTr("Rendering")
-                        // Un-tone-mapped first, then the OpenDRT looks.
-                        model: root.minColor
-                               ? [qsTr("Un-tone-mapped")].concat(root.minColor.lookNames) : []
+                        readonly property bool agxOn: !!root.minColor && root.minColor.agxEnabled
+                        title: agxOn ? qsTr("Rendering · AgX") : qsTr("Rendering")
+                        // Un-tone-mapped first, then the OpenDRT looks. AgX and
+                        // OpenDRT are both picture formations: with AgX on the
+                        // looks go away and the rendering is the encode only.
+                        model: !root.minColor ? []
+                               : agxOn ? [qsTr("Un-tone-mapped")]
+                               : [qsTr("Un-tone-mapped")].concat(root.minColor.lookNames)
                         currentText: root.minColor
-                                     ? (root.minColor.openDrt
+                                     ? (root.minColor.openDrt && !agxOn
                                         ? root.minColor.lookNames[root.minColor.look]
                                         : qsTr("Un-tone-mapped"))
                                      : ""
@@ -1600,7 +1619,9 @@ Pane {
     component KneeColumn: ColumnLayout {
         id: knee
         property bool expanded: false
-        readonly property var ocio: WindowManager.ocio
+        // The object whose knee this column edits: the OCIO manager, or the
+        // minColor engine (same property names, see MinColorEngine).
+        property var ocio: WindowManager.ocio
         readonly property bool on: !!ocio && ocio.kneeEnabled
         readonly property bool available: !!ocio && ocio.kneeAvailable
         // The clip whose chain the panel shows (dual view: the A/B tab).
@@ -1904,6 +1925,260 @@ Pane {
                     size: 20
                     color: knee.on ? Theme.warning
                                    : (kneeStripMa.containsMouse ? Theme.accent : Theme.textMuted)
+                }
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    name: "caret-double-right"
+                    size: Theme.iconSizeSmall
+                    color: Theme.textMuted
+                }
+            }
+        }
+    }
+
+    // AgX — minColor's parametric picture formation (the vendored
+    // darktable / Blender port). A view-side step: when on, the Rendering
+    // reel loses its OpenDRT looks and only the Display encode follows.
+    component AgxColumn: ColumnLayout {
+        id: agx
+        property bool expanded: false
+        readonly property var mc: root.minColor
+        readonly property bool on: !!mc && mc.agxEnabled
+
+        Layout.minimumWidth:   agx.expanded ? 180 : 32
+        Layout.preferredWidth: agx.expanded ? 200 : 32
+        Layout.fillHeight: true
+        spacing: Theme.spacing
+
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: agxTitle.implicitHeight
+            Text {
+                id: agxTitle
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                visible: agx.expanded
+                text: qsTr("AgX")
+                color: Theme.textMuted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeTiny
+                font.bold: true
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 0.8
+            }
+            Icon {
+                visible: agx.expanded
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                name: "caret-double-left"
+                size: Theme.iconSizeSmall
+                color: agxCollapseMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+            }
+            MouseArea {
+                id: agxCollapseMa
+                visible: agx.expanded
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: 22
+                height: 22
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: agx.expanded = false
+                FlatToolTip { visible: agxCollapseMa.containsMouse; text: qsTr("Collapse") }
+            }
+        }
+
+        // ---- Expanded body
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: agx.expanded
+            color: Theme.surfaceRecess
+            radius: Theme.radiusSmall
+
+            Flickable {
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLoose
+                contentHeight: agxBody.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+
+                ColumnLayout {
+                    id: agxBody
+                    width: parent.width
+                    spacing: Theme.spacing
+
+                    RowLayout {
+                        spacing: Theme.spacing
+                        FlatSwitch {
+                            checked: agx.on
+                            onToggled: agx.mc.agxEnabled = checked
+                        }
+                        Text {
+                            text: agx.on ? qsTr("On") : qsTr("Off")
+                            color: agx.on ? Theme.warning : Theme.textSecondary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: agx.on
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTr("Blender's AgX at the defaults; HDR above 100 nits.")
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.italic: true
+                    }
+
+                    // Target gamut
+                    Text {
+                        text: qsTr("Target gamut")
+                        color: Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                    }
+                    RowLayout {
+                        spacing: 2
+                        Repeater {
+                            model: [qsTr("Rec.2020"), qsTr("Rec.709"), qsTr("P3-D65")]
+                            FlatChip {
+                                required property int index
+                                required property var modelData
+                                label: modelData
+                                minWidth: 48
+                                active: !!agx.mc && agx.mc.agxTarget === index
+                                onClicked: agx.mc.agxTarget = index
+                            }
+                        }
+                    }
+
+                    // Peak
+                    Text {
+                        text: qsTr("Peak luminance")
+                        color: Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                    }
+                    RowLayout {
+                        spacing: Theme.spacing
+                        FlatSpinBox {
+                            Layout.fillWidth: true
+                            from: 100
+                            to: 10000
+                            stepSize: 100
+                            value: agx.mc ? Math.round(agx.mc.agxPeak) : 100
+                            onValueModified: agx.mc.agxPeak = value
+                        }
+                        Text {
+                            text: qsTr("nits")
+                            color: Theme.textMuted
+                            font.family: Theme.monoFamily
+                            font.pixelSize: Theme.fontSizeMono
+                        }
+                    }
+
+                    // The curve: range, contrast, toe, shoulder
+                    Repeater {
+                        model: [
+                            { label: qsTr("White (EV over grey)"), key: "agxWhiteEv",    from: 1.0,  to: 20.0, step: 0.1,  reset: 6.5 },
+                            { label: qsTr("Black (EV under grey)"), key: "agxBlackEv",  from: -20.0, to: -1.0, step: 0.1, reset: -10.0 },
+                            { label: qsTr("Contrast"),              key: "agxContrast", from: 0.5,  to: 5.0,  step: 0.05, reset: 2.4 },
+                            { label: qsTr("Toe power"),             key: "agxToe",      from: 0.5,  to: 5.0,  step: 0.05, reset: 1.5 },
+                            { label: qsTr("Shoulder power"),        key: "agxShoulder", from: 0.5,  to: 5.0,  step: 0.05, reset: 1.5 },
+                            { label: qsTr("Hue restore"),           key: "agxHueRestore", from: 0.0, to: 1.0, step: 0.05, reset: 0.6 },
+                            { label: qsTr("HDR purity"),            key: "agxHdrPurity",  from: 0.0, to: 1.0, step: 0.05, reset: 0.5 },
+                        ]
+                        ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 2
+                            RowLayout {
+                                Text {
+                                    text: modelData.label
+                                    color: Theme.textSecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeTiny
+                                }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    text: agx.mc ? Number(agx.mc[modelData.key]).toFixed(2) : ""
+                                    color: Theme.textPrimary
+                                    font.family: Theme.monoFamily
+                                    font.pixelSize: Theme.fontSizeMono
+                                }
+                            }
+                            FlatSlider {
+                                Layout.fillWidth: true
+                                from: modelData.from
+                                to: modelData.to
+                                stepSize: modelData.step
+                                value: agx.mc ? agx.mc[modelData.key] : modelData.reset
+                                onMoved: agx.mc[modelData.key] = value
+                                // Double-click returns to Blender's default.
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    propagateComposedEvents: true
+                                    onPressed: (mouse) => { mouse.accepted = false }
+                                    onDoubleClicked: agx.mc[modelData.key] = modelData.reset
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- Collapsed body — slim vertical strip (matches KneeColumn)
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !agx.expanded
+            color: agxStripMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            radius: Theme.radiusSmall
+
+            MouseArea {
+                id: agxStripMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: agx.expanded = true
+                FlatToolTip {
+                    visible: agxStripMa.containsMouse
+                    text: agx.on ? qsTr("AgX — on, %1 nits").arg(Math.round(agx.mc.agxPeak))
+                                 : qsTr("AgX — off, click to expand")
+                }
+            }
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.topMargin: Theme.spacingLoose
+                anchors.bottomMargin: Theme.spacingLoose
+                spacing: Theme.spacingLoose
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Text {
+                        anchors.centerIn: parent
+                        rotation: -90
+                        text: qsTr("AgX")
+                        color: agx.on ? Theme.textPrimary : Theme.textSecondary
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        font.bold: true
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8
+                    }
+                }
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    name: "aperture"
+                    size: 20
+                    color: agx.on ? Theme.warning
+                                  : (agxStripMa.containsMouse ? Theme.accent : Theme.textMuted)
                 }
                 Icon {
                     Layout.alignment: Qt.AlignHCenter

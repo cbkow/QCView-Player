@@ -56,6 +56,17 @@ class MinColorEngine : public QObject
     Q_PROPERTY(double greyBoost  READ greyBoost  WRITE setGreyBoost  NOTIFY chainChanged)
     Q_PROPERTY(double hdrPurity  READ hdrPurity  WRITE setHdrPurity  NOTIFY chainChanged)
     Q_PROPERTY(double greyNits   READ greyNits   WRITE setGreyNits   NOTIFY chainChanged)
+    // What the shared KneeColumn reads off its `ocio` object (the OCIO
+    // manager has the same names): the knee is always available here, is
+    // never pinned until per-clip pins land, and targets 100 nits when
+    // the Display encoding is an SDR power curve.
+    Q_PROPERTY(bool    kneeAvailable      READ kneeAvailable      CONSTANT)
+    Q_PROPERTY(bool    kneePinned         READ kneePinned         CONSTANT)
+    Q_PROPERTY(QString focusClipId        READ focusClipId        CONSTANT)
+    Q_PROPERTY(bool    displayIsSdr       READ displayIsSdr       NOTIFY chainChanged)
+    Q_PROPERTY(double  kneeStartEffective READ kneeStartEffective NOTIFY chainChanged)
+    Q_PROPERTY(double  kneeStartNits      READ kneeStartNits      NOTIFY chainChanged)
+
     // The reels' entries (vendored tables, by index).
     Q_PROPERTY(QStringList inputGamutNames    READ inputGamutNames    CONSTANT)
     Q_PROPERTY(QStringList inputTransferNames READ inputTransferNames CONSTANT)
@@ -140,6 +151,12 @@ public:
     QStringList creativeWhiteNames() const { return mincolor::creativeWhiteNames(); }
     QStringList displayNames() const       { return mincolor::displayNames(); }
     int displayKind() const;
+    bool    kneeAvailable() const { return true; }
+    bool    kneePinned() const    { return false; }
+    QString focusClipId() const   { return {}; }
+    bool    displayIsSdr() const  { return displayKind() == 0; }
+    double  kneeStartEffective() const;
+    double  kneeStartNits() const;
     // The EOTF kind of any Display entry (same codes), for dimming.
     Q_INVOKABLE int displayKindOf(int index) const;
 
