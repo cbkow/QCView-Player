@@ -74,6 +74,11 @@ class ScopeController : public QObject
     Q_PROPERTY(bool    waveformHdr READ waveformHdr NOTIFY stateChanged)
     // PQ scale's top of face in nits: 300, 600, 1000, 2000 or 4000 (persisted).
     Q_PROPERTY(int     waveformPeak READ waveformPeak WRITE setWaveformPeak NOTIFY optionsChanged)
+    // Manual scale: 0 = Auto (from the interpretation), 1 = force the SDR
+    // percent scale, 2 = force the nits scale. Shared by both scopes;
+    // persisted. A forced nits scale needs a convertible tier — on Signal
+    // (nothing resolvable) the scope stays on Y′ and says so.
+    Q_PROPERTY(int     scaleMode READ scaleMode WRITE setScaleMode NOTIFY optionsChanged)
     // [{side, frame, clip, tooltip}] — the waveform's peak level per side
     // (side "" single, "A" / "B" dual), measured over every source pixel:
     // this frame, and the highest since the clip / interpretation changed
@@ -121,6 +126,8 @@ public:
     QVariantList waveformLines() const { return m_waveLines; }
     QString waveformBadge() const { return m_waveBadge; }
     bool    waveformHdr() const { return m_waveHdr; }
+    int     scaleMode() const   { return m_scaleMode; }
+    void    setScaleMode(int mode);
     int     waveformPeak() const { return m_wavePeak; }
     void    setWaveformPeak(int nits);
     QVariantList waveformPeaks() const { return m_wavePeaks; }
@@ -162,6 +169,7 @@ private:
 
     ScopeConfig  m_config;
     bool         m_hdrScale = false;   // either side needs the HDR scale
+    int          m_scaleMode = 0;      // 0 auto, 1 force SDR %, 2 force nits
     QString      m_badge;
     QString      m_scaleLabel;
     QString      m_mismatch;

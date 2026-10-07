@@ -90,6 +90,7 @@ ScopeController::ScopeController(OCIOConfigManager *ocio, ProjectManager *projec
     m_colorize    = s.value(QStringLiteral("scope/colorize"), false).toBool();
     m_brightness  = std::clamp(s.value(QStringLiteral("scope/brightness"), 1.0).toDouble(), 0.1, 10.0);
     m_wavePeak    = snapPeak(s.value(QStringLiteral("scope/waveformPeak"), 1000).toInt());
+    m_scaleMode   = std::clamp(s.value(QStringLiteral("scope/scaleMode"), 0).toInt(), 0, 2);
 
     m_pollTimer.setInterval(33);
     connect(&m_pollTimer, &QTimer::timeout, this, &ScopeController::poll);
@@ -156,6 +157,16 @@ void ScopeController::setBrightness(double b)
     QSettings().setValue(QStringLiteral("scope/brightness"), b);
     emit optionsChanged();
     refresh();
+}
+
+void ScopeController::setScaleMode(int mode)
+{
+    mode = std::clamp(mode, 0, 2);
+    if (mode == m_scaleMode) return;
+    m_scaleMode = mode;
+    QSettings().setValue(QStringLiteral("scope/scaleMode"), m_scaleMode);
+    emit optionsChanged();
+    refresh();   // the scale changes the bins and the peaks' units
 }
 
 void ScopeController::setWaveformPeak(int nits)
@@ -288,7 +299,8 @@ void ScopeController::refresh()
         + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tier))
         + QLatin1Char('|') + m_waveConfig.colorspace + QLatin1Char('|') + m_waveConfig.configPath
         + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.tierB))
-        + QLatin1Char('|') + m_waveConfig.colorspaceB + QLatin1Char('|') + m_waveConfig.configPathB;
+        + QLatin1Char('|') + m_waveConfig.colorspaceB + QLatin1Char('|') + m_waveConfig.configPathB
+        + QLatin1Char('|') + QString::number(static_cast<int>(m_waveConfig.scale));
     if (peakKey != m_peakKey) {
         m_peakKey = peakKey;
         resetClipPeaks();
@@ -541,9 +553,16 @@ void ScopeController::resolve()
     m_config.colorize = m_colorize && m_config.tier != ScopeTier::Signal;
     m_config.kind = ScopeKind::Vectorscope;
     if (m_config.tier != ScopeTier::Signal || m_config.tierB != ScopeTier::Signal) {
-        m_config.scale = m_hdrScale ? ScopeScale::Hdr : ScopeScale::Sdr;
+        // The manual scale (panel chips) overrides the interpretation's
+        // choice. Forcing SDR on a PQ side plots that side's own Y′; forcing
+        // nits on an SDR side converts it, white at 203.
+        bool hdr = m_hdrScale;
+        if (m_scaleMode == 1)      hdr = false;
+        else if (m_scaleMode == 2) hdr = true;
+        m_config.scale = hdr ? ScopeScale::Hdr : ScopeScale::Sdr;
         m_scaleLabel = m_config.scale == ScopeScale::Sdr ? tr("SDR · Rec.709")
                                                          : tr("HDR · PQ Rec.2020");
+        if (m_scaleMode != 0 && hdr != m_hdrScale) m_scaleLabel += tr(" (manual)");
     } else {
         static const char *kMatrix[] = {"BT.601", "BT.709", "BT.2020"};
         m_scaleLabel = tr("%1 matrix").arg(QString::fromLatin1(kMatrix[m_config.signalMatrix]));

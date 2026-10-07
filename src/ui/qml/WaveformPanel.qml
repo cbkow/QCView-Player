@@ -157,6 +157,31 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         spacing: 2
+        // Manual scale: Auto follows the interpretation (tags / Transfer /
+        // Input); % and nits force it. Shared with the vectorscope.
+        Repeater {
+            model: [
+                { key: 0, label: qsTr("Auto"), tip: qsTr("Scale from the interpretation") },
+                { key: 1, label: "%",          tip: qsTr("Force the SDR percent scale (the signal's own Y′)") },
+                { key: 2, label: qsTr("nits"), tip: qsTr("Force the nits scale (SDR white at 203)") },
+            ]
+            FlatChip {
+                required property var modelData
+                label: modelData.label
+                minWidth: 26
+                active: root.scope && root.scope.scaleMode === modelData.key
+                tooltip: modelData.tip
+                onClicked: root.scope.scaleMode = modelData.key
+            }
+        }
+        Rectangle {
+            visible: root.scope && root.scope.waveformHdr
+            Layout.preferredWidth: 1
+            Layout.preferredHeight: 14
+            Layout.leftMargin: 4
+            Layout.rightMargin: 4
+            color: Theme.divider
+        }
         Repeater {
             model: root.scope && root.scope.waveformHdr ? [300, 600, 1000, 2000, 4000] : []
             FlatChip {

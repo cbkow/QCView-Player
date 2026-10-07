@@ -22,7 +22,7 @@ The **Vectorscope** and **Waveform** sections sit at the top of the Inspector. E
 
 **Vectorscope** — colour-bar targets, Rec.709 / P3 / Rec.2020 gamut outlines and the skin-tone line. The `1× 2× 4×` buttons zoom, **Color** tints the trace by hue, and the slider sets the trace brightness.
 
-**Waveform** — SDR sources plot the signal's Y′ from 0–100 %. HDR sources plot luminance in nits on a scale with lines at 300, 600, 1000, 2000 and 4000 nits and a reference-white line at 203. On that scale an SDR or scene-linear source's white sits on the 203 line (BT.2408 reference white); PQ and HLG sources plot their absolute luminance. Under the waveform, a **Frame · Max** readout gives the brightest level in the current frame and the highest seen since the clip started; hover it for the brightest channel, and click **Reset** to start over.
+**Waveform** — SDR sources plot the signal's Y′ from 0–100 %. HDR sources plot luminance in nits on a scale with lines at 300, 600, 1000, 2000 and 4000 nits and a reference-white line at 203. On that scale an SDR or scene-linear source's white sits on the 203 line (BT.2408 reference white); PQ and HLG sources plot their absolute luminance. Under the waveform, a **Frame · Max** readout gives the brightest level in the current frame and the highest seen since the clip started; hover it for the brightest channel, and click **Reset** to start over. The **Auto · % · nits** chips below it choose the scale: Auto follows the interpretation, **%** forces the SDR percent scale (the signal's own Y′), **nits** forces the luminance scale with SDR white at 203. The choice is shared with the vectorscope and remembered.
 
 In dual view each side is read from its own file, drawn in its own colour.
 
