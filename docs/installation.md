@@ -59,7 +59,7 @@ What's new in 2.5.2
 - **Highlight Knee** — a hand-set knee start now always bends smoothly without overshooting (the old curve could dip above the display peak with a late start).
 - **Scopes** — a per-clip **Transfer** override pill on video, image sequences and stills for files whose transfer is untagged or wrong, live streams carry their own tags, and the waveform has manual scale chips (**Auto · % · nits**). SDR and scene-referred white sit at 100 nits on the nits scale.
 - **Image sequences on Windows** — frame paths with non-Latin characters (CJK and others) load again (#6).
-- **Compact Mode** — `Ctrl + Shift + 0` (⇧⌘0): the window becomes the picture plus one slim strip with the timecode, a scrub line and fullscreen / exit buttons. `Esc`, the shortcut again or the strip's ✕ brings every panel back as it was. Minimal Mode (`Ctrl + 0`) is unchanged.
+- **Compact Mode** — `Ctrl + Shift + C` (⇧⌘C): the window becomes the picture plus one slim strip with the timecode, a scrub line and fullscreen / exit buttons. `Esc`, the shortcut again or the strip's ✕ brings every panel back as it was. Minimal Mode (`Ctrl + 0`) is unchanged.
 - **Transport bar** — the in and out point icons were the wrong way round.
 - **Mercury Transmit** — a producer that quit without closing no longer leaves a stale frame ring behind.
 

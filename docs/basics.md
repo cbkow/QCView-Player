@@ -64,7 +64,7 @@ You can also use the mouse to toggle panels. Rails can be opened and closed by c
 | Preset | Shortcut | Description |
 |---|---|---|
 | Minimal Mode | `Ctrl + 0` | Viewport + transport only; the rails collapse to their slim strips |
-| Compact Mode | `Ctrl + Shift + 0` | Viewport plus one slim strip: timecode, a scrub line, fullscreen and exit. Press `Ctrl + Shift + 0` again, `Esc`, or the strip's ✕ to leave; your panels come back as they were |
+| Compact Mode | `Ctrl + Shift + C` | Viewport plus one slim strip: timecode, a scrub line, fullscreen and exit. Press `Ctrl + Shift + C` again, `Esc`, or the strip's ✕ to leave; your panels come back as they were |
 | Show All Panels | `Ctrl + 9` | Opens every panel |
 | Default View | `Ctrl + R` | Rails, timeline, Color panel and status bar |
 | Fullscreen | `F` | Viewport only, no UI. Press `F` or `Esc` to exit |

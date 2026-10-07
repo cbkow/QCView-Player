@@ -345,7 +345,7 @@ Pane {
                             heading: "View",
                             items: [
                                 { label: "Minimal Mode",        keysWin: "Ctrl+0",       keysMac: "⌘0"     },
-                                { label: "Compact Mode",        keysWin: "Ctrl+Shift+0", keysMac: "⇧⌘0"    },
+                                { label: "Compact Mode",        keysWin: "Ctrl+Shift+C", keysMac: "⇧⌘C"    },
                                 { label: "Default View",        keysWin: "Ctrl+R",       keysMac: "⌘R"     },
                                 { label: "Show All Panels",     keysWin: "Ctrl+9",       keysMac: "⌘9"     },
                                 { label: "Left Rail",           keysWin: "Ctrl+1",       keysMac: "⌘1"     },

@@ -570,7 +570,7 @@ ApplicationWindow {
             }
             Action {
                 text: root.compactMode ? qsTr("Exit Compact Mode") : qsTr("Compact Mode")
-                shortcut: "Ctrl+Shift+0"
+                shortcut: "Ctrl+Shift+C"
                 onTriggered: root.toggleCompact()
             }
             Action {
@@ -787,7 +787,7 @@ ApplicationWindow {
     // exactly the panel state the user had configured.
     readonly property bool inFullscreen:
         borderlessFs || visibility === ApplicationWindow.FullScreen
-    // Compact Mode (Cmd/Ctrl+Shift+0): the same chrome gate as
+    // Compact Mode (Cmd/Ctrl+Shift+C): the same chrome gate as
     // fullscreen in a normal window — viewport plus the 22 px
     // CompactStrip below it. Minimal Mode (Cmd/Ctrl+0) is a different
     // thing: a layout preset that collapses the rails. Like fullscreen,
