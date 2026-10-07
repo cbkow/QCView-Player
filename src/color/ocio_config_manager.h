@@ -41,6 +41,8 @@
 
 namespace qcv {
 
+class MinColorEngine;
+
 class OCIOConfigManager : public QObject
 {
     Q_OBJECT
@@ -67,6 +69,10 @@ class OCIOConfigManager : public QObject
     // flipping engaged ON is the explicit "apply this chain" action,
     // and once engaged subsequent slot edits live-update.
     Q_PROPERTY(bool engaged READ engaged WRITE setEngaged NOTIFY activeChainChanged)
+    // Which engine `engaged` runs: 0 = OCIO (the chain below), 1 = minColor
+    // (MinColorEngine, OCIO-free). Off is off for both; switching this
+    // while Off changes nothing on screen. Persisted in QSettings.
+    Q_PROPERTY(int engine READ engine WRITE setEngine NOTIFY activeChainChanged)
     // Highlight Knee — the chain step between Scene LUT and Output (see
     // linear_stage.h). Changing it never bumps activeChainGeneration: the
     // renderers key their pipeline on (generation, stage identity) and
@@ -165,6 +171,11 @@ public:
     QString activeSceneLutCccId()   const { return focusedScene().sceneLutCccId; }
     void    setActiveSceneLutCccId(const QString &id);
     bool    engaged()               const { return m_engaged; }
+    int     engine()                const { return m_engine; }
+    void    setEngine(int e);
+    // The minColor engine whose chain the snapshot carries when engine ==
+    // 1. Its chainChanged republishes. Set once by WindowManager.
+    void    setMinColorEngine(MinColorEngine *engine);
 
     void setActiveInput(const QString &name);
     void setActiveDisplay(const QString &name);
@@ -328,6 +339,8 @@ private:
     QString m_activeView;
     QString m_activeDisplayLutPath;
     bool    m_engaged = false;     // default disengaged — see Q_PROPERTY note
+    int     m_engine  = 0;         // 0 OCIO, 1 minColor (ColorEngine)
+    MinColorEngine *m_minColor = nullptr;   // not owned
     std::atomic<int> m_activeChainGeneration{0};
     std::atomic<int> m_stageGeneration{0};
 

@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "linear_stage.h"
+#include "mincolor_chain.h"
 
 namespace qcv {
 
@@ -102,7 +103,17 @@ struct OcioScenePin {
     }
 };
 
+// Which engine a spec draws with. OCIO is the chain below; minColor is
+// the OCIO-free engine (mincolor_chain.h) carried as resolved GPU blocks.
+// The one On / Off switch (OcioChainSnapshot::engaged) bypasses both.
+enum class ColorEngine : int { Ocio = 0, MinColor = 1 };
+
 struct OcioChainSpec {
+    ColorEngine    engine = ColorEngine::Ocio;
+    // minColor engine: the side's resolved blocks (every change is a
+    // uniform update on one kernel; nothing else below applies).
+    MinColorGpu    minColor;
+
     QString        configPath;   // OCIOConfigManager::configIdentifier()
     OcioSceneChain scene;
     QString        display;
@@ -115,16 +126,26 @@ struct OcioChainSpec {
 
     bool complete() const
     {
+        if (engine == ColorEngine::MinColor) return true;   // one kernel, no config
         return !configPath.isEmpty() && !scene.input.isEmpty() && !display.isEmpty()
             && !view.isEmpty();
     }
+    // Same compiled shader. minColor specs always share theirs: the
+    // kernel is fixed and the blocks are uniforms.
     bool sameShader(const OcioChainSpec &o) const
     {
+        if (engine != o.engine) return false;
+        if (engine == ColorEngine::MinColor) return true;
         return configPath == o.configPath && scene.sameShader(o.scene)
             && display == o.display && view == o.view && displayLutPath == o.displayLutPath
             && sdrDisplay == o.sdrDisplay && sdrView == o.sdrView;
     }
-    bool operator==(const OcioChainSpec &o) const { return sameShader(o) && scene == o.scene; }
+    bool operator==(const OcioChainSpec &o) const
+    {
+        if (!sameShader(o)) return false;
+        if (engine == ColorEngine::MinColor) return minColor == o.minColor;
+        return scene == o.scene;
+    }
     bool operator!=(const OcioChainSpec &o) const { return !(*this == o); }
 
     // The linear stage for this chain; `gain` is the viewer's Brightness.
@@ -145,6 +166,7 @@ struct OcioChainSnapshot {
     int  generation = 0;
     bool engaged    = false;
     bool dual       = false;
+    ColorEngine engine = ColorEngine::Ocio;   // what `engaged` runs; the specs carry it too
     OcioChainSpec single;   // single view: the clip on screen (else the default)
     OcioChainSpec a;        // dual view
     OcioChainSpec b;

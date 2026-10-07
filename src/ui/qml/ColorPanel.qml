@@ -39,6 +39,13 @@ import Qcv
 
 Pane {
     id: root
+    // Which engine the On / Off switch runs: OCIO (the chain of columns
+    // below) or minColor (the OCIO-free engine, mincolor_chain.h). The
+    // segment in the preset bar picks it; Off is off for both.
+    readonly property bool minColorMode:
+        !!WindowManager.ocio && WindowManager.ocio.engine === 1
+    readonly property var  minColor: WindowManager.minColor
+    onMinColorModeChanged: if (minColorMode) presetColumn.setupTab = 0
     padding: 0
 
     // Two groups, read the same in single and dual view:
@@ -245,14 +252,36 @@ Pane {
                 font.bold: true
             }
             Text {
-                text: WindowManager.ocio
-                      ? WindowManager.ocio.configDescription : ""
+                text: root.minColorMode
+                      ? qsTr("minColor · OpenDRT 1.1.0 rendering, AgX, no OCIO")
+                      : (WindowManager.ocio ? WindowManager.ocio.configDescription : "")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeTiny
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
+            // Engine segment: OCIO | minColor. Changes only which chain
+            // the switch engages; while Off nothing on screen changes.
+            FlatButton {
+                checkable: true
+                checked: !root.minColorMode
+                variant: "raised"
+                checkedFill: Theme.selection
+                text: qsTr("OCIO")
+                tooltipText: qsTr("Colour through the OpenColorIO chain (Input · Look · LUTs · Output · View)")
+                onClicked: if (WindowManager.ocio) WindowManager.ocio.engine = 0
+            }
+            FlatButton {
+                checkable: true
+                checked: root.minColorMode
+                variant: "raised"
+                checkedFill: Theme.selection
+                text: qsTr("minColor")
+                tooltipText: qsTr("Colour through the minColor engine: Input → Knee → AgX → OpenDRT rendering → Display, no OCIO")
+                onClicked: if (WindowManager.ocio) WindowManager.ocio.engine = 1
+            }
+            Item { width: Theme.spacingLoose }
             // Preset stepper — wired to PresetManager (Phase 2.5e.1).
             FlatButton {
                 variant: "raised"
@@ -421,6 +450,7 @@ Pane {
                         checked: presetColumn.setupTab === 1
                         variant: "raised"
                         checkedFill: Theme.selection
+                        visible: !root.minColorMode   // minColor needs no config
                         text: qsTr("Config · %1").arg(WindowManager.ocio
                                                       ? WindowManager.ocio.activeConfigName : "")
                         tooltipText: qsTr("The OCIO config — the colourspace, display and view names every column uses")
@@ -438,8 +468,9 @@ Pane {
 
                 // Caption in the reels' title row, so the lists line up.
                 Text {
-                    text: presetColumn.setupTab === 0 ? qsTr("Sets clip + view")
-                                                      : qsTr("Names every column uses")
+                    text: root.minColorMode ? qsTr("minColor presets: carry-over step")
+                          : presetColumn.setupTab === 0 ? qsTr("Sets clip + view")
+                                                        : qsTr("Names every column uses")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeTiny
@@ -461,7 +492,7 @@ Pane {
 
                 FlatTextField {
                     id: presetFilterField
-                    visible: presetColumn.setupTab === 0
+                    visible: presetColumn.setupTab === 0 && !root.minColorMode
                     Layout.fillWidth: true
                     placeholderText: qsTr("Filter…")
                     onTextChanged: presetColumn.filterText = text
@@ -484,8 +515,15 @@ Pane {
                     }
                 }
 
+                // minColor: no preset list yet (the carry-over step seeds one
+                // from minColorAE's looks and displays); the well stays empty.
+                Item {
+                    visible: root.minColorMode
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                }
                 Rectangle {
-                    visible: presetColumn.setupTab === 0
+                    visible: presetColumn.setupTab === 0 && !root.minColorMode
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     // Recessed well — darker than the panel so the
@@ -771,7 +809,32 @@ Pane {
                     Layout.fillHeight: true
                     spacing: Theme.spacingLoose
 
+                    // ---- minColor: what the file is (gamut, transfer).
                     ReelColumn {
+                        visible: root.minColorMode
+                        title: qsTr("Input gamut")
+                        model: root.minColor ? root.minColor.inputGamutNames : []
+                        currentText: root.minColor
+                                     ? root.minColor.inputGamutNames[root.minColor.inputGamut] : ""
+                        onSelected: (entry) => {
+                            const i = root.minColor.inputGamutNames.indexOf(entry);
+                            if (i >= 0) root.minColor.inputGamut = i;
+                        }
+                    }
+                    ReelColumn {
+                        visible: root.minColorMode
+                        title: qsTr("Input transfer")
+                        model: root.minColor ? root.minColor.inputTransferNames : []
+                        currentText: root.minColor
+                                     ? root.minColor.inputTransferNames[root.minColor.inputTransfer] : ""
+                        onSelected: (entry) => {
+                            const i = root.minColor.inputTransferNames.indexOf(entry);
+                            if (i >= 0) root.minColor.inputTransfer = i;
+                        }
+                    }
+
+                    ReelColumn {
+                        visible: !root.minColorMode
                         title: qsTr("Input")
                         model: WindowManager.ocio ? WindowManager.ocio.colorspaces : []
                         currentText: WindowManager.ocio
@@ -781,6 +844,7 @@ Pane {
                         onSelected: (entry) => WindowManager.ocio.activeInput = entry
                     }
                     ReelColumn {
+                        visible: !root.minColorMode
                         title: qsTr("Look")
                         expandable: true
                         expanded: lutTileSettings.lookExpanded
@@ -801,6 +865,7 @@ Pane {
 
                     // Scene LUT — picker tile, full column height
                     LutTileColumn {
+                        visible: !root.minColorMode
                         title: qsTr("Scene LUT")
                         iconName: "cube"
                         path: WindowManager.ocio
@@ -820,6 +885,7 @@ Pane {
                     // Highlight Knee — the chain step between the scene side and
                     // the Display/View (see color/linear_stage.h).
                     KneeColumn {
+                        visible: !root.minColorMode   // minColor's knee column: step 2
                         expanded: lutTileSettings.kneeExpanded
                         onExpandedChanged: lutTileSettings.kneeExpanded = expanded
                     }
@@ -867,7 +933,41 @@ Pane {
                     Layout.fillHeight: true
                     spacing: Theme.spacingLoose
 
+                    // ---- minColor: the rendering and the display encoding.
                     ReelColumn {
+                        visible: root.minColorMode
+                        title: qsTr("Rendering")
+                        // Un-tone-mapped first, then the OpenDRT looks.
+                        model: root.minColor
+                               ? [qsTr("Un-tone-mapped")].concat(root.minColor.lookNames) : []
+                        currentText: root.minColor
+                                     ? (root.minColor.openDrt
+                                        ? root.minColor.lookNames[root.minColor.look]
+                                        : qsTr("Un-tone-mapped"))
+                                     : ""
+                        onSelected: (entry) => {
+                            if (entry === qsTr("Un-tone-mapped")) {
+                                root.minColor.openDrt = false;
+                                return;
+                            }
+                            const i = root.minColor.lookNames.indexOf(entry);
+                            if (i >= 0) { root.minColor.look = i; root.minColor.openDrt = true; }
+                        }
+                    }
+                    ReelColumn {
+                        visible: root.minColorMode
+                        title: qsTr("Display")
+                        model: root.minColor ? root.minColor.displayNames : []
+                        currentText: root.minColor
+                                     ? root.minColor.displayNames[root.minColor.display] : ""
+                        onSelected: (entry) => {
+                            const i = root.minColor.displayNames.indexOf(entry);
+                            if (i >= 0) root.minColor.display = i;
+                        }
+                    }
+
+                    ReelColumn {
+                        visible: !root.minColorMode
                         title: qsTr("Output")
                         model: WindowManager.ocio ? WindowManager.ocio.displays : []
                         currentText: WindowManager.ocio
@@ -875,6 +975,7 @@ Pane {
                         onSelected: (entry) => WindowManager.ocio.activeDisplay = entry
                     }
                     ReelColumn {
+                        visible: !root.minColorMode
                         title: qsTr("View")
                         // Recompute when display changes — bind to activeDisplay
                         // so the view list refreshes after Output selection.
@@ -888,6 +989,7 @@ Pane {
 
                     // Display LUT — picker tile, full column height
                     LutTileColumn {
+                        visible: !root.minColorMode
                         title: qsTr("Display LUT")
                         iconName: "monitor"
                         path: WindowManager.ocio
@@ -943,7 +1045,10 @@ Pane {
                 }
                 Item { Layout.preferredWidth: Theme.padding }
                 Text {
-                    text: engageSwitch.checked ? qsTr("OCIO On") : qsTr("OCIO Off")
+                    // The switch is the one On / Off for both engines; the
+                    // label names the engine it would run.
+                    text: (root.minColorMode ? qsTr("minColor") : qsTr("OCIO"))
+                          + (engageSwitch.checked ? qsTr(" On") : qsTr(" Off"))
                     color: engageSwitch.checked ? Theme.success : Theme.textPrimary
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall

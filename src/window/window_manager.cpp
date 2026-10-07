@@ -106,6 +106,7 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     , m_videoDecoderB(new VideoDecoder(this))
     , m_scrubDecoder(new ScrubDecoder(m_videoDecoder, this))
     , m_ocio(new OCIOConfigManager(this))
+    , m_minColor(new MinColorEngine(this))
     , m_presets(new PresetManager(m_ocio, this))
     , m_audio(new AudioPlayer(this))
     , m_project(new ProjectManager(this))
@@ -115,6 +116,8 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     , m_safetyOverlay(std::make_unique<SafetyOverlay>())
     , m_thumbCache(std::make_unique<TimelineThumbnailCache>())
 {
+    // The minColor engine rides OCIOConfigManager's snapshot (engine tag).
+    m_ocio->setMinColorEngine(m_minColor);
     if (!m_audio->initialize()) {
         qWarning("WindowManager: AudioPlayer init failed — playback will be silent");
     }

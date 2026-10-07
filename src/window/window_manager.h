@@ -18,6 +18,7 @@
 #include "audio/audio_player.h"
 #include "render/safety_overlay.h"
 #include "color/ocio_config_manager.h"
+#include "color/mincolor_engine.h"
 #include "color/preset_manager.h"
 #include "decode/image_sequence_cache.h"
 #include "decode/live_stream_decoder.h"
@@ -248,6 +249,9 @@ class WindowManager : public QObject
     Q_PROPERTY(QStringList  audioChannelNamesB READ audioChannelNamesB
                NOTIFY audioMetersChanged)
     Q_PROPERTY(qcv::OCIOConfigManager *ocio READ ocio CONSTANT)
+    // The minColor engine's state (Input / Knee / AgX / Output reels);
+    // OCIOConfigManager::engine picks it, ::engaged turns it on.
+    Q_PROPERTY(qcv::MinColorEngine *minColor READ minColor CONSTANT)
     Q_PROPERTY(qcv::PresetManager *presets READ presets CONSTANT)
     Q_PROPERTY(qcv::AudioPlayer *audio READ audio CONSTANT)
     Q_PROPERTY(qcv::ProjectManager *project READ project CONSTANT)
@@ -592,6 +596,7 @@ public:
 
     ScrubDecoder *scrubDecoder() const { return m_scrubDecoder; }
     OCIOConfigManager *ocio() const { return m_ocio; }
+    MinColorEngine    *minColor() const { return m_minColor; }
     PresetManager *presets() const { return m_presets; }
     AudioPlayer *audio() const { return m_audio; }
     ProjectManager *project() const { return m_project; }
@@ -1433,6 +1438,7 @@ private:
 #endif
     ScrubDecoder          *m_scrubDecoder = nullptr;   // owned via QObject parent
     OCIOConfigManager     *m_ocio = nullptr;           // owned via QObject parent
+    MinColorEngine        *m_minColor = nullptr;       // owned via QObject parent
     PresetManager         *m_presets = nullptr;        // owned via QObject parent
     AudioPlayer           *m_audio = nullptr;          // owned via QObject parent
     ProjectManager        *m_project = nullptr;        // owned via QObject parent

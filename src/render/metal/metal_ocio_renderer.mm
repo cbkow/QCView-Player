@@ -66,6 +66,7 @@ constexpr const char *kKernelFooter = R"(
 struct Built {
     id<MTLComputePipelineState> pipeline = nil;
     std::vector<id<MTLTexture>> luts;          // in kernel declaration order
+    bool            minColor = false;          // the fixed minColor kernel (blocks are uniforms)
     bool            split = false;
     InterchangeSide side = InterchangeSide::None;
     bool            displayIsSdr = true;
@@ -91,11 +92,22 @@ void dumpFailure(const QString &kernel, const QString &ocioText)
 // Compile `kernel` into a compute pipeline. Returns nil (and sets error)
 // on failure.
 id<MTLComputePipelineState> compileKernel(id<MTLDevice> device, const QString &kernel,
-                                          const QString &ocioText, QString &error)
+                                          const QString &ocioText, QString &error,
+                                          const char *entry = "ocio_apply",
+                                          bool preciseMath = false)
 {
     NSError *err = nil;
     NSString *src = [NSString stringWithUTF8String:kernel.toUtf8().constData()];
-    id<MTLLibrary> lib = [device newLibraryWithSource:src options:nil error:&err];
+    // The minColor core is verified against the upstream DCTL float for
+    // float; fast math (Metal's default) reassociates its way to NaN in
+    // the hue / purity functions on saturated input (a white rendered
+    // green). Same setting as minColorAE's Metal host.
+    MTLCompileOptions *opts = nil;
+    if (preciseMath) {
+        opts = [[MTLCompileOptions alloc] init];
+        opts.fastMathEnabled = NO;
+    }
+    id<MTLLibrary> lib = [device newLibraryWithSource:src options:opts error:&err];
     if (!lib) {
         error = QStringLiteral("MetalOcioRenderer: kernel compile failed: %1")
             .arg(err ? QString::fromUtf8([err.localizedDescription UTF8String])
@@ -104,9 +116,9 @@ id<MTLComputePipelineState> compileKernel(id<MTLDevice> device, const QString &k
         dumpFailure(kernel, ocioText);
         return nil;
     }
-    id<MTLFunction> fn = [lib newFunctionWithName:@"ocio_apply"];
+    id<MTLFunction> fn = [lib newFunctionWithName:[NSString stringWithUTF8String:entry]];
     if (!fn) {
-        error = QStringLiteral("MetalOcioRenderer: ocio_apply not found");
+        error = QStringLiteral("MetalOcioRenderer: %1 not found").arg(QString::fromLatin1(entry));
         return nil;
     }
     id<MTLComputePipelineState> pso =
@@ -203,6 +215,79 @@ Built buildPipeline(id<MTLDevice> device, const OcioChainSpec &spec,
 
 } // namespace
 
+// ---- minColor: the OCIO-free engine's kernel ---------------------------
+// The vendored minColorAE core (color/mincolor/, see VENDORED.md) as text
+// from the resource bundle, concatenated the way opendrt_shim_msl.h
+// documents, with QCView's viewer aids after it. One kernel, compiled
+// once; the chain is four uniform blocks (MinColorGpu):
+//   buffer(0) DrtParams in      Input half: file encoding → linear Rec.2020, knee fields
+//   buffer(1) DrtParams out     Output half: rendering + display encoding
+//   buffer(2) DrtAgxParams      AgX
+//   buffer(3) QcvMinColorFlags  knee on, AgX on, output scale (EDR)
+//   buffer(4) QcvViewer         viewer aids (gamma, channel view)
+constexpr const char *kMinColorMain = R"(
+struct QcvMinColorFlags { int kneeOn; int agxOn; float outScale; int pad; };
+
+kernel void mincolor_apply(
+    texture2d<float, access::sample>  src     [[texture(0)]],
+    texture2d<float, access::write>   dst     [[texture(1)]],
+    sampler                           src_smp [[sampler(0)]],
+    constant DrtParams               &pIn     [[buffer(0)]],
+    constant DrtParams               &pOut    [[buffer(1)]],
+    constant DrtAgxParams            &agx     [[buffer(2)]],
+    constant QcvMinColorFlags        &fl      [[buffer(3)]],
+    constant QcvViewer               &qcvView [[buffer(4)]],
+    uint2 gid                                  [[thread_position_in_grid]])
+{
+    if (gid.x >= dst.get_width() || gid.y >= dst.get_height()) return;
+    float2 uv = (float2(gid) + 0.5) / float2(dst.get_width(), dst.get_height());
+    float4 color = src.sample(src_smp, uv);
+    float3 c = color.rgb;
+    c = drt_input_transform(pIn, c);
+    if (fl.kneeOn != 0) c = drt_knee(pIn, c);
+    if (fl.agxOn != 0)  c = drt_agx(agx, c);
+    c = drt_transform(pOut, c);
+    color.rgb = c * fl.outScale;
+    color = qcvViewerApply(color, qcvView);
+    dst.write(color, gid);
+}
+)";
+
+QString resourceText(const char *path, QString &error)
+{
+    QFile f(QString::fromLatin1(path));
+    if (!f.open(QIODevice::ReadOnly)) {
+        error = QStringLiteral("MetalOcioRenderer: missing kernel resource %1").arg(QString::fromLatin1(path));
+        return {};
+    }
+    return QString::fromUtf8(f.readAll());
+}
+
+Built buildMinColorPipeline(id<MTLDevice> device)
+{
+    Built out;
+    out.minColor = true;
+    QString kernel = QString::fromUtf8(kKernelHeader) + QString::fromUtf8(kLinearStageMsl);
+    for (const char *part : {":/mincolor/opendrt_shim_msl.h", ":/mincolor/opendrt_params.h",
+                             ":/mincolor/opendrt_kernel.h", ":/mincolor/mincolor_knee.h",
+                             ":/mincolor/mincolor_agx.h"}) {
+        const QString text = resourceText(part, out.error);
+        if (!out.error.isEmpty()) return out;
+        kernel += QStringLiteral("\n// ---- ") + QString::fromLatin1(part) + QStringLiteral("\n") + text;
+    }
+    kernel += QString::fromUtf8(kMinColorMain);
+    out.pipeline = compileKernel(device, kernel, QString(), out.error, "mincolor_apply",
+                                 /*preciseMath=*/true);
+    if (!out.pipeline) {
+        const QString path = QStringLiteral("/tmp/qcv-mincolor-kernel-fail.metal");
+        if (QFile f(path); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            f.write(kernel.toUtf8());
+            qInfo("MetalOcioRenderer: dumped failing minColor kernel to %s", qPrintable(path));
+        }
+    }
+    return out;
+}
+
 struct MetalOcioRenderer::Impl {
     id<MTLDevice>       device  = nil;
     id<MTLSamplerState> sampler = nil;
@@ -267,6 +352,17 @@ struct MetalOcioRenderer::Impl {
     bool  async      = false;
     bool  sdrCapture = false;
 
+    // minColor engine: one kernel for the instance's life, compiled on
+    // the compile queue at initialize() (async instances) or on first use
+    // (capture instances); the chain arrives as uniform blocks with
+    // every rebuild(). A failure is final for the session.
+    Built        mcBuilt;
+    bool         mcTried = false;
+    std::mutex   mcMutex;
+    std::unique_ptr<Built> mcPending;
+    bool         mcJobRunning = false;
+    MinColorGpu  mcBlocks;
+
     id<MTLTexture> outputTex = nil;
     int            outputW   = 0;
     int            outputH   = 0;
@@ -320,6 +416,22 @@ bool MetalOcioRenderer::initialize()
     m_impl->sampler = [m_impl->device newSamplerStateWithDescriptor:sd];
     if (!m_impl->queue) {
         m_impl->queue = dispatch_queue_create("qcv.ocio.compile", DISPATCH_QUEUE_SERIAL);
+    }
+    if (m_impl->sampler && m_impl->async) {
+        // The minColor kernel, ahead of its first use so an engine switch
+        // never waits on a compile (plan: "switching and safety").
+        Impl *impl = m_impl;
+        id<MTLDevice> device = m_impl->device;
+        std::lock_guard lock(impl->mcMutex);
+        if (!impl->mcJobRunning && !impl->mcTried) {
+            impl->mcJobRunning = true;
+            dispatch_async(impl->queue, ^{
+                auto b = std::make_unique<Built>(buildMinColorPipeline(device));
+                std::lock_guard lk(impl->mcMutex);
+                impl->mcPending    = std::move(b);
+                impl->mcJobRunning = false;
+            });
+        }
     }
     return m_impl->sampler != nil;
 }
@@ -390,6 +502,40 @@ bool MetalOcioRenderer::rebuild(const OcioChainSpec &spec)
 {
     if (!spec.complete() || !isInitialized()) return false;
     Impl &i = *m_impl;
+
+    if (spec.engine == ColorEngine::MinColor) {
+        // The chain is uniforms: take this frame's blocks, make sure the
+        // one kernel exists, and make it active. A background compile
+        // (initialize) lands here; a capture instance compiles in line.
+        i.mcBlocks = spec.minColor;
+        {
+            std::lock_guard lock(i.mcMutex);
+            if (i.mcPending) {
+                i.mcBuilt = std::move(*i.mcPending);
+                i.mcPending.reset();
+                i.mcTried = true;
+                if (i.mcBuilt.pipeline) qInfo("MetalOcioRenderer: minColor kernel ready (built ahead)");
+                else qWarning("MetalOcioRenderer: minColor kernel failed: %s", qPrintable(i.mcBuilt.error));
+            }
+        }
+        if (!i.mcTried) {
+            bool running = false;
+            { std::lock_guard lock(i.mcMutex); running = i.mcJobRunning; }
+            if (running) return i.active.pipeline != nil;   // keep drawing what we have
+            i.mcBuilt = buildMinColorPipeline(i.device);
+            i.mcTried = true;
+            if (i.mcBuilt.pipeline) qInfo("MetalOcioRenderer: minColor kernel compiled");
+            else qWarning("MetalOcioRenderer: minColor kernel failed: %s", qPrintable(i.mcBuilt.error));
+        }
+        if (!i.mcBuilt.pipeline) {
+            i.lastError = i.mcBuilt.error;
+            return i.active.pipeline != nil && i.active.minColor;
+        }
+        if (!(i.activeValid && i.active.minColor)) {
+            i.install(Built(i.mcBuilt), spec, /*split=*/false);
+        }
+        return true;
+    }
 
     const bool wantSplit = !linear_stage::isIdentity(i.stage);
 
@@ -540,6 +686,35 @@ void *MetalOcioRenderer::apply(void *cmdBufPtr, void *sourceMtlTexture,
     [enc setTexture:source            atIndex:0];
     [enc setTexture:m_impl->outputTex atIndex:1];
     [enc setSamplerState:m_impl->sampler atIndex:0];
+    if (b.minColor) {
+        const MinColorGpu &g = m_impl->mcBlocks;
+        [enc setBytes:&g.in    length:sizeof(g.in)    atIndex:0];
+        [enc setBytes:&g.out   length:sizeof(g.out)   atIndex:1];
+        [enc setBytes:&g.agx   length:sizeof(g.agx)   atIndex:2];
+        [enc setBytes:&g.flags length:sizeof(g.flags) atIndex:3];
+        // Viewer aids see the display encoding the Output half wrote.
+        OutputEncoding enc_ = OutputEncoding::Sdr;
+        switch (g.out.eotf) {
+        case DRT_EOTF_PQ:     enc_ = OutputEncoding::Pq;     break;
+        case DRT_EOTF_HLG:    enc_ = OutputEncoding::Hlg;    break;
+        case DRT_EOTF_LINEAR: enc_ = OutputEncoding::Linear; break;
+        default: break;
+        }
+        int primaries = 0;
+        switch (g.out.display_gamut) {
+        case DRT_DG_P3D65: case DRT_DG_P3D60: case DRT_DG_P3DCI: primaries = 1; break;
+        case DRT_DG_REC2020_P3LIM: case DRT_DG_REC2020: case DRT_DG_XYZ:
+        case DRT_DG_WORKING: case DRT_DG_AP0: case DRT_DG_AP1: primaries = 2; break;
+        default: break;
+        }
+        const ViewerGpu viewer = linear_stage::resolveViewer(m_impl->viewer, enc_, primaries);
+        [enc setBytes:&viewer length:sizeof(viewer) atIndex:4];
+        const MTLSize tg   = MTLSizeMake(16, 16, 1);
+        const MTLSize grid = MTLSizeMake(width, height, 1);
+        [enc dispatchThreads:grid threadsPerThreadgroup:tg];
+        [enc endEncoding];
+        return (__bridge void *)m_impl->outputTex;
+    }
     int texBind = 2;
     for (id<MTLTexture> lut : b.luts) {
         [enc setTexture:lut atIndex:texBind++];

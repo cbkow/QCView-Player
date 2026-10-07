@@ -1,4 +1,7 @@
 #include "ocio_config_manager.h"
+#include "mincolor_engine.h"
+
+#include <QSettings>
 
 #include <algorithm>
 #include <cmath>
@@ -683,6 +686,27 @@ void OCIOConfigManager::setEngaged(bool b)
     publish();
 }
 
+void OCIOConfigManager::setEngine(int e)
+{
+    e = (e == 1) ? 1 : 0;
+    if (m_engine == e) return;
+    m_engine = e;
+    QSettings().setValue(QStringLiteral("minColor/engine"), m_engine);
+    publish();
+}
+
+void OCIOConfigManager::setMinColorEngine(MinColorEngine *engine)
+{
+    if (m_minColor == engine) return;
+    if (m_minColor) disconnect(m_minColor, nullptr, this, nullptr);
+    m_minColor = engine;
+    if (m_minColor) {
+        connect(m_minColor, &MinColorEngine::chainChanged, this, [this] { publish(); });
+    }
+    m_engine = QSettings().value(QStringLiteral("minColor/engine"), 0).toInt() == 1 ? 1 : 0;
+    publish();
+}
+
 // -------- Highlight Knee --------
 
 template <typename Fn>
@@ -1070,6 +1094,7 @@ void OCIOConfigManager::publish(bool knee)
     auto snap = std::make_shared<OcioChainSnapshot>();
     snap->engaged = m_engaged;
     snap->dual    = m_dual;
+    snap->engine  = (m_engine == 1 && m_minColor) ? ColorEngine::MinColor : ColorEngine::Ocio;
     // The display side and the SDR capture pair are shared: resolve once.
     const OcioChainSpec base = specFor(m_default);
     auto withScene = [&base](const OcioSceneChain &scene) {
@@ -1080,11 +1105,22 @@ void OCIOConfigManager::publish(bool knee)
     snap->single = withScene(resolveScene(m_singleClip));
     snap->a      = withScene(resolveScene(m_clipA));
     snap->b      = withScene(resolveScene(m_clipB));
+    if (snap->engine == ColorEngine::MinColor) {
+        // One chain for every side until per-clip pins land (carry-over
+        // step); the renderers draw it with the fixed minColor kernel.
+        const MinColorGpu gpu = mincolor::resolve(m_minColor->chain(), /*sdrCapture=*/false,
+                                                  /*edrLinear=*/false);
+        for (OcioChainSpec *spec : {&snap->single, &snap->a, &snap->b}) {
+            spec->engine   = ColorEngine::MinColor;
+            spec->minColor = gpu;
+        }
+    }
     // Distinct shaders only (knee values are uniforms); the on-screen
     // chains first, then the rest — capped, the renderers' caches are
     // small.
     constexpr size_t kMaxWarm = 8;
     auto addWarm = [&snap](const OcioChainSpec &spec) {
+        if (spec.engine != ColorEngine::Ocio) return;   // minColor has one kernel, built at init
         if (!spec.complete() || snap->warm.size() >= kMaxWarm) return;
         for (const OcioChainSpec &w : snap->warm) if (w.sameShader(spec)) return;
         snap->warm.push_back(spec);
