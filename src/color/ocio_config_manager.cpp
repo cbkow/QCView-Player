@@ -717,6 +717,8 @@ void OCIOConfigManager::setMinColorEngine(MinColorEngine *engine)
                 [this] { bumpPinsRevision(); });
         // The panel shows the focused clip's minColor chain too.
         connect(this, &OCIOConfigManager::viewContextChanged, m_minColor,
+                &MinColorEngine::focusClipChanged);
+        connect(this, &OCIOConfigManager::viewContextChanged, m_minColor,
                 &MinColorEngine::inputChanged);
         connect(this, &OCIOConfigManager::viewContextChanged, m_minColor,
                 &MinColorEngine::kneeChanged);

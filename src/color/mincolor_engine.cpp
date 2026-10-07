@@ -259,17 +259,19 @@ int MinColorEngine::displayKind() const
 // same the OCIO stage and the vendored drt_knee use.
 double MinColorEngine::kneeStartEffective() const
 {
-    if (m_chain.knee.start >= 0.0f) return m_chain.knee.start;
-    const float src = std::max(m_chain.knee.sourceNits, 1.0f);
-    const float tgt = displayIsSdr() ? 100.0f : std::max(m_chain.knee.targetNits, 1.0f);
+    const MinColorKnee k = focused().knee;   // the focused clip's pin, else the default
+    if (k.start >= 0.0f) return k.start;
+    const float src = std::max(k.sourceNits, 1.0f);
+    const float tgt = displayIsSdr() ? 100.0f : std::max(k.targetNits, 1.0f);
     const float maxLum = linear_stage::pqEncode(tgt / 10000.0f) / linear_stage::pqEncode(src / 10000.0f);
     return linear_stage::bt2390KneeStart(maxLum) / std::max(maxLum, 1e-6f);
 }
 
 double MinColorEngine::kneeStartNits() const
 {
-    const float src = std::max(m_chain.knee.sourceNits, 1.0f);
-    const float tgt = displayIsSdr() ? 100.0f : std::max(m_chain.knee.targetNits, 1.0f);
+    const MinColorKnee k = focused().knee;
+    const float src = std::max(k.sourceNits, 1.0f);
+    const float tgt = displayIsSdr() ? 100.0f : std::max(k.targetNits, 1.0f);
     const float maxLum = linear_stage::pqEncode(tgt / 10000.0f) / linear_stage::pqEncode(src / 10000.0f);
     const float ks = float(kneeStartEffective()) * maxLum;
     return linear_stage::kneeStartNits(ks, src);

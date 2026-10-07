@@ -70,7 +70,7 @@ class MinColorEngine : public QObject
     // pin change so badges re-read.
     Q_PROPERTY(bool    inputPinned        READ inputPinned        NOTIFY inputChanged)
     Q_PROPERTY(bool    kneePinned         READ kneePinned         NOTIFY kneeChanged)
-    Q_PROPERTY(QString focusClipId        READ focusClipId        NOTIFY chainChanged)
+    Q_PROPERTY(QString focusClipId        READ focusClipId        NOTIFY focusClipChanged)
     Q_PROPERTY(int     pinsRevision       READ pinsRevision       NOTIFY pinsRevisionChanged)
     Q_PROPERTY(bool    displayIsSdr       READ displayIsSdr       NOTIFY outputChanged)
     Q_PROPERTY(double  kneeStartEffective READ kneeStartEffective NOTIFY kneeChanged)
@@ -199,6 +199,7 @@ signals:
     // aggregate the OCIO manager republishes on.
     void inputChanged();
     void kneeChanged();
+    void focusClipChanged();   // the view context moved (OCIOConfigManager)
     void agxChanged();
     void outputChanged();
     void chainChanged();

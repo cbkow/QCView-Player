@@ -1828,11 +1828,23 @@ Pane {
                         font.pixelSize: Theme.fontSizeTiny
                     }
                     FlatSlider {
+                        id: kneeStartSlider
                         Layout.fillWidth: true
                         from: 0.0
                         to: 0.99
                         stepSize: 0.01
-                        value: knee.ocio ? knee.ocio.kneeStartEffective : 0.5
+                        // The engine's value drives the handle except while
+                        // the user holds it: each tick republishes, and a
+                        // re-bound value mid-drag fights the pointer (the
+                        // float round trip never lands on the slider's
+                        // snapped step).
+                        Binding {
+                            target: kneeStartSlider
+                            property: "value"
+                            value: knee.ocio ? knee.ocio.kneeStartEffective : 0.5
+                            when: !kneeStartSlider.pressed
+                            restoreMode: Binding.RestoreBindingOrValue
+                        }
                         onMoved: knee.ocio.kneeStart = value
                         // Double-click returns to BT.2390's default.
                         MouseArea {
