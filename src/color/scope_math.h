@@ -69,10 +69,11 @@ struct ScopeConfig {
     quint32    peakEpoch = 0;            // ScopeController's peak reset count, echoed
                                          // back in ScopePeaks (drops in-flight images)
     // Nits per 1.0 of the side's linear interchange value on the HDR
-    // scale. 100 for display-referred HDR (PQ / HLG decode to absolute
-    // luminance, 1.0 = 100 nits by OCIO's convention); 203 for SDR-encoded
-    // and scene-referred sources, whose 1.0 is reference white — BT.2408's
-    // 203 nits, the amber line on the waveform. SDR scale: unused.
+    // scale. 100 today for every kind (PQ / HLG decode to absolute
+    // luminance at 1.0 = 100 nits by OCIO's convention; SDR-encoded and
+    // scene-referred white = a 100-nit reference monitor's white). Kept
+    // per side so BT.2408's 203-nit reference white can become a setting
+    // (ScopeController::whiteFor). SDR scale: unused.
     float      whiteNits = 100.0f;
 
     // Dual: side B's own interpretation (its tags can differ from A's —

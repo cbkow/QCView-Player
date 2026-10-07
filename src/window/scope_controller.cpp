@@ -430,17 +430,17 @@ void ScopeController::resolve()
         return ScopeScale::Sdr;
     };
 
-    // Nits per 1.0 of a side's linear value on the HDR scale: a
-    // display-referred HDR decode (PQ / HLG via the display interchange)
-    // is absolute, 1.0 = 100 nits by OCIO's convention; an SDR-encoded or
-    // scene-referred source's 1.0 is reference white, 203 nits (BT.2408 —
-    // the amber line), chris's call 2026-10-06 over the earlier 100.
-    auto whiteFor = [&](const OCIO::ConstConfigRcPtr &cfgX, const QString &cs, bool hdr) {
-        if (!hdr) return 203.0f;
-        OCIO::ConstColorSpaceRcPtr c = cfgX ? cfgX->getColorSpace(cs.toUtf8().constData())
-                                            : OCIO::ConstColorSpaceRcPtr();
-        const bool scene = c && c->getReferenceSpaceType() == OCIO::REFERENCE_SPACE_SCENE;
-        return scene ? 203.0f : 100.0f;
+    // Nits per 1.0 of a side's linear value on the HDR scale. 100 for
+    // every kind: a display-referred HDR decode (PQ / HLG) is absolute at
+    // 1.0 = 100 nits by OCIO's convention, and an SDR-encoded or
+    // scene-referred source's white is what a 100-nit reference monitor
+    // shows — "true to reality" (chris, 2026-10-07, after a day at 203 =
+    // BT.2408's HDR reference white; the amber 203 line stays as the HDR
+    // graphics-white reference). The per-side plumbing (whiteNits → p2.w)
+    // stays so this can become a 100 / 203 setting without touching the
+    // kernels.
+    auto whiteFor = [&](const OCIO::ConstConfigRcPtr &, const QString &, bool) {
+        return 100.0f;
     };
 
     // The built-in fallback config, for files the live config can't name
@@ -638,9 +638,9 @@ void ScopeController::buildGeometry()
     if (m_config.tier == ScopeTier::Signal) return;
 
     const ScopeScale scale = m_config.scale;
-    // On the HDR scale 1.0 of these targets is reference white, 203 nits
-    // (where an SDR / scene-referred side's white lands — whiteFor).
-    constexpr float kTargetWhite = 203.0f;
+    // On the HDR scale 1.0 of these targets is SDR white, 100 nits (where
+    // an SDR / scene-referred side's white lands — whiteFor).
+    constexpr float kTargetWhite = 100.0f;
     // Colour-bar targets in the scale's own primaries at 100 % (1.0 =
     // SDR white) and 75 % (encoded 0.75 → 0.75^2.4 linear).
     struct Bar { const char *label; float r, g, b; };

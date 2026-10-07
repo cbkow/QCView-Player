@@ -163,7 +163,7 @@ ColumnLayout {
             model: [
                 { key: 0, label: qsTr("Auto"), tip: qsTr("Scale from the interpretation") },
                 { key: 1, label: "%",          tip: qsTr("Force the SDR percent scale (the signal's own Y′)") },
-                { key: 2, label: qsTr("nits"), tip: qsTr("Force the nits scale (SDR white at 203)") },
+                { key: 2, label: qsTr("nits"), tip: qsTr("Force the nits scale (SDR white at 100)") },
             ]
             FlatChip {
                 required property var modelData
