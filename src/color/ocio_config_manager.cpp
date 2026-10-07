@@ -717,7 +717,9 @@ void OCIOConfigManager::setMinColorEngine(MinColorEngine *engine)
                 [this] { bumpPinsRevision(); });
         // The panel shows the focused clip's minColor chain too.
         connect(this, &OCIOConfigManager::viewContextChanged, m_minColor,
-                &MinColorEngine::chainChanged);
+                &MinColorEngine::inputChanged);
+        connect(this, &OCIOConfigManager::viewContextChanged, m_minColor,
+                &MinColorEngine::kneeChanged);
     }
     m_engine = QSettings().value(QStringLiteral("minColor/engine"), 0).toInt() == 1 ? 1 : 0;
     publish();

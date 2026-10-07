@@ -322,11 +322,20 @@ void ScopeController::resolve()
     m_config.scale       = ScopeScale::Sdr;
     m_mismatch.clear();
 
+    // The parsed configs, cached by path: resolve() runs on every chain
+    // change (a knee drag publishes per tick) and parsing a config from
+    // disk cost ~9 ms each time — the whole per-tick budget.
     OCIO::ConstConfigRcPtr cfg;
     if (m_ocio) {
-        try {
-            cfg = OCIO::Config::CreateFromFile(m_ocio->configIdentifier().toUtf8().constData());
-        } catch (const OCIO::Exception &) {}
+        const QString id = m_ocio->configIdentifier();
+        if (id != m_cfgPath || !m_cfg) {
+            m_cfg.reset();
+            try {
+                m_cfg = OCIO::Config::CreateFromFile(id.toUtf8().constData());
+            } catch (const OCIO::Exception &) {}
+            m_cfgPath = id;
+        }
+        cfg = m_cfg;
     }
 
     // What a file says: its assumed colourspace (tags / format rules) in
@@ -452,9 +461,14 @@ void ScopeController::resolve()
     if (!fallbackPath.isEmpty()
         && (!m_ocio || QFileInfo(fallbackPath).canonicalFilePath()
                            != QFileInfo(m_ocio->configIdentifier()).canonicalFilePath())) {
-        try {
-            fallbackCfg = OCIO::Config::CreateFromFile(fallbackPath.toUtf8().constData());
-        } catch (const OCIO::Exception &) {}
+        if (fallbackPath != m_fallbackCfgPath || !m_fallbackCfg) {
+            m_fallbackCfg.reset();
+            try {
+                m_fallbackCfg = OCIO::Config::CreateFromFile(fallbackPath.toUtf8().constData());
+            } catch (const OCIO::Exception &) {}
+            m_fallbackCfgPath = fallbackPath;
+        }
+        fallbackCfg = m_fallbackCfg;
     }
 
     // One side's tier, colourspace and badge. OCIO engaged: that side's

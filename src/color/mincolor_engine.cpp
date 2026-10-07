@@ -18,20 +18,32 @@ MinColorEngine::MinColorEngine(QObject *parent)
 {
     const QVariantMap saved = QSettings().value(kSettingsKey).toMap();
     if (!saved.isEmpty()) m_chain = MinColorChain::fromVariant(saved);
+    // One QSettings write per burst of edits, not one per slider tick
+    // (the plist flush is synchronous).
+    m_persistTimer.setSingleShot(true);
+    m_persistTimer.setInterval(400);
+    connect(&m_persistTimer, &QTimer::timeout, this,
+            [this] { QSettings().setValue(kSettingsKey, m_chain.toVariant()); });
+}
+
+void MinColorEngine::emitGroup(GroupSignal group)
+{
+    if (group) emit (this->*group)();
+    emit chainChanged();
 }
 
 template <typename T>
-void MinColorEngine::set(T &field, const T &value)
+void MinColorEngine::set(T &field, const T &value, GroupSignal group)
 {
     if (field == value) return;
     field = value;
     persist();
-    emit chainChanged();
+    emitGroup(group);
 }
 
-void MinColorEngine::persist() const
+void MinColorEngine::persist()
 {
-    QSettings().setValue(kSettingsKey, m_chain.toVariant());
+    m_persistTimer.start();
 }
 
 void MinColorEngine::setChain(const MinColorChain &c)
@@ -39,6 +51,10 @@ void MinColorEngine::setChain(const MinColorChain &c)
     if (m_chain == c) return;
     m_chain = c;
     persist();
+    emit inputChanged();
+    emit kneeChanged();
+    emit agxChanged();
+    emit outputChanged();
     emit chainChanged();
 }
 
@@ -67,36 +83,36 @@ bool MinColorEngine::kneePinned() const
     return it != m_pins.constEnd() && it->knee.has_value();
 }
 
-void MinColorEngine::notePinEdit(const QString &clipId)
+void MinColorEngine::notePinEdit(const QString &clipId, GroupSignal group)
 {
     ++m_pinsRevision;
     emit pinsRevisionChanged();
     emit pinsChanged(clipId);
-    emit chainChanged();
+    emitGroup(group);
 }
 
 template <typename T>
 void MinColorEngine::setInputField(T MinColorInput::*field, const T &value)
 {
     const QString clip = focusClipId();
-    if (clip.isEmpty()) { set(m_chain.input.*field, value); return; }
+    if (clip.isEmpty()) { set(m_chain.input.*field, value, &MinColorEngine::inputChanged); return; }
     MinColorPin &pin = m_pins[clip];
     if (!pin.input) pin.input = resolveFor(clip).input;
     if ((*pin.input).*field == value) return;
     (*pin.input).*field = value;
-    notePinEdit(clip);
+    notePinEdit(clip, &MinColorEngine::inputChanged);
 }
 
 template <typename T>
 void MinColorEngine::setKneeField(T MinColorKnee::*field, const T &value)
 {
     const QString clip = focusClipId();
-    if (clip.isEmpty()) { set(m_chain.knee.*field, value); return; }
+    if (clip.isEmpty()) { set(m_chain.knee.*field, value, &MinColorEngine::kneeChanged); return; }
     MinColorPin &pin = m_pins[clip];
     if (!pin.knee) pin.knee = resolveFor(clip).knee;
     if ((*pin.knee).*field == value) return;
     (*pin.knee).*field = value;
-    notePinEdit(clip);
+    notePinEdit(clip, &MinColorEngine::kneeChanged);
 }
 
 void MinColorEngine::setInputGamut(int v)    { setInputField(&MinColorInput::gamut, std::clamp(v, 0, DRT_IN_GAMUT_COUNT - 1)); }
@@ -123,7 +139,8 @@ void MinColorEngine::setSlotPinned(const QString &slot, bool pinned)
         return;
     }
     if (pin.empty()) m_pins.remove(clip);
-    notePinEdit(clip);
+    notePinEdit(clip, slot == QLatin1String("mcInput") ? &MinColorEngine::inputChanged
+                                                       : &MinColorEngine::kneeChanged);
 }
 
 QVariantMap MinColorEngine::clipPinsVariant(const QString &clipId) const
@@ -140,6 +157,8 @@ void MinColorEngine::replaceAllPins(const QHash<QString, QVariantMap> &pins)
     }
     ++m_pinsRevision;
     emit pinsRevisionChanged();
+    emit inputChanged();
+    emit kneeChanged();
     emit chainChanged();
 }
 
@@ -192,31 +211,32 @@ void MinColorEngine::setEdrLinear(bool on)
 {
     if (m_edrLinear == on) return;
     m_edrLinear = on;
+    emit outputChanged();
     emit chainChanged();
 }
 
-void MinColorEngine::setAgxEnabled(bool v)      { set(m_chain.agx.enabled, v); }
-void MinColorEngine::setAgxTarget(int v)        { set(m_chain.agx.target, std::clamp(v, 0, 2)); }
-void MinColorEngine::setAgxPeak(double v)       { set(m_chain.agx.peak, float(std::clamp(v, 100.0, 10000.0))); }
-void MinColorEngine::setAgxWhiteEv(double v)    { set(m_chain.agx.whiteEv, float(std::clamp(v, 1.0, 20.0))); }
-void MinColorEngine::setAgxBlackEv(double v)    { set(m_chain.agx.blackEv, float(std::clamp(v, -20.0, -1.0))); }
-void MinColorEngine::setAgxContrast(double v)   { set(m_chain.agx.contrast, float(std::clamp(v, 0.5, 5.0))); }
-void MinColorEngine::setAgxToe(double v)        { set(m_chain.agx.toe, float(std::clamp(v, 0.5, 5.0))); }
-void MinColorEngine::setAgxShoulder(double v)   { set(m_chain.agx.shoulder, float(std::clamp(v, 0.5, 5.0))); }
-void MinColorEngine::setAgxHueRestore(double v) { set(m_chain.agx.hueRestore, float(std::clamp(v, 0.0, 1.0))); }
-void MinColorEngine::setAgxHdrPurity(double v)  { set(m_chain.agx.hdrPurity, float(std::clamp(v, 0.0, 1.0))); }
+void MinColorEngine::setAgxEnabled(bool v)      { set(m_chain.agx.enabled, v, &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxTarget(int v)        { set(m_chain.agx.target, std::clamp(v, 0, 2), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxPeak(double v)       { set(m_chain.agx.peak, float(std::clamp(v, 100.0, 10000.0)), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxWhiteEv(double v)    { set(m_chain.agx.whiteEv, float(std::clamp(v, 1.0, 20.0)), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxBlackEv(double v)    { set(m_chain.agx.blackEv, float(std::clamp(v, -20.0, -1.0)), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxContrast(double v)   { set(m_chain.agx.contrast, float(std::clamp(v, 0.5, 5.0)), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxToe(double v)        { set(m_chain.agx.toe, float(std::clamp(v, 0.5, 5.0)), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxShoulder(double v)   { set(m_chain.agx.shoulder, float(std::clamp(v, 0.5, 5.0)), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxHueRestore(double v) { set(m_chain.agx.hueRestore, float(std::clamp(v, 0.0, 1.0)), &MinColorEngine::agxChanged); }
+void MinColorEngine::setAgxHdrPurity(double v)  { set(m_chain.agx.hdrPurity, float(std::clamp(v, 0.0, 1.0)), &MinColorEngine::agxChanged); }
 
-void MinColorEngine::setOpenDrt(bool v)        { set(m_chain.output.openDrt, v); }
-void MinColorEngine::setLook(int v)            { set(m_chain.output.look, std::clamp(v, 0, drt::kLookCount - 1)); }
-void MinColorEngine::setTonescale(int v)       { set(m_chain.output.tonescale, std::clamp(v, 0, drt::kTonescaleCount)); }
-void MinColorEngine::setCreativeWhite(int v)   { set(m_chain.output.cwp, std::clamp(v, 0, drt::kCwpCount)); }
-void MinColorEngine::setCreativeWhiteLimit(double v) { set(m_chain.output.cwpLimit, float(std::clamp(v, 0.0, 1.0))); }
-void MinColorEngine::setDisplay(int v)         { set(m_chain.output.display, std::clamp(v, 0, drt::kDisplayCount - 1)); }
-void MinColorEngine::setSurround(int v)        { set(m_chain.output.surround, std::clamp(v, 0, 2)); }
-void MinColorEngine::setPeakNits(double v)     { set(m_chain.output.peakNits, float(std::clamp(v, 48.0, 10000.0))); }
-void MinColorEngine::setGreyBoost(double v)    { set(m_chain.output.greyBoost, float(std::clamp(v, 0.0, 1.0))); }
-void MinColorEngine::setHdrPurity(double v)    { set(m_chain.output.hdrPurity, float(std::clamp(v, 0.0, 1.0))); }
-void MinColorEngine::setGreyNits(double v)     { set(m_chain.output.greyNits, float(std::clamp(v, 1.0, 100.0))); }
+void MinColorEngine::setOpenDrt(bool v)        { set(m_chain.output.openDrt, v, &MinColorEngine::outputChanged); }
+void MinColorEngine::setLook(int v)            { set(m_chain.output.look, std::clamp(v, 0, drt::kLookCount - 1), &MinColorEngine::outputChanged); }
+void MinColorEngine::setTonescale(int v)       { set(m_chain.output.tonescale, std::clamp(v, 0, drt::kTonescaleCount), &MinColorEngine::outputChanged); }
+void MinColorEngine::setCreativeWhite(int v)   { set(m_chain.output.cwp, std::clamp(v, 0, drt::kCwpCount), &MinColorEngine::outputChanged); }
+void MinColorEngine::setCreativeWhiteLimit(double v) { set(m_chain.output.cwpLimit, float(std::clamp(v, 0.0, 1.0)), &MinColorEngine::outputChanged); }
+void MinColorEngine::setDisplay(int v)         { set(m_chain.output.display, std::clamp(v, 0, drt::kDisplayCount - 1), &MinColorEngine::outputChanged); }
+void MinColorEngine::setSurround(int v)        { set(m_chain.output.surround, std::clamp(v, 0, 2), &MinColorEngine::outputChanged); }
+void MinColorEngine::setPeakNits(double v)     { set(m_chain.output.peakNits, float(std::clamp(v, 48.0, 10000.0)), &MinColorEngine::outputChanged); }
+void MinColorEngine::setGreyBoost(double v)    { set(m_chain.output.greyBoost, float(std::clamp(v, 0.0, 1.0)), &MinColorEngine::outputChanged); }
+void MinColorEngine::setHdrPurity(double v)    { set(m_chain.output.hdrPurity, float(std::clamp(v, 0.0, 1.0)), &MinColorEngine::outputChanged); }
+void MinColorEngine::setGreyNits(double v)     { set(m_chain.output.greyNits, float(std::clamp(v, 1.0, 100.0)), &MinColorEngine::outputChanged); }
 
 int MinColorEngine::displayKindOf(int index) const
 {

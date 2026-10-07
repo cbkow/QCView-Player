@@ -25,6 +25,8 @@
 
 #include "color/scope_math.h"
 
+#include <OpenColorIO/OpenColorIO.h>
+
 #include <QObject>
 #include <QString>
 #include <QTimer>
@@ -157,6 +159,9 @@ private:
     QString mediaItemIdA() const;
 
     OCIOConfigManager     *m_ocio = nullptr;
+    // Parsed configs cached by path (resolve() runs per chain change).
+    QString                m_cfgPath, m_fallbackCfgPath;
+    OCIO_NAMESPACE::ConstConfigRcPtr m_cfg, m_fallbackCfg;
     MinColorEngine        *m_minColor = nullptr;
     ProjectManager        *m_project = nullptr;
     RendererFn             m_renderer;
