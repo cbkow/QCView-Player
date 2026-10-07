@@ -2,11 +2,12 @@
 title: Color
 permalink: /color/
 nav_order: 8
+has_children: true
 ---
 
 # OCIO Color
 
-QCView includes a live [OpenColorIO](https://opencolorio.org/) pipeline. Build transform chains in the **Color** panel (`Ctrl + 3`) and see results applied to the viewport in real time.
+QCView includes a live [OpenColorIO](https://opencolorio.org/) pipeline. Build transform chains in the **Color** panel (`Ctrl + 3`) and see results applied to the viewport in real time. The panel also holds a second, OCIO-free engine, [minColor](/mincolor/), picked with the **OCIO | minColor** segment in the preset bar; this page is the OCIO side.
 
 **Bundled configs:** ACES 2.0, ACES 1.3, Blender 5.2, Blender 5.1
 

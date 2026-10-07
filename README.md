@@ -38,6 +38,7 @@ Signed and notarized `.dmg` available from [GitHub Releases](https://github.com/
 ### Color
 - Live [OCIO](https://opencolorio.org/) color management, with a colour chain per clip and per side of a dual view
 - Bundled OCIO configs: ACES 2.0, ACES 1.3, Blender 5.2, Blender 5.1
+- A second, OCIO-free colour engine, **minColor**: Input → Highlight Knee → AgX → Rendering (un-tone-mapped or OpenDRT) → Display, from the minColorAE core
 - Highlight Knee for reviewing HDR masters on SDR displays; ASC CDL and `.cube` LUTs
 - GPU vectorscope and waveform (nits on HDR sources) with a peak readout
 - Screenshots and notes exports with OCIO transforms applied

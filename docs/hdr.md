@@ -38,6 +38,12 @@ In `EDR — Linear P3` mode, use the matching `Linear P3 EDR` output in the ACES
 
 ---
 
+### With minColor
+
+The [minColor](/mincolor/) engine's built-in presets come in three flavours per input: `→ sRGB` for SDR, `→ EDR P3 (macOS)` for `EDR — Linear P3`, and `→ Rec.2100 PQ (Windows)` for `HDR10 PQ`. The Display reel holds the same encodings for chains you build yourself.
+
+---
+
 ## HDR sources
 
 Pick the source's colorspace as the clip's **Input**: `Rec.2100-PQ` for a BT.2020 PQ master, `ST2084-P3-D65` for a PQ master graded in P3-D65 (Resolve's "P3-D65 ST2084"), `Rec.2100-HLG` for HLG. The Input stays with that clip, so SDR and HDR clips can sit side by side in the same project or dual view.

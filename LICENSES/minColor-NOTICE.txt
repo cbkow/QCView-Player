@@ -1,0 +1,59 @@
+minColor core — notices
+
+QCView's minColor colour engine (src/color/mincolor/) is the core of minColorAE,
+copied unmodified from https://github.com/cbkow/minColorAE (commit e824933,
+0.1.3, 2026-10-05).
+  Copyright (C) 2026 cbkow
+  License: GNU General Public License version 3 (GPL-3.0-only) — the same
+  licence as QCView; see ../LICENSE for the full text.
+
+It builds on others' work:
+
+-------------------------------------------------------------------------------
+Derived work: OpenDRT
+-------------------------------------------------------------------------------
+
+The rendering (opendrt_kernel.h, opendrt_params.h, opendrt_presets.*,
+opendrt_grade.h and the shims) is derived from OpenDRT v1.1.0
+  Written by Jed Smith
+  https://github.com/jedypod/open-display-transform
+  License: GPLv3
+
+minColorAE modifies OpenDRT and adds to it; the list of changes, with dates,
+is CHANGES-FROM-OPENDRT.md in the minColorAE repository, and the unmodified
+upstream file is kept there at upstream/OpenDRT_v1.1.0.dctl. Neither
+minColorAE nor QCView is OpenDRT, is affiliated with the OpenDRT project or
+its author, or is endorsed by them. "OpenDRT" is used only to credit the
+origin of the rendering algorithm.
+
+-------------------------------------------------------------------------------
+Derived work: darktable's AgX module (minColor AgX)
+-------------------------------------------------------------------------------
+
+mincolor_agx.h and mincolor_agx.cpp port parts of darktable's AgX module
+(src/iop/agx.c, src/common/custom_primaries.c)
+  Copyright (C) 2025-2026 darktable developers (AgX module by István Kovács)
+  https://github.com/darktable-org/darktable
+  License: GPL-3.0-or-later
+Ported: the lower guard rail, the log2 encoding, the sigmoid, the hue restore
+and the rotated / scaled primaries geometry. The port is modified (see
+CHANGES-AGX.md in the minColorAE repository) and is not affiliated with or
+endorsed by darktable.
+
+AgX is by Troy Sobotka (https://github.com/sobotka/AgX). The Blender version,
+whose primaries parameters and HDR construction minColor AgX follows, is by
+Zijun Eary Zhou (Eary Chow), Mark Faderbauer and Sakari Kapanen
+(https://github.com/EaryChow/AgX). No code or data files are taken from those
+repositories: the primaries parameters are the values published in the
+headers of Blender's AgX LUTs, and the HDR method is reimplemented from its
+description. "AgX" names the image formation; minColor AgX is not endorsed by
+its authors.
+
+-------------------------------------------------------------------------------
+QCView's own additions
+-------------------------------------------------------------------------------
+
+mincolor_knee.h is QCView's Highlight Knee, contributed to minColorAE and
+vendored back. Everything outside src/color/mincolor/ that drives the engine
+(the chain, the panel, the Metal and Direct3D hosts, the linear P3-D65 display
+hand-off) is QCView's and is GPL-3.0 with the rest of the application.

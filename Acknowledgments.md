@@ -42,6 +42,8 @@ Thanks to the communities behind these projects for their documentation, example
 - **Google Ink Stroke Modeler** — handwriting / drawing stroke smoothing.
 - **Olli Parviainen / SoundTouch** — WSOLA time-stretch powering constant-pitch review-speed playback.
 - **Phil Harvey / ExifTool** — Adobe project metadata extraction.
+- **Jed Smith / OpenDRT** — the picture formation behind the minColor engine's OpenDRT rendering (derived, GPL-3.0).
+- **István Kovács and the darktable developers** — the AgX module minColor AgX ports parts of; **Troy Sobotka** for AgX itself, and **Zijun Eary Zhou (Eary Chow), Mark Faderbauer and Sakari Kapanen** for Blender's AgX, whose primaries and HDR method it follows.
 
 ---
 
