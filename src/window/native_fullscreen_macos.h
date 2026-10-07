@@ -34,6 +34,13 @@ bool exitBorderlessFullscreen(QWindow *window);
 
 bool isBorderlessFullscreen(QWindow *window);
 
+// Compact Mode's window: drop the title bar (Borderless | Resizable, so
+// the edges still resize) at the window's current frame, or put it
+// back. Independent of borderless fullscreen: refused (false) while
+// the window is in it — the caller re-applies on fullscreen exit —
+// and a no-op (true) when already in the asked-for state.
+bool setCompactBorderless(QWindow *window, bool on);
+
 // Take macOS's green title-bar button out of the OS-fullscreen path —
 // click reverts to standard zoom (maximize within the current Space)
 // instead of triggering the slide-into-a-new-Space animation. Called

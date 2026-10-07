@@ -8,6 +8,9 @@
 // the timeline panel's own gesture (scrubBeginAt / scrubMoveTo /
 // scrubEndAt), so dual, playlist, image-sequence and audio sources all
 // behave as they do on the timeline. Live sources show a live dot.
+// The window itself drops its title bar in Compact Mode (Main.qml →
+// WindowManager.setCompactBorderless), so the timecode doubles as the
+// move handle and the edges still resize.
 
 import QtQuick
 import QtQuick.Layouts
@@ -59,9 +62,21 @@ Rectangle {
         anchors.rightMargin: Theme.padding
         spacing: Theme.paddingLoose
 
-        // ---- Timecode / time ----------------------------------------
-        Text {
+        // ---- Timecode / time — also the window's move handle -------
+        // The window has no title bar in Compact Mode; dragging here
+        // moves it through the OS (startSystemMove: AppKit / Win32).
+        Item {
             Layout.preferredWidth: 96
+            Layout.fillHeight: true
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.OpenHandCursor
+                onPressed: (m) => { if (Window.window) Window.window.startSystemMove(); }
+                FlatToolTip { visible: parent.containsMouse; text: qsTr("Drag to move the window") }
+            }
+        Text {
+            anchors.fill: parent
             text: {
                 const _refresh = root.position;
                 if (WindowManager.liveActive) return qsTr("LIVE");
@@ -85,6 +100,7 @@ Rectangle {
             font.pixelSize: Theme.fontSizeSmall
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
+        }
         }
 
         // ---- Scrub line ---------------------------------------------

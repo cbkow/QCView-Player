@@ -123,6 +123,48 @@ bool exitBorderlessFullscreenWin(QWindow *window)
     return true;
 }
 
+namespace {
+struct CompactSavedWin { LONG_PTR style = 0; LONG_PTR exStyle = 0; };
+QHash<HWND, CompactSavedWin> &compactSavedWin()
+{
+    static QHash<HWND, CompactSavedWin> s;
+    return s;
+}
+} // namespace
+
+bool setCompactBorderlessWin(QWindow *window, bool on)
+{
+    HWND hwnd = hwndOf(window);
+    if (!hwnd) return false;
+    if (savedStates().contains(hwnd)) return false;   // in fullscreen: later
+    auto &map = compactSavedWin();
+    if (on) {
+        if (map.contains(hwnd)) return true;
+        CompactSavedWin s;
+        s.style   = GetWindowLongPtrW(hwnd, GWL_STYLE);
+        s.exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        map.insert(hwnd, s);
+        // Caption, system menu and buttons go; WS_THICKFRAME stays so
+        // the resize borders and Win+arrow snapping keep working.
+        const LONG_PTR strip = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
+                             | WS_MAXIMIZEBOX | WS_DLGFRAME | WS_BORDER;
+        SetWindowLongPtrW(hwnd, GWL_STYLE, (s.style & ~strip) | WS_THICKFRAME);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE,
+                          s.exStyle & ~(WS_EX_WINDOWEDGE | WS_EX_DLGMODALFRAME));
+    } else {
+        auto it = map.find(hwnd);
+        if (it == map.end()) return true;
+        const CompactSavedWin s = it.value();
+        map.erase(it);
+        SetWindowLongPtrW(hwnd, GWL_STYLE,   s.style);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, s.exStyle);
+    }
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    qInfo("setCompactBorderlessWin: %p %s", hwnd, on ? "borderless" : "restored");
+    return true;
+}
+
 bool isBorderlessFullscreenWin(QWindow *window)
 {
     HWND hwnd = hwndOf(window);

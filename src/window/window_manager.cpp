@@ -5933,6 +5933,24 @@ bool WindowManager::exitBorderlessFullscreen(QWindow *window)
     return ok;
 }
 
+bool WindowManager::setCompactBorderless(QWindow *window, bool on)
+{
+    bool ok = false;
+#ifdef Q_OS_MACOS
+    ok = qcv::setCompactBorderless(window, on);
+#elif defined(Q_OS_WIN)
+    ok = qcv::setCompactBorderlessWin(window, on);
+#else
+    Q_UNUSED(window); Q_UNUSED(on);
+#endif
+    // The content rect changes size with the chrome (the title bar's
+    // height on macOS, the caption's on Windows), so a frame captured
+    // while compact would restore a taller framed window. Pause the
+    // capture; the framed frame comes back on exit.
+    if (ok && window == m_uiWindow) m_compactBorderlessActive = on;
+    return ok;
+}
+
 bool WindowManager::isBorderlessFullscreen(QWindow *window) const
 {
 #ifdef Q_OS_MACOS
@@ -6080,6 +6098,7 @@ void WindowManager::scheduleWindowGeometrySave()
     if (!m_uiWindow || !m_windowGeomSaveEnabled || m_windowGeomSaveSuppressed)
         return;
     if (m_borderlessFsActive) return; // frame is the whole screen right now
+    if (m_compactBorderlessActive) return; // title-bar-less: not the framed rect
     switch (m_uiWindow->visibility()) {
     case QWindow::Windowed:
         m_normalWindowGeometry = m_uiWindow->geometry();

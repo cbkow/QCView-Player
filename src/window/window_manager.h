@@ -937,6 +937,10 @@ public:
     // setVisibility(FullScreen).
     Q_INVOKABLE bool enterBorderlessFullscreen(QWindow *window);
     Q_INVOKABLE bool exitBorderlessFullscreen(QWindow *window);
+    // Compact Mode's title-bar-less window at the current frame (see
+    // native_fullscreen_*.h setCompactBorderless). Refused while in
+    // borderless fullscreen; QML re-applies on fullscreen exit.
+    Q_INVOKABLE bool setCompactBorderless(QWindow *window, bool on);
     Q_INVOKABLE bool isBorderlessFullscreen(QWindow *window) const;
 
     // Window-geometry persistence — drop the saved frame keys and
@@ -1391,6 +1395,7 @@ private:
     // window styles. Set/cleared in the enter/exit wrappers, which
     // every caller routes through.
     bool    m_borderlessFsActive      = false;
+    bool    m_compactBorderlessActive = false;   // geometry capture paused (content rect ≠ framed rect)
     QTimer *m_windowGeomSaveTimer     = nullptr;
     // ---- UI-over-viewport framework state ----
     bool                   m_modalActive      = false;

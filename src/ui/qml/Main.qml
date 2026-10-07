@@ -375,8 +375,12 @@ ApplicationWindow {
         // honours menuBar.height for its layout, so this fully hides
         // the strip without recreating the menu (which would lose
         // popup wiring + accelerator state).
-        height: root.chromeless ? 0 : implicitHeight
-        visible: !root.chromeless
+        // On macOS this MenuBar feeds the native top-of-screen bar, so
+        // it stays: hiding it empties the system menu bar (seen in
+        // Compact Mode, 2026-10-07). Only the in-window bar goes.
+        readonly property bool inWindow: Qt.platform.os !== "osx"
+        height: root.chromeless && inWindow ? 0 : implicitHeight
+        visible: !(root.chromeless && inWindow)
         // Windows renders this QML menu bar in-window (macOS uses
         // the native top-of-screen bar, which ignores this).
         // surfaceRecess tone (user-tuned) + a bottom hairline: the
@@ -795,6 +799,9 @@ ApplicationWindow {
     // the underlying *Visible flags are never touched.
     property bool compactMode: false
     readonly property bool chromeless: inFullscreen || compactMode
+    // The window loses its title bar with the chrome (native helper);
+    // refused while fullscreen — exitFullscreen() applies it then.
+    onCompactModeChanged: if (!inFullscreen) WindowManager.setCompactBorderless(root, compactMode)
     readonly property bool fxLeftRail:    leftRailVisible    && !chromeless
     readonly property bool fxRightRail:   rightRailVisible   && !chromeless
     // Live mode swaps the timeline/transport rows for the LiveStrip —
@@ -1017,7 +1024,12 @@ ApplicationWindow {
     // remember on the way in: the panel flags stay as they were and
     // come back on the way out.
     function toggleCompact() { compactMode = !compactMode; }
-    function exitCompact()   { compactMode = false; }
+    function exitCompact() {
+        // Fullscreen first: its saved style is the compact one, and the
+        // title bar must come back on a windowed frame, not a screen.
+        if (inFullscreen) exitFullscreen();
+        compactMode = false;
+    }
 
     function cycleBackgroundMode() {
         const cur = WindowManager.backgroundMode;
@@ -1058,6 +1070,10 @@ ApplicationWindow {
                               ? preFullscreenVisibility
                               : ApplicationWindow.Windowed;
         }
+        // Compact entered while fullscreen never got its window style
+        // (the helper refuses in fullscreen); entered before, the
+        // fullscreen exit restored it already — the call is a no-op.
+        if (compactMode) WindowManager.setCompactBorderless(root, true);
     }
     // Restoring NSWindow key status from C++ isn't always enough —
     // Qt's focus chain can still be pointed at a stale FocusScope.
@@ -1101,7 +1117,7 @@ ApplicationWindow {
         enabled: root.borderlessFs
                  || root.visibility === ApplicationWindow.FullScreen
                  || root.compactMode
-        onActivated: { root.exitFullscreen(); root.exitCompact(); }
+        onActivated: { if (root.compactMode) root.exitCompact(); else root.exitFullscreen(); }
     }
     // Menu items' `shortcut` properties handle the file/view
     // accelerators (Cmd+O, Cmd+S, Cmd+1..4, etc.). Standalone

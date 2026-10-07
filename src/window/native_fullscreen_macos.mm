@@ -159,6 +159,47 @@ bool exitBorderlessFullscreen(QWindow *qwindow)
     return true;
 }
 
+namespace {
+struct CompactSaved { NSWindowStyleMask styleMask; BOOL hasShadow; BOOL opaque; };
+std::unordered_map<void *, CompactSaved> &compactSavedMap()
+{
+    static std::unordered_map<void *, CompactSaved> map;
+    return map;
+}
+} // namespace
+
+bool setCompactBorderless(QWindow *qwindow, bool on)
+{
+    NSWindow *win = nsWindowFor(qwindow);
+    if (!win) return false;
+    std::lock_guard<std::mutex> lk(savedStateMutex());
+    if (savedStateMap().count(win)) return false;      // in borderless fullscreen: later
+    auto it = compactSavedMap().find(win);
+    if (on) {
+        if (it != compactSavedMap().end()) return true;
+        compactSavedMap().emplace(win, CompactSaved{win.styleMask, win.hasShadow, win.opaque});
+        // Same frame, no title bar; Resizable keeps AppKit's edge
+        // resize zones. The content view grows into the title area.
+        win.styleMask = NSWindowStyleMaskBorderless | NSWindowStyleMaskResizable;
+        // Borderless clears opaque (see enterBorderlessFullscreen); our
+        // drawable is opaque, so say so. The shadow stays: this is a
+        // window among windows.
+        win.opaque = YES;
+    } else {
+        if (it == compactSavedMap().end()) return true;
+        const CompactSaved s = it->second;
+        compactSavedMap().erase(it);
+        win.styleMask = s.styleMask;
+        win.hasShadow = s.hasShadow;
+        win.opaque    = s.opaque;
+    }
+    // A styleMask change can drop key status, as in fullscreen.
+    [win makeKeyAndOrderFront:nil];
+    [win makeKeyWindow];
+    [win makeMainWindow];
+    return true;
+}
+
 bool isBorderlessFullscreen(QWindow *qwindow)
 {
     NSWindow *win = nsWindowFor(qwindow);

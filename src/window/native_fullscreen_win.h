@@ -33,6 +33,12 @@ bool enterBorderlessFullscreenWin(QWindow *window);
 bool exitBorderlessFullscreenWin(QWindow *window);
 bool isBorderlessFullscreenWin(QWindow *window);
 
+// Compact Mode's window: drop the caption and system buttons at the
+// current rect, keeping WS_THICKFRAME so edge resize and snapping
+// still work, or put the chrome back. Refused (false) while the window
+// is in borderless fullscreen; a no-op (true) when already as asked.
+bool setCompactBorderlessWin(QWindow *window, bool on);
+
 } // namespace qcv
 
 #endif // Q_OS_WIN
