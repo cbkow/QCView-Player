@@ -127,6 +127,16 @@ struct OcioChainSpec {
     QString        sdrDisplay;
     QString        sdrView;
 
+    // Whether an 8-bit sRGB capture needs the SDR-equivalent chain
+    // rather than the live one: OCIO when the manager found an SDR
+    // Display/View pair; minColor when its capture blocks differ from
+    // the live ones (any display but sRGB 2.2, or an EDR hand-off).
+    bool needsSdrCapture() const
+    {
+        if (engine == ColorEngine::MinColor) return !(minColor == minColorSdr);
+        return !sdrDisplay.isEmpty();
+    }
+
     bool complete() const
     {
         if (engine == ColorEngine::MinColor) return true;   // one kernel, no config

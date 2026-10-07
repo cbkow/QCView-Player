@@ -36,9 +36,11 @@ struct LutResource {
     int         smpSlot = -1;
 };
 
+// `extraFlags` ORs into the D3DCOMPILE flags (OPTIMIZATION_LEVEL1 is
+// always set): the minColor kernel adds IEEE_STRICTNESS.
 Microsoft::WRL::ComPtr<ID3DBlob> compileHlsl(const std::string &source,
                                              const char *entry, const char *target,
-                                             QString *errorOut);
+                                             QString *errorOut, unsigned extraFlags = 0);
 
 Microsoft::WRL::ComPtr<ID3D11SamplerState> makeLinearClampSampler(ID3D11Device *device);
 

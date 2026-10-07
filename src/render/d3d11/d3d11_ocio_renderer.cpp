@@ -17,10 +17,13 @@
 #include <QElapsedTimer>
 
 #include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <thread>
 
+#include <QCryptographicHash>
+#include <QDir>
 #include <QFile>
 #include <QStandardPaths>
 #include <QtLogging>
@@ -114,6 +117,247 @@ std::string buildSplitPsHlsl(const std::string &preFunction,
     return s;
 }
 
+// ---- minColor: the OCIO-free engine's pixel shader --------------------
+// The vendored minColorAE core (color/mincolor/, see VENDORED.md) as text
+// from the resource bundle, concatenated the way opendrt_shim_hlsl.h
+// documents, after QCView's viewer aids. One shader, compiled once per
+// process; the chain is four constant buffers (MinColorGpu):
+//   b2 DrtParams in      Input half: file encoding → linear Rec.2020, knee fields
+//   b3 DrtParams out     Output half: rendering + display encoding
+//   b4 DrtAgxParams      AgX
+//   b5 flags             knee on, AgX on, output scale (EDR)
+//   b1 viewer aids       (kLinearStageHlsl; b0, the OCIO stage, is unused)
+// Every block is 4-byte scalars, a multiple of 16 bytes, so the bytes the
+// chain resolved upload as-is (opendrt_params.h, "WHY THIS SHAPE").
+constexpr const char *kMinColorPsHlsl = R"(
+cbuffer QcvMcInCb    : register(b2) { DrtParams    qcvMcIn;  };
+cbuffer QcvMcOutCb   : register(b3) { DrtParams    qcvMcOut; };
+// DrtAgxParams holds six float[9] matrices, and a cbuffer strides every
+// array element to 16 bytes, so the struct cannot be declared over the
+// bytes the chain resolved (the DrtParams blocks are scalars only and
+// can). The block is read raw and the struct filled field by field;
+// the loader below is generated from the header's field order.
+cbuffer QcvMcAgxCb   : register(b4) { float4 qcvMcAgxRaw[21]; };
+cbuffer QcvMcFlagsCb : register(b5) { int qcvMcKneeOn; int qcvMcAgxOn; float qcvMcOutScale; int qcvMcPad; };
+
+float qcvMcAgxF(int i) { return qcvMcAgxRaw[i >> 2][i & 3]; }
+DrtAgxParams qcvMcAgxLoad()
+{
+    DrtAgxParams a;
+    a.working_gamut = qcvMcAgxF(0);
+    a.target = qcvMcAgxF(1);
+    a.peak = qcvMcAgxF(2);
+    a.white_ev = qcvMcAgxF(3);
+    a.black_ev = qcvMcAgxF(4);
+    a.contrast = qcvMcAgxF(5);
+    a.toe_power = qcvMcAgxF(6);
+    a.shoulder_power = qcvMcAgxF(7);
+    a.hue_restore = qcvMcAgxF(8);
+    a.hdr_purity = qcvMcAgxF(9);
+    a.outset = qcvMcAgxF(10);
+    a.user_pad = qcvMcAgxF(11);
+    [unroll] for (int k12 = 0; k12 < 9; ++k12) a.m_wb[k12] = qcvMcAgxF(12 + k12);
+    [unroll] for (int k21 = 0; k21 < 9; ++k21) a.m_br[k21] = qcvMcAgxF(21 + k21);
+    [unroll] for (int k30 = 0; k30 < 9; ++k30) a.m_rb[k30] = qcvMcAgxF(30 + k30);
+    [unroll] for (int k39 = 0; k39 < 9; ++k39) a.m_bt[k39] = qcvMcAgxF(39 + k39);
+    [unroll] for (int k48 = 0; k48 < 9; ++k48) a.m_tb[k48] = qcvMcAgxF(48 + k48);
+    [unroll] for (int k57 = 0; k57 < 9; ++k57) a.m_bw[k57] = qcvMcAgxF(57 + k57);
+    a.range = qcvMcAgxF(66);
+    a.px = qcvMcAgxF(67);
+    a.py = qcvMcAgxF(68);
+    a.slope = qcvMcAgxF(69);
+    a.toe_s = qcvMcAgxF(70);
+    a.sh_s = qcvMcAgxF(71);
+    a.sh_p = qcvMcAgxF(72);
+    a.ratio = qcvMcAgxF(73);
+    a.d_gx = qcvMcAgxF(74);
+    a.d_gy = qcvMcAgxF(75);
+    a.d_toe_s = qcvMcAgxF(76);
+    a.d_sh_s = qcvMcAgxF(77);
+    a.d_lo = qcvMcAgxF(78);
+    a.d_range = qcvMcAgxF(79);
+    a.l_t0 = qcvMcAgxF(80);
+    a.l_t1 = qcvMcAgxF(81);
+    a.l_t2 = qcvMcAgxF(82);
+    a.guard = qcvMcAgxF(83);
+    return a;
+}
+
+struct VsOut { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
+float4 PSMain(VsOut input) : SV_TARGET
+{
+    float4 color = uSrc.Sample(uSrcSampler, input.uv);
+    float3 c = color.rgb;
+    c = drt_input_transform(qcvMcIn, c);
+    if (qcvMcKneeOn != 0) c = drt_knee(qcvMcIn, c);
+    if (qcvMcAgxOn != 0)  c = drt_agx(qcvMcAgxLoad(), c);
+    c = drt_transform(qcvMcOut, c);
+    color.rgb = c * qcvMcOutScale;
+    return qcvViewerApply(color);
+}
+)";
+
+std::string resourceText(const char *path, QString &error)
+{
+    QFile f(QString::fromLatin1(path));
+    if (!f.open(QIODevice::ReadOnly)) {
+        error = QStringLiteral("D3D11OcioRenderer: missing kernel resource %1")
+                    .arg(QString::fromLatin1(path));
+        return {};
+    }
+    return f.readAll().toStdString();
+}
+
+std::string buildMinColorPsHlsl(QString &error)
+{
+    std::string s;
+    s.reserve(96 * 1024);
+    s += "Texture2D    uSrc        : register(t0);\n";
+    s += "SamplerState uSrcSampler : register(s0);\n";
+    s += kLinearStageHlsl;
+    s += "\n";
+    for (const char *part : {":/mincolor/opendrt_shim_hlsl.h", ":/mincolor/opendrt_params.h",
+                             ":/mincolor/opendrt_kernel.h", ":/mincolor/mincolor_knee.h",
+                             ":/mincolor/mincolor_agx.h"}) {
+        const std::string text = resourceText(part, error);
+        if (!error.isEmpty()) return {};
+        s += "\n// ---- ";
+        s += part;
+        s += "\n";
+        s += text;
+    }
+    s += kMinColorPsHlsl;
+    return s;
+}
+
+// The compiled shader, shared by every instance on the device (live, B
+// side, captures): D3DCompile of the core is seconds, and a capture
+// instance must never pay it on the render thread. Built once, on a
+// worker the first live instance starts at initialize(); a failure is
+// final for the session.
+struct MinColorKernel {
+    std::mutex                mutex;
+    std::condition_variable   done;
+    ID3D11Device             *device = nullptr;
+    ComPtr<ID3D11PixelShader> ps;
+    QString                   error;
+    bool                      tried   = false;
+    bool                      running = false;
+    std::thread               worker;
+
+    ~MinColorKernel() { join(); }
+
+    // Wait for a running compile and reap its thread.
+    void join()
+    {
+        std::unique_lock lock(mutex);
+        done.wait(lock, [this] { return !running; });
+        if (worker.joinable()) worker.join();
+    }
+};
+
+MinColorKernel &minColorKernel()
+{
+    static MinColorKernel k;
+    return k;
+}
+
+// Compile on the calling thread (device methods only: thread-safe) and
+// record the result.
+void compileMinColorKernel(ID3D11Device *device)
+{
+    MinColorKernel &k = minColorKernel();
+    QString err;
+    const std::string src = buildMinColorPsHlsl(err);
+    ComPtr<ID3D11PixelShader> ps;
+    QElapsedTimer timer;
+    timer.start();
+    if (!src.empty()) {
+        // Dumped before the compile, so a hang or a crash still leaves
+        // the source to feed fxc by hand.
+        const QString path = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+                             + QStringLiteral("/qcv-mincolor.hlsl");
+        if (QFile f(path); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            f.write(src.data(), static_cast<qint64>(src.size()));
+            qInfo("D3D11OcioRenderer: minColor HLSL dumped to %s", qPrintable(path));
+        }
+    }
+    // The bytecode, cached on disk by the source's hash: fxc takes ~12 s
+    // on this kernel, CreatePixelShader from the blob is instant, so only
+    // the first launch after a core or shim change pays the compile.
+    QString cachePath;
+    if (err.isEmpty()) {
+        const QByteArray hash = QCryptographicHash::hash(
+            QByteArray::fromRawData(src.data(), static_cast<qsizetype>(src.size())),
+            QCryptographicHash::Sha1).toHex();
+        const QString dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                            + QStringLiteral("/shaders");
+        QDir().mkpath(dir);
+        cachePath = dir + QStringLiteral("/mincolor-ps50-") + QString::fromLatin1(hash)
+                    + QStringLiteral(".cso");
+    }
+    bool fromCache = false;
+    if (err.isEmpty()) {
+        if (QFile f(cachePath); f.open(QIODevice::ReadOnly)) {
+            const QByteArray blob = f.readAll();
+            if (!blob.isEmpty()
+                && SUCCEEDED(device->CreatePixelShader(blob.constData(),
+                                                       static_cast<SIZE_T>(blob.size()), nullptr,
+                                                       ps.GetAddressOf()))) {
+                fromCache = true;
+            } else {
+                ps.Reset();
+            }
+        }
+    }
+    if (err.isEmpty() && !ps) {
+        // IEEE strictness: the core is verified float for float against
+        // the upstream DCTL, and Metal's fast math already showed what a
+        // reassociating compiler does to its hue / purity functions (a
+        // white rendered green). Same stance as fastMathEnabled = NO.
+        ComPtr<ID3DBlob> blob = compileHlsl(src, "PSMain", "ps_5_0", &err,
+                                            D3DCOMPILE_IEEE_STRICTNESS);
+        if (blob) {
+            if (FAILED(device->CreatePixelShader(blob->GetBufferPointer(),
+                                                 blob->GetBufferSize(), nullptr,
+                                                 ps.GetAddressOf()))) {
+                err = QStringLiteral("D3D11OcioRenderer: CreatePixelShader failed (minColor)");
+                ps.Reset();
+            } else if (QFile f(cachePath); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                f.write(static_cast<const char *>(blob->GetBufferPointer()),
+                        static_cast<qint64>(blob->GetBufferSize()));
+            }
+        }
+    }
+    const qint64 ms = timer.elapsed();
+    if (ps) {
+        qInfo("D3D11OcioRenderer: minColor kernel %s (%lld ms)",
+              fromCache ? "loaded from cache" : "compiled", static_cast<long long>(ms));
+    } else {
+        qWarning("D3D11OcioRenderer: minColor kernel failed: %s", qPrintable(err));
+    }
+    {
+        std::lock_guard lock(k.mutex);
+        k.device  = device;
+        k.ps      = ps;
+        k.error   = err;
+        k.tried   = true;
+        k.running = false;
+    }
+    k.done.notify_all();
+}
+
+// Start the compile in the background unless it is done or under way.
+void startMinColorKernel(ID3D11Device *device)
+{
+    MinColorKernel &k = minColorKernel();
+    std::lock_guard lock(k.mutex);
+    if (k.running || (k.tried && k.device == device)) return;
+    if (k.worker.joinable()) k.worker.join();   // a finished earlier thread
+    k.running = true;
+    k.worker  = std::thread([device] { compileMinColorKernel(device); });
+}
+
 } // namespace
 
 struct D3D11OcioRenderer::Impl {
@@ -145,6 +389,13 @@ struct D3D11OcioRenderer::Impl {
     ViewerAids           viewer;
     ComPtr<ID3D11Buffer> viewerCb;            // ViewerGpu at b1
     std::atomic<bool> sdrCapture{false};   // read by the rebuild worker
+
+    // minColor engine: `ps` is the shared kernel while activeMinColor;
+    // the blocks are the chain, refreshed by rebuild() and uploaded by
+    // apply() (b2..b5).
+    bool                 activeMinColor = false;
+    MinColorGpu          mcBlocks;
+    ComPtr<ID3D11Buffer> mcInCb, mcOutCb, mcAgxCb, mcFlagsCb;
 
     // --- Async rebuild plumbing -------------------------------------
     // D3DCompile on heavy OCIO chains (AgX with multi-hundred-line
@@ -227,6 +478,7 @@ struct D3D11OcioRenderer::Impl {
         displayIsSdr    = e.displayIsSdr;
         encoding        = e.encoding;
         outputPrimaries = e.outputPrimaries;
+        activeMinColor  = false;
         lastError.clear();
     }
     bool                       pendingSplitKey     = false;
@@ -297,6 +549,26 @@ bool D3D11OcioRenderer::initialize()
         m_impl->lastError = QStringLiteral("D3D11OcioRenderer: viewer cbuffer create failed");
         return false;
     }
+    // minColor's blocks (b2..b5); every size is a multiple of 16.
+    static_assert(sizeof(drt::DrtParams) % 16 == 0 && sizeof(drt::DrtAgxParams) == 84 * 4
+                  && sizeof(MinColorFlagsGpu) == 16, "minColor blocks must be cbuffer-sized");
+    struct { ComPtr<ID3D11Buffer> *buf; UINT size; } mc[] = {
+        {&m_impl->mcInCb,    sizeof(drt::DrtParams)},
+        {&m_impl->mcOutCb,   sizeof(drt::DrtParams)},
+        {&m_impl->mcAgxCb,   sizeof(drt::DrtAgxParams)},
+        {&m_impl->mcFlagsCb, sizeof(MinColorFlagsGpu)},
+    };
+    for (auto &b : mc) {
+        cbd.ByteWidth = b.size;
+        if (FAILED(m_impl->device->CreateBuffer(&cbd, nullptr, b.buf->GetAddressOf()))) {
+            m_impl->lastError = QStringLiteral("D3D11OcioRenderer: minColor cbuffer create failed");
+            return false;
+        }
+    }
+    // The minColor kernel, ahead of its first use so an engine switch
+    // never waits on a compile (plan: "switching and safety"). Capture
+    // instances share whatever the live one built.
+    if (!m_impl->sdrCapture.load()) startMinColorKernel(m_impl->device);
     return true;
 }
 
@@ -309,6 +581,10 @@ void D3D11OcioRenderer::shutdown()
     if (m_impl->rebuildThread.joinable()) {
         m_impl->rebuildThread.join();
     }
+    // The shared minColor compile is not waited for: other instances
+    // may still want it, and a renderer recreated mid-session must not
+    // stall the render thread for a compile. The static's destructor
+    // joins it at exit.
     {
         std::lock_guard lock(m_impl->swapMutex);
         m_impl->pendingPs.Reset();
@@ -320,6 +596,11 @@ void D3D11OcioRenderer::shutdown()
     m_impl->srcSampler.Reset();
     m_impl->stageCb.Reset();
     m_impl->viewerCb.Reset();
+    m_impl->mcInCb.Reset();
+    m_impl->mcOutCb.Reset();
+    m_impl->mcAgxCb.Reset();
+    m_impl->mcFlagsCb.Reset();
+    m_impl->activeMinColor = false;
     m_impl->luts.clear();
     m_impl->device = nullptr;
     m_impl->lastValid = false;
@@ -362,6 +643,13 @@ bool D3D11OcioRenderer::stageActive() const
 
 float D3D11OcioRenderer::hdrKneeTargetNits() const
 {
+    if (m_impl->activeMinColor && m_impl->ps) {
+        if (m_impl->displayIsSdr) return 0.0f;
+        const MinColorGpu &g = m_impl->mcBlocks;
+        if (g.flags.kneeOn != 0) return g.in.kn_tgt;
+        if (g.out.out_view == 0) return g.out.tn_Lp;   // OpenDRT renders to its peak
+        return 0.0f;
+    }
     if (!stageActive() || m_impl->displayIsSdr || !m_impl->stage.kneeEnabled) return 0.0f;
     return m_impl->stage.kneeTargetNits;
 }
@@ -375,6 +663,64 @@ void D3D11OcioRenderer::setSdrCapture(bool on)
 bool D3D11OcioRenderer::rebuild(const OcioChainSpec &spec)
 {
     if (!spec.complete() || !isInitialized()) return false;
+
+    if (spec.engine == ColorEngine::MinColor) {
+        // The chain is constant buffers: take this frame's blocks, make
+        // sure the shared kernel exists, and make it active. Until it is
+        // compiled, keep drawing whatever is active (an OCIO chain or
+        // nothing), as the Metal path does.
+        Impl &i = *m_impl;
+        i.mcBlocks = i.sdrCapture.load() ? spec.minColorSdr : spec.minColor;
+        ComPtr<ID3D11PixelShader> ps;
+        QString err;
+        bool ready = false;
+        {
+            MinColorKernel &k = minColorKernel();
+            std::lock_guard lock(k.mutex);
+            if (k.tried && k.device == i.device) {
+                ps    = k.ps;
+                err   = k.error;
+                ready = true;
+            }
+        }
+        if (!ready) {
+            startMinColorKernel(i.device);    // no-op while one is running
+            return static_cast<bool>(i.ps);
+        }
+        if (!ps) {
+            i.lastError = err;
+            return false;
+        }
+        if (!(i.lastValid && i.activeMinColor)) {
+            i.ps             = ps;
+            i.luts.clear();
+            i.lastSpec       = spec;
+            i.lastValid      = true;
+            i.lastSplitKey   = false;
+            i.builtSplit     = false;
+            i.side           = InterchangeSide::None;
+            i.activeMinColor = true;
+            i.lastError.clear();
+            qInfo("D3D11OcioRenderer: minColor kernel active");
+        }
+        // Viewer aids (and the HDR10 peak) see the display encoding the
+        // Output half writes.
+        const drt::DrtParams &out = i.mcBlocks.out;
+        switch (out.eotf) {
+        case DRT_EOTF_PQ:     i.encoding = OutputEncoding::Pq;     break;
+        case DRT_EOTF_HLG:    i.encoding = OutputEncoding::Hlg;    break;
+        case DRT_EOTF_LINEAR: i.encoding = OutputEncoding::Linear; break;
+        default:              i.encoding = OutputEncoding::Sdr;    break;
+        }
+        switch (out.display_gamut) {
+        case DRT_DG_P3D65: case DRT_DG_P3D60: case DRT_DG_P3DCI: i.outputPrimaries = 1; break;
+        case DRT_DG_REC2020_P3LIM: case DRT_DG_REC2020: case DRT_DG_XYZ:
+        case DRT_DG_WORKING: case DRT_DG_AP0: case DRT_DG_AP1: i.outputPrimaries = 2; break;
+        default: i.outputPrimaries = 0; break;
+        }
+        i.displayIsSdr = i.encoding == OutputEncoding::Sdr;
+        return true;
+    }
 
     const bool wantSplit = !linear_stage::isIdentity(m_impl->stage);
 
@@ -643,6 +989,14 @@ void D3D11OcioRenderer::apply(void *ctxPtr,
     ctx->VSSetShader(m_impl->vs.Get(), nullptr, 0);
     ctx->PSSetShader(m_impl->ps.Get(), nullptr, 0);
 
+    auto upload = [ctx](ID3D11Buffer *cb, const void *data, size_t size) {
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        if (cb && SUCCEEDED(ctx->Map(cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+            std::memcpy(mapped.pData, data, size);
+            ctx->Unmap(cb, 0);
+        }
+    };
+
     // Bind by reflected slot — each LUT goes at the BindPoint D3D's
     // shader reflector reported for its name. Source stays at t0/s0
     // by convention (we declared it explicitly in buildPsHlsl).
@@ -652,23 +1006,38 @@ void D3D11OcioRenderer::apply(void *ctxPtr,
     srvs[0] = srcSrv;
     smps[0] = m_impl->srcSampler.Get();
     int maxSlot = 0;
-    for (const auto &lut : m_impl->luts) {
-        if (lut.texSlot >= 0 && lut.texSlot < kMaxSrvs) {
-            srvs[lut.texSlot] = lut.srv.Get();
-            if (lut.texSlot > maxSlot) maxSlot = lut.texSlot;
-        }
-        if (lut.smpSlot >= 0 && lut.smpSlot < kMaxSrvs) {
-            smps[lut.smpSlot] = lut.sampler.Get();
-            if (lut.smpSlot > maxSlot) maxSlot = lut.smpSlot;
+    if (!m_impl->activeMinColor) {
+        for (const auto &lut : m_impl->luts) {
+            if (lut.texSlot >= 0 && lut.texSlot < kMaxSrvs) {
+                srvs[lut.texSlot] = lut.srv.Get();
+                if (lut.texSlot > maxSlot) maxSlot = lut.texSlot;
+            }
+            if (lut.smpSlot >= 0 && lut.smpSlot < kMaxSrvs) {
+                smps[lut.smpSlot] = lut.sampler.Get();
+                if (lut.smpSlot > maxSlot) maxSlot = lut.smpSlot;
+            }
         }
     }
     const UINT nBound = static_cast<UINT>(maxSlot + 1);
     ctx->PSSetShaderResources(0, nBound, srvs);
     ctx->PSSetSamplers       (0, nBound, smps);
 
+    // minColor: the chain as constant buffers, refreshed every apply so
+    // a slider move never rebuilds (b2..b5; the viewer at b1 below).
+    if (m_impl->activeMinColor) {
+        const MinColorGpu &g = m_impl->mcBlocks;
+        upload(m_impl->mcInCb.Get(),    &g.in,    sizeof(g.in));
+        upload(m_impl->mcOutCb.Get(),   &g.out,   sizeof(g.out));
+        upload(m_impl->mcAgxCb.Get(),   &g.agx,   sizeof(g.agx));
+        upload(m_impl->mcFlagsCb.Get(), &g.flags, sizeof(g.flags));
+        ID3D11Buffer *cbs[4] = {m_impl->mcInCb.Get(), m_impl->mcOutCb.Get(),
+                                m_impl->mcAgxCb.Get(), m_impl->mcFlagsCb.Get()};
+        ctx->PSSetConstantBuffers(2, 4, cbs);
+    }
+
     // Linear stage parameters (split pipelines only) — refreshed every
     // apply so slider moves need no rebuild.
-    if (m_impl->builtSplit && m_impl->stageCb) {
+    if (!m_impl->activeMinColor && m_impl->builtSplit && m_impl->stageCb) {
         const LinearStageGpu stage =
             linear_stage::resolve(m_impl->stage, m_impl->side, m_impl->displayIsSdr);
         D3D11_MAPPED_SUBRESOURCE mapped{};

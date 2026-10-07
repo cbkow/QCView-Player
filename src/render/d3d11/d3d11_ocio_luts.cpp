@@ -16,7 +16,7 @@ namespace qcv {
 
 ComPtr<ID3DBlob> compileHlsl(const std::string &source,
                                 const char *entry, const char *target,
-                                QString *errorOut)
+                                QString *errorOut, unsigned extraFlags)
 {
     ComPtr<ID3DBlob> code, errors;
     // LEVEL_1 trades runtime PS speed for compile speed. OCIO chains
@@ -29,7 +29,7 @@ ComPtr<ID3DBlob> compileHlsl(const std::string &source,
         source.data(), source.size(),
         entry, nullptr, nullptr,
         entry, target,
-        D3DCOMPILE_OPTIMIZATION_LEVEL1, 0,
+        D3DCOMPILE_OPTIMIZATION_LEVEL1 | extraFlags, 0,
         code.GetAddressOf(), errors.GetAddressOf());
     if (FAILED(hr)) {
         QString msg = QStringLiteral("D3DCompile %1 failed (hr=0x%2)")

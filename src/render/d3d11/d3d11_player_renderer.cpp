@@ -1436,8 +1436,9 @@ void D3D11PlayerRenderer::drawFrame()
         // a playlist cut or clip switch swaps instead of compiling.
         m_impl->ocio.prewarm(chains->warm, m_gain.load(std::memory_order_relaxed));
     }
-    // HDR10: signal the knee's target as the content peak while it
-    // compresses for this display, else the 1000-nit default.
+    // HDR10: signal the knee's target (or minColor's display peak) as
+    // the content peak while it shapes for this display, else the
+    // 1000-nit default.
     m_impl->hdrSwapchain.setContentPeakNits(
         useOcio ? m_impl->ocio.hdrKneeTargetNits() : 0.0f);
     if (chains) warmCaptureOcio(chains->single);
@@ -2314,7 +2315,7 @@ void D3D11PlayerRenderer::warmCaptureOcio(const OcioChainSpec &spec)
         return;
     }
     m_impl->captureSpec     = spec;
-    m_impl->captureNeedsSdr = !spec.sdrDisplay.isEmpty();
+    m_impl->captureNeedsSdr = spec.needsSdrCapture();
     // Async: spawns the compile worker on a chain change, no-op
     // otherwise. Skipped when the live chain is already sRGB — the
     // capture then reuses the live pipeline.

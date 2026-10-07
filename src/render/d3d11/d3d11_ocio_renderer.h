@@ -13,6 +13,13 @@
 //
 // Threading: rebuild() runs on the render thread when the OCIO chain
 // generation bumps; apply() runs on the render thread per frame.
+//
+// minColor (OcioChainSpec::engine == MinColor): the OCIO-free engine's
+// one pixel shader — the vendored core (color/mincolor/) through its
+// HLSL shim — compiled once per process with IEEE-strict math and
+// shared by every instance on the device (live, B side, captures);
+// the chain arrives as four constant buffers with every rebuild(), so
+// a slider move never recompiles. Mirrors MetalOcioRenderer.
 
 #pragma once
 
@@ -66,7 +73,9 @@ public:
     bool stageActive() const;
 
     // The knee's target in nits while it compresses for an HDR display
-    // (the HDR10 metadata should then say so), else 0.
+    // (the HDR10 metadata should then say so), else 0. Under minColor:
+    // the knee target when the knee is on, else OpenDRT's display peak
+    // when it renders, else 0.
     float hdrKneeTargetNits() const;
 
     // Capture instance: build the SDR sRGB equivalent of the active
