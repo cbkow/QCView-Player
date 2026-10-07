@@ -22,7 +22,16 @@ The **Vectorscope** and **Waveform** sections sit at the top of the Inspector. E
 
 **Vectorscope** — colour-bar targets, Rec.709 / P3 / Rec.2020 gamut outlines and the skin-tone line. The `1× 2× 4×` buttons zoom, **Color** tints the trace by hue, and the slider sets the trace brightness.
 
-**Waveform** — SDR sources plot the signal's Y′ from 0–100 %. HDR sources plot luminance in nits on a scale with lines at 300, 600, 1000, 2000 and 4000 nits and a reference-white line at 203. On that scale an SDR or scene-linear source's white sits at 100 nits, what a reference SDR monitor shows; PQ and HLG sources plot their absolute luminance, and the 203 line marks HDR graphics white (BT.2408). Under the waveform, a **Frame · Max** readout gives the brightest level in the current frame and the highest seen since the clip started; hover it for the brightest channel, and click **Reset** to start over. The **Auto · % · nits** chips below it choose the scale: Auto follows the interpretation, **%** forces the SDR percent scale (the signal's own Y′), **nits** forces the luminance scale with SDR white at 100. The choice is shared with the vectorscope and remembered.
+**Waveform** — the signal's level by image column, on one of two scales:
+
+- **Percent** (SDR): the signal's own Y′ from 0–100 %, with room above and below so super-whites and sub-blacks show.
+- **Nits** (HDR): linear luminance, with lines at 300, 600, 1000, 2000 and 4000 nits (pick the top of the scale with the `300 … 4k` chips) and an amber line at **203**, HDR graphics white (BT.2408). PQ and HLG sources plot their absolute luminance. An SDR or scene-linear source on this scale puts its white at **100 nits**, what a reference SDR monitor shows, so an SDR clip beside a PQ master in dual view reads where a monitor would put it.
+
+Under the trace, **Frame · Max** gives the brightest level in the current frame and the highest seen since the clip started; hover it for the brightest channel, and click **Reset** to start over.
+
+**Choosing the scale** — the **Auto · % · nits** chips. **Auto** follows the interpretation above: SDR sources on percent, everything else on nits. **%** and **nits** force one or the other; the scale label says *(manual)* while a forced scale disagrees with Auto. Forcing nits needs something to convert from, so a Signal-tier source stays on percent. The choice is shared with the vectorscope and remembered between launches.
+
+**Sources without usable tags** — an HDR export whose file carries no transfer tag reads as SDR and lands on the percent scale. Tell the scopes what it is with the **Transfer** pill (see [Per-clip properties](#per-clip-properties-pills)); streams have the same control on the live strip.
 
 In dual view each side is read from its own file, drawn in its own colour.
 

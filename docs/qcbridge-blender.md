@@ -102,3 +102,5 @@ From the host panel:
 - **Force Resync** — resyncs the whole file if something is not updating naturally.
 
 In QCView the stream is a live media item: load it on one side of a Dual View against an approved render, and set the OCIO input to your Blender scene's working space.
+
+The stream's colour tags, when the encoder writes them, reach the scopes with the session, so a PQ stream measures in nits without further setup. If the encoder leaves them out, the **Transfer** chip on the live strip names the encoding; see [HDR sources without tags](/hdr/#hdr-sources-without-tags).

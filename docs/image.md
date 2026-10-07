@@ -21,6 +21,10 @@ Open or drag a single image from a sequence, and QCView automatically detects th
 Image sequences are cached to RAM and uploaded to the GPU as you traverse the timeline. The cache progress bar shows how much read-ahead and read-behind is available at the current playhead position.
 
 
+## Colour interpretation
+
+The **Transfer** chips on the Image Sequence card tell the scopes how to read the frames when the format rule is wrong for them. **Auto** reads EXR as scene-linear and everything else as sRGB; pick `SDR 709`, `PQ 2020`, `PQ P3`, `HLG` or `Linear` to say otherwise. With OCIO on, the clip's Input still drives the picture and the scopes. Single stills are one-frame sequences and get the same chips.
+
 ## Broken and Missing Frames
 
 QCView detects incomplete sequences and fills gaps with the last good frame so you can review in-progress renders. A red bar will appear over missing frames in the timeline.

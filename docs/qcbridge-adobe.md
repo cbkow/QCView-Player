@@ -47,6 +47,8 @@ Updating is the same step with a newer installer.
 
 **Set QCView's OCIO input to your project's working space.** The pixels arrive in the host's working colour space, untransformed. With Adobe colour management that is the project's working space; with OCIO colour management, the OCIO working space (for example ACEScg).
 
+The feed carries no colour tag, so with OCIO off the scopes read it as SDR. The **Transfer** chip on the live strip tells them what it is: `Linear` for a linearised working space, `SDR 709` for a display-referred one, `PQ 2020` for an HDR project. See [HDR sources without tags](/hdr/#hdr-sources-without-tags).
+
 ---
 
 ## What to expect

@@ -43,3 +43,19 @@ In `EDR — Linear P3` mode, use the matching `Linear P3 EDR` output in the ACES
 Pick the source's colorspace as the clip's **Input**: `Rec.2100-PQ` for a BT.2020 PQ master, `ST2084-P3-D65` for a PQ master graded in P3-D65 (Resolve's "P3-D65 ST2084"), `Rec.2100-HLG` for HLG. The Input stays with that clip, so SDR and HDR clips can sit side by side in the same project or dual view.
 
 The Inspector's **HDR metadata** row shows the file's MaxCLL, MaxFALL and mastering peak when the container carries them.
+
+---
+
+## HDR sources without tags
+
+Some HDR exports carry no transfer tag, and a live source never carries a file's tags: an SRT stream brings what its encoder put in the bitstream, and a QCBridge Transmit feed is the host's working space, untagged by nature. QCView treats an untagged source as SDR, so the scopes would measure it in percent.
+
+- **Files, stills and sequences** — set the **Transfer** pill in the Inspector (Color card for video, Image Sequence card for sequences and stills): `PQ 2020`, `PQ P3`, `HLG`, or `Linear` for a scene-linear feed. Auto tells you what the tags resolve to before you override them.
+- **Streams** — the same choice is a chip on the live strip, next to the Color panel button.
+- **With OCIO on**, the clip's Input still decides how the picture and the scopes read the source; the Transfer pill then feeds the scope's mismatch note when the two disagree.
+
+---
+
+## Measuring in nits
+
+The waveform's nits scale is linear luminance: PQ and HLG sources plot their absolute values, and an SDR or scene-linear source puts its white at 100 nits, what a reference SDR monitor shows. The amber **203** line marks HDR graphics white (BT.2408) for placing titles and SDR inserts in an HDR programme. The **Auto · % · nits** chips under the waveform force either scale; see [Scopes](/inspector/#scopes).
