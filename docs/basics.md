@@ -64,12 +64,12 @@ You can also use the mouse to toggle panels. Rails can be opened and closed by c
 | Preset | Shortcut | Description |
 |---|---|---|
 | Minimal Mode | `Ctrl + 0` | Viewport + transport only; the rails collapse to their slim strips |
-| Compact Mode | `Ctrl + Shift + C` | Viewport plus one slim strip: timecode, a scrub line, fullscreen and exit. Press `Ctrl + Shift + C` again, `Esc`, or the strip's ✕ to leave; your panels come back as they were |
+| Compact Mode | `Ctrl + Shift + C` | Viewport plus one slim strip: play / pause, timecode, a scrub line and exit. Press `Ctrl + Shift + C` again, `Esc`, or the strip's ✕ to leave; your panels come back as they were |
 | Show All Panels | `Ctrl + 9` | Opens every panel |
 | Default View | `Ctrl + R` | Rails, timeline, Color panel and status bar |
 | Fullscreen | `F` | Viewport only, no UI. Press `F` or `Esc` to exit |
 
-Compact Mode is for a window that is nothing but the picture: every panel, rail and toolbar goes away, the window loses its title bar, and a 22 px strip under the viewport keeps the timecode, a scrub line with the playhead and in / out marks, and two buttons, fullscreen and exit. Drag the timecode to move the window; the window's edges still resize it. Scrubbing on the strip works the way the timeline does, in single, dual and playlist view. Live sources show a live dot instead of the playhead. On macOS the menu bar stays at the top of the screen; on Windows the menu is hidden with the rest of the chrome, so use the shortcuts (`Alt + F4` still closes the app).
+Compact Mode is for a window that is nothing but the picture: every panel, rail and toolbar goes away, the window loses its title bar, and a 22 px strip under the viewport keeps a play / pause button, the timecode, a scrub line with the playhead and in / out marks, and an exit button; `F` still toggles fullscreen. Drag the timecode to move the window; the window's edges still resize it. Scrubbing on the strip works the way the timeline does, in single, dual and playlist view. Live sources show a live dot instead of the playhead. On macOS the menu bar stays at the top of the screen; on Windows the menu is hidden with the rest of the chrome, so use the shortcuts (`Alt + F4` still closes the app).
 
 
 ## Backgrounds and Overlays

@@ -3,8 +3,9 @@
 // A fixed 22 px band under the viewport (never over it: the viewport is
 // a native surface and in-scene QML cannot draw above it, and a strip
 // whose height changed on hover would resize that surface). Timecode
-// on the left, a scrub line with the playhead and the in / out marks
-// through the middle, fullscreen and exit on the right. Scrubbing runs
+// play / pause and the timecode on the left, a scrub line with the
+// playhead and the in / out marks through the middle, exit on the right
+// (fullscreen stays on F — chris, 2026-10-07). Scrubbing runs
 // the timeline panel's own gesture (scrubBeginAt / scrubMoveTo /
 // scrubEndAt), so dual, playlist, image-sequence and audio sources all
 // behave as they do on the timeline. Live sources show a live dot.
@@ -24,7 +25,6 @@ Rectangle {
     property var timeline: null
 
     signal exitRequested()
-    signal fullscreenRequested()
 
     readonly property var  timer: WindowManager.timeline ? WindowManager.timeline.timer : null
     readonly property real duration: timer ? timer.duration : 0
@@ -32,6 +32,13 @@ Rectangle {
     readonly property bool loaded: duration > 0 && !WindowManager.liveActive
     readonly property bool isPlaylistMode:
         WindowManager.timeline && WindowManager.timeline.sourceMode === 1
+    // The same reading TransportBar makes: dual master, else the timer
+    // for image sequences and audio, else the video decoder.
+    readonly property bool isPlaying: {
+        if (WindowManager.dualController) return WindowManager.dualController.isPlaying;
+        if (WindowManager.imageSeqActive || WindowManager.audioActive) return timer ? timer.playing : false;
+        return !!WindowManager.videoDecoder && WindowManager.videoDecoder.isPlaying;
+    }
 
     // The active clock's fps (dual master / video source / timeline),
     // the same choice TimelineStatus makes, for the in / out marks.
@@ -58,9 +65,21 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: Theme.gutterWidth
+        anchors.leftMargin: Theme.padding
         anchors.rightMargin: Theme.padding
         spacing: Theme.paddingLoose
+
+        // ---- Play / pause -------------------------------------------
+        FlatButton {
+            iconName: root.isPlaying ? "pause" : "play"
+            iconColor: Theme.textBright
+            iconSize: Theme.iconSizeToolbar
+            Layout.preferredWidth: 22
+            Layout.preferredHeight: 22
+            enabled: root.loaded
+            tooltipText: root.isPlaying ? qsTr("Pause (Space)") : qsTr("Play (Space)")
+            onClicked: WindowManager.togglePlayback()
+        }
 
         // ---- Timecode / time — also the window's move handle -------
         // The window has no title bar in Compact Mode; dragging here
@@ -172,15 +191,7 @@ Rectangle {
             }
         }
 
-        // ---- Fullscreen / exit --------------------------------------
-        FlatButton {
-            iconName: "corners-out"
-            iconSize: Theme.iconSizeToolbar
-            Layout.preferredWidth: 22
-            Layout.preferredHeight: 22
-            tooltipText: qsTr("Fullscreen (F)")
-            onClicked: root.fullscreenRequested()
-        }
+        // ---- Exit ---------------------------------------------------
         FlatButton {
             iconName: "x"
             iconSize: Theme.iconSizeToolbar

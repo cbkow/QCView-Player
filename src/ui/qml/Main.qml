@@ -1478,14 +1478,13 @@ ApplicationWindow {
         // outside fullscreen — these are core playback readouts, NOT
         // part of the opt-in statusStripVisible diagnostics bar (that
         // flag gates the decoder-chips StatusStrip at the very bottom).
-        // Compact Mode's one band: timecode, scrub line, fullscreen, exit.
+        // Compact Mode's one band: play / pause, timecode, scrub line, exit.
         CompactStrip {
             Layout.fillWidth: true
             Layout.preferredHeight: root.compactMode && !root.inFullscreen ? 22 : 0
             visible: root.compactMode && !root.inFullscreen
             timeline: timelinePanel
             onExitRequested: root.exitCompact()
-            onFullscreenRequested: root.toggleFullscreen()
         }
         TimelineStatus {
             Layout.fillWidth: true
