@@ -160,7 +160,12 @@ bool exitBorderlessFullscreen(QWindow *qwindow)
 }
 
 namespace {
-struct CompactSaved { NSWindowStyleMask styleMask; BOOL hasShadow; BOOL opaque; };
+struct CompactSaved {
+    NSWindowStyleMask styleMask; BOOL hasShadow; BOOL opaque;
+    NSColor *backgroundColor; BOOL wantsLayer; CGFloat cornerRadius; BOOL masksToBounds;
+};
+// macOS 11+ window corners (the system draws ~10 pt on framed windows).
+constexpr CGFloat kCompactCornerRadius = 10.0;
 std::unordered_map<void *, CompactSaved> &compactSavedMap()
 {
     static std::unordered_map<void *, CompactSaved> map;
@@ -175,16 +180,29 @@ bool setCompactBorderless(QWindow *qwindow, bool on)
     std::lock_guard<std::mutex> lk(savedStateMutex());
     if (savedStateMap().count(win)) return false;      // in borderless fullscreen: later
     auto it = compactSavedMap().find(win);
+    NSView *content = win.contentView;
     if (on) {
         if (it != compactSavedMap().end()) return true;
-        compactSavedMap().emplace(win, CompactSaved{win.styleMask, win.hasShadow, win.opaque});
+        compactSavedMap().emplace(win, CompactSaved{
+            win.styleMask, win.hasShadow, win.opaque, win.backgroundColor,
+            content.wantsLayer, content.layer ? content.layer.cornerRadius : 0.0,
+            content.layer ? content.layer.masksToBounds : NO});
         // Same frame, no title bar; Resizable keeps AppKit's edge
         // resize zones. The content view grows into the title area.
         win.styleMask = NSWindowStyleMaskBorderless | NSWindowStyleMaskResizable;
-        // Borderless clears opaque (see enterBorderlessFullscreen); our
-        // drawable is opaque, so say so. The shadow stays: this is a
-        // window among windows.
-        win.opaque = YES;
+        // A borderless window has square corners; a framed one on this
+        // macOS has rounded ones, and Windows rounds frameless windows
+        // through DWM. Round ours the same way: the content view's layer
+        // clips to a radius (the player's Metal view is a subview of it,
+        // Qt embeds child QWindows as NSViews, so its top corners clip
+        // too) and the window goes non-opaque with a clear background so
+        // the corners show what is behind. The shadow follows the alpha.
+        win.opaque          = NO;
+        win.backgroundColor = NSColor.clearColor;
+        content.wantsLayer  = YES;
+        content.layer.cornerRadius  = kCompactCornerRadius;
+        content.layer.masksToBounds = YES;
+        [win invalidateShadow];
     } else {
         if (it == compactSavedMap().end()) return true;
         const CompactSaved s = it->second;
@@ -192,6 +210,13 @@ bool setCompactBorderless(QWindow *qwindow, bool on)
         win.styleMask = s.styleMask;
         win.hasShadow = s.hasShadow;
         win.opaque    = s.opaque;
+        win.backgroundColor = s.backgroundColor;
+        if (content.layer) {
+            content.layer.cornerRadius  = s.cornerRadius;
+            content.layer.masksToBounds = s.masksToBounds;
+        }
+        content.wantsLayer = s.wantsLayer;
+        [win invalidateShadow];
     }
     // A styleMask change can drop key status, as in fullscreen.
     // makeMainWindow throws (NSInternalInconsistencyException) when the

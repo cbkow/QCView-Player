@@ -88,6 +88,7 @@ Rectangle {
         Item {
             Layout.preferredWidth: 96
             Layout.fillHeight: true
+            Layout.leftMargin: Theme.padding    // air between the button and the digits
             MouseArea {
                 anchors.fill: parent
                 hoverEnabled: true
