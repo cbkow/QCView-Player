@@ -19,6 +19,7 @@ import Qcv
 
 Rectangle {
     id: root
+    objectName: "compactStrip"
     color: Theme.surface
 
     // The TimelinePanel instance whose scrub gesture this strip drives.

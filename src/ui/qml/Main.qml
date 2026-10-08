@@ -573,8 +573,14 @@ ApplicationWindow {
                 onTriggered: root.viewMinimal()
             }
             Action {
-                text: root.compactMode ? qsTr("Exit Compact Mode") : qsTr("Compact Mode")
+                // A fixed label on purpose: Qt gives any native menu
+                // item whose text starts with "Exit" or "Quit" the
+                // Quit role and merges it into the app menu, so an
+                // "Exit Compact Mode" label took over Cmd+Q (2026-10-07).
+                text: qsTr("Compact Mode")
                 shortcut: "Ctrl+Shift+C"
+                checkable: true
+                checked: root.compactMode
                 onTriggered: root.toggleCompact()
             }
             Action {

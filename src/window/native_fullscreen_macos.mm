@@ -194,9 +194,22 @@ bool setCompactBorderless(QWindow *qwindow, bool on)
         win.opaque    = s.opaque;
     }
     // A styleMask change can drop key status, as in fullscreen.
+    // makeMainWindow throws (NSInternalInconsistencyException) when the
+    // window reports it cannot be main, which it does right after a
+    // mask change — ask first.
     [win makeKeyAndOrderFront:nil];
     [win makeKeyWindow];
-    [win makeMainWindow];
+    if (win.canBecomeMainWindow) [win makeMainWindow];
+    // Changing styleMask rebuilds the window's frame view, and AppKit
+    // leaves the first responder on the window itself: every key event
+    // then stops at NSWindow and Qt's view never sees it — no transport
+    // keys, no menu key equivalents, and it stays that way after the
+    // mask is restored. Hand the responder back to Qt's content view.
+    NSView *qtView = reinterpret_cast<NSView *>(qwindow->winId());
+    if (qtView) [win makeFirstResponder:qtView];
+    qInfo("setCompactBorderless(%s): firstResponder=%s key=%d mask=0x%lx", on ? "on" : "off",
+          win.firstResponder ? win.firstResponder.className.UTF8String : "nil",
+          (int)win.isKeyWindow, (unsigned long)win.styleMask);
     return true;
 }
 
