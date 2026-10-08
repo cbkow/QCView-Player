@@ -71,6 +71,8 @@ You can also use the mouse to toggle panels. Rails can be opened and closed by c
 
 Compact Mode is for a window that is nothing but the picture: every panel, rail and toolbar goes away, the window loses its title bar, and a 22 px strip under the viewport keeps a play / pause button, the timecode, a scrub line with the playhead and in / out marks, and an exit button; `F` still toggles fullscreen. Drag the timecode to move the window; the window's edges still resize it. Scrubbing on the strip works the way the timeline does, in single, dual and playlist view. Live sources show a live dot instead of the playhead. On macOS the menu bar stays at the top of the screen; on Windows the menu is hidden with the rest of the chrome, so use the shortcuts (`Alt + F4` still closes the app).
 
+![Compact Mode: the picture, and one strip with play / pause, timecode, the scrub line and the expand button](images/qcv044.png)
+
 
 ## Backgrounds and Overlays
 
