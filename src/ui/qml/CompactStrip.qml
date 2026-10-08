@@ -4,7 +4,7 @@
 // a native surface and in-scene QML cannot draw above it, and a strip
 // whose height changed on hover would resize that surface). Timecode
 // play / pause and the timecode on the left, a scrub line with the
-// playhead and the in / out marks through the middle, exit on the right
+// playhead and the in / out marks through the middle, expand (exit) on the right
 // (fullscreen stays on F — chris, 2026-10-07). Scrubbing runs
 // the timeline panel's own gesture (scrubBeginAt / scrubMoveTo /
 // scrubEndAt), so dual, playlist, image-sequence and audio sources all
@@ -67,7 +67,7 @@ Rectangle {
     RowLayout {
         anchors.fill: parent
         anchors.leftMargin: Theme.padding
-        anchors.rightMargin: Theme.padding
+        anchors.rightMargin: Theme.paddingLoose   // clear of the rounded corner
         spacing: Theme.paddingLoose
 
         // ---- Play / pause -------------------------------------------
@@ -193,9 +193,9 @@ Rectangle {
             }
         }
 
-        // ---- Exit ---------------------------------------------------
+        // ---- Expand back to the full UI -----------------------------
         FlatButton {
-            iconName: "x"
+            iconName: "arrows-out-simple"
             iconSize: Theme.iconSizeToolbar
             Layout.preferredWidth: 22
             Layout.preferredHeight: 22
