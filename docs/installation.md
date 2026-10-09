@@ -52,6 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.3
+
+- **Audio** — playback no longer pops or crackles as it keeps in sync with the picture. Every audio cut (pause, resume, seek, loop wrap, sync correction) is now a short fade, seeks land on the exact sample instead of up to a frame early, audio waits for the first picture after play or seek so it never runs ahead, and the sync servo corrects more gently and re-seeks far less often. A long-standing one-sample-per-block drop in the rate matcher that produced a faint crackle under every servo correction is also fixed. Applies to single clips, dual view and playlists.
+
 What's new in 2.5.2
 
 - **minColor engine** — a second colour engine beside OCIO, built from the minColor core that also powers the minColorAE plugin. Pick **OCIO** or **minColor** in the Color panel's preset bar; the one On / Off switch covers both. The chain is **Input** (gamut + transfer, per clip) → **Highlight Knee** (per clip) → **AgX** → **Rendering** (Un-tone-mapped or OpenDRT) → **Display**. Per-clip pins, badges, presets, screenshots, LUT export and the scopes all work the same way as under OCIO, and each engine keeps its own settings and preset list when you switch.
