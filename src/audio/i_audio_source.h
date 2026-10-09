@@ -86,6 +86,18 @@ public:
     // against the new seek anchor.
     virtual bool seekPending() const = 0;
 
+    // ---- Seek flush, consumer side ----
+    // A completed seek no longer clears the ring. The decode thread
+    // marks everything written before the seek as stale and bumps
+    // this generation; post-seek audio queues behind the mark. The
+    // render callback compares the generation each block, fades the
+    // stale tail out (staleFrames() of it are still readable through
+    // read()), then discardStale() jumps to the post-seek audio.
+    // All three are safe from the render callback.
+    virtual uint32_t    flushGeneration() const = 0;
+    virtual std::size_t staleFrames()     const = 0;
+    virtual void        discardStale()          = 0;
+
     // ---- Routing ----
     // Per-clip channel routing mode (qcv::AudioRoutingMode cast to
     // int: 0 = Auto, 1 = Downmix5_1, 2 = Stereo7_8). Setter is

@@ -55,6 +55,59 @@ public:
                         std::memory_order_release);
     }
 
+    // ---- Stale-region flush (seek without a hard cut) ----
+    // Producer-only, called at the seek point of the decode thread:
+    // everything written so far is pre-seek audio. Instead of
+    // clear() (not SPSC-safe with a live consumer, and a hard cut
+    // at the drain), the producer records the boundary and keeps
+    // writing post-seek audio behind it. The consumer notices the
+    // generation bump, fades the stale tail out, then discardStale()
+    // skips straight to the post-seek data.
+    void markStale() noexcept
+    {
+        m_stalePos.store(m_writePos.load(std::memory_order_relaxed),
+                         std::memory_order_release);
+        m_staleGen.fetch_add(1, std::memory_order_release);
+    }
+
+    // Consumer-side: bumps once per markStale().
+    uint32_t staleGeneration() const noexcept
+    {
+        return m_staleGen.load(std::memory_order_acquire);
+    }
+
+    // Consumer-side: bytes of pre-seek audio still queued ahead of
+    // the read cursor (0 once discarded or fully drained).
+    size_t staleBytes() const noexcept
+    {
+        const size_t s = m_stalePos.load(std::memory_order_acquire);
+        const size_t r = m_readPos .load(std::memory_order_relaxed);
+        return (s > r) ? (s - r) : 0;
+    }
+
+    // Consumer-only: skip the read cursor past the stale region.
+    // Only ever moves readPos forward to a position the producer has
+    // already written, so it's SPSC-safe like discardAll().
+    void discardStale() noexcept
+    {
+        const size_t s = m_stalePos.load(std::memory_order_acquire);
+        const size_t r = m_readPos .load(std::memory_order_relaxed);
+        if (s > r) m_readPos.store(s, std::memory_order_release);
+    }
+
+    // Producer-side depth target: bytes of POST-seek audio queued.
+    // Stale bytes the consumer hasn't discarded yet don't count,
+    // otherwise the depth target stalls the refill right after a
+    // seek until the consumer gets round to the discard.
+    size_t freshBytes() const noexcept
+    {
+        const size_t w = m_writePos.load(std::memory_order_relaxed);
+        const size_t r = m_readPos .load(std::memory_order_acquire);
+        const size_t s = m_stalePos.load(std::memory_order_relaxed);
+        const size_t base = (s > r) ? s : r;
+        return (w >= base) ? (w - base) : 0;
+    }
+
     // Bytes available to read (consumer perspective).
     size_t availableRead() const noexcept
     {
@@ -119,6 +172,8 @@ private:
     std::vector<uint8_t>   m_buffer;
     std::atomic<size_t>    m_writePos;
     std::atomic<size_t>    m_readPos;
+    std::atomic<size_t>    m_stalePos{0};
+    std::atomic<uint32_t>  m_staleGen{0};
 };
 
 } // namespace qcv

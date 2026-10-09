@@ -27,6 +27,7 @@
 #pragma once
 
 #include "audio/audio_sync_servo.h"
+#include "audio/audio_drain_stage.h"
 #include "audio/fractional_resampler.h"
 #include "audio/shuttle_audio_engine.h"
 
@@ -142,6 +143,15 @@ public:
     // after so both anchors restart clean.
     void setTempoBoth(double tempo);
 
+    // Post-seek hold (mirrors AudioPlayer::setHold). The controller
+    // pins the master clock after a seek-while-playing until both
+    // sides have the frame; without a matching audio hold the mixer
+    // keeps consuming from the seek target, runs ahead by the hold
+    // duration, and the servo cuts it back on release. Faded by the
+    // drain stage. pause() clears it.
+    void setHold(bool on);
+    bool held() const { return m_hold.load(); }
+
     // ---- Shuttle (FF/RW hold gesture) ----
     // Two ShuttleAudioEngines (one per side) following the per-side
     // translated source positions DualPlaybackController computes
@@ -200,9 +210,18 @@ private:
         std::chrono::steady_clock::time_point lastUpdate{};   // pump
         bool                  lastUpdateValid = false;         // pump
         int                   logCounter = 0;                  // pump
+        int                   outOfBandTicks = 0;              // pump
 
-        FractionalResampler   resampler;   // render callback only
+        // Render-callback drain (resampler + fades); req carries the
+        // cross-thread knobs (skip / restart).
+        AudioDrainStage          drain;
+        AudioDrainStage::Request req;
     };
+    std::atomic<bool> m_hold{false};
+    // pause() fades out, then stops the device a couple of blocks
+    // later; guarded against an intervening play().
+    int  m_pauseGeneration = 0;
+    void stopDeviceDeferred();
     // Re-anchor one side at a fresh source position (seek sites).
     void reanchorSide(SideSync &sync, double anchorSrcSec);
     // Servo tick for one side (updatePerSide).

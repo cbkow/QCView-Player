@@ -8,6 +8,7 @@
 set(QCV_AUDIO_SOURCES
     audio_ring_buffer.h
     audio_sync_servo.h
+    audio_drain_stage.h
     fractional_resampler.h
     i_audio_source.h
     audio_decoder.h

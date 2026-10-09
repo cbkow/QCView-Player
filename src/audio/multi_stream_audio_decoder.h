@@ -84,6 +84,14 @@ public:
     // flushAndSeek (graph flush + ring clear) completed.
     bool seekPending() const override { return m_seekRequested.load(); }
 
+    // Stale-region flush (see IAudioSource). Pass-throughs to the ring.
+    uint32_t    flushGeneration() const override
+    { return m_ring ? m_ring->staleGeneration() : 0; }
+    std::size_t staleFrames() const override
+    { return m_ring ? m_ring->staleBytes() / (2 * sizeof(float)) : 0; }
+    void        discardStale() override
+    { if (m_ring) m_ring->discardStale(); }
+
     // Constant-pitch tempo (review speeds). Pass-through to the
     // TempoStage; applied lazily on the decode thread. 1.0 = bypass.
     void   setTempo(double tempo) override { m_tempoStage.setTempo(tempo); }
@@ -188,6 +196,11 @@ private:
     std::atomic<double>     m_lastSeekTime{0.0};
     std::atomic<double>     m_decodePosition{0.0};
     std::atomic<double>     m_readPosition{0.0};
+
+    // Sample-accurate seek landing — same mechanism as AudioDecoder
+    // (drop graph output before the target). Decode thread only.
+    bool   m_trimPending   = false;
+    double m_trimTargetSec = 0.0;
 
     // Per-channel peaks. Indexed by global channel position (0-based)
     // — channel i means "the i-th audio channel across the whole file

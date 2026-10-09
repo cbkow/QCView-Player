@@ -17,6 +17,7 @@ extern "C" {
 }
 
 #include <QFileInfo>
+#include <QTimer>
 #include <QtGlobal>
 #include <QtLogging>
 #include <cmath>
@@ -184,6 +185,12 @@ bool AudioPlayer::open(const QString &path, int audioStreamCountHint)
 void AudioPlayer::close()
 {
     if (m_isPlaying.load()) stop();
+#if QCV_HAS_AUDIO_DEVICE
+    // Synchronous stop: open() replaces m_decoder next and the
+    // callback must not be mid-read when it does. (pause() alone
+    // defers the stop by a couple of blocks for its fade-out.)
+    if (m_device && !shuttleActive()) m_device->stop();
+#endif
     if (m_decoder) m_decoder->close();
     emit hasAudioChanged();
 }
@@ -197,6 +204,12 @@ void AudioPlayer::play()
     // seek() alone (consumption simply pauses with the device while
     // stopped, so the estimate stays valid across pause/play), and
     // WindowManager seeks before resuming playback anyway.
+    //
+    // Playout continuity restarts: the drain fades the first block
+    // in and drops any stale pre-seek audio silently rather than
+    // "fading out" something the listener never heard.
+    ++m_pauseGeneration;                 // cancels a deferred stop
+    m_drainReq.restart.store(true, std::memory_order_release);
     if (m_device) m_device->start();
 #endif
     emit isPlayingChanged();
@@ -205,10 +218,78 @@ void AudioPlayer::play()
 void AudioPlayer::pause()
 {
     if (!m_isPlaying.exchange(false)) return;
+    // A pause while held must not leave the hold armed for the next
+    // play (which re-arms it explicitly when it wants one).
+    m_drainReq.hold.store(false, std::memory_order_release);
+    m_drainReq.skipFrames.store(0, std::memory_order_release);
 #if QCV_HAS_AUDIO_DEVICE
-    if (m_device) m_device->stop();
+    // The callback sees !m_isPlaying, fades the current block out and
+    // then outputs silence; stop the device once that has played.
+    stopDeviceDeferred();
 #endif
     emit isPlayingChanged();
+}
+
+void AudioPlayer::stopDeviceDeferred()
+{
+#if QCV_HAS_AUDIO_DEVICE
+    const int gen = ++m_pauseGeneration;
+    QTimer::singleShot(30, this, [this, gen] {
+        if (gen != m_pauseGeneration) return;         // play() came back
+        if (m_isPlaying.load() || shuttleActive()) return;
+        if (m_device) m_device->stop();
+    });
+#endif
+}
+
+void AudioPlayer::setHold(bool on)
+{
+    m_drainReq.hold.store(on, std::memory_order_release);
+    if (on) m_lastServoUpdateValid = false;
+}
+
+void AudioPlayer::releaseHold(double masterSeconds)
+{
+    if (!m_drainReq.hold.load(std::memory_order_acquire)) return;
+    if (!m_decoder || !m_decoder->hasAudio()) {
+        m_drainReq.hold.store(false, std::memory_order_release);
+        return;
+    }
+#if QCV_HAS_AUDIO_DEVICE
+    // Where did the master clock actually land relative to the audio
+    // anchor? Forward by a little: drop that many ring frames (the
+    // decode thread has ~100 ms queued, no seek, no refill gap).
+    // Backward, or forward by a lot: re-seek (sample-accurate now).
+    constexpr double kSkipMaxSeconds = 0.400;
+    constexpr double kDeadbandSeconds = 0.004;
+    const double offsetSec =
+        m_syncOffsetMs.load(std::memory_order_relaxed) / 1000.0;
+    const double tempo = m_decoder->tempo();
+    const int sampleRate = m_device ? m_device->sampleRate() : 48000;
+    const double consumedSec =
+        static_cast<double>(m_srcFramesConsumed.load(std::memory_order_relaxed))
+        / static_cast<double>(sampleRate) * tempo;
+    const double delta = (masterSeconds - offsetSec)
+                       - (m_anchorSrcSec + consumedSec);
+    if (delta > kDeadbandSeconds && delta <= kSkipMaxSeconds) {
+        m_drainReq.skipFrames.store(
+            static_cast<uint32_t>(std::lround(delta / tempo * sampleRate)),
+            std::memory_order_release);
+        qInfo("AudioPlayer: hold released, skipping %+.0f ms to the "
+              "landed frame", delta * 1000.0);
+    } else if (delta < -kDeadbandSeconds || delta > kSkipMaxSeconds) {
+        qInfo("AudioPlayer: hold released, re-seeking (%+.0f ms)",
+              delta * 1000.0);
+        seek(masterSeconds);
+    } else {
+        qInfo("AudioPlayer: hold released in place (%+.1f ms)",
+              delta * 1000.0);
+    }
+#else
+    Q_UNUSED(masterSeconds);
+#endif
+    m_drainReq.hold.store(false, std::memory_order_release);
+    m_lastServoUpdateValid = false;
 }
 
 void AudioPlayer::stop() { pause(); }
@@ -237,9 +318,11 @@ void AudioPlayer::seek(double seconds)
 
     m_anchorSrcSec = seconds - offsetSec;
     m_srcFramesConsumed.store(0, std::memory_order_relaxed);
+    m_drainReq.skipFrames.store(0, std::memory_order_release);  // superseded
     m_servo.reset();
     m_servoRatio.store(1.0f, std::memory_order_relaxed);
     m_lastServoUpdateValid = false;
+    m_outOfBandTicks = 0;
 }
 
 void AudioPlayer::setSyncOffsetMs(int ms)
@@ -342,22 +425,31 @@ void AudioPlayer::update(double videoPositionSeconds)
     // Continuous sync servo, called per video frame (video mode) or
     // from the ~30 Hz pump (other modes). Three tiers by |drift|:
     //
-    //   <= 40 ms  servo band — trim the render callback's consumption
-    //             ratio by up to ±0.2 % (inaudible) via the PI
-    //             controller; drift converges to ~0 with no seeks.
-    //   40 ms..1s soft re-seek with the 1 s cooldown (the old
-    //             correction path — now rare; something external
-    //             pushed audio well off the clock).
+    //   <= 100 ms servo band — trim the render callback's consumption
+    //             ratio via the PI controller (±0.2 % inside 20 ms,
+    //             opening to ±1.5 % at the band edge — see
+    //             AudioSyncServo); drift converges with no seeks.
+    //             The band is > 2 frame periods at 24p: one late
+    //             video publish (one frame = 41.7 ms) must stay a
+    //             servo matter, never a cut.
+    //   band..1 s soft re-seek, only once the drift has stayed out of
+    //             band for several consecutive ticks AND the 1 s
+    //             cooldown has elapsed. The cut itself is faded by
+    //             the drain stage and lands sample-accurately.
     //   > 1 s     discontinuity (loop wrap, external scrub): re-seek
     //             immediately, cooldown bypassed. Letting audio trail
     //             a full clip behind is the gap the user hears as
     //             "pause until the audio catches up."
-    constexpr double kServoBandSeconds     = 0.040;
+    constexpr double kServoBandSeconds     = 0.100;
     constexpr double kSeekCooldownSeconds  = 1.0;
     constexpr double kDiscontinuitySeconds = 1.0;
+    constexpr int    kOutOfBandTicksToSeek = 4;
 
     if (!m_decoder || !m_decoder->hasAudio()
         || !m_isPlaying.load()) return;
+    // Held (post-seek, waiting for the picture): consumption is
+    // frozen, so the estimate below is meaningless until release.
+    if (m_drainReq.hold.load(std::memory_order_acquire)) return;
 
 #if QCV_HAS_AUDIO_DEVICE
     if (!m_device) return;
@@ -408,8 +500,10 @@ void AudioPlayer::update(double videoPositionSeconds)
 
     if (absDrift > kServoBandSeconds) {
         const bool discontinuity = absDrift > kDiscontinuitySeconds;
+        const bool sustained = ++m_outOfBandTicks >= kOutOfBandTicksToSeek;
         if (discontinuity
-            || m_decoder->secondsSinceLastSeek() > kSeekCooldownSeconds) {
+            || (sustained
+                && m_decoder->secondsSinceLastSeek() > kSeekCooldownSeconds)) {
             qInfo("AudioPlayer: drift %+0.0f ms — re-seeking audio to "
                   "%.2fs%s",
                   drift * 1000.0, videoPositionSeconds,
@@ -418,6 +512,7 @@ void AudioPlayer::update(double videoPositionSeconds)
         }
         return;
     }
+    m_outOfBandTicks = 0;
 
     // Servo band: dt-aware PI update, ratio published to the render
     // callback.
@@ -480,38 +575,24 @@ void AudioPlayer::processAudio(float *output, uint32_t frameCount)
         for (size_t i = 0; i < n; ++i) output[i] *= vol;
         return;
     }
-    if (!m_isPlaying.load() || !m_decoder || !m_decoder->hasAudio()) {
-        std::memset(output, 0, outBytes);
-        return;
-    }
-    // Decoder seek in flight: the ring holds pre-seek audio about to
-    // be flushed. Output silence WITHOUT consuming so pre-flush
-    // frames never count against the fresh seek anchor.
-    if (m_decoder->seekPending()) {
+    if (!m_decoder || !m_decoder->hasAudio()) {
         std::memset(output, 0, outBytes);
         return;
     }
 
-    // Drain through the servo resampler at the ratio update()
-    // published. Ratio 1.0 ± 0.2 % — srcNeeded ≈ frameCount.
+    // Drain through the stage at the ratio update() published. The
+    // stage owns the resampler, the seek-pending / stale-tail logic,
+    // every fade, the hold and the skip request, and adds only REAL
+    // post-seek frames to the consumption counter (silence padding
+    // and pre-seek audio don't advance the stream, so they must not
+    // advance the position estimate). Not playing = hold: the block
+    // fades out, then silence until pause()'s deferred device stop.
     const double ratio =
         static_cast<double>(m_servoRatio.load(std::memory_order_relaxed));
-    const size_t srcNeeded =
-        m_servoResampler.sourceFramesNeeded(frameCount, ratio);
-    if (srcNeeded * 2 > m_servoScratch.size()) {
-        // Callback larger than the scratch sized at initialize() —
-        // shouldn't happen; silence beats allocating on the RT thread.
-        std::memset(output, 0, outBytes);
-        return;
-    }
-    // read() pads underrun with silence; count only REAL frames —
-    // the stream doesn't advance for the padded region, and the
-    // position estimate must not either.
-    const size_t framesRead =
-        m_decoder->read(m_servoScratch.data(), srcNeeded);
-    m_servoResampler.process(m_servoScratch.data(), srcNeeded,
-                             output, frameCount, ratio);
-    m_srcFramesConsumed.fetch_add(framesRead, std::memory_order_relaxed);
+    m_drain.process(*m_decoder, output, frameCount, ratio,
+                    m_servoScratch.data(), m_servoScratch.size() / 2,
+                    m_srcFramesConsumed, m_drainReq,
+                    /*extraHold=*/!m_isPlaying.load());
 
     // Muted AFTER consuming: the stream keeps advancing with the
     // clock, so unmute plays current audio, not a stale buffer.

@@ -460,6 +460,11 @@ void DualPlaybackController::seekToFrame(int frameNumber)
         };
         m_audio->seekPerSide(perSideSeconds('A', m_sourceA.get()),
                               perSideSeconds('B', m_sourceB.get()));
+        // Clock pinned above → pin the audio with it. Released in the
+        // pump together with the clock hold.
+        if (m_seekHoldFrame.load(std::memory_order_acquire) >= 0) {
+            m_audio->setHold(true);
+        }
     }
 
     {
@@ -1046,6 +1051,7 @@ void DualPlaybackController::clockPumpLoop()
             target = hold;
             if (ready || late || !m_timer->isPlaying()) {
                 m_seekHoldFrame.store(-1, std::memory_order_release);
+                if (m_audio) m_audio->setHold(false);
                 qInfo("DualPlaybackController: seek hold at %d released (%s)", hold,
                       late ? "deadline" : ready ? "both sides ready" : "paused");
             }
@@ -1095,9 +1101,23 @@ void DualPlaybackController::clockPumpLoop()
         // and re-seeks the decoder on a gap → clip transition.
         // Negative position = "in gap on this side".
         if (m_audio) {
-            auto sec = [](IDualSource *src, int sf) -> double {
+            // Sub-frame remainder of the master clock. The pump samples
+            // a frame-quantized target at 60 Hz; without the remainder
+            // the drift signal carries a sawtooth of one frame period
+            // (41.7 ms at 24p) and the servo centres audio ~half a
+            // frame early. Time maps 1:1 between master and side, so
+            // the remainder in seconds applies to any side fps.
+            double masterFrac = 0.0;
+            if (m_timer && m_timer->fps() > 0.0) {
+                masterFrac = m_timer->positionSeconds()
+                           - static_cast<double>(target) / m_timer->fps();
+                const double period = 1.0 / m_timer->fps();
+                if (masterFrac < 0.0)     masterFrac = 0.0;
+                if (masterFrac > period)  masterFrac = period;
+            }
+            auto sec = [masterFrac](IDualSource *src, int sf) -> double {
                 if (!src || sf < 0 || src->fps() <= 0.0) return -1.0;
-                return static_cast<double>(sf) / src->fps();
+                return static_cast<double>(sf) / src->fps() + masterFrac;
             };
             m_audio->updatePerSide(sec(m_sourceA.get(), translatedA),
                                      sec(m_sourceB.get(), translatedB));

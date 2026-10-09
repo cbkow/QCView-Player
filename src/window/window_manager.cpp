@@ -1287,7 +1287,15 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             // previous content. In playlist mode the audio file is
             // the active clip's source, so we feed source time, not
             // timeline time.
+            //
+            // Then HOLD until the decoder publishes its first frame:
+            // audio seeks in milliseconds, the picture may take a
+            // frame (play from pause publishes the NEXT frame first)
+            // or hundreds of ms (fresh playlist clip, long-GOP seek).
+            // The currentFrameChanged handler below releases the hold
+            // at the frame that actually landed.
             m_audio->seek(audioPosition());
+            m_audio->setHold(true);
             m_audio->play();
         } else {
             m_audio->pause();
@@ -1305,7 +1313,14 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         // translates timeline → active-clip-source time before
         // feeding the audio side.
         if (m_videoDecoder->isPlaying()) {
-            m_audio->update(audioPosition());
+            if (m_audio->held()) {
+                // First picture after play/seek: resume audio at the
+                // frame that landed (ring-skip for a small forward
+                // delta, re-seek otherwise).
+                m_audio->releaseHold(audioPosition());
+            } else {
+                m_audio->update(audioPosition());
+            }
         } else {
             m_audio->seek(audioPosition());
         }
