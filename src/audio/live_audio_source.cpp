@@ -20,6 +20,7 @@ namespace qcv {
 namespace {
 constexpr int kWaitPollMs  = 250;   // segment absent or producer gone
 constexpr int kPacketPollMs = 2;    // segment healthy: how often to look
+constexpr int kIdlePollsBeforeMeterClear = 100 / kPacketPollMs;   // no packet for 100 ms: meters fall
 // Room for about a second of stereo float at 48 kHz: far more than any
 // depth target, so the only thing that ever trims is the target itself.
 constexpr size_t kRingBytes = 48000 * 2 * sizeof(float);
@@ -141,6 +142,7 @@ void LiveAudioSource::readerLoop()
 {
     qcbae::AudioRing ring;
     uint64_t last = 0, dropped = 0, droppedForDepth = 0, packets = 0, generation = 0;
+    int idlePolls = 0;
     qcbae::AudioSession session {};
     bool haveSession = false;
     uint32_t loggedPid = 0;
@@ -275,8 +277,13 @@ void LiveAudioSource::readerLoop()
                   (unsigned long long)packets, (unsigned long long)dropped, (unsigned long long)droppedForDepth,
                   1000.0 * static_cast<double>(m_ring.freshBytes()) / (48000.0 * 8.0));
         }
-        if (!haveSession && !any) {
-            // Segment there, host not pushing: nothing to say per poll.
+        // Meters: the host stopped (or paused between scrub pushes). The
+        // peaks are per packet, so without this they would hold the last
+        // packet's level for ever.
+        if (any) {
+            idlePolls = 0;
+        } else if (idlePolls < kIdlePollsBeforeMeterClear && ++idlePolls == kIdlePollsBeforeMeterClear) {
+            for (auto &pk : m_peaks) pk.store(0.0f, std::memory_order_relaxed);
         }
         if (!interruptibleSleep(kPacketPollMs)) break;
     }

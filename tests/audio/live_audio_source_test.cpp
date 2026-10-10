@@ -101,6 +101,10 @@ int main(int argc, char **argv)
         check(folded, "stereo passes L and R through");
         const size_t more = src.read(out.data(), 256);
         check(more == 0, "an empty queue delivers nothing (padded with silence)");
+        const auto held = src.peakLevels();
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));   // no packets: the host stopped
+        const auto fallen = src.peakLevels();
+        check(held[0] > 0.0f && fallen[0] == 0.0f && fallen[1] == 0.0f, "meters fall after 100 ms without a packet");
     }
 
     // --- a new session flushes what was queued -----------------------------
