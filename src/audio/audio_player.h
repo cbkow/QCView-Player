@@ -172,6 +172,15 @@ public:
     void releaseHold(double masterSeconds);
     bool held() const { return m_drainReq.hold.load(); }
 
+    // ---- Live playdown ----
+    // Whether a live (QCBridgeAE) source is heard. Off by default: the
+    // host is already playing the same audio through its own device.
+    // The stream is drained either way, so meters and taps keep
+    // running and switching it on plays current audio, not a buffer.
+    void setLivePlaydown(bool on) { m_livePlaydown.store(on, std::memory_order_release); }
+    bool livePlaydown() const { return m_livePlaydown.load(std::memory_order_acquire); }
+    bool sourceIsLive() const { return m_decoder && m_decoder->isLive(); }
+
 signals:
     void hasAudioChanged();
     void isPlayingChanged();
@@ -254,6 +263,7 @@ private:
     // later than video (positive offset = compensates for video
     // display + pipeline lag).
     std::atomic<int>                  m_syncOffsetMs{0};
+    std::atomic<bool>                 m_livePlaydown{false};
 };
 
 } // namespace qcv

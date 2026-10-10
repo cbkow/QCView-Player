@@ -17,6 +17,8 @@ set(QCV_AUDIO_SOURCES
     multi_stream_audio_decoder.cpp
     audio_player.h
     audio_player.cpp
+    live_audio_source.h
+    live_audio_source.cpp
     audio_routing_matrix.h
     audio_chunk_reader.h
     audio_chunk_reader.cpp
@@ -51,6 +53,9 @@ target_include_directories(qcv_audio
 target_link_libraries(qcv_audio
     PUBLIC
         Qt6::Core
+        # LiveAudioSource reads QCBridgeAE's audio segment through the
+        # ring vendored in qcv_decode (decode/qcbae/audio_ring.*).
+        qcv_decode
     PRIVATE
         PkgConfig::FFMPEG
         # WSOLA tempo stage (review speeds). Static, vendored via

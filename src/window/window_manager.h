@@ -163,6 +163,25 @@ class WindowManager : public QObject
                READ scrubAudioMuted
                WRITE setScrubAudioMuted
                NOTIFY scrubAudioMutedChanged)
+    // Live (QCBridgeAE) audio. Listen: whether bridge audio is heard
+    // (default off — the host already plays it; the stream is ingested,
+    // metered and tappable either way). A/V sync (Live): its own
+    // offset, keyed per host application, because the bridge's latency
+    // chain is not a file's; positive delays audio (deeper buffer),
+    // negative delays video (a hold on the frame reader). Buffer: the
+    // jitter buffer's depth.
+    Q_PROPERTY(bool livePlaydown
+               READ livePlaydown
+               WRITE setLivePlaydown
+               NOTIFY livePlaydownChanged)
+    Q_PROPERTY(int liveAudioSyncOffsetMs
+               READ liveAudioSyncOffsetMs
+               WRITE setLiveAudioSyncOffsetMs
+               NOTIFY liveAudioSyncOffsetMsChanged)
+    Q_PROPERTY(int liveAudioBufferMs
+               READ liveAudioBufferMs
+               WRITE setLiveAudioBufferMs
+               NOTIFY liveAudioBufferMsChanged)
     Q_PROPERTY(int  inPoint  READ inPoint  NOTIFY inOutPointsChanged)
     Q_PROPERTY(int  outPoint READ outPoint NOTIFY inOutPointsChanged)
     Q_PROPERTY(bool hasInOutRange READ hasInOutRange NOTIFY inOutPointsChanged)
@@ -671,6 +690,18 @@ public:
     bool scrubAudioMuted() const;
     void setScrubAudioMuted(bool muted);
 
+    // Live audio settings (see the Q_PROPERTY block). Persisted under
+    // audio/livePlaydown, audio/liveSyncOffsetMs/<host> and
+    // audio/liveBufferMs; pushed to the player(s), the live audio
+    // source's process-wide knobs and the live frame reader's hold.
+    bool livePlaydown() const;
+    void setLivePlaydown(bool on);
+    int  liveAudioSyncOffsetMs() const;
+    void setLiveAudioSyncOffsetMs(int ms);
+    int  liveAudioBufferMs() const;
+    void setLiveAudioBufferMs(int ms);
+    static constexpr int kLiveAudioBufferMsDefault = 60;
+
     // The MediaItem.id whose audioRoutingMode is the source of truth
     // for whatever audio is playing right now. In playlist mode this
     // is the active clip's source MediaItem (clip->mediaItemId), not
@@ -1168,6 +1199,9 @@ signals:
     void audioSyncOffsetMsChanged();
     void dualAudioSyncOffsetMsChanged();
     void scrubAudioMutedChanged();
+    void livePlaydownChanged();
+    void liveAudioSyncOffsetMsChanged();
+    void liveAudioBufferMsChanged();
     // Fires when audioRoutingScopeMediaItemId() may return a
     // different value: activeItemId switches, OR (in playlist mode)
     // the active playlist clip transitions. Bound by the inspector

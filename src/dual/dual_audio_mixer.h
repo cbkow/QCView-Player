@@ -129,6 +129,13 @@ public:
     void setMasterVolume(float v);
     void setMasterMuted(bool m);
 
+    // Live (QCBridgeAE) sides: whether they are heard. Drained either
+    // way, like AudioPlayer::setLivePlaydown. A live side also keeps
+    // the device running while the dual transport is paused, since
+    // its picture keeps flowing too.
+    void setLivePlaydown(bool on) { m_livePlaydown.store(on, std::memory_order_release); }
+    bool anyLive() const;
+
     // A/V sync compensation. Same semantic as AudioPlayer::
     // setSyncOffsetMs — positive = audio plays LATER, applied at
     // each side's seek boundary as `seek(time - offset)`. One global
@@ -242,6 +249,7 @@ private:
 #endif
 
     std::atomic<bool>  m_playing{false};
+    std::atomic<bool>  m_livePlaydown{false};
     std::atomic<bool>  m_mutedA{false};
     // B starts muted by default — in a dual SBS comparison, the
     // common case is "audio reference is A, B is the variant being

@@ -73,6 +73,13 @@ public:
 
     virtual const AudioFormat &format() const = 0;
 
+    // A live source (the QCBridgeAE audio segment) has no timeline of
+    // its own: seek() is a no-op, duration() is 0, and the players'
+    // drift servos and re-seek tiers must leave it alone — it plays
+    // what arrives, when it arrives, and keeps the device running
+    // whether or not the transport is "playing".
+    virtual bool isLive() const { return false; }
+
     // ---- Sync ----
     // Wall-clock seconds since the last completed seek. Used by
     // AudioPlayer's drift-correction cooldown.

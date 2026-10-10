@@ -2,6 +2,7 @@
 #include "video_decoder.h"
 #include "decode/frame_handle.h"
 #include "decode/qcbae/shared_ring.h"
+#include "decode/qcbae/audio_ring.h"
 
 #include <QMetaObject>
 
@@ -128,21 +129,84 @@ bool HostBridgeSource::interruptibleSleep(int ms)
 
 QImage *HostBridgeSource::takePoolImage(int w, int h)
 {
+    auto heldImage = [this](const QImage *img) {
+        for (const Held &hd : m_held) if (hd.img == img) return true;
+        return false;
+    };
     for (QImage &img : m_pool) {
-        if (img.width() == w && img.height() == h && img.isDetached()) return &img;
+        if (img.width() == w && img.height() == h && img.isDetached() && !heldImage(&img)) return &img;
     }
     // Three suffice in steady state (one with the renderer, one in the slot,
-    // one being filled); a burst of size changes may briefly add more.
-    if (m_pool.size() >= 6) m_pool.erase(m_pool.begin());
+    // one being filled); a burst of size changes may briefly add more, and
+    // a video hold keeps up to five more in flight at 25 fps.
+    const size_t cap = m_held.empty() ? 6 : 16;
+    // std::vector reallocation would move the images the held entries
+    // point at: evict from the front only when nothing is held, and
+    // reserve ahead of a growth under hold.
+    if (m_pool.size() >= cap && m_held.empty()) m_pool.erase(m_pool.begin());
+    if (!m_held.empty() && m_pool.capacity() == m_pool.size()) m_pool.reserve(m_pool.size() + 8);
     m_pool.emplace_back(w, h, QImage::Format_RGBA16FPx4);
     return &m_pool.back();
+}
+
+void HostBridgeSource::publishFrame(QImage *img, int64_t ptsUs)
+{
+    if (LiveFrameSink *sink = m_sink) {
+        sink->publishExternalFrame(FrameHandle::cpu(*img, ptsUs), ptsUs);
+    }
+    std::function<void()> cb;
+    {
+        std::lock_guard<std::mutex> lk(m_frameCbMutex);
+        cb = m_frameCb;
+    }
+    if (cb) cb();
+}
+
+void HostBridgeSource::publishDue(bool all)
+{
+    const qint64 now = steadyMs();
+    while (!m_held.empty() && (all || m_held.front().dueMs <= now)) {
+        const Held hd = m_held.front();
+        m_held.pop_front();
+        publishFrame(hd.img, hd.ptsUs);
+    }
 }
 
 void HostBridgeSource::workerLoop()
 {
     const std::string ringName = m_ringName.toStdString();
+    const std::string audioName = ringName + qcbae::kAudioRingSuffix;
     const qint64 sessionStartMs = steadyMs();
     qcbae::SharedRing ring;
+
+    // The audio segment beside the ring, read for facts only (the
+    // samples are LiveAudioSource's business). Opened when it appears,
+    // re-tried at the wait cadence, dropped with its producer.
+    qcbae::AudioRing audio;
+    qcbae::AudioSession session {};
+    uint64_t audioGeneration = 0;
+    qint64 audioTriedMs = 0;
+    auto pollAudioFacts = [&] {
+        if (!audio.valid()) {
+            const qint64 now = steadyMs();
+            if (now - audioTriedMs < kWaitPollMs) return;
+            audioTriedMs = now;
+            if (!audio.open(audioName)) { setAudioFacts(0, 0, NoAudioSegment); return; }
+            audioGeneration = 0;
+        }
+        if (audio.state() == qcbae::AudioState::Retired
+            || !qcbae::process_alive(audio.header()->producer_pid)) {
+            audio = qcbae::AudioRing();
+            setAudioFacts(0, 0, NoAudioSegment);
+            return;
+        }
+        audio.read_session(&session, &audioGeneration);
+        int st = AudioIdle;
+        if (audio.host_audio() == qcbae::HostAudio::Off) st = HostAudioOff;
+        else if (audio.state() == qcbae::AudioState::Pushing)
+            st = (session.flags & qcbae::kAudioSessionScrubbing) ? AudioScrubbing : AudioPushing;
+        setAudioFacts(static_cast<int>(session.channels), static_cast<int>(session.sample_rate), st);
+    };
     uint64_t lastSeen = 0;
     bool everLive = false;
     bool loggedFirst = false;
@@ -177,8 +241,13 @@ void HostBridgeSource::workerLoop()
             }
         }
 
+        publishDue(false);
+
         if (!producerAlive(ring)) {
             ring = qcbae::SharedRing();
+            audio = qcbae::AudioRing();
+            setAudioFacts(0, 0, NoAudioSegment);
+            publishDue(true);
 #if !defined(_WIN32)
             // A POSIX ring nobody unlinks stays in the kernel with every page
             // it ever held (hundreds of MiB at 6K) until reboot, and a host
@@ -198,6 +267,8 @@ void HostBridgeSource::workerLoop()
             if (!interruptibleSleep(kWaitPollMs)) break;
             continue;
         }
+
+        pollAudioFacts();
 
         const qcbae::HostState hs = ring.host_state();
         if (hs == qcbae::HostState::Retired) {   // producer moved to a new mapping
@@ -267,8 +338,12 @@ void HostBridgeSource::workerLoop()
             ? int64_t(double(d.time_value) * 1e6 / double(d.time_scale))
             : int64_t(steadyMs() - sessionStartMs) * 1000;
 
-        if (LiveFrameSink *sink = m_sink) {
-            sink->publishExternalFrame(FrameHandle::cpu(*img, ptsUs), ptsUs);
+        const int holdMs = m_videoHoldMs.load(std::memory_order_acquire);
+        if (holdMs > 0) {
+            m_held.push_back(Held{img, ptsUs, steadyMs() + holdMs});
+        } else {
+            publishDue(true);          // a hold that was just switched off
+            publishFrame(img, ptsUs);
         }
         m_framesReceived.fetch_add(1, std::memory_order_acq_rel);
         m_bytesReceived.fetch_add(qint64(rowBytes) * h, std::memory_order_acq_rel);
@@ -293,13 +368,9 @@ void HostBridgeSource::workerLoop()
                   centre[0], centre[1], centre[2], centre[3]);
         }
 
-        std::function<void()> cb;
-        {
-            std::lock_guard<std::mutex> lk(m_frameCbMutex);
-            cb = m_frameCb;
-        }
-        if (cb) cb();
     }
+    publishDue(true);
+    setAudioFacts(0, 0, NoAudioSegment);
 }
 
 // ---- cross-thread state publication ------------------------------
@@ -326,6 +397,15 @@ void HostBridgeSource::setGeometry(int w, int h)
                        | (m_height.exchange(h, std::memory_order_acq_rel) != h);
     if (changed)
         QMetaObject::invokeMethod(this, [this] { emit metadataChanged(); }, Qt::QueuedConnection);
+}
+
+void HostBridgeSource::setAudioFacts(int channels, int rate, int state)
+{
+    const bool changed = (m_audioChannels.exchange(channels, std::memory_order_acq_rel) != channels)
+                       | (m_audioRate.exchange(rate, std::memory_order_acq_rel) != rate)
+                       | (m_audioState.exchange(state, std::memory_order_acq_rel) != state);
+    if (changed)
+        QMetaObject::invokeMethod(this, [this] { emit audioChanged(); }, Qt::QueuedConnection);
 }
 
 void HostBridgeSource::setNonFinite(bool v)

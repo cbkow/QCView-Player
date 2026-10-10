@@ -8,6 +8,7 @@
 #include "sparkle_updater_macos.h"
 #include "native_fullscreen_win.h"
 #include "audio/audio_player.h"
+#include "audio/live_audio_source.h"
 #include "audio/shuttle_audio_engine.h"
 #include "color/ocio_config_manager.h"
 #include "color/preset_manager.h"
@@ -189,6 +190,10 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     // Seed the process-wide scrub-audio mute from the persisted
     // setting — the engines only re-check the flag, never QSettings.
     ShuttleAudioEngine::setGlobalMute(scrubAudioMuted());
+    LiveAudioSource::setGlobalScrubMute(scrubAudioMuted());
+    LiveAudioSource::setGlobalBufferMs(liveAudioBufferMs());
+    LiveAudioSource::setGlobalSyncOffsetMs(liveAudioSyncOffsetMs());
+    if (m_audio) m_audio->setLivePlaydown(livePlaydown());
 
     // Restore persisted display brightness (default 1.0 = identity).
     // Renderer setBrightness fires later when the renderer is wired
@@ -1115,7 +1120,10 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         const QString path = m_videoDecoder->sourcePath();
         if (path.isEmpty()) {
             m_scrubDecoder->close();
-            if (m_audio) m_audio->close();
+            // The sink's path is empty throughout a live session; the
+            // live audio opened by startLiveStream is not this handler's
+            // to close (stopLiveStream does).
+            if (m_audio && !m_audio->sourceIsLive()) m_audio->close();
         } else {
             m_scrubDecoder->open(path);
             if (m_audio) {
@@ -2238,6 +2246,7 @@ void WindowManager::setCompositorMode(int mode)
                 auto *mix = m_dualController->audio();
                 mix->setMasterVolume(m_audio->volume());
                 mix->setMasterMuted(m_audio->muted());
+                mix->setLivePlaydown(livePlaydown());
                 connect(m_audio, &qcv::AudioPlayer::volumeChanged, mix,
                         [this, mix] {
                     mix->setMasterVolume(m_audio->volume());
@@ -4290,6 +4299,22 @@ void WindowManager::startLiveStream(const MediaItem &item)
             [this, src = m_liveDecoder.get(), id = item.id] { pushLiveTags(src, id); },
             Qt::QueuedConnection);
 
+    // Bridge audio: the segment beside the frame ring (Premiere only;
+    // the source reads nothing from a host without one). Opened and
+    // started whether Listen is on or not, so meters and taps run;
+    // the player zeroes its output while Listen is off.
+    if (hostBridge && m_audio) {
+        m_audio->setLivePlaydown(livePlaydown());
+        if (m_audio->open(item.path, -1)) {
+            m_audio->setRoutingMode(static_cast<int>(item.audioRoutingMode));
+            m_audio->play();
+        }
+        const int off = liveAudioSyncOffsetMs();
+        LiveAudioSource::setGlobalSyncOffsetMs(off);
+        m_liveDecoder->setVideoHoldMs(off < 0 ? -off : 0);
+        emit liveAudioSyncOffsetMsChanged();   // the key follows the host
+    }
+
     m_liveActive = true;
     emit liveActiveChanged();
     emit liveDecoderChanged();
@@ -4305,6 +4330,11 @@ void WindowManager::pushLiveTags(LiveSource *src, const QString &itemId)
 void WindowManager::stopLiveStream()
 {
     if (!m_liveDecoder) return;
+
+    // Bridge audio goes first: its reader must stop before the frame
+    // reader's segment housekeeping, and before the next source opens
+    // the player with a file.
+    if (m_audio && m_audio->sourceIsLive()) m_audio->close();
 
     // close() joins the receive/decode worker, so after this line
     // nothing publishes into m_videoDecoder's slot. The renderer is
@@ -5435,6 +5465,7 @@ bool WindowManager::enterDualTestMode(const QString &pathA,
     }
     if (m_dualController->audio()) {
         m_dualController->audio()->setSyncOffsetMs(dualAudioSyncOffsetMs());
+        m_dualController->audio()->setLivePlaydown(livePlaydown());
         // Master volume/mute mirror — same wiring as the real dual
         // entry in setCompositorMode.
         if (m_audio) {
@@ -8914,7 +8945,80 @@ void WindowManager::setScrubAudioMuted(bool muted)
     // dual mixer's two); a gesture in flight goes silent/audible on
     // the grain thread's next loop iteration.
     ShuttleAudioEngine::setGlobalMute(muted);
+    LiveAudioSource::setGlobalScrubMute(muted);   // host scrub packets too
     emit scrubAudioMutedChanged();
+}
+
+// ---- Live (QCBridgeAE) audio settings ------------------------------
+
+bool WindowManager::livePlaydown() const
+{
+    QSettings s;
+    return s.value(QStringLiteral("audio/livePlaydown"), false).toBool();
+}
+
+void WindowManager::setLivePlaydown(bool on)
+{
+    QSettings s;
+    const bool prev = s.value(QStringLiteral("audio/livePlaydown"), false).toBool();
+    if (prev == on) return;
+    s.setValue(QStringLiteral("audio/livePlaydown"), on);
+    if (m_audio) m_audio->setLivePlaydown(on);
+    if (m_dualController && m_dualController->audio())
+        m_dualController->audio()->setLivePlaydown(on);
+    emit livePlaydownChanged();
+}
+
+// The offset is per host application: the key carries the host of the
+// live item in play (or on the active side), "premiere" when none is.
+static QString liveSyncOffsetKey(const QString &url)
+{
+    QString host = hostbridge::hostOf(url);
+    if (host.isEmpty()) host = QStringLiteral("premiere");
+    return QStringLiteral("audio/liveSyncOffsetMs/") + host;
+}
+
+int WindowManager::liveAudioSyncOffsetMs() const
+{
+    QSettings s;
+    const QString url = m_liveDecoder ? m_liveDecoder->url() : QString();
+    return s.value(liveSyncOffsetKey(url), 0).toInt();
+}
+
+void WindowManager::setLiveAudioSyncOffsetMs(int ms)
+{
+    if (ms < -200) ms = -200;
+    if (ms >  200) ms =  200;
+    QSettings s;
+    const QString url = m_liveDecoder ? m_liveDecoder->url() : QString();
+    const QString key = liveSyncOffsetKey(url);
+    if (s.value(key, 0).toInt() == ms) return;
+    s.setValue(key, ms);
+    // Positive: a deeper audio buffer. Negative: hold the picture.
+    LiveAudioSource::setGlobalSyncOffsetMs(ms);
+    if (m_liveDecoder) m_liveDecoder->setVideoHoldMs(ms < 0 ? -ms : 0);
+    if (m_dualController) {
+        if (LiveSource *a = m_dualController->liveSource('A')) a->setVideoHoldMs(ms < 0 ? -ms : 0);
+        if (LiveSource *b = m_dualController->liveSource('B')) b->setVideoHoldMs(ms < 0 ? -ms : 0);
+    }
+    emit liveAudioSyncOffsetMsChanged();
+}
+
+int WindowManager::liveAudioBufferMs() const
+{
+    QSettings s;
+    return s.value(QStringLiteral("audio/liveBufferMs"), kLiveAudioBufferMsDefault).toInt();
+}
+
+void WindowManager::setLiveAudioBufferMs(int ms)
+{
+    if (ms < 20)  ms = 20;
+    if (ms > 200) ms = 200;
+    QSettings s;
+    if (s.value(QStringLiteral("audio/liveBufferMs"), kLiveAudioBufferMsDefault).toInt() == ms) return;
+    s.setValue(QStringLiteral("audio/liveBufferMs"), ms);
+    LiveAudioSource::setGlobalBufferMs(ms);
+    emit liveAudioBufferMsChanged();
 }
 
 QString WindowManager::audioRoutingScopeMediaItemId() const

@@ -3,6 +3,7 @@
 #include "decode/timecode_formatter.h"
 #include "dual_image_seq_source.h"
 #include "dual_live_source.h"
+#include "decode/qcbae/host_bridge_url.h"
 #include "dual_playback_timer.h"
 #include "i_dual_scrub_decoder.h"
 #include "dual_video_decoder.h"
@@ -267,8 +268,11 @@ bool DualPlaybackController::open(const QString &pathA, DualSourceKind kindA,
             (kindB != DualSourceKind::ImageSequence) &&
             (kindB == DualSourceKind::Video ||
              detectKind(pathB) == DualSourceKind::Video);
-        const QString audioA = aIsVideo ? pathA : QString();
-        const QString audioB = bIsVideo ? pathB : QString();
+        // A QCBridgeAE live side carries its audio in the segment
+        // beside its frame ring (the mixer opens a LiveAudioSource for
+        // a qcbae:// path); other live URLs stay silent.
+        const QString audioA = (aIsVideo || hostbridge::isUrl(pathA)) ? pathA : QString();
+        const QString audioB = (bIsVideo || hostbridge::isUrl(pathB)) ? pathB : QString();
         m_audio->open(audioA, audioB);
     }
 

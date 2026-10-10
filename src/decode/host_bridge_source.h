@@ -41,6 +41,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -73,6 +74,12 @@ public:
     int     reconnectCount() const override { return m_reconnects.load(std::memory_order_acquire); }
     bool    nonFinite() const override { return m_nonFinite.load(std::memory_order_acquire); }
     bool    sharedMemory() const override { return true; }
+    int        audioChannels()   const override { return m_audioChannels.load(std::memory_order_acquire); }
+    int        audioSampleRate() const override { return m_audioRate.load(std::memory_order_acquire); }
+    AudioState audioState()      const override {
+        return static_cast<AudioState>(m_audioState.load(std::memory_order_acquire));
+    }
+    void setVideoHoldMs(int ms) override { m_videoHoldMs.store(ms < 0 ? 0 : ms, std::memory_order_release); }
 
     double statFramesReceived() const override {
         return double(m_framesReceived.load(std::memory_order_acquire));
@@ -87,7 +94,10 @@ private:
     void setStatus(Status s, const QString &detail);
     void setGeometry(int w, int h);
     void setNonFinite(bool v);
+    void setAudioFacts(int channels, int rate, int state);
     bool interruptibleSleep(int ms);   // false when close() interrupted it
+    void publishFrame(QImage *img, int64_t ptsUs);
+    void publishDue(bool all);         // held frames whose time has come (or every one)
     QString waitingText() const;
     static QString sentence(const QString &text);   // capitalise the first letter
     QImage *takePoolImage(int w, int h);
@@ -110,6 +120,15 @@ private:
     std::atomic<qint64>   m_framesReceived{0};
     std::atomic<qint64>   m_bytesReceived{0};
     std::atomic<qint64>   m_liveSinceMs{0};   // steady_clock ms; 0 = not live
+    std::atomic<int>      m_audioChannels{0};
+    std::atomic<int>      m_audioRate{0};
+    std::atomic<int>      m_audioState{0};
+    std::atomic<int>      m_videoHoldMs{0};
+
+    // Frames waiting out the video hold, worker thread only. A pooled
+    // image in here is not reusable even though nobody else holds it.
+    struct Held { QImage *img; int64_t ptsUs; qint64 dueMs; };
+    std::deque<Held>      m_held;
 
     mutable std::mutex    m_detailMutex;
     QString               m_detail;

@@ -3,6 +3,8 @@
 #include "audio/audio_decoder.h"
 #include "audio/i_audio_source.h"
 #include "audio/multi_stream_audio_decoder.h"
+#include "audio/live_audio_source.h"
+#include "decode/qcbae/host_bridge_url.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -72,6 +74,9 @@ std::unique_ptr<IAudioSource> makeDecoderForPath(const QString &path,
                                                    int streamCountHint)
 {
     if (path.isEmpty()) return nullptr;
+    // A QCBridgeAE live side reads the audio segment beside its frame
+    // ring; other live URLs (srt://) carry no audio here.
+    if (hostbridge::isUrl(path)) return std::make_unique<LiveAudioSource>();
     const int streamCount = (streamCountHint >= 1)
                             ? streamCountHint
                             : probeAudioStreamCount(path);
@@ -167,6 +172,17 @@ bool DualAudioMixer::open(const QString &pathA, const QString &pathB,
     }
     emit hasAudioChanged();
 
+#if QCV_DUAL_HAS_AUDIO_DEVICE
+    // A live side plays whether or not the transport does: its picture
+    // is free-running, so its audio runs with it. Start the device now
+    // and keep it running (pause() leaves it alone while a side is live).
+    if (anyLive() && m_device) {
+        m_syncA.req.restart.store(true, std::memory_order_release);
+        m_syncB.req.restart.store(true, std::memory_order_release);
+        m_device->start();
+    }
+#endif
+
     qInfo("DualAudioMixer: opened — A=%s, B=%s",
           (m_decoderA && m_decoderA->hasAudio() ? "yes" : "no"),
           (m_decoderB && m_decoderB->hasAudio() ? "yes" : "no"));
@@ -191,9 +207,14 @@ void DualAudioMixer::close()
     emit hasAudioChanged();
 }
 
+bool DualAudioMixer::anyLive() const
+{
+    return (m_decoderA && m_decoderA->isLive()) || (m_decoderB && m_decoderB->isLive());
+}
+
 void DualAudioMixer::play()
 {
-    if (!hasAudioA() && !hasAudioB()) return;
+    if (!hasAudioA() && !hasAudioB() && !anyLive()) return;
     if (m_playing.exchange(true)) return;
 #if QCV_DUAL_HAS_AUDIO_DEVICE
     ++m_pauseGeneration;                 // cancels a deferred stop
@@ -223,6 +244,7 @@ void DualAudioMixer::stopDeviceDeferred()
     QTimer::singleShot(30, this, [this, gen] {
         if (gen != m_pauseGeneration) return;
         if (m_playing.load() || m_shuttleActive.load()) return;
+        if (anyLive()) return;   // a live side keeps the device running
         if (m_device) m_device->stop();
     });
 #endif
@@ -318,6 +340,12 @@ void DualAudioMixer::updatePerSide(double sourceSecondsA,
                       std::atomic<bool> &inGap,
                       std::atomic<double> &lastSeekPos,
                       SideSync &sync) {
+        // A live side has no timeline: never a gap (the controller
+        // passes -1 for it), never a seek, never a servo.
+        if (dec && dec->isLive()) {
+            inGap.store(!dec->hasAudio());
+            return;
+        }
         if (!dec || !dec->hasAudio()) {
             inGap.store(true);
             return;
@@ -668,13 +696,15 @@ void DualAudioMixer::processAudio(float *output, uint32_t frameCount)
             sync.ratio.load(std::memory_order_relaxed));
         // The stage counts only REAL post-seek frames (read() pads
         // underrun with silence; pre-seek audio is uncounted).
+        const bool live = dec->isLive();
         sync.drain.process(*dec, sideBuf.data(), frameCount, ratio,
                            srcBuf.data(), scratchFrames,
                            sync.srcFramesConsumed, sync.req,
-                           /*extraHold=*/!playing || held || inGap);
+                           /*extraHold=*/live ? inGap : (!playing || held || inGap));
         // Muted sides still consume (position keeps tracking the
         // clock) — unmute plays current audio, not a stale buffer.
         if (muted) return;
+        if (live && !m_livePlaydown.load(std::memory_order_acquire)) return;
         for (size_t i = 0; i < samples; ++i) {
             output[i] += sideBuf[i];
         }

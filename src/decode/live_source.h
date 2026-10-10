@@ -47,6 +47,12 @@ class LiveSource : public QObject
     Q_PROPERTY(int reconnectCount READ reconnectCount NOTIFY statusChanged)
     Q_PROPERTY(bool nonFinite READ nonFinite NOTIFY nonFiniteChanged)
     Q_PROPERTY(bool sharedMemory READ sharedMemory CONSTANT)
+    // The feed's audio, as the QCBridgeAE audio segment reports it
+    // (QCBridgeAE DESIGN-NOTES D6). Zero / NoAudioSegment for every
+    // source that has none. Change with audioChanged.
+    Q_PROPERTY(int audioChannels READ audioChannels NOTIFY audioChanged)
+    Q_PROPERTY(int audioSampleRate READ audioSampleRate NOTIFY audioChanged)
+    Q_PROPERTY(AudioState audioState READ audioState NOTIFY audioChanged)
 
 public:
     enum Status : int {
@@ -58,6 +64,16 @@ public:
                             // (e.g. After Effects lost focus); last frame held
     };
     Q_ENUM(Status)
+
+    // QML compares these numerically too — append, never renumber.
+    enum AudioState : int {
+        NoAudioSegment = 0,   // the host publishes no audio (After Effects, SRT, or not running)
+        HostAudioOff   = 1,   // Premiere plays without pushing: "Audio Stream" is unticked for the device
+        AudioIdle      = 2,   // segment present, host not playing
+        AudioPushing   = 3,   // packets flowing
+        AudioScrubbing = 4,   // packets flowing from a scrub
+    };
+    Q_ENUM(AudioState)
 
     using QObject::QObject;
     ~LiveSource() override = default;
@@ -84,6 +100,13 @@ public:
     virtual QString codecName() const = 0;
     virtual QString pixelFormatName() const = 0;
     virtual bool    hasAudio() const { return false; }
+    virtual int        audioChannels()   const { return 0; }
+    virtual int        audioSampleRate() const { return 0; }
+    virtual AudioState audioState()      const { return NoAudioSegment; }
+    // Delay every published frame by `ms` (0 = none): the negative half
+    // of the live A/V offset, since audio can only be delayed, never
+    // advanced, relative to its real-time arrival.
+    virtual void setVideoHoldMs(int ms) { Q_UNUSED(ms); }
     // The stream's colour tags as FFmpeg names ("smpte2084", "bt2020",
     // "bt2020nc"), empty when the source has none to give — a network
     // stream's codec parameters carry them; a QCBridge feed is the host's
@@ -109,6 +132,7 @@ signals:
     void statusChanged();
     void metadataChanged();
     void nonFiniteChanged();
+    void audioChanged();
 };
 
 } // namespace qcv

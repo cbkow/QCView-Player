@@ -2071,6 +2071,9 @@ Rectangle {
                             WindowManager.timelineWaveformsEnabled =
                                 settingsSection.kWaveformsDefault;
                             WindowManager.scrubAudioMuted = false;
+                            WindowManager.livePlaydown = false;
+                            WindowManager.liveAudioSyncOffsetMs = 0;
+                            WindowManager.liveAudioBufferMs = 60;
                             // Drops window/* frame keys AND suppresses
                             // the aboutToQuit geometry flush, which
                             // would otherwise write them right back.
@@ -2668,6 +2671,102 @@ Rectangle {
                                     onClicked: {
                                         WindowManager.scrubAudioMuted = false;
                                     }
+                                }
+                            }
+                        }
+
+                        // Live (QCBridgeAE) audio. Listen decides whether
+                        // bridge audio is heard (the host plays it anyway);
+                        // its sync offset and buffer are the bridge's own.
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Listen to live audio")
+                                    help: qsTr("Play audio pushed by Premiere Pro over "
+                                             + "QCBridge in QCView. Off by default: "
+                                             + "Premiere is already playing it. Meters "
+                                             + "run either way.")
+                                }
+                                SlotSwitch {
+                                    checked: WindowManager.livePlaydown
+                                    onToggled: {
+                                        WindowManager.livePlaydown = checked;
+                                    }
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.livePlaydown
+                                    onClicked: {
+                                        WindowManager.livePlaydown = false;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("A/V sync (Live)")
+                                    help: qsTr("Positive values delay the bridge audio; "
+                                             + "negative values hold the picture. Kept "
+                                             + "per host application. Tune by ear.")
+                                }
+                                FlatSpinBox {
+                                    from: -200
+                                    to: 200
+                                    value: WindowManager.liveAudioSyncOffsetMs
+                                    onValueModified:
+                                        WindowManager.liveAudioSyncOffsetMs = value
+                                    Layout.preferredWidth: 110
+                                    font.family: Theme.monoFamily
+                                    font.pixelSize: Theme.fontSizeMono
+                                    textFromValue: function(value) {
+                                        return value + " ms";
+                                    }
+                                    valueFromText: function(text) {
+                                        const n = parseInt(text);
+                                        return isNaN(n) ? 0 : n;
+                                    }
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.liveAudioSyncOffsetMs !== 0
+                                    onClicked:
+                                        WindowManager.liveAudioSyncOffsetMs = 0
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Live audio buffer")
+                                    help: qsTr("How much bridge audio is queued before "
+                                             + "it plays. Raise it if live audio "
+                                             + "stutters; lower it for less delay.")
+                                }
+                                FlatSpinBox {
+                                    from: 20
+                                    to: 200
+                                    stepSize: 10
+                                    value: WindowManager.liveAudioBufferMs
+                                    onValueModified:
+                                        WindowManager.liveAudioBufferMs = value
+                                    Layout.preferredWidth: 110
+                                    font.family: Theme.monoFamily
+                                    font.pixelSize: Theme.fontSizeMono
+                                    textFromValue: function(value) {
+                                        return value + " ms";
+                                    }
+                                    valueFromText: function(text) {
+                                        const n = parseInt(text);
+                                        return isNaN(n) ? 60 : n;
+                                    }
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.liveAudioBufferMs !== 60
+                                    onClicked:
+                                        WindowManager.liveAudioBufferMs = 60
                                 }
                             }
                         }

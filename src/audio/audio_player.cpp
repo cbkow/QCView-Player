@@ -1,6 +1,8 @@
 #include "audio_player.h"
 #include "audio_decoder.h"
 #include "multi_stream_audio_decoder.h"
+#include "live_audio_source.h"
+#include "decode/qcbae/host_bridge_url.h"
 
 #if defined(Q_OS_MACOS) || defined(__APPLE__)
 #include "coreaudio_device.h"
@@ -143,6 +145,20 @@ bool AudioPlayer::open(const QString &path, int audioStreamCountHint)
         return false;
     }
     close();
+    // A QCBridgeAE live item: the audio segment beside its frame ring.
+    // Opens whether or not the host is pushing yet (the segment comes
+    // and goes with the host's play state); hasAudio() follows it.
+    if (hostbridge::isUrl(path)) {
+        m_decoder = std::make_unique<LiveAudioSource>();
+        if (!m_decoder->open(path)) {
+            m_decoder.reset();
+            emit hasAudioChanged();
+            return false;
+        }
+        m_decoder->start();
+        emit hasAudioChanged();
+        return true;
+    }
     // Pick the right decoder shape for this file's audio layout:
     //   - 0 or 1 audio streams → AudioDecoder (today's well-tested
     //     single-stream path; covers stereo MOVs, AAC files, etc.)
@@ -197,7 +213,9 @@ void AudioPlayer::close()
 
 void AudioPlayer::play()
 {
-    if (!m_decoder || !m_decoder->hasAudio()) return;
+    // A live source starts the device before any audio has arrived:
+    // the callback drains silence until the host pushes.
+    if (!m_decoder || (!m_decoder->hasAudio() && !m_decoder->isLive())) return;
     if (m_isPlaying.exchange(true)) return;
 #if QCV_HAS_AUDIO_DEVICE
     // No re-anchoring here: the playout-position anchor is owned by
@@ -251,7 +269,7 @@ void AudioPlayer::setHold(bool on)
 void AudioPlayer::releaseHold(double masterSeconds)
 {
     if (!m_drainReq.hold.load(std::memory_order_acquire)) return;
-    if (!m_decoder || !m_decoder->hasAudio()) {
+    if (!m_decoder || !m_decoder->hasAudio() || m_decoder->isLive()) {
         m_drainReq.hold.store(false, std::memory_order_release);
         return;
     }
@@ -297,6 +315,7 @@ void AudioPlayer::stop() { pause(); }
 void AudioPlayer::seek(double seconds)
 {
     if (!m_decoder || !m_decoder->hasAudio()) return;
+    if (m_decoder->isLive()) return;   // no timeline to seek in
 
     // Apply the user's A/V-sync offset at the decoder boundary: fetch
     // samples for `seconds - offset` so the audio CONTENT lags the
@@ -447,6 +466,8 @@ void AudioPlayer::update(double videoPositionSeconds)
 
     if (!m_decoder || !m_decoder->hasAudio()
         || !m_isPlaying.load()) return;
+    // A live source plays what arrives; there is no position to servo.
+    if (m_decoder->isLive()) return;
     // Held (post-seek, waiting for the picture): consumption is
     // frozen, so the estimate below is meaningless until release.
     if (m_drainReq.hold.load(std::memory_order_acquire)) return;
@@ -589,10 +610,17 @@ void AudioPlayer::processAudio(float *output, uint32_t frameCount)
     // fades out, then silence until pause()'s deferred device stop.
     const double ratio =
         static_cast<double>(m_servoRatio.load(std::memory_order_relaxed));
+    const bool live = m_decoder->isLive();
     m_drain.process(*m_decoder, output, frameCount, ratio,
                     m_servoScratch.data(), m_servoScratch.size() / 2,
                     m_srcFramesConsumed, m_drainReq,
-                    /*extraHold=*/!m_isPlaying.load());
+                    /*extraHold=*/!m_isPlaying.load() && !live);
+
+    // Live playdown off: drained (meters and taps ran), not heard.
+    if (live && !m_livePlaydown.load(std::memory_order_acquire)) {
+        std::memset(output, 0, outBytes);
+        return;
+    }
 
     // Muted AFTER consuming: the stream keeps advancing with the
     // clock, so unmute plays current audio, not a stale buffer.

@@ -1154,32 +1154,102 @@ Rectangle {
         InspectorCard {
             id: audioSection
             title: qsTr("Audio")
-            visible: content.videoLoaded
+            // A live (QCBridgeAE) item shows what its audio segment reports
+            // instead of file metadata: Premiere pushes a copy of what it
+            // plays once "Audio Stream" is ticked for the device. In dual
+            // mode the facts belong to the side's own source; the card
+            // keeps the Listen switch and the meters.
+            readonly property var liveSrc: WindowManager.liveDecoder
+            readonly property bool liveItem: root.itemType === 6
+            readonly property int liveAudioState:
+                liveSrc ? liveSrc.audioState : 0
+            readonly property bool liveAudio:
+                liveItem && (root.dualActive || liveAudioState !== 0)
+            readonly property bool fileAudio:
+                !liveItem && content.videoLoaded
                      && content.vmeta
                      && content.vmeta.audioCodec.length > 0
+            visible: fileAudio || liveAudio
 
             KvRow {
+                visible: audioSection.fileAudio
                 label: qsTr("Codec")
                 value: content.vmeta ? content.vmeta.audioCodec : ""
             }
             KvRow {
+                visible: audioSection.liveAudio && !root.dualActive
+                label: qsTr("State")
+                value: {
+                    switch (audioSection.liveAudioState) {
+                    case 1: return qsTr("Off in the host");
+                    case 2: return qsTr("Idle");
+                    case 3: return qsTr("Pushing");
+                    case 4: return qsTr("Scrubbing");
+                    default: return qsTr("No audio");
+                    }
+                }
+            }
+            KvRow {
                 label: qsTr("Sample rate")
-                value: content.vmeta && content.vmeta.audioSampleRate > 0
-                    ? content.vmeta.audioSampleRate + qsTr(" Hz") : ""
+                value: audioSection.liveAudio
+                    ? (audioSection.liveSrc && audioSection.liveSrc.audioSampleRate > 0
+                        ? audioSection.liveSrc.audioSampleRate + qsTr(" Hz") : "")
+                    : (content.vmeta && content.vmeta.audioSampleRate > 0
+                        ? content.vmeta.audioSampleRate + qsTr(" Hz") : "")
             }
             KvRow {
                 label: qsTr("Channels")
-                value: content.vmeta && content.vmeta.audioChannels > 0
-                    ? content.vmeta.audioChannels +
-                      (content.vmeta.audioChannels === 2 ? qsTr(" (stereo)")
-                      : content.vmeta.audioChannels === 1 ? qsTr(" (mono)") : "")
-                    : ""
+                value: {
+                    const ch = audioSection.audioCh;
+                    if (ch <= 0) return "";
+                    return ch + (ch === 2 ? qsTr(" (stereo)") : ch === 1 ? qsTr(" (mono)") : "");
+                }
             }
             KvRow {
-                visible: content.vmeta && content.vmeta.audioChannelLayoutName
+                visible: audioSection.fileAudio && content.vmeta && content.vmeta.audioChannelLayoutName
                          && content.vmeta.audioChannelLayoutName.length > 0
                 label: qsTr("Layout")
                 value: content.vmeta ? content.vmeta.audioChannelLayoutName : ""
+            }
+
+            // ---- Listen (live playdown) -----------------------------
+            // Off by default: the host is already playing this audio
+            // on its own device. The stream is ingested and metered
+            // either way; this only decides whether QCView plays it.
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: Theme.spacing
+                spacing: Theme.spacing
+                visible: audioSection.liveAudio
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Listen in QCView")
+                    color: Theme.textMuted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeTiny
+                    elide: Text.ElideRight
+                }
+                // Fixed-size slot, as the Settings rail does: a bare
+                // Switch in a row layout feeds its height back through
+                // the card.
+                Item {
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 22
+                    FlatSwitch {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        checked: WindowManager.livePlaydown
+                        onToggled: WindowManager.livePlaydown = checked
+                    }
+                }
+            }
+            // Two fixed-height lines, not a wrapping block: a wrapped Text
+            // inside the card's content column feeds its own height back
+            // into the card (binding loop).
+            KvRow {
+                visible: audioSection.liveAudio && audioSection.liveAudioState === 1
+                label: qsTr("Audio Stream")
+                value: qsTr("off: tick it in Premiere ▸ Preferences ▸ Playback")
             }
 
             // ---- Routing mode pill row -----------------------------
@@ -1188,7 +1258,9 @@ Rectangle {
             // has enough channels for at least one non-Auto choice
             // (≥6 for 5.1 Downmix, ≥8 for Stereo 7-8).
             readonly property int audioCh:
-                content.vmeta ? (content.vmeta.audioChannels || 0) : 0
+                liveAudio
+                    ? (liveSrc ? (liveSrc.audioChannels || 0) : 0)
+                    : (content.vmeta ? (content.vmeta.audioChannels || 0) : 0)
             readonly property bool routingPicker:
                 audioCh >= 6
             // The MediaItem the pill actually edits + displays. In
