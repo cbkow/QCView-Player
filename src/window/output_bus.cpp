@@ -257,10 +257,20 @@ void OutputBus::disable(Output &o)
     o.present  = false;
     o.status.clear();
     o.shape.clear();
-    if (o.proc && o.launchedByUs) {
-        // It has its cue; if it ignores it, end it.
+    if (o.proc) {
+        // It has its cue (the retired rings) and quits on its own. Hand the
+        // QProcess over to itself so neither this disable nor QCView's exit
+        // destroys it mid-quit — ~QProcess kills its child, which showed up
+        // as "Destroyed while process is still running" at QCView quit. If
+        // it ignores the cue, end it after a grace period.
         QProcess *p = o.proc;
-        QTimer::singleShot(3000, p, [p] { if (p->state() != QProcess::NotRunning) p->terminate(); });
+        o.proc = nullptr;
+        p->disconnect(this);
+        p->setParent(nullptr);
+        connect(p, &QProcess::finished, p, &QObject::deleteLater);
+        if (o.launchedByUs) {
+            QTimer::singleShot(3000, p, [p] { if (p->state() != QProcess::NotRunning) p->terminate(); });
+        }
     }
     o.plugin = o.installed ? QStringLiteral("installed") : QStringLiteral("not installed");
     qInfo("OutputBus: %s disabled", qPrintable(o.id));
