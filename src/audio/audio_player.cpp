@@ -229,6 +229,12 @@ void AudioPlayer::play()
     ++m_pauseGeneration;                 // cancels a deferred stop
     m_drainReq.restart.store(true, std::memory_order_release);
     if (m_device) m_device->start();
+    // The device's own buffer is the part of live A/V latency the
+    // viewer cannot see; log it once per play so the per-OS sync
+    // default can be argued from a log line (CoreAudio vs WASAPI).
+    if (m_device && m_decoder->isLive())
+        qInfo("AudioPlayer: live source playing, device buffer latency %.1f ms",
+              m_device->bufferLatencySeconds() * 1000.0);
 #endif
     emit isPlayingChanged();
 }
