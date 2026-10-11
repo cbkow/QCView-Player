@@ -1,7 +1,8 @@
 // Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
-// src/common/LICENSE) at 308536e, src/common/protocol/frame_desc.h. The wire contract between the
-// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
-// editing here. A version mismatch is refused at open, never misread.
+// src/common/LICENSE) at 5849977, src/common/protocol/frame_desc.h. The wire contract between the
+// QCBridgeAE Transmit device and QCView, and of QCView's own output bus; keep
+// in sync by re-copying, never by editing here. A version mismatch is refused
+// at open, never misread.
 
 // SPDX-License-Identifier: MIT OR GPL-3.0-or-later
 // Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar

@@ -1,7 +1,8 @@
 // Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
-// src/common/LICENSE) at 308536e, src/common/surface/audio_ring.h. The wire contract between the
-// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
-// editing here. A version mismatch is refused at open, never misread.
+// src/common/LICENSE) at 5849977, src/common/surface/audio_ring.h. The wire contract between the
+// QCBridgeAE Transmit device and QCView, and of QCView's own output bus; keep
+// in sync by re-copying, never by editing here. A version mismatch is refused
+// at open, never misread.
 
 // SPDX-License-Identifier: MIT OR GPL-3.0-or-later
 // Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar
@@ -42,6 +43,7 @@
 #pragma once
 
 #include "decode/qcbae/audio_desc.h"
+#include "decode/qcbae/ring_mapping.h"
 
 #include <atomic>
 #include <cstddef>
@@ -113,10 +115,10 @@ public:
     // Consumer side.
     bool open(const std::string& name);
 
-    bool valid() const { return base_ != nullptr; }
-    const std::string& error() const { return error_; }
+    bool valid() const { return map_.valid(); }
+    const std::string& error() const { return error_.empty() ? map_.error() : error_; }
     const AudioRingHeader* header() const { return header_; }
-    const std::string& name() const { return name_; }
+    const std::string& name() const { return map_.name(); }
 
     // --- Producer, host thread ---------------------------------------------
     void begin_session(const AudioSession& s);   // seqlock write, generation++, state Pushing
@@ -162,16 +164,8 @@ private:
     AudioSlotHeader* slot_at(uint32_t index) const;
     float* planes_at(uint32_t index) const;
 
-    void*            base_    = nullptr;
-    size_t           size_    = 0;
+    SharedMapping    map_;
     AudioRingHeader* header_  = nullptr;
-#if defined(_WIN32)
-    void*            mapping_ = nullptr;
-#else
-    int              fd_      = -1;
-#endif
-    bool             owner_   = false;
-    std::string      name_;
     std::string      error_;
 
     // Producer bookkeeping; touched only by the pushing thread.

@@ -1,7 +1,8 @@
 // Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
-// src/common/LICENSE) at 308536e, src/common/surface/shared_ring.h. The wire contract between the
-// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
-// editing here. A version mismatch is refused at open, never misread.
+// src/common/LICENSE) at 5849977, src/common/surface/shared_ring.h. The wire contract between the
+// QCBridgeAE Transmit device and QCView, and of QCView's own output bus; keep
+// in sync by re-copying, never by editing here. A version mismatch is refused
+// at open, never misread.
 
 // SPDX-License-Identifier: MIT OR GPL-3.0-or-later
 // Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar
@@ -23,25 +24,16 @@
 // MTLDevice.makeBuffer(bytesNoCopy:) over these pages gives the GPU the exact
 // memory the CPU wrote. See lab/results/2026-09-20-a1-ring-spine/notes.md.
 //
-// Concurrency contract, no locks:
-//   * Each slot carries a seqlock. Odd = a write is in progress; a reader that
-//     sees an odd count, or a different count after reading, retries.
-//   * The consumer publishes what it currently holds (reader_claim) and the
-//     producer refuses to reuse that slot. With >= 3 slots the producer
-//     always has somewhere to go: one held by the reader, one it is writing,
-//     at least one free.
-//   * Because the producer may step over the claimed slot, a frame's sequence
-//     does NOT imply its slot. Both travel together in one atomic word (see
-//     pack_latest). Deriving the slot from the sequence instead reads a stale
-//     but self-consistent frame — a bug that survives any test comparing
-//     pixels only against their own sidecar.
-//   * The seqlock alone would be enough for a copying reader. The claim is
-//     what makes it safe to sample the pixels in place, which is the whole
-//     point of the exercise.
+// The concurrency contract (seqlock per slot, reader claim, sequence and
+// slot packed in one word) lives in ring_slots.h, shared with the output
+// ring; the mapping itself in ring_mapping.h. The header layout here is the
+// shipped FrameDesc v3 contract and has not moved.
 
 #pragma once
 
 #include "decode/qcbae/frame_desc.h"
+#include "decode/qcbae/ring_mapping.h"
+#include "decode/qcbae/ring_slots.h"
 
 #include <atomic>
 #include <cstddef>
@@ -50,21 +42,6 @@
 
 namespace qcbae {
 
-inline constexpr uint32_t kMinSlots     = 3u;
-inline constexpr uint32_t kDefaultSlots = 3u;
-
-// macOS caps shm_open names at 31 bytes including the leading slash, which is
-// tighter than anyone expects. Names are validated at create/open. Windows
-// has no such cap, but the same rule applies there so a name that works on
-// one platform works on the other: the ring is `Local\` + the name with its
-// leading slash removed, a session-local page-file-backed file mapping (AE
-// and QCView run in the same logon session, so `Global\` and its privilege
-// are not needed).
-inline constexpr size_t kMaxShmName = 31u;
-
-// `latest` carries (sequence, slot) in one word so a consumer never has to
-// infer where a frame landed. 8 bits of slot caps the ring at 255, which is
-// ~250 more than anything sane, and leaves 56 bits of sequence.
 // Fixed ring names, one per host (DESIGN-NOTES A6). A consumer lists these; a
 // second running copy of the same host would collide, which v1 accepts.
 inline constexpr const char* kRingNameAfterEffects = "/qcbae-ae";
@@ -87,16 +64,6 @@ enum class HostState : uint32_t {
     // consumer its mapping went stale — the old one stays readable forever.
     Retired      = 3,
 };
-
-inline constexpr uint32_t kSlotBits  = 8u;
-inline constexpr uint64_t kSlotMask  = (1ull << kSlotBits) - 1ull;
-inline constexpr uint32_t kMaxSlots  = static_cast<uint32_t>(kSlotMask);
-
-inline constexpr uint64_t pack_latest(uint64_t seq, uint32_t slot) {
-    return (seq << kSlotBits) | (slot & kSlotMask);
-}
-inline constexpr uint64_t latest_seq(uint64_t packed)  { return packed >> kSlotBits; }
-inline constexpr uint32_t latest_slot(uint64_t packed) { return static_cast<uint32_t>(packed & kSlotMask); }
 
 struct RingHeader {
     uint32_t magic;
@@ -157,8 +124,8 @@ public:
     // Consumer side.
     bool open(const std::string& name);
 
-    bool valid() const { return base_ != nullptr; }
-    const std::string& error() const { return error_; }
+    bool valid() const { return map_.valid(); }
+    const std::string& error() const { return error_.empty() ? map_.error() : error_; }
     const RingHeader* header() const { return header_; }
 
     // --- Producer ----------------------------------------------------------
@@ -193,38 +160,13 @@ public:
     HostState host_state() const;
 
 private:
-    void  close();
-    SlotHeader* slot_at(uint32_t index) const;
+    void close();
 
-    void*       base_       = nullptr;
-    size_t      size_       = 0;
-    RingHeader* header_     = nullptr;
-#if defined(_WIN32)
-    void*       mapping_    = nullptr;   // HANDLE from CreateFileMapping / OpenFileMapping
-#else
-    int         fd_         = -1;
-#endif
-    bool        owner_      = false;
-    std::string name_;
-    std::string error_;
-
-    // Producer bookkeeping
-    uint32_t    writing_slot_ = UINT32_MAX;
-    uint64_t    write_seq_    = 0;
-
-    // Consumer bookkeeping
-    uint64_t    held_         = 0;
+    SharedMapping map_;
+    RingHeader*   header_ = nullptr;
+    std::string   error_;
+    slots::Writer writer_;
+    uint64_t      held_ = 0;   // consumer: the packed claim it holds, or 0
 };
-
-// Is the process that wrote `producer_pid` still running? A dead producer's
-// ring stays readable (neither host unloads the Transmit device on quit), so
-// the pid in the header is the consumer's only truth. POSIX: kill(pid, 0),
-// with EPERM counting as alive. Windows: OpenProcess(SYNCHRONIZE) and a
-// zero-timeout wait; a process we may not open counts as alive, the way
-// EPERM does. Windows recycles pids far faster than macOS, so a consumer
-// polling every few hundred ms can in principle mistake an unrelated new
-// process for the producer; the ring then reads as alive-but-silent until
-// that process exits. Accepted for v1 and noted in lab/results.
-bool process_alive(uint32_t pid);
 
 }  // namespace qcbae

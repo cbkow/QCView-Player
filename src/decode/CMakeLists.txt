@@ -62,7 +62,9 @@ target_sources(qcv_decode PRIVATE
     host_bridge_source.cpp
     host_bridge_source.h
     qcbae/frame_desc.h
+    qcbae/ring_mapping.cpp
     qcbae/shared_ring.cpp
+    qcbae/output_ring.cpp
     qcbae/shared_ring.h
     # The audio segment beside the frame ring (QCBridgeAE DESIGN-NOTES D6,
     # 2026-10-10). Read here for the live item's audio facts, and by

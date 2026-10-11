@@ -1,7 +1,8 @@
 // Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
-// src/common/LICENSE) at 308536e, src/common/protocol/audio_desc.h. The wire contract between the
-// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
-// editing here. A version mismatch is refused at open, never misread.
+// src/common/LICENSE) at 5849977, src/common/protocol/audio_desc.h. The wire contract between the
+// QCBridgeAE Transmit device and QCView, and of QCView's own output bus; keep
+// in sync by re-copying, never by editing here. A version mismatch is refused
+// at open, never misread.
 
 // SPDX-License-Identifier: MIT OR GPL-3.0-or-later
 // Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar
@@ -70,6 +71,11 @@ enum AudioSessionFlags : uint32_t {
 
 enum AudioPacketFlags : uint32_t {
     kAudioPacketScrubbing  = 1u << 0,   // pushed during a scrub session
+    // The producer muted this packet: the samples are zeros and keep their
+    // cadence, so a consumer's clock never notices. The output bus uses it
+    // for QCView's feed mute (QCBridgeN/PLAN.md O6); the Transmit device never
+    // sets it. A flag bit, not a layout change: the version stays.
+    kAudioPacketMuted      = 1u << 1,
 };
 
 // One per StartPushAudio: what the host said playback is. The consumer reads
