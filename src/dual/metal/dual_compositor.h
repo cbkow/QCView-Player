@@ -122,6 +122,11 @@ public:
     // it drew the loading spinner (or nothing) instead of the sides.
     bool renderFrame(void *encoderPtr, int dstWidth, int dstHeight,
                      int passSide = 0, bool consume = true);
+    // What `consume` does, on its own: forget this frame's prepared
+    // sources. For a caller that rendered them more than once with
+    // consume=false (the output bus draws the frame again per sink) and
+    // is done.
+    void releasePrepared();
     float diffGain() const            { return m_diffGain; }
 
     // Encode the cold-transition spinner onto an EXISTING render

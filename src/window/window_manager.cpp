@@ -110,6 +110,7 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     , m_minColor(new MinColorEngine(this))
     , m_presets(new PresetManager(m_ocio, m_minColor, this))
     , m_audio(new AudioPlayer(this))
+    , m_outputBus(new OutputBus(this))
     , m_project(new ProjectManager(this))
     , m_timeline(new TimelineController(this))
     , m_annotator(std::make_unique<ViewportAnnotator>())
@@ -122,6 +123,15 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     if (!m_audio->initialize()) {
         qWarning("WindowManager: AudioPlayer init failed — playback will be silent");
     }
+    // The output bus hears the single-flow player here and the dual mixer
+    // at each dual entry; it reaches the renderer through the accessor
+    // because the player window (and so the renderer) comes later.
+    m_audio->setOutputTap(&OutputBus::audioTap, m_outputBus);
+    m_outputBus->setRendererAccessor([this] { return fetchActiveRenderer(m_playerWindow.data()); });
+    m_outputBus->setFpsAccessor([this]() -> double {
+        if (m_dualController) return m_dualController->fps();
+        return m_videoDecoder ? m_videoDecoder->fps() : 0.0;
+    });
 
     // Vectorscope: resolves its tier / geometry from the OCIO chain and
     // the active item, and talks to whichever renderer is wired.
@@ -1347,6 +1357,10 @@ WindowManager::~WindowManager()
     // WindowManager mid-destruction.
     if (m_liveDecoder) m_liveDecoder->close();
 
+    // The output bus: retire its rings and take its targets out of the
+    // renderer while the renderer is still alive to honour the handshake.
+    if (m_outputBus) m_outputBus->rendererGone();
+
     // Phase 7.5 B.7: shut down the native renderer's threads BEFORE
     // our member destructors run. The render thread reads
     // m_safetyOverlay / m_annotator / m_imageSeqCache pointers each
@@ -1523,6 +1537,9 @@ bool WindowManager::createPlayerWindow()
         r->setCompositorMode(static_cast<qcv::CompositorMode>(m_compositorMode));
         r->setSplitPos(static_cast<float>(m_splitPos));
         r->setDiffGain(static_cast<float>(m_diffGain));
+        // The output bus: restore the outputs enabled last time and hand
+        // the renderer their targets.
+        m_outputBus->rendererReady();
     }
     nativePlayer->setViewportAnnotator(m_annotator.get());
 
@@ -2247,6 +2264,7 @@ void WindowManager::setCompositorMode(int mode)
                 mix->setMasterVolume(m_audio->volume());
                 mix->setMasterMuted(m_audio->muted());
                 mix->setLivePlaydown(livePlaydown());
+                mix->setOutputTap(&OutputBus::audioTap, m_outputBus);
                 connect(m_audio, &qcv::AudioPlayer::volumeChanged, mix,
                         [this, mix] {
                     mix->setMasterVolume(m_audio->volume());
@@ -5466,6 +5484,7 @@ bool WindowManager::enterDualTestMode(const QString &pathA,
     if (m_dualController->audio()) {
         m_dualController->audio()->setSyncOffsetMs(dualAudioSyncOffsetMs());
         m_dualController->audio()->setLivePlaydown(livePlaydown());
+        m_dualController->audio()->setOutputTap(&OutputBus::audioTap, m_outputBus);
         // Master volume/mute mirror — same wiring as the real dual
         // entry in setCompositorMode.
         if (m_audio) {

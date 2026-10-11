@@ -11,6 +11,7 @@ SafetyOverlay::~SafetyOverlay() = default;
 
 bool SafetyOverlay::loadFile(const QString &svgPath)
 {
+    m_revision.fetch_add(1, std::memory_order_release);
     ParsedSvg parsed = SvgPathParser::parseFile(svgPath);
     if (parsed.empty()) {
         qWarning("SafetyOverlay: parseFile returned empty for %s",
@@ -33,6 +34,7 @@ bool SafetyOverlay::loadFile(const QString &svgPath)
 
 void SafetyOverlay::clear()
 {
+    m_revision.fetch_add(1, std::memory_order_release);
     std::lock_guard<std::mutex> lk(m_mutex);
     m_parsed.clear();
     m_loaded = false;
@@ -46,18 +48,21 @@ bool SafetyOverlay::isLoaded() const
 
 void SafetyOverlay::setOpacity(float opacity)
 {
+    m_revision.fetch_add(1, std::memory_order_release);
     std::lock_guard<std::mutex> lk(m_mutex);
     m_opacity = std::clamp(opacity, 0.0f, 1.0f);
 }
 
 void SafetyOverlay::setColor(const QColor &color)
 {
+    m_revision.fetch_add(1, std::memory_order_release);
     std::lock_guard<std::mutex> lk(m_mutex);
     m_color = color;
 }
 
 void SafetyOverlay::setLineWidth(float pixels)
 {
+    m_revision.fetch_add(1, std::memory_order_release);
     std::lock_guard<std::mutex> lk(m_mutex);
     m_lineWidth = std::max(0.5f, pixels);
 }

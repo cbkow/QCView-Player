@@ -177,6 +177,18 @@ public:
     // host is already playing the same audio through its own device.
     // The stream is drained either way, so meters and taps keep
     // running and switching it on plays current audio, not a buffer.
+    // The output bus's tap (QCBridgeN/PLAN.md O6): the mixed stereo this
+    // callback is about to play, BEFORE Listen, mute and volume — the
+    // feed is what you would hear at unity, and whether it is muted
+    // travels as the flag. Called on the device thread with `frames`
+    // interleaved stereo frames; the tap must not block or allocate.
+    using OutputTap = void (*)(void *ctx, const float *stereo, uint32_t frames, bool muted);
+    void setOutputTap(OutputTap fn, void *ctx)
+    {
+        m_tapCtx.store(ctx, std::memory_order_release);
+        m_tap.store(fn, std::memory_order_release);
+    }
+
     void setLivePlaydown(bool on) { m_livePlaydown.store(on, std::memory_order_release); }
     bool livePlaydown() const { return m_livePlaydown.load(std::memory_order_acquire); }
     bool sourceIsLive() const { return m_decoder && m_decoder->isLive(); }
@@ -209,6 +221,8 @@ private:
     std::atomic<bool>                 m_isPlaying{false};
     std::atomic<float>                m_volume{1.0f};
     std::atomic<bool>                 m_muted{false};
+    std::atomic<OutputTap>            m_tap{nullptr};
+    std::atomic<void *>               m_tapCtx{nullptr};
 
     // ---- Servo state ----
     // Audio playout position is reconstructed in SOURCE seconds:

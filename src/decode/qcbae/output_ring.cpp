@@ -1,5 +1,5 @@
 // Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
-// src/common/LICENSE) at 5849977, src/common/surface/output_ring.cpp. The wire contract between the
+// src/common/LICENSE) at 3d7de5b, src/common/surface/output_ring.cpp. The wire contract between the
 // QCBridgeAE Transmit device and QCView, and of QCView's own output bus; keep
 // in sync by re-copying, never by editing here. A version mismatch is refused
 // at open, never misread.
@@ -158,7 +158,7 @@ bool OutputRing::create(const std::string& name, uint64_t pixels_capacity,
 
 bool OutputRing::read_request(OutputRequest* out, uint64_t* known) const {
     if (!valid() || out == nullptr || known == nullptr) return false;
-    return slots::read_record(&header_->request_lock, &header_->request_generation,
+    return ringslot::read_record(&header_->request_lock, &header_->request_generation,
                               &header_->request, known, out);
 }
 
@@ -212,7 +212,7 @@ bool OutputRing::read_status(std::string* out, uint64_t* known) const {
 
 void* OutputRing::begin_write(uint64_t bytes) {
     if (!valid()) return nullptr;
-    void* p = slots::begin_write<OutputRingHeader, OutputSlotHeader>(map_.base(), header_, &writer_, bytes);
+    void* p = ringslot::begin_write<OutputRingHeader, OutputSlotHeader>(map_.base(), header_, &writer_, bytes);
     if (p == nullptr && !writer_.open() && bytes > header_->pixels_capacity)
         error_ = "frame larger than slot capacity";
     return p;
@@ -220,12 +220,12 @@ void* OutputRing::begin_write(uint64_t bytes) {
 
 void OutputRing::commit(const OutputFrameDesc& desc) {
     if (!valid()) return;
-    slots::commit<OutputRingHeader, OutputSlotHeader, OutputFrameDesc>(map_.base(), header_, &writer_, desc);
+    ringslot::commit<OutputRingHeader, OutputSlotHeader, OutputFrameDesc>(map_.base(), header_, &writer_, desc);
 }
 
 void OutputRing::abandon() {
     if (!valid()) return;
-    slots::abandon<OutputRingHeader, OutputSlotHeader>(map_.base(), header_, &writer_);
+    ringslot::abandon<OutputRingHeader, OutputSlotHeader>(map_.base(), header_, &writer_);
 }
 
 void OutputRing::set_state(OutputState s) {
@@ -274,7 +274,7 @@ void OutputRing::report_seen(uint64_t seq) {
 
 void OutputRing::write_request(const OutputRequest& req) {
     if (!valid()) return;
-    slots::write_record(&header_->request_lock, &header_->request_generation, &header_->request, req);
+    ringslot::write_record(&header_->request_lock, &header_->request_generation, &header_->request, req);
 }
 
 bool OutputRing::read_reply(OutputReply* out, uint64_t* known, uint64_t* reply_for) const {
@@ -315,13 +315,13 @@ uint64_t OutputRing::request_generation() const {
 
 bool OutputRing::acquire_latest(uint64_t* last_seen, OutputFrameDesc* out_desc, const void** out_pixels) {
     if (!valid()) return false;
-    return slots::acquire_latest<OutputRingHeader, OutputSlotHeader, OutputFrameDesc>(
+    return ringslot::acquire_latest<OutputRingHeader, OutputSlotHeader, OutputFrameDesc>(
         map_.base(), header_, &held_, last_seen, out_desc, out_pixels);
 }
 
 void OutputRing::release() {
     if (!valid()) return;
-    slots::release(header_, &held_);
+    ringslot::release(header_, &held_);
 }
 
 bool OutputRing::producer_alive() const {

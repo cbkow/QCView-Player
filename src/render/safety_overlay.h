@@ -41,6 +41,10 @@ public:
     void clear();
 
     bool isLoaded() const;
+    // Bumped on every load/clear/appearance change, so a pass that
+    // publishes only on change (the output bus) can tell the guide moved
+    // without comparing meshes.
+    unsigned revision() const { return m_revision.load(std::memory_order_acquire); }
 
     // Display settings (GUI thread).
     void setOpacity(float opacity);
@@ -67,6 +71,7 @@ public:
                                  double srcW, double srcH) const;
 
 private:
+    std::atomic<unsigned> m_revision{0};
     // SVG-parse output is small (~hundreds of segments per file); a
     // mutex on read is fine.
     mutable std::mutex m_mutex;

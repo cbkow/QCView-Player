@@ -2560,6 +2560,105 @@ Rectangle {
                             }
                         }
 
+                        GroupHeader { label: qsTr("Output") }
+
+                        // The output bus (QCBridgeN): what QCView shows and
+                        // plays, out to an installed sink (NDI first) as a
+                        // separate process. Nothing is sent until an output
+                        // is switched on here.
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Repeater {
+                                model: WindowManager.outputs ? WindowManager.outputs.outputs : []
+                                delegate: RowLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: modelData.name
+                                              + (modelData.enabled
+                                                 ? (modelData.present
+                                                    ? "  ·  " + (modelData.shape.length > 0 ? modelData.shape : qsTr("attached"))
+                                                      + (modelData.status.length > 0 ? "  ·  " + modelData.status : "")
+                                                    : "  ·  " + qsTr("waiting for the sink") + " (" + modelData.plugin + ")")
+                                                 : (modelData.installed ? "" : "  ·  " + qsTr("not installed")))
+                                        help: qsTr("Publish the viewport and the mixed audio to "
+                                                 + "this output. The sink runs as its own "
+                                                 + "application; QCView starts it when the "
+                                                 + "switch goes on and stops it when it goes off.")
+                                    }
+                                    SlotSwitch {
+                                        checked: modelData.enabled
+                                        onToggled: WindowManager.outputs.setEnabled(modelData.id, checked)
+                                    }
+                                    Item { Layout.preferredWidth: 22 }
+                                }
+                            }
+                            Text {
+                                visible: !WindowManager.outputs || WindowManager.outputs.outputs.length === 0
+                                Layout.fillWidth: true
+                                text: qsTr("No outputs installed. An output registers itself "
+                                         + "in Application Support/QCView/Outputs.")
+                                color: Theme.textMuted
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeTiny
+                                wrapMode: Text.WordWrap
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Mute the feed")
+                                    help: qsTr("Silence the audio sent to outputs while you "
+                                             + "keep listening. The master mute (M) silences "
+                                             + "both.")
+                                }
+                                SlotSwitch {
+                                    checked: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
+                                    onToggled: WindowManager.outputs.feedMuted = checked
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
+                                    onClicked: WindowManager.outputs.feedMuted = false
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Include safety guides")
+                                    help: qsTr("Draw the safety guides into the output when "
+                                             + "the sink asks for them.")
+                                }
+                                SlotSwitch {
+                                    checked: WindowManager.outputs ? WindowManager.outputs.includeGuides : true
+                                    onToggled: WindowManager.outputs.includeGuides = checked
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeGuides : false
+                                    onClicked: WindowManager.outputs.includeGuides = true
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Include annotations")
+                                    help: qsTr("Draw note strokes into the output when the "
+                                             + "sink asks for them.")
+                                }
+                                SlotSwitch {
+                                    checked: WindowManager.outputs ? WindowManager.outputs.includeAnnotations : true
+                                    onToggled: WindowManager.outputs.includeAnnotations = checked
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeAnnotations : false
+                                    onClicked: WindowManager.outputs.includeAnnotations = true
+                                }
+                            }
+                        }
+
                         GroupHeader { label: qsTr("Audio") }
 
                         // A/V sync offset — separate values for

@@ -22,6 +22,8 @@
 
 #include <vector>
 
+namespace qcv::output { class OutputTarget; }
+
 namespace qcv {
 
 class PlayerWindow;
@@ -264,6 +266,14 @@ public:
     // empty vector to clear. Default no-op for stub renderers.
     virtual void setStoredAnnotationStrokes(
         const std::vector<ActiveStroke> & /*strokes*/) {}
+
+    // The output bus (QCBridgeN/PLAN.md P2): the enabled outputs the
+    // renderer should publish into, each a render-thread handle on a
+    // ring. Replaces the whole list; an empty list disables the output
+    // pass. Synchronous handshake: on return no frame is mid-write into
+    // a target that was removed, so the caller may destroy its ring.
+    // Default no-op for stub renderers.
+    virtual void setOutputTargets(const std::vector<output::OutputTarget *> & /*targets*/) {}
 };
 
 } // namespace qcv

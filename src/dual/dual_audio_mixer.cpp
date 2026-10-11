@@ -642,6 +642,10 @@ void DualAudioMixer::processAudio(float *output, uint32_t frameCount)
         };
         mixEngine(m_shuttleA.get(), m_mutedA.load());
         mixEngine(m_shuttleB.get(), m_mutedB.load());
+        if (auto tap = m_tap.load(std::memory_order_acquire)) {
+            tap(m_tapCtx.load(std::memory_order_acquire), output, frameCount,
+                m_masterMuted.load(std::memory_order_relaxed));
+        }
         // Master mute/volume — AFTER the engines drained (their
         // rings must keep consuming; see the muted-sides rule).
         if (m_masterMuted.load(std::memory_order_relaxed)) {
@@ -711,6 +715,11 @@ void DualAudioMixer::processAudio(float *output, uint32_t frameCount)
     };
     pullAndMix(m_decoderA.get(), m_syncA, m_mutedA.load(), m_inGapA.load());
     pullAndMix(m_decoderB.get(), m_syncB, m_mutedB.load(), m_inGapB.load());
+
+    if (auto tap = m_tap.load(std::memory_order_acquire)) {
+        tap(m_tapCtx.load(std::memory_order_acquire), output, frameCount,
+            m_masterMuted.load(std::memory_order_relaxed));
+    }
 
     // Master mute — AFTER consuming (mirrors AudioPlayer: the sides
     // keep advancing with the clock so unmute plays current audio).

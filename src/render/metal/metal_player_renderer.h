@@ -21,6 +21,7 @@
 #pragma once
 
 #include "iplayer_renderer.h"
+#include "output_target.h"
 
 #include "annotations/active_stroke.h"
 #include "color/linear_stage.h"
@@ -85,6 +86,7 @@ public:
     void setStoredAnnotationStrokes(
         const std::vector<ActiveStroke> &strokes) override;
     QImage captureScreenshot() override;
+    void setOutputTargets(const std::vector<output::OutputTarget *> &targets) override;
 
 private:
     void renderThreadProc();
@@ -164,6 +166,19 @@ private:
     // under m_storedStrokesMutex once per draw and tessellates each.
     std::mutex                      m_storedStrokesMutex;
     std::vector<ActiveStroke>       m_storedStrokes;
+    // Bumped by setStoredAnnotationStrokes; the output pass stamps it so
+    // a note edit publishes a frame without comparing stroke lists.
+    std::atomic<unsigned>           m_storedStrokesVersion{0};
+
+    // The output bus (QCBridgeN/PLAN.md P2). Set under sourceMutex by
+    // setOutputTargets; read by drawFrame. Per-target GPU resources live
+    // in Impl keyed by the target pointer.
+    std::vector<output::OutputTarget *> m_outputs;
+    // What the two flows hand the output pass: everything the canvas
+    // composite needs, resolved for this frame.
+    struct OutputFrameInputs;
+    void encodeOutputs(void *cmdBuffer, const OutputFrameInputs &in);
+    void settleOutputs(bool wait);
 };
 
 } // namespace qcv

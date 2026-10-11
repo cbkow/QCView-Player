@@ -27,6 +27,8 @@
 #include "render/player_window.h"
 #include "render/safety_overlay.h"
 
+#include <unordered_map>
+
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 
@@ -459,6 +461,79 @@ kernel void dual_combine(texture2d<float, access::read>  a   [[texture(0)]],
     }
 
     int frameCount = 0;
+
+    // ---- Output bus (QCBridgeN/PLAN.md P2) --------------------------------
+    // Its own SDR capture-style OCIO instances so a frame published to a
+    // sink never fights a screenshot for the same output texture.
+    MetalOcioRenderer outputOcio;
+    MetalOcioRenderer outputOcioB;
+
+    // What a published frame was made from: the output pass runs only
+    // when one of these differs from the last frame it published, so a
+    // paused viewer costs the sink nothing (O5).
+    struct OutputStamp {
+        quint64  frames = 0;         // displayedFrames: a new source frame on either side
+        const void *srcA = nullptr;  // the textures themselves — new decode, new texture
+        const void *srcB = nullptr;
+        int      dualFrame = -1;
+        int      mode = 0;  float split = 0.5f;  float diffGain = 1.0f;
+        float    gain = 1.0f;  float viewerGamma = 1.0f;  int viewerChannel = 0;
+        const void *chains = nullptr;
+        bool     safetyLoaded = false;  unsigned safetyRev = 0;
+        unsigned strokesVer = 0;  size_t activePts = 0;
+        int      effAW = 0, effAH = 0, effBW = 0, effBH = 0;
+        int      rotA = 0, rotB = 0;
+        bool     aAct = true, bAct = true;
+        uint64_t specGen = 0;
+        // Memberwise, never memcmp: an aggregate's padding is not zeroed.
+        bool operator==(const OutputStamp &o) const
+        {
+            return frames == o.frames && srcA == o.srcA && srcB == o.srcB && dualFrame == o.dualFrame
+                && mode == o.mode && split == o.split && diffGain == o.diffGain
+                && gain == o.gain && viewerGamma == o.viewerGamma && viewerChannel == o.viewerChannel
+                && chains == o.chains && safetyLoaded == o.safetyLoaded && safetyRev == o.safetyRev
+                && strokesVer == o.strokesVer && activePts == o.activePts
+                && effAW == o.effAW && effAH == o.effAH && effBW == o.effBW && effBH == o.effBH
+                && rotA == o.rotA && rotB == o.rotB && aAct == o.aAct && bAct == o.bAct
+                && specGen == o.specGen;
+        }
+    };
+
+    struct OutputRes {
+        uint64_t       specGen = ~0ull;
+        int            w = 0, h = 0;
+        id<MTLTexture> canvas16f  = nil;   // W x H RGBA16F: the composite at the output raster
+        id<MTLTexture> canvasB16f = nil;   // dual per-side B
+        id<MTLTexture> combined   = nil;   // dual per-side combine target
+        id<MTLTexture> out        = nil;   // W x H in the wire format; blit source
+        MetalCompositor         compositor;     // baked at the wire format
+        MetalAnnotationRenderer annotations;    // guides + strokes into `out`
+        // The ring's slots wrapped once each as no-copy buffers, keyed by
+        // the slot's pixel pointer (page-aligned, capacity page-rounded).
+        std::unordered_map<const void *, id<MTLBuffer>> slotBuffers;
+        OutputStamp last;  bool haveLast = false;
+        // A frame encoded but not yet committed to the ring: the blit is
+        // on the GPU. Committed once the command buffer completes.
+        id<MTLCommandBuffer>  pendingCb = nil;
+        qcbae::OutputFrameDesc pendingDesc {};
+        bool                  pending = false;
+        uint64_t              published = 0;
+        int64_t               lastTraceNs = 0;
+    };
+    std::unordered_map<output::OutputTarget *, std::unique_ptr<OutputRes>> outputs;
+};
+
+struct MetalPlayerRenderer::OutputFrameInputs {
+    bool dual = false;
+    // single flow
+    void *srcA = nullptr;  int effAW = 0, effAH = 0;  int rawAW = 0, rawAH = 0;
+    void *srcB = nullptr;  int effBW = 0, effBH = 0;  bool hasB = false;
+    int mode = 0;  float split = 0.5f;  bool aAct = true, bAct = true;  int rotA = 0, rotB = 0;
+    // dual flow
+    bool perSide = false;  bool difference = false;  float diffGain = 1.0f;
+    int dualAW = 0, dualAH = 0, dualBW = 0, dualBH = 0;  bool dualA = false, dualB = false;
+    // both
+    std::shared_ptr<const OcioChainSnapshot> chains;
 };
 
 MetalPlayerRenderer::MetalPlayerRenderer()
@@ -558,6 +633,16 @@ bool MetalPlayerRenderer::init(PlayerWindow *window)
     if (!m_impl->captureOcioB.initialize()) {
         qWarning("MetalPlayerRenderer: B-side capture OCIO renderer init failed");
     }
+    // The output bus renders the SDR equivalent of the live view, like a
+    // capture, on every changed frame (QCBridgeN/PLAN.md O3).
+    m_impl->outputOcio.setSdrCapture(true);
+    if (!m_impl->outputOcio.initialize()) {
+        qWarning("MetalPlayerRenderer: output OCIO renderer init failed");
+    }
+    m_impl->outputOcioB.setSdrCapture(true);
+    if (!m_impl->outputOcioB.initialize()) {
+        qWarning("MetalPlayerRenderer: B-side output OCIO renderer init failed");
+    }
     for (auto &sc : m_impl->scopes) {
         if (!sc.initialize()) qWarning("MetalPlayerRenderer: scope renderer init failed");
     }
@@ -644,6 +729,15 @@ void MetalPlayerRenderer::shutdown()
     m_impl->captureOcio.shutdown();
     m_impl->ocioB.shutdown();
     m_impl->captureOcioB.shutdown();
+    m_impl->outputOcio.shutdown();
+    m_impl->outputOcioB.shutdown();
+    for (auto &kv : m_impl->outputs) {
+        if (kv.second->pending) { [kv.second->pendingCb waitUntilCompleted]; kv.first->abandonFrame(); }
+        kv.second->compositor.shutdown();
+        kv.second->annotations.shutdown();
+    }
+    m_impl->outputs.clear();
+    m_outputs.clear();
     for (auto &sc : m_impl->scopes) sc.shutdown();
     m_impl->annotations.shutdown();
     m_impl->videoFrameRgba           = nil;
@@ -963,6 +1057,7 @@ void MetalPlayerRenderer::setStoredAnnotationStrokes(
 {
     std::lock_guard<std::mutex> lock(m_storedStrokesMutex);
     m_storedStrokes = strokes;
+    m_storedStrokesVersion.fetch_add(1, std::memory_order_release);
 }
 
 void MetalPlayerRenderer::setDualController(void *controllerPtr)
@@ -1130,6 +1225,7 @@ void MetalPlayerRenderer::drawFrame()
         // tracking (no waitUntilCompleted).
         m_impl->dualCompositor.prepareFrames((__bridge void *)cb);
         m_impl->countDualFrame(m_dualControllerPtr.load(std::memory_order_acquire));
+        settleOutputs(/*wait=*/false);
 
         // ---- Pass 1: dual composite → compositeRawDual (RGBA16F) ----
         {
@@ -1147,7 +1243,7 @@ void MetalPlayerRenderer::drawFrame()
             // upscale below. Per-side: A only here, B below.
             const bool drewSides = m_impl->dualCompositor.renderFrame(
                 (__bridge void *)enc, canvasW, canvasH,
-                perSide ? 1 : 0, /*consume=*/!perSide);
+                perSide ? 1 : 0, /*consume=*/!perSide && m_outputs.empty());
             // The spinner (no frames yet) has no sides to split.
             if (!drewSides) perSide = false;
 
@@ -1206,7 +1302,7 @@ void MetalPlayerRenderer::drawFrame()
             rpd.colorAttachments[0].storeAction = MTLStoreActionStore;
             id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:rpd];
             m_impl->dualCompositor.renderFrame((__bridge void *)enc, canvasW, canvasH,
-                                               /*passSide=*/2, /*consume=*/true);
+                                               /*passSide=*/2, /*consume=*/m_outputs.empty());
             [enc endEncoding];
         }
         const bool difference = m_compMode == CompositorMode::Difference;
@@ -1249,6 +1345,25 @@ void MetalPlayerRenderer::drawFrame()
                     cb, (__bridge id<MTLTexture>)dualCorrected, (__bridge id<MTLTexture>)outB,
                     m_impl->dualCombined, difference, diffGain);
             }
+        }
+
+        // ---- Output bus: the composite again at each sink's raster ----
+        // renderFrame(consume=false) above kept this frame's prepared
+        // sources; the bus pass draws them once more per sink, then the
+        // present and the scope tap proceed as before.
+        if (!m_outputs.empty()) {
+            OutputFrameInputs in;
+            in.dual       = true;
+            in.perSide    = perSide;
+            in.difference = difference;
+            in.diffGain   = diffGain;
+            in.chains     = chains;
+            const auto &ll = m_impl->dualCompositor.lastLayout();
+            in.dualAW = ll.srcAW; in.dualAH = ll.srcAH; in.dualBW = ll.srcBW; in.dualBH = ll.srcBH;
+            in.dualA  = ll.aValid; in.dualB = ll.bValid;
+            in.mode   = static_cast<int>(m_compMode.load());
+            in.split  = m_splitPos.load();
+            encodeOutputs((__bridge void *)cb, in);
         }
 
         // ---- Vectorscope tap: the per-side sources dual_fs sampled ----
@@ -1568,11 +1683,13 @@ void MetalPlayerRenderer::drawFrame()
             }
             m_impl->captureCv.notify_all();
             ++m_impl->frameCount;
+            if (!m_outputs.empty()) m_impl->dualCompositor.releasePrepared();
             return;
         }
 
         [cb presentDrawable:drawable];
         [cb commit];
+        if (!m_outputs.empty()) m_impl->dualCompositor.releasePrepared();
         return;
     }
 
@@ -1612,6 +1729,7 @@ void MetalPlayerRenderer::drawFrame()
     // the chosen texture through a raw pointer. Taken after
     // nextDrawable so a GUI setter never waits on a vsync.
     std::lock_guard<std::mutex> srcLock(m_impl->sourceMutex);
+    settleOutputs(/*wait=*/false);
 
     // Single command buffer per frame. YUV-A → YUV-B → composite →
     // OCIO → present all encode into this one cb so Metal's
@@ -2083,6 +2201,31 @@ void MetalPlayerRenderer::drawFrame()
         m_impl->lastSourceH        = sourceH;
     }
 
+    // ---- Output bus: the composite again at each sink's raster ----
+    if (!m_outputs.empty() && haveSourceTexture) {
+        OutputFrameInputs in;
+        in.dual   = false;
+        in.srcA   = sourceTexture;  in.effAW = effSourceW;  in.effAH = effSourceH;
+        in.rawAW  = sourceW;        in.rawAH = sourceH;
+        in.hasB   = m_decoderB && m_impl->videoFrameRgbaB;
+        if (in.hasB) {
+            in.srcB = (__bridge void *)m_impl->videoFrameRgbaB;
+            const auto [bw0, bh0] = effDim(m_impl->videoFrameWB, m_impl->videoFrameHB,
+                                           m_parNumB.load(std::memory_order_relaxed),
+                                           m_parDenB.load(std::memory_order_relaxed));
+            const int rq = m_rotQB.load(std::memory_order_relaxed);
+            in.effBW = (rq & 1) ? bh0 : bw0;  in.effBH = (rq & 1) ? bw0 : bh0;
+            in.rotB  = rq;
+        }
+        in.mode  = static_cast<int>(m_compMode.load());
+        in.split = m_splitPos.load();
+        in.aAct  = m_aActive.load(std::memory_order_relaxed);
+        in.bAct  = m_bActive.load(std::memory_order_relaxed);
+        in.rotA  = rotQA;
+        in.chains = chains;
+        encodeOutputs((__bridge void *)cb, in);
+    }
+
     // ---- Vectorscope tap (source(s) → scope image; lags by design) ----
     if (haveSourceTexture) {
         const bool hybridB = m_decoderB && m_impl->videoFrameRgbaB;
@@ -2495,6 +2638,374 @@ void MetalPlayerRenderer::drawFrame()
     }
 
     ++m_impl->frameCount;
+}
+
+// ============================================================================
+// Output bus (QCBridgeN/PLAN.md P2): the corrected canvas, rendered again
+// at a sink's raster into its ring slot, only when something changed.
+//
+// Per sink and per changed frame, on the frame's own command buffer:
+//   1. composite the sources at W x H into an RGBA16F canvas (the same
+//      canvas compositor / dual compositor the window uses, so splits,
+//      wipes and difference are the window's);
+//   2. the SDR-capture OCIO chain over that canvas (what a screenshot gets);
+//   3. that into a texture in the wire format, with the guides and the
+//      strokes the sink asked for, black where the letterbox is;
+//   4. a blit from that texture into the ring slot, which is wrapped once
+//      as a no-copy MTLBuffer. No CPU copy anywhere (O9).
+// The ring commit waits for the GPU: it happens at the start of the next
+// frame (settleOutputs), or right before the next frame for the same
+// sink, or synchronously when the target is removed.
+// ============================================================================
+
+
+void MetalPlayerRenderer::setOutputTargets(const std::vector<output::OutputTarget *> &targets)
+{
+    std::lock_guard<std::mutex> lk(m_impl->sourceMutex);
+    // Whatever is on the GPU for a target that is leaving lands in the
+    // ring before the caller destroys it.
+    settleOutputs(/*wait=*/true);
+    for (auto it = m_impl->outputs.begin(); it != m_impl->outputs.end();) {
+        const bool keep = std::find(targets.begin(), targets.end(), it->first) != targets.end();
+        if (!keep) {
+            it->second->compositor.shutdown();
+            it->second->annotations.shutdown();
+            it = m_impl->outputs.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    m_outputs = targets;
+    qInfo("MetalPlayerRenderer: %zu output target(s)", m_outputs.size());
+}
+
+void MetalPlayerRenderer::settleOutputs(bool wait)
+{
+    for (auto &kv : m_impl->outputs) {
+        auto &res = *kv.second;
+        if (!res.pending) continue;
+        if (!wait && res.pendingCb.status != MTLCommandBufferStatusCompleted) continue;
+        if (wait) [res.pendingCb waitUntilCompleted];
+        if (res.pendingCb.status == MTLCommandBufferStatusCompleted) {
+            kv.first->commitFrame(res.pendingDesc);
+            ++res.published;
+        } else {
+            kv.first->abandonFrame();
+        }
+        res.pending   = false;
+        res.pendingCb = nil;
+    }
+}
+
+void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs &in)
+{
+    id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)cmdBuffer;
+    const float gain = m_gain.load(std::memory_order_relaxed);
+    const ViewerAids aids = currentViewerAids();
+
+    for (output::OutputTarget *t : m_outputs) {
+        if (!t->active()) continue;
+        uint64_t specGen = 0;
+        const output::OutputSpec spec = t->spec(&specGen);
+        if (!spec.valid() || spec.format != qcbae::OutputPixelFormat::BGRA8) continue;
+        if (spec.content == qcbae::OutputContent::SideB && !(in.dual ? in.dualB : in.hasB)) continue;
+
+        auto &resPtr = m_impl->outputs[t];
+        if (!resPtr) resPtr = std::make_unique<Impl::OutputRes>();
+        Impl::OutputRes &res = *resPtr;
+
+        // ---- the stamp: publish only on change ----
+        Impl::OutputStamp st {};
+        st.frames   = m_impl->displayedFrames.load(std::memory_order_relaxed);
+        st.srcA     = in.srcA;  st.srcB = in.srcB;
+        st.dualFrame = m_impl->lastDualFrame;
+        st.mode = in.mode;  st.split = in.split;  st.diffGain = in.diffGain;
+        st.gain = gain;  st.viewerGamma = aids.gamma;  st.viewerChannel = static_cast<int>(aids.channel);
+        st.chains = in.chains.get();
+        st.safetyLoaded = m_safety && m_safety->isLoaded();
+        st.safetyRev    = m_safety ? m_safety->revision() : 0u;
+        {
+            // The stored list is re-pushed on every frame change whether or
+            // not it differs, so stamp its content: count, points and their
+            // coordinates folded into one word.
+            std::lock_guard<std::mutex> lock(m_storedStrokesMutex);
+            unsigned h = static_cast<unsigned>(m_storedStrokes.size()) * 2654435761u;
+            for (const ActiveStroke &sk : m_storedStrokes) {
+                h = h * 31u + static_cast<unsigned>(sk.points.size());
+                for (const QPointF &pt : sk.points) {
+                    const float fx = static_cast<float>(pt.x()), fy = static_cast<float>(pt.y());
+                    unsigned bx = 0, by = 0;
+                    std::memcpy(&bx, &fx, sizeof bx); std::memcpy(&by, &fy, sizeof by);
+                    h = (h * 31u) ^ bx; h = (h * 31u) ^ by;
+                }
+            }
+            st.strokesVer = h;
+        }
+        if (m_annotator) {
+            if (const ActiveStroke *a = m_annotator->activeStroke()) st.activePts = a->points.size();
+        }
+        st.effAW = in.dual ? in.dualAW : in.effAW;  st.effAH = in.dual ? in.dualAH : in.effAH;
+        st.effBW = in.dual ? in.dualBW : in.effBW;  st.effBH = in.dual ? in.dualBH : in.effBH;
+        st.rotA = in.rotA;  st.rotB = in.rotB;  st.aAct = in.aAct;  st.bAct = in.bAct;
+        st.specGen = specGen;
+        if (res.haveLast && st == res.last) continue;
+        if (res.haveLast) {
+            // What moved — at most once a second per sink, so a publish
+            // rate that looks wrong can be read off the log.
+            const int64_t nowNs = qcbae::OutputRing::now_ns();
+            if (nowNs - res.lastTraceNs > 1000000000LL) {
+                res.lastTraceNs = nowNs;
+                const auto &l = res.last;
+                qInfo("MetalPlayerRenderer: output publish (%llu so far): changed%s%s%s%s%s%s%s%s%s%s",
+                      static_cast<unsigned long long>(res.published),
+                      st.frames != l.frames ? " frames" : "",
+                      st.srcA != l.srcA ? " srcA" : "", st.srcB != l.srcB ? " srcB" : "",
+                      st.dualFrame != l.dualFrame ? " dualFrame" : "",
+                      (st.mode != l.mode || st.split != l.split || st.diffGain != l.diffGain) ? " layout" : "",
+                      (st.gain != l.gain || st.viewerGamma != l.viewerGamma || st.viewerChannel != l.viewerChannel) ? " viewer" : "",
+                      st.chains != l.chains ? " chains" : "",
+                      (st.safetyLoaded != l.safetyLoaded || st.safetyRev != l.safetyRev) ? " guides" : "",
+                      (st.strokesVer != l.strokesVer || st.activePts != l.activePts) ? " strokes" : "",
+                      (st.effAW != l.effAW || st.effAH != l.effAH || st.effBW != l.effBW || st.effBH != l.effBH
+                       || st.rotA != l.rotA || st.rotB != l.rotB || st.aAct != l.aAct || st.bAct != l.bAct
+                       || st.specGen != l.specGen) ? " geometry/spec" : "");
+            }
+        }
+
+        // ---- a frame still on the GPU for this sink: land it first ----
+        if (res.pending) {
+            [res.pendingCb waitUntilCompleted];
+            if (res.pendingCb.status == MTLCommandBufferStatusCompleted) { t->commitFrame(res.pendingDesc); ++res.published; }
+            else t->abandonFrame();
+            res.pending = false;  res.pendingCb = nil;
+        }
+
+        // ---- resources for this raster ----
+        const int W = static_cast<int>(spec.width), H = static_cast<int>(spec.height);
+        if (res.specGen != specGen || !res.canvas16f || res.w != W || res.h != H) {
+            MTLTextureDescriptor *d16 = [MTLTextureDescriptor
+                texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:W height:H mipmapped:NO];
+            d16.storageMode = MTLStorageModePrivate;
+            d16.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite | MTLTextureUsageRenderTarget;
+            res.canvas16f  = [m_impl->device newTextureWithDescriptor:d16];
+            res.canvasB16f = nil;
+            res.combined   = nil;
+            MTLTextureDescriptor *d8 = [MTLTextureDescriptor
+                texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:W height:H mipmapped:NO];
+            d8.storageMode = MTLStorageModePrivate;
+            d8.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget;
+            res.out = [m_impl->device newTextureWithDescriptor:d8];
+            if (!res.compositor.isInitialized()
+                || res.compositor.targetPixelFormat() != static_cast<int>(MTLPixelFormatBGRA8Unorm)) {
+                res.compositor.shutdown();
+                res.compositor.initialize(static_cast<int>(MTLPixelFormatBGRA8Unorm));
+            }
+            if (!res.annotations.isInitialized()
+                || res.annotations.targetPixelFormat() != static_cast<int>(MTLPixelFormatBGRA8Unorm)) {
+                res.annotations.shutdown();
+                res.annotations.initialize(static_cast<int>(MTLPixelFormatBGRA8Unorm));
+            }
+            res.slotBuffers.clear();
+            res.specGen = specGen;  res.w = W;  res.h = H;  res.haveLast = false;
+            qInfo("MetalPlayerRenderer: output pass %dx%d BGRA8 (content %u, layers 0x%x)",
+                  W, H, static_cast<unsigned>(spec.content), spec.layers);
+        }
+        if (!res.canvas16f || !res.out || !res.compositor.isInitialized()) continue;
+        if (in.dual && in.perSide && !res.canvasB16f) {
+            MTLTextureDescriptor *d16 = [MTLTextureDescriptor
+                texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:W height:H mipmapped:NO];
+            d16.storageMode = MTLStorageModePrivate;
+            d16.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite | MTLTextureUsageRenderTarget;
+            res.canvasB16f = [m_impl->device newTextureWithDescriptor:d16];
+        }
+
+        // ---- the slot ----
+        const uint64_t bytes = spec.frameBytes();
+        void *slot = t->beginFrame(bytes);
+        if (!slot) continue;   // lossy by design: the sink gets the next one
+        id<MTLBuffer> slotBuf = nil;
+        if (auto it = res.slotBuffers.find(slot); it != res.slotBuffers.end()) {
+            slotBuf = it->second;
+        } else {
+            slotBuf = [m_impl->device newBufferWithBytesNoCopy:slot
+                                                        length:static_cast<NSUInteger>(t->capacity())
+                                                       options:MTLResourceStorageModeShared
+                                                   deallocator:nil];
+            if (slotBuf) res.slotBuffers[slot] = slotBuf;
+        }
+        if (!slotBuf) { t->abandonFrame(); qWarning("MetalPlayerRenderer: output slot cannot be wrapped as a buffer"); continue; }
+
+        // ---- 1. composite at the raster ----
+        const bool sideA = spec.content == qcbae::OutputContent::SideA;
+        const bool sideB = spec.content == qcbae::OutputContent::SideB;
+        auto clearPass = [&](id<MTLTexture> target, bool opaque) {
+            MTLRenderPassDescriptor *rpd = [MTLRenderPassDescriptor renderPassDescriptor];
+            rpd.colorAttachments[0].texture     = target;
+            rpd.colorAttachments[0].loadAction  = MTLLoadActionClear;
+            rpd.colorAttachments[0].clearColor  = MTLClearColorMake(0, 0, 0, opaque ? 1 : 0);
+            rpd.colorAttachments[0].storeAction = MTLStoreActionStore;
+            return [cb renderCommandEncoderWithDescriptor:rpd];
+        };
+        if (!in.dual) {
+            id<MTLRenderCommandEncoder> enc = clearPass(res.canvas16f, false);
+            if (sideA || !in.hasB) {
+                m_impl->compositor.renderSource(
+                    (__bridge void *)enc, in.srcA, in.effAW, in.effAH, W, H,
+                    MetalCompositor::Single, 0.5f, in.rotA);
+            } else if (sideB) {
+                m_impl->compositor.renderSource(
+                    (__bridge void *)enc, in.srcB, in.effBW, in.effBH, W, H,
+                    MetalCompositor::Single, 0.5f, in.rotB);
+            } else {
+                m_impl->compositor.renderSources(
+                    (__bridge void *)enc,
+                    in.srcA, in.effAW, in.effAH, in.srcB, in.effBW, in.effBH,
+                    W, H, in.mode, in.split, in.aAct, in.bAct, in.rotA, in.rotB);
+            }
+            [enc endEncoding];
+        } else {
+            // The dual compositor draws its prepared sources at any size.
+            // Content A/B: the Single layout for the side (B through the
+            // side pass with the layout left as it is — v1 accepts that
+            // B alone keeps its layout; the bus refuses SideB in dual).
+            const auto liveMode = m_impl->dualCompositor.mode();
+            if (sideA) m_impl->dualCompositor.setMode(dual::DualCompositor::Mode::Single);
+            {
+                id<MTLRenderCommandEncoder> enc = clearPass(res.canvas16f, false);
+                m_impl->dualCompositor.renderFrame((__bridge void *)enc, W, H,
+                                                   in.perSide ? 1 : 0, /*consume=*/false);
+                [enc endEncoding];
+            }
+            if (in.perSide && res.canvasB16f) {
+                id<MTLRenderCommandEncoder> enc = clearPass(res.canvasB16f, false);
+                m_impl->dualCompositor.renderFrame((__bridge void *)enc, W, H, 2, /*consume=*/false);
+                [enc endEncoding];
+            }
+            if (sideA) m_impl->dualCompositor.setMode(liveMode);
+        }
+
+        // ---- 2. OCIO: the SDR equivalent of the live view ----
+        void *corrected = (__bridge void *)res.canvas16f;
+        if (in.chains && in.chains->engaged) {
+            const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
+            m_impl->outputOcio.setStage(specA.stage(gain));
+            m_impl->outputOcio.setViewer(aids);
+            m_impl->outputOcio.rebuild(specA);
+            if (m_impl->outputOcio.hasPipeline()) {
+                void *o = m_impl->outputOcio.apply(cmdBuffer, (__bridge void *)res.canvas16f, W, H);
+                if (o) corrected = o;
+            }
+            if (in.dual && in.perSide && res.canvasB16f) {
+                m_impl->outputOcioB.setStage(in.chains->b.stage(gain));
+                m_impl->outputOcioB.setViewer(aids);
+                m_impl->outputOcioB.rebuild(in.chains->b);
+                void *outB = m_impl->outputOcioB.hasPipeline()
+                    ? m_impl->outputOcioB.apply(cmdBuffer, (__bridge void *)res.canvasB16f, W, H)
+                    : nullptr;
+                if (!outB) outB = (__bridge void *)res.canvasB16f;
+                corrected = (__bridge void *)m_impl->combineSides(
+                    cb, (__bridge id<MTLTexture>)corrected, (__bridge id<MTLTexture>)outB,
+                    res.combined, in.difference, in.diffGain);
+            }
+        }
+
+        // ---- 3. the wire texture: picture, black letterbox, layers ----
+        uint32_t drawn = 0;
+        {
+            id<MTLRenderCommandEncoder> enc = clearPass(res.out, true);
+            res.compositor.setClampToUnit(corrected == (__bridge void *)res.canvas16f);
+            res.compositor.renderSource((__bridge void *)enc, corrected, W, H, W, H,
+                                        MetalCompositor::Single, 0.5f);
+            if (res.annotations.isInitialized()) {
+                res.annotations.beginFrame();
+                auto fit = [](float x, float y, float w, float h, float sw, float sh) -> QRectF {
+                    if (sw <= 0 || sh <= 0 || w <= 0 || h <= 0) return QRectF(x, y, w, h);
+                    const float ca = w / h, sa = sw / sh;
+                    float fw, fh;
+                    if (sa > ca) { fw = w; fh = w / sa; } else { fh = h; fw = h * sa; }
+                    return QRectF(x + (w - fw) * 0.5f, y + (h - fh) * 0.5f, fw, fh);
+                };
+                const bool wantGuides  = (spec.layers & qcbae::kOutputLayerGuides) && m_safety && m_safety->isLoaded();
+                const bool wantStrokes = (spec.layers & qcbae::kOutputLayerAnnotations) && !in.dual && m_annotator;
+                if (!in.dual) {
+                    // One picture (A, B, or the composite with A's frame as
+                    // the guide's home, as the window does).
+                    const bool useB = sideB;
+                    const int ew = useB ? in.effBW : in.effAW, eh = useB ? in.effBH : in.effAH;
+                    const int rotQ = useB ? in.rotB : in.rotA;
+                    const double rawW = (rotQ & 1) ? (useB ? in.effBH : in.rawAH) : (useB ? in.effBW : in.rawAW);
+                    const double rawH = (rotQ & 1) ? (useB ? in.effBW : in.rawAW) : (useB ? in.effBH : in.rawAH);
+                    const QRectF r = fit(0, 0, float(W), float(H), float(ew), float(eh));
+                    if (wantGuides && r.width() >= 2 && r.height() >= 2) {
+                        const TessellatedMesh m = m_safety->meshForImage(r.topLeft(), r.size(), rawW, rawH);
+                        if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H); drawn |= qcbae::kOutputLayerGuides; }
+                    }
+                    if (wantStrokes && r.width() >= 2 && ew > 0) {
+                        const float fx = float(r.x()), fy = float(r.y()), fw = float(r.width()), fh = float(r.height());
+                        const float lineScale = fw / float(ew);
+                        if (const ActiveStroke *a = m_annotator->activeStroke()) {
+                            const TessellatedMesh m = StrokeTessellator::tessellate(*a, fx, fy, fw, fh, lineScale);
+                            if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                        }
+                        std::vector<ActiveStroke> stored;
+                        { std::lock_guard<std::mutex> lock(m_storedStrokesMutex); stored = m_storedStrokes; }
+                        for (const ActiveStroke &sk : stored) {
+                            const TessellatedMesh m = StrokeTessellator::tessellate(sk, fx, fy, fw, fh, lineScale);
+                            if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                        }
+                    }
+                } else if (wantGuides) {
+                    // Per-side guides, the dual capture's rule: side-by-side
+                    // splits the raster in half; everything else frames A.
+                    auto draw = [&](const QRectF &r) {
+                        if (r.width() < 2 || r.height() < 2) return;
+                        const TessellatedMesh m = m_safety->mesh(r.topLeft(), r.size());
+                        if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H); drawn |= qcbae::kOutputLayerGuides; }
+                    };
+                    if (in.mode == static_cast<int>(CompositorMode::SideBySide) && !sideA) {
+                        if (in.dualA) draw(fit(0, 0, W * 0.5f, float(H), float(in.dualAW), float(in.dualAH)));
+                        if (in.dualB) draw(fit(W * 0.5f, 0, W * 0.5f, float(H), float(in.dualBW), float(in.dualBH)));
+                    } else if (in.dualA) {
+                        draw(fit(0, 0, float(W), float(H), float(in.dualAW), float(in.dualAH)));
+                    }
+                }
+            }
+            [enc endEncoding];
+        }
+
+        // ---- 4. into the slot ----
+        {
+            id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+            [blit copyFromTexture:res.out
+                      sourceSlice:0 sourceLevel:0
+                     sourceOrigin:MTLOriginMake(0, 0, 0)
+                       sourceSize:MTLSizeMake(W, H, 1)
+                         toBuffer:slotBuf
+                destinationOffset:0
+           destinationBytesPerRow:spec.bytesPerRow()
+         destinationBytesPerImage:static_cast<NSUInteger>(spec.bytesPerRow()) * H];
+            [blit endEncoding];
+        }
+
+        qcbae::OutputFrameDesc d {};
+        d.width = spec.width;  d.height = spec.height;
+        d.bytes_per_row = spec.bytesPerRow();
+        d.pixel_format  = static_cast<uint32_t>(spec.format);
+        d.transfer      = static_cast<uint32_t>(spec.transfer);
+        d.content       = static_cast<uint32_t>(spec.content);
+        d.layers        = drawn;
+        d.flags         = ((in.dual ? in.dualA : in.srcA != nullptr) ? qcbae::kOutputFrameHasA : 0u)
+                        | ((in.dual ? in.dualB : in.hasB) ? qcbae::kOutputFrameHasB : 0u);
+        d.presentation_ns    = qcbae::OutputRing::now_ns();
+        d.source_frame_index = in.dual ? m_impl->lastDualFrame
+                             : (m_decoder ? m_decoder->currentFrame() : -1);
+        d.source_fps_num = t->fpsNum();  d.source_fps_den = t->fpsDen();
+        res.pendingCb   = cb;
+        res.pendingDesc = d;
+        res.pending     = true;
+        res.last        = st;
+        res.haveLast    = true;
+    }
 }
 
 QImage MetalPlayerRenderer::captureScreenshot()

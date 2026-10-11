@@ -16,6 +16,7 @@
 #include "annotations/annotation_manager.h"
 #include "annotations/viewport_annotator.h"
 #include "audio/audio_player.h"
+#include "window/output_bus.h"
 #include "render/safety_overlay.h"
 #include "color/ocio_config_manager.h"
 #include "color/mincolor_engine.h"
@@ -273,6 +274,9 @@ class WindowManager : public QObject
     Q_PROPERTY(qcv::MinColorEngine *minColor READ minColor CONSTANT)
     Q_PROPERTY(qcv::PresetManager *presets READ presets CONSTANT)
     Q_PROPERTY(qcv::AudioPlayer *audio READ audio CONSTANT)
+    // The output bus (QCBridgeN/PLAN.md P2): installed sink plugins, which
+    // are enabled, their status; the feed mute and the included layers.
+    Q_PROPERTY(qcv::OutputBus *outputs READ outputBus CONSTANT)
     Q_PROPERTY(qcv::ProjectManager *project READ project CONSTANT)
     Q_PROPERTY(qcv::TimelineController *timeline READ timeline CONSTANT)
     // Phase 7.6 — Recent lists. Persisted via QSettings; capped
@@ -618,6 +622,7 @@ public:
     MinColorEngine    *minColor() const { return m_minColor; }
     PresetManager *presets() const { return m_presets; }
     AudioPlayer *audio() const { return m_audio; }
+    OutputBus *outputBus() const { return m_outputBus; }
     ProjectManager *project() const { return m_project; }
     TimelineController *timeline() const { return m_timeline; }
     QStringList recentMedia()    const { ensureRecentsLoaded(); return m_recentMedia; }
@@ -1480,6 +1485,7 @@ private:
     MinColorEngine        *m_minColor = nullptr;       // owned via QObject parent
     PresetManager         *m_presets = nullptr;        // owned via QObject parent
     AudioPlayer           *m_audio = nullptr;          // owned via QObject parent
+    OutputBus             *m_outputBus = nullptr;      // owned via QObject parent
     ProjectManager        *m_project = nullptr;        // owned via QObject parent
     // Phase 7.6 — Recent lists. Loaded on demand from QSettings;
     // mutated by addRecent* + persisted same step. Mutable so

@@ -593,6 +593,9 @@ void AudioPlayer::processAudio(float *output, uint32_t frameCount)
     // mute/volume/soft-limit tail below.
     if (m_shuttle && m_shuttle->active()) {
         m_shuttle->read(output, frameCount);
+        if (auto tap = m_tap.load(std::memory_order_acquire)) {
+            tap(m_tapCtx.load(std::memory_order_acquire), output, frameCount, m_muted.load());
+        }
         if (m_muted.load()) {
             std::memset(output, 0, outBytes);
             return;
@@ -621,6 +624,14 @@ void AudioPlayer::processAudio(float *output, uint32_t frameCount)
                     m_servoScratch.data(), m_servoScratch.size() / 2,
                     m_srcFramesConsumed, m_drainReq,
                     /*extraHold=*/!m_isPlaying.load() && !live);
+
+    // The output bus hears everything that reached this point — the
+    // drained source at unity — and is told whether the master mute is on.
+    // Listen (live playdown) is a listening choice like volume, so it does
+    // not gate the feed (the bridge audio is in the path for exactly this).
+    if (auto tap = m_tap.load(std::memory_order_acquire)) {
+        tap(m_tapCtx.load(std::memory_order_acquire), output, frameCount, m_muted.load());
+    }
 
     // Live playdown off: drained (meters and taps ran), not heard.
     if (live && !m_livePlaydown.load(std::memory_order_acquire)) {

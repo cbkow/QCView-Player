@@ -15,6 +15,10 @@ add_library(qcv_window STATIC
     # cannot link qcv_dual on non-Apple (qmltypes cycle).
     window_manager_dual_source_adapter.h
     window_manager_dual_source_adapter.cpp
+    # The output bus (QCBridgeN/PLAN.md P2): manifests, rings, plugin
+    # processes, the request/reply handshake, the audio tap.
+    output_bus.h
+    output_bus.cpp
 )
 
 # macOS borderless-fullscreen helper — manipulates NSWindow level /

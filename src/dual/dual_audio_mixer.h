@@ -129,6 +129,15 @@ public:
     void setMasterVolume(float v);
     void setMasterMuted(bool m);
 
+    // The output bus's tap: the summed sides after the per-side mutes,
+    // before master mute and volume (same contract as AudioPlayer's).
+    using OutputTap = void (*)(void *ctx, const float *stereo, uint32_t frames, bool muted);
+    void setOutputTap(OutputTap fn, void *ctx)
+    {
+        m_tapCtx.store(ctx, std::memory_order_release);
+        m_tap.store(fn, std::memory_order_release);
+    }
+
     // Live (QCBridgeAE) sides: whether they are heard. Drained either
     // way, like AudioPlayer::setLivePlaydown. A live side also keeps
     // the device running while the dual transport is paused, since
@@ -285,6 +294,8 @@ private:
     // Master gain / mute (transport bar), applied post-sum.
     std::atomic<float>  m_masterVolume{1.0f};
     std::atomic<bool>   m_masterMuted{false};
+    std::atomic<OutputTap> m_tap{nullptr};
+    std::atomic<void *>    m_tapCtx{nullptr};
 };
 
 } // namespace qcv::dual

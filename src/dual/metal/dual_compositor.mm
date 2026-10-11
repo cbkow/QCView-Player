@@ -916,6 +916,11 @@ bool DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight,
     return true;
 }
 
+void DualCompositor::releasePrepared()
+{
+    m_impl->prepared = false;
+}
+
 void DualCompositor::encodeLoadingSpinner(void *encoderPtr,
                                           int dstWidth, int dstHeight,
                                           int targetPixelFormat)
