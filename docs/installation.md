@@ -52,6 +52,12 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.4
+
+- **Live audio from Premiere Pro** — with QCBridgeAE 0.3.1 and **Audio Stream** ticked for the device in Premiere's Playback preferences, the sequence's audio arrives beside the picture over the bridge: the Inspector's Audio card shows the stream's state, rate and channels with per-channel meters, **Listen in QCView** plays it (off by default — Premiere is playing it already), 5.1 and 7.1 fold to stereo by the same routing rules as files, **Mute scrub audio** applies to it, and an **A/V sync (Live)** offset per host application delays the audio or holds the picture. Live sides in dual view carry their audio into the mix.
+- **Dual view** — the per-side mute on the A and B chips is a lit / recessed pill instead of a two-grey icon, and the Inspector's Audio card reads the inspected side's own source.
+- **Output** (first step) — Settings ▸ Output lists installed output sinks. Switched on, QCView publishes what the viewport shows (splits, OCIO, guides and notes included) and the mixed audio to that sink as a separate application, only while it is attached, with a feed mute and a choice of included layers. The NDI® sink that uses it is a separate download, coming next; nothing is sent unless an output is on.
+
 What's new in 2.5.3
 
 - **Audio** — playback no longer pops or crackles as it keeps in sync with the picture. Every audio cut (pause, resume, seek, loop wrap, sync correction) is now a short fade, seeks land on the exact sample instead of up to a frame early, audio waits for the first picture after play or seek so it never runs ahead, and the sync servo corrects more gently and re-seeks far less often. A long-standing one-sample-per-block drop in the rate matcher that produced a faint crackle under every servo correction is also fixed. Applies to single clips, dual view and playlists.
