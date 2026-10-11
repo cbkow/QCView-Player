@@ -1,9 +1,12 @@
-// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT) at 5057e96,
-// src/common/surface/shared_ring.cpp. The wire contract between the QCBridgeAE Transmit device
-// and QCView. Keep in sync by re-copying, never by editing here:
-// SharedRing::open() rejects a ring whose version != kFrameDescVersion, so
-// a mismatch fails loudly instead of misreading frames.
+// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
+// src/common/LICENSE) at 308536e, src/common/surface/shared_ring.cpp. The wire contract between the
+// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
+// editing here. A version mismatch is refused at open, never misread.
 
+// SPDX-License-Identifier: MIT OR GPL-3.0-or-later
+// Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar
+// files are MIT in addition to the repository's GPL so that consumers under
+// any licence can carry the wire contract.
 #include "decode/qcbae/shared_ring.h"
 
 #include <cerrno>

@@ -1,13 +1,16 @@
-// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT) at 5057e96,
-// src/common/protocol/frame_desc.h. The wire contract between the QCBridgeAE Transmit device
-// and QCView. Keep in sync by re-copying, never by editing here:
-// SharedRing::open() rejects a ring whose version != kFrameDescVersion, so
-// a mismatch fails loudly instead of misreading frames.
+// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
+// src/common/LICENSE) at 308536e, src/common/protocol/frame_desc.h. The wire contract between the
+// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
+// editing here. A version mismatch is refused at open, never misread.
 
+// SPDX-License-Identifier: MIT OR GPL-3.0-or-later
+// Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar
+// files are MIT in addition to the repository's GPL so that consumers under
+// any licence can carry the wire contract.
 // QCBridgeAE — the sidecar schema.
 //
 // The shared surface carries numbers; this struct carries how they are laid
-// out (PLAN.md D5): dimensions, stride, format, channel order, value scale,
+// out (DESIGN-NOTES D5): dimensions, stride, format, channel order, value scale,
 // flags. These are container facts — mechanical, always true, and a frame is
 // visibly broken without them. Colour *meaning* is not here: QCView's user
 // chooses the input transform. The ICC generation below is an optional hint
@@ -29,7 +32,7 @@ inline constexpr uint32_t kFrameDescVersion = 3u;   // v2: channel_order; v3: no
 
 inline constexpr uint32_t kMaxCompName = 128u;
 
-// What the surface holds. One per AE tier (PLAN.md D1): the integer tiers
+// What the surface holds. One per AE tier (DESIGN-NOTES D1): the integer tiers
 // travel native and the GPU's texture unit normalizes them for free, because
 // converting them to half costs 4.5x (8bpc) and 1.2x (16bpc) for precision
 // that is either already exact or actively worse. Only the float tier is
@@ -49,12 +52,12 @@ enum class PixelFormat : uint32_t {
 // Which AE tier the pixels came FROM, before conversion to the wire format.
 // Not redundant with PixelFormat: it tells QCView what precision is really
 // present, so a 16bpc source can be reported honestly as ~11 effective bits
-// near white rather than implied to be full half precision (PLAN.md D2).
+// near white rather than implied to be full half precision (DESIGN-NOTES D2).
 enum class SourceTier : uint32_t {
     Unknown = 0,
     Int8    = 1,   // AE 8 bpc   — exact in half
-    Int16   = 2,   // AE 16 bpc  — 0..32768, lossy above ~0.031 (PLAN.md D2/D3)
-    Float32 = 3,   // AE 32 bpc  — IEEE to half; beyond ±65504 becomes ±inf (PLAN.md D4)
+    Int16   = 2,   // AE 16 bpc  — 0..32768, lossy above ~0.031 (DESIGN-NOTES D2/D3)
+    Float32 = 3,   // AE 32 bpc  — IEEE to half; beyond ±65504 becomes ±inf (DESIGN-NOTES D4)
 };
 
 // After Effects stores pixels as ARGB, not RGBA — PF_Pixel8/16 lead with
@@ -65,7 +68,7 @@ enum class SourceTier : uint32_t {
 // The AEGP tap and the A4 probe send AE's native order untouched. The
 // Transmit device (A6) reorders to RGBA inside its one conversion pass,
 // because QCView's upload path has no swizzle and the pass touches every
-// pixel anyway (PLAN.md D1).
+// pixel anyway (DESIGN-NOTES D1).
 enum class ChannelOrder : uint32_t {
     Unknown = 0,
     RGBA    = 1,
@@ -76,7 +79,7 @@ enum class ChannelOrder : uint32_t {
 enum FrameFlags : uint32_t {
     kFlagNone            = 0u,
     kFlagPremultiplied   = 1u << 0,  // alpha is premultiplied (AE's normal state)
-    // Non-finite samples are carried, never clamped (PLAN.md D4); these say a
+    // Non-finite samples are carried, never clamped (DESIGN-NOTES D4); these say a
     // frame has some, so a consumer can show them rather than stumble on them.
     kFlagHasInf          = 1u << 1,  // at least one ±inf (source inf, or beyond ±65504 in half)
     kFlagHasNaN          = 1u << 2,  // at least one NaN
@@ -111,7 +114,7 @@ inline constexpr uint32_t bytes_per_pixel(PixelFormat f) {
 // The wire format for a given AE tier.
 //
 // The integer tiers travel native, always: cheaper AND lossless, so there is
-// nothing to trade (PLAN.md D1).
+// nothing to trade (DESIGN-NOTES D1).
 //
 // 32 bpc converts to half by default, and the reason is not speed — native
 // costs only ~8% CPU and 0.16 ms GPU at 4K. It is that **QCView quantizes to
@@ -140,7 +143,7 @@ inline constexpr uint64_t frame_bytes(uint32_t width, uint32_t height, PixelForm
 // Worst case across the DEFAULT formats (8 B/px; native 32f is opt-in and a
 // ring using it must be sized with frame_bytes instead). Sizing a ring this
 // way survives a mid-session bit-depth change without a rebuild, at the cost
-// of giving an 8 bpc project twice the memory it needs. See PLAN.md A2.
+// of giving an 8 bpc project twice the memory it needs. See DESIGN-NOTES A2.
 inline constexpr uint64_t max_frame_bytes(uint32_t width, uint32_t height) {
     return static_cast<uint64_t>(aligned_bytes_per_row(width, 8u)) * height;
 }
@@ -172,7 +175,7 @@ struct FrameDesc {
     // It exists because AE's 16 bpc white is 32768, not 65535: carried in an
     // RGBA16Unorm texture, hardware normalization lands on 0.50001 and the
     // image is half-bright — a silent transformation, the exact class of bug
-    // this project exists to prevent (PLAN.md D3). 65535/32768 corrects it and
+    // this project exists to prevent (DESIGN-NOTES D3). 65535/32768 corrects it and
     // is exact in fp32.
     //
     // Carried per frame rather than inferred from the format, so the producer
@@ -182,7 +185,7 @@ struct FrameDesc {
     float    value_scale;
 
     // Display label for the QCView media item. In memory only — never logged
-    // (PLAN.md §Privacy 5).
+    // (DESIGN-NOTES privacy 5).
     char     comp_name[kMaxCompName];
 };
 

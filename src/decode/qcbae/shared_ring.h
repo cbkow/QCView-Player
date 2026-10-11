@@ -1,9 +1,12 @@
-// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT) at 5057e96,
-// src/common/surface/shared_ring.h. The wire contract between the QCBridgeAE Transmit device
-// and QCView. Keep in sync by re-copying, never by editing here:
-// SharedRing::open() rejects a ring whose version != kFrameDescVersion, so
-// a mismatch fails loudly instead of misreading frames.
+// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
+// src/common/LICENSE) at 308536e, src/common/surface/shared_ring.h. The wire contract between the
+// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
+// editing here. A version mismatch is refused at open, never misread.
 
+// SPDX-License-Identifier: MIT OR GPL-3.0-or-later
+// Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar
+// files are MIT in addition to the repository's GPL so that consumers under
+// any licence can carry the wire contract.
 // QCBridgeAE — the shared frame ring.
 //
 // A fixed set of page-aligned pixel slots in shared memory, plus a sidecar
@@ -12,7 +15,7 @@
 // samples the newest slot in place. Latest-wins throughout: a consumer that
 // falls behind skips frames rather than accruing arrears.
 //
-// Why shared memory rather than IOSurface, which PLAN.md names: IOSurface's
+// Why shared memory rather than IOSurface, which the design notes name: IOSurface's
 // cross-process handoff (IOSurfaceCreateMachPort / LookupFromMachPort) needs a
 // Mach rendezvous that a plugin living inside AE cannot get without a
 // LaunchAgent-registered service. A page-aligned mmap is rendezvous-by-path,
@@ -62,7 +65,7 @@ inline constexpr size_t kMaxShmName = 31u;
 // `latest` carries (sequence, slot) in one word so a consumer never has to
 // infer where a frame landed. 8 bits of slot caps the ring at 255, which is
 // ~250 more than anything sane, and leaves 56 bits of sequence.
-// Fixed ring names, one per host (PLAN.md A6). A consumer lists these; a
+// Fixed ring names, one per host (DESIGN-NOTES A6). A consumer lists these; a
 // second running copy of the same host would collide, which v1 accepts.
 inline constexpr const char* kRingNameAfterEffects = "/qcbae-ae";
 inline constexpr const char* kRingNamePremiere     = "/qcbae-premiere";

@@ -1,8 +1,14 @@
-// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE) at db8bf2a,
-// src/common/surface/audio_ring.cpp. Keep identical to the plugin's copy;
-// kAudioDescVersion guards a mismatch.
+// Vendored from QCBridgeAE (github.com/cbkow/QCBridgeAE, MIT — see its
+// src/common/LICENSE) at 308536e, src/common/surface/audio_ring.cpp. The wire contract between the
+// QCBridgeAE Transmit device and QCView; keep in sync by re-copying, never by
+// editing here. A version mismatch is refused at open, never misread.
+
+// SPDX-License-Identifier: MIT OR GPL-3.0-or-later
+// Copyright (c) 2026 cbkow. See src/common/LICENSE: the ring and sidecar
+// files are MIT in addition to the repository's GPL so that consumers under
+// any licence can carry the wire contract.
 #include "decode/qcbae/audio_ring.h"
-#include "decode/qcbae/shared_ring.h"   // kMaxShmName
+#include "decode/qcbae/shared_ring.h"   // kMaxShmName, process_alive
 
 #include <algorithm>
 #include <cerrno>
