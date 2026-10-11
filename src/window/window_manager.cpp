@@ -9001,6 +9001,9 @@ void WindowManager::setLiveAudioSyncOffsetMs(int ms)
         if (LiveSource *a = m_dualController->liveSource('A')) a->setVideoHoldMs(ms < 0 ? -ms : 0);
         if (LiveSource *b = m_dualController->liveSource('B')) b->setVideoHoldMs(ms < 0 ? -ms : 0);
     }
+    qInfo("WindowManager: live A/V sync offset %d ms for %s (audio depth +%d ms, video hold %d ms)",
+          ms, qPrintable(url.isEmpty() ? QStringLiteral("(no live source)") : url),
+          ms > 0 ? ms : 0, ms < 0 ? -ms : 0);
     emit liveAudioSyncOffsetMsChanged();
 }
 

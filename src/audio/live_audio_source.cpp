@@ -141,7 +141,8 @@ void LiveAudioSource::rebuildFold(int channels)
 void LiveAudioSource::readerLoop()
 {
     qcbae::AudioRing ring;
-    uint64_t last = 0, dropped = 0, droppedForDepth = 0, packets = 0, generation = 0;
+    uint64_t last = 0, dropped = 0, droppedForDepth = 0, packets = 0, generation = 0, silenced = 0;
+    bool saidSilenced = false;   // once per session
     int idlePolls = 0;
     qcbae::AudioSession session {};
     bool haveSession = false;
@@ -195,6 +196,7 @@ void LiveAudioSource::readerLoop()
             m_sampleRate.store(static_cast<int>(session.sample_rate), std::memory_order_release);
             m_hasAudio.store(session.channels > 0, std::memory_order_release);
             m_ring.markStale();
+            saidSilenced = false;
         }
 
         const int targetBytesPerPacket = static_cast<int>(ring.header()->slot_frames) * 8;
@@ -249,6 +251,13 @@ void LiveAudioSource::readerLoop()
             const bool silent = (d.flags & qcbae::kAudioPacketScrubbing) && s_scrubMute.load(std::memory_order_acquire);
             if (silent || ch <= 0) {
                 std::memset(stereo.data(), 0, static_cast<size_t>(d.frames) * 2 * sizeof(float));
+                if (silent) {
+                    ++silenced;
+                    if (!saidSilenced) {
+                        saidSilenced = true;
+                        qInfo("LiveAudioSource: scrub packets silenced (Mute scrub audio is on)");
+                    }
+                }
             } else {
                 const size_t R = static_cast<size_t>(ch);
                 for (uint32_t i = 0; i < d.frames; ++i) {
@@ -273,8 +282,9 @@ void LiveAudioSource::readerLoop()
                   m_sampleRate.load() != 48000 ? " (NOT 48 kHz: played at the device rate)" : "");
         }
         if (any && (packets % 2000) == 0) {
-            qInfo("LiveAudioSource: %llu packets, resync-dropped %llu, depth-dropped %llu, queued %.0f ms",
+            qInfo("LiveAudioSource: %llu packets, resync-dropped %llu, depth-dropped %llu, scrub-silenced %llu, queued %.0f ms",
                   (unsigned long long)packets, (unsigned long long)dropped, (unsigned long long)droppedForDepth,
+                  (unsigned long long)silenced,
                   1000.0 * static_cast<double>(m_ring.freshBytes()) / (48000.0 * 8.0));
         }
         // Meters: the host stopped (or paused between scrub pushes). The

@@ -1157,9 +1157,12 @@ Rectangle {
             // A live (QCBridgeAE) item shows what its audio segment reports
             // instead of file metadata: Premiere pushes a copy of what it
             // plays once "Audio Stream" is ticked for the device. In dual
-            // mode the facts belong to the side's own source; the card
-            // keeps the Listen switch and the meters.
-            readonly property var liveSrc: WindowManager.liveDecoder
+            // mode the facts come from the inspected side's own source
+            // (liveDecoder is null there).
+            readonly property var liveSrc: root.dualActive
+                ? (root.inspectedSide === "B" ? WindowManager.dualLiveB
+                                              : WindowManager.dualLiveA)
+                : WindowManager.liveDecoder
             readonly property bool liveItem: root.itemType === 6
             readonly property int liveAudioState:
                 liveSrc ? liveSrc.audioState : 0
@@ -1177,7 +1180,7 @@ Rectangle {
                 value: content.vmeta ? content.vmeta.audioCodec : ""
             }
             KvRow {
-                visible: audioSection.liveAudio && !root.dualActive
+                visible: audioSection.liveAudio
                 label: qsTr("State")
                 value: {
                     switch (audioSection.liveAudioState) {
