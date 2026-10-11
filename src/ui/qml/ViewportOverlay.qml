@@ -251,29 +251,40 @@ Pane {
                     }
                 }
 
-                // Per-side mute (A). Phosphor speaker icon.
-                Item {
+                // Per-side mute (A). A small pill, like the clip badge
+                // beside it: audible = filled in the side's colour with
+                // the speaker, muted = recessed with the struck speaker.
+                // The state has to read from across the room (the
+                // 2026-10-11 session mistook Premiere's own monitor
+                // output for an ignored mute).
+                Rectangle {
+                    id: aMutePill
                     visible: WindowManager.compositorMode !== 0
                              && WindowManager.dualController
                              && WindowManager.dualController.audio
                              && WindowManager.dualController.audio.hasAudioA
-                    Layout.preferredWidth: 18
-                    Layout.preferredHeight: 18
+                    readonly property bool sideMuted:
+                        WindowManager.dualController
+                        && WindowManager.dualController.audio
+                        && WindowManager.dualController.audio.mutedA
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 16
+                    radius: Theme.radiusSmall
+                    color: sideMuted
+                           ? (aMuteMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess)
+                           : (aMuteMa.containsMouse ? Theme.sideA : Theme.sideAMuted)
+                    border.width: 1
+                    border.color: sideMuted
+                                  ? (aMuteMa.containsMouse ? Theme.borderStrong : Theme.border)
+                                  : Theme.sideA
                     Icon {
                         anchors.centerIn: parent
-                        readonly property bool sideMuted:
-                            WindowManager.dualController
-                            && WindowManager.dualController.audio
-                            && WindowManager.dualController.audio.mutedA
-                        name: sideMuted ? "speaker-x" : "speaker-high"
+                        name: aMutePill.sideMuted ? "speaker-slash" : "speaker-high"
                         size: Theme.iconSizeSmall
-                        // Muted fades to the muted-text tone so the
-                        // A/B toggle states read at a glance; hover
-                        // lifts to bright either way.
-                        color: aMuteMa.containsMouse
-                               ? Theme.textBright
-                               : (sideMuted ? Theme.textMuted
-                                            : Theme.textPrimary)
+                        color: aMutePill.sideMuted
+                               ? (aMuteMa.containsMouse ? Theme.textPrimary : Theme.textMuted)
+                               : (aMuteMa.containsMouse ? Theme.textBright : Theme.sideAText)
                     }
                     MouseArea {
                         id: aMuteMa
@@ -288,7 +299,9 @@ Pane {
                         }
                         FlatToolTip {
                             visible: aMuteMa.containsMouse
-                            text: qsTr("Mute / unmute A audio")
+                            text: aMutePill.sideMuted
+                                  ? qsTr("A audio muted — click to unmute")
+                                  : qsTr("A audio on — click to mute")
                         }
                     }
                 }
@@ -470,27 +483,40 @@ Pane {
                     }
                 }
 
-                // Per-side mute (B).
-                Item {
+                // Per-side mute (B). A small pill, like the clip badge
+                // beside it: audible = filled in the side's colour with
+                // the speaker, muted = recessed with the struck speaker.
+                // The state has to read from across the room (the
+                // 2026-10-11 session mistook Premiere's own monitor
+                // output for an ignored mute).
+                Rectangle {
+                    id: bMutePill
                     visible: WindowManager.compositorMode !== 0
                              && WindowManager.dualController
                              && WindowManager.dualController.audio
                              && WindowManager.dualController.audio.hasAudioB
-                    Layout.preferredWidth: 18
-                    Layout.preferredHeight: 18
+                    readonly property bool sideMuted:
+                        WindowManager.dualController
+                        && WindowManager.dualController.audio
+                        && WindowManager.dualController.audio.mutedB
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 16
+                    radius: Theme.radiusSmall
+                    color: sideMuted
+                           ? (bMuteMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess)
+                           : (bMuteMa.containsMouse ? Theme.sideB : Theme.sideBMuted)
+                    border.width: 1
+                    border.color: sideMuted
+                                  ? (bMuteMa.containsMouse ? Theme.borderStrong : Theme.border)
+                                  : Theme.sideB
                     Icon {
                         anchors.centerIn: parent
-                        readonly property bool sideMuted:
-                            WindowManager.dualController
-                            && WindowManager.dualController.audio
-                            && WindowManager.dualController.audio.mutedB
-                        name: sideMuted ? "speaker-x" : "speaker-high"
+                        name: bMutePill.sideMuted ? "speaker-slash" : "speaker-high"
                         size: Theme.iconSizeSmall
-                        // Faded when muted — see the A chip's icon.
-                        color: bMuteMa.containsMouse
-                               ? Theme.textBright
-                               : (sideMuted ? Theme.textMuted
-                                            : Theme.textPrimary)
+                        color: bMutePill.sideMuted
+                               ? (bMuteMa.containsMouse ? Theme.textPrimary : Theme.textMuted)
+                               : (bMuteMa.containsMouse ? Theme.textBright : Theme.sideBText)
                     }
                     MouseArea {
                         id: bMuteMa
@@ -505,7 +531,9 @@ Pane {
                         }
                         FlatToolTip {
                             visible: bMuteMa.containsMouse
-                            text: qsTr("Mute / unmute B audio")
+                            text: bMutePill.sideMuted
+                                  ? qsTr("B audio muted — click to unmute")
+                                  : qsTr("B audio on — click to mute")
                         }
                     }
                 }
