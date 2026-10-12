@@ -14,10 +14,17 @@
 // No timeline of its own: seek() is a no-op, duration() is 0, and
 // isLive() tells the players to keep their servos off it. It plays what
 // arrives when it arrives, behind a small jitter buffer whose depth is a
-// user setting (plus the positive part of the live A/V offset). Clock
-// drift between Premiere's device and ours is parts per million; when
-// the queue nonetheless creeps past the target by two packets, one
-// incoming packet is dropped.
+// user setting (plus the positive part of the live A/V offset). The
+// buffer is primed: the device gets silence until the target depth is
+// queued (at a session start, and again after any underrun), then
+// drains from there, so the host's push jitter rides on the queue
+// instead of landing as a hole every time a push is late (2026-10-12:
+// Premiere's pushes arrive one 21 ms packet at a time, and without the
+// priming the queue sat at one packet and every late push was a fade
+// out, a silent block and a fade in — "choppy"). Clock drift between
+// Premiere's device and ours is parts per million; when the queue
+// nonetheless creeps past the target by two packets, one incoming
+// packet is dropped.
 //
 // Playdown (whether the viewer hears it) is NOT decided here: the
 // players zero their output after draining, so meters and taps keep
@@ -116,6 +123,13 @@ private:
 
     AudioFormat              m_format;
     AudioRingBuffer          m_ring;        // interleaved stereo float, ~1 s
+    // Priming (render callback side; the reader sets the target and asks
+    // for a re-prime at a session change).
+    bool                     m_primed = false;              // callback thread only
+    std::atomic<size_t>      m_targetBytes{60 * 48000 / 1000 * 8};
+    std::atomic<bool>        m_reprime{false};
+    std::atomic<uint64_t>    m_underruns{0};
+    std::atomic<uint64_t>    m_primes{0};
     QString                  m_url;
     std::string              m_segmentName;
 

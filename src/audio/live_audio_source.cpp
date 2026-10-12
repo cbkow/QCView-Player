@@ -60,6 +60,10 @@ bool LiveAudioSource::open(const QString &url)
     m_channels.store(0, std::memory_order_release);
     m_sampleRate.store(0, std::memory_order_release);
     m_ring.clear();   // no consumer yet: the device starts after open()
+    m_primed = false;
+    m_reprime.store(false, std::memory_order_release);
+    m_underruns.store(0, std::memory_order_relaxed);
+    m_primes.store(0, std::memory_order_relaxed);
     m_thread = std::thread([this] { readerLoop(); });
     qInfo("LiveAudioSource: watching %s", m_segmentName.c_str());
     return true;
@@ -89,8 +93,25 @@ bool LiveAudioSource::hasAudio() const
 std::size_t LiveAudioSource::read(float *output, std::size_t frameCount)
 {
     const size_t want = frameCount * m_format.bytesPerFrame();
-    const size_t got  = m_ring.read(output, want);
-    if (got < want) std::memset(reinterpret_cast<uint8_t *>(output) + got, 0, want - got);
+    if (m_reprime.exchange(false, std::memory_order_acq_rel)) m_primed = false;
+    if (!m_primed) {
+        // Silence until the jitter buffer holds the target depth; the
+        // drain stage fades back in when real frames resume.
+        if (m_ring.freshBytes() < m_targetBytes.load(std::memory_order_acquire)) {
+            std::memset(output, 0, want);
+            return 0;
+        }
+        m_primed = true;
+        m_primes.fetch_add(1, std::memory_order_relaxed);
+    }
+    const size_t got = m_ring.read(output, want);
+    if (got < want) {
+        std::memset(reinterpret_cast<uint8_t *>(output) + got, 0, want - got);
+        // Underrun: the queue ran dry. Prime again rather than limp along
+        // one packet at a time.
+        m_primed = false;
+        m_underruns.fetch_add(1, std::memory_order_relaxed);
+    }
     return got / m_format.bytesPerFrame();
 }
 
@@ -143,6 +164,8 @@ void LiveAudioSource::readerLoop()
     qcbae::AudioRing ring;
     uint64_t last = 0, dropped = 0, droppedForDepth = 0, packets = 0, generation = 0, silenced = 0;
     bool saidSilenced = false;   // once per session
+    uint64_t underrunsSaid = 0;
+    auto lastUnderrunLine = std::chrono::steady_clock::time_point{};
     int idlePolls = 0;
     qcbae::AudioSession session {};
     bool haveSession = false;
@@ -196,6 +219,7 @@ void LiveAudioSource::readerLoop()
             m_sampleRate.store(static_cast<int>(session.sample_rate), std::memory_order_release);
             m_hasAudio.store(session.channels > 0, std::memory_order_release);
             m_ring.markStale();
+            m_reprime.store(true, std::memory_order_release);   // the new session fills the buffer first
             saidSilenced = false;
         }
 
@@ -203,13 +227,14 @@ void LiveAudioSource::readerLoop()
         const int depthMs = s_bufferMs.load(std::memory_order_acquire)
                           + std::max(0, s_syncOffsetMs.load(std::memory_order_acquire));
         const size_t targetBytes = static_cast<size_t>(depthMs) * 48000 / 1000 * 8;
+        m_targetBytes.store(targetBytes, std::memory_order_release);
 
         bool any = false;
         for (int n = 0; n < 64; ++n) {   // bounded: never starve the sleep
             qcbae::AudioPacketDesc d {};
             const auto r = ring.next_packet(&last, &d, planes.data(), &dropped);
             if (r == qcbae::AudioRing::Next::None) break;
-            if (r == qcbae::AudioRing::Next::Resynced) { m_ring.markStale(); continue; }
+            if (r == qcbae::AudioRing::Next::Resynced) { m_ring.markStale(); m_reprime.store(true, std::memory_order_release); continue; }
             any = true;
             ++packets;
             const uint32_t slotFrames = ring.header()->slot_frames;
@@ -282,10 +307,23 @@ void LiveAudioSource::readerLoop()
                   m_sampleRate.load() != 48000 ? " (NOT 48 kHz: played at the device rate)" : "");
         }
         if (any && (packets % 2000) == 0) {
-            qInfo("LiveAudioSource: %llu packets, resync-dropped %llu, depth-dropped %llu, scrub-silenced %llu, queued %.0f ms",
+            qInfo("LiveAudioSource: %llu packets, resync-dropped %llu, depth-dropped %llu, scrub-silenced %llu, "
+                  "underruns %llu, primed %llu times, queued %.0f ms",
                   (unsigned long long)packets, (unsigned long long)dropped, (unsigned long long)droppedForDepth,
-                  (unsigned long long)silenced,
+                  (unsigned long long)silenced, (unsigned long long)m_underruns.load(std::memory_order_relaxed),
+                  (unsigned long long)m_primes.load(std::memory_order_relaxed),
                   1000.0 * static_cast<double>(m_ring.freshBytes()) / (48000.0 * 8.0));
+        }
+        // An underrun is the thing a listener hears; say so, at most once
+        // every five seconds, with the queue depth it is refilling to.
+        if (const uint64_t u = m_underruns.load(std::memory_order_relaxed); u != underrunsSaid) {
+            const auto now = std::chrono::steady_clock::now();
+            if (lastUnderrunLine == std::chrono::steady_clock::time_point{} || now - lastUnderrunLine > std::chrono::seconds(5)) {
+                qInfo("LiveAudioSource: %llu underrun(s) so far (+%llu); re-priming to %d ms",
+                      (unsigned long long)u, (unsigned long long)(u - underrunsSaid), depthMs);
+                lastUnderrunLine = now;
+                underrunsSaid = u;
+            }
         }
         // Meters: the host stopped (or paused between scrub pushes). The
         // peaks are per packet, so without this they would hold the last
