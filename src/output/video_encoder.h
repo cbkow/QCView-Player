@@ -29,11 +29,14 @@ struct EncoderSpec {
     H264Profile profile  = H264Profile::Baseline;
 };
 
+// One encoded unit for the muxer: a video access unit (Annex-B, pts in
+// 90 kHz) or an AAC frame (pts in samples, 1/48000).
 struct EncodedUnit {
-    std::vector<uint8_t> data;        // Annex-B, one access unit
-    int64_t pts90k   = 0;
-    int64_t dur90k   = 0;
+    std::vector<uint8_t> data;
+    int64_t pts      = 0;
+    int64_t dur      = 0;
     bool    keyframe = false;
+    bool    audio    = false;
 };
 
 class VideoEncoder {

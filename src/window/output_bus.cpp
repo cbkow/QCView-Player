@@ -13,6 +13,8 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QThread>
+#include <QUrl>
+#include <QUrlQuery>
 #include <QtLogging>
 
 #include <algorithm>
@@ -77,6 +79,7 @@ OutputBus::OutputBus(QObject *parent)
     m_includeGuides      = s.value(QStringLiteral("output/includeGuides"), true).toBool();
     m_includeAnnotations = s.value(QStringLiteral("output/includeAnnotations"), true).toBool();
     scanManifests();
+    m_streamAvailable = output::makePlatformVideoEncoder() != nullptr;
     m_poll.setInterval(250);
     connect(&m_poll, &QTimer::timeout, this, &OutputBus::poll);
 }
@@ -147,7 +150,29 @@ void OutputBus::rendererReady()
 {
     m_rendererReady = true;
     restoreEnabled();
-    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE")) startSpikeStream();
+    // Dev aids: QCV_STREAM_SPIKE=srt://... starts a stream with the
+    // renderer (an empty value: from the saved settings, as Start would);
+    // QCV_STREAM_SPIKE_CYCLES=<n> stops and restarts it every 3 s, n times.
+    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE")) {
+        if (qEnvironmentVariable("QCV_STREAM_SPIKE").isEmpty()) startStream();
+        else startSpikeStream();
+        const int cycles = qEnvironmentVariable("QCV_STREAM_SPIKE_CYCLES").toInt();
+        if (cycles > 0) {
+            auto *t = new QTimer(this);
+            t->setInterval(3000);
+            connect(t, &QTimer::timeout, this, [this, t, cycles]() mutable {
+                static int done = 0;
+                if (m_stream) { qInfo("OutputBus: cycle %d/%d: stop", done + 1, cycles); stopStream(); }
+                else {
+                    ++done;
+                    if (done >= cycles) { qInfo("OutputBus: cycles done"); t->stop(); t->deleteLater(); return; }
+                    qInfo("OutputBus: cycle %d/%d: start", done + 1, cycles);
+                    if (qEnvironmentVariable("QCV_STREAM_SPIKE").isEmpty()) startStream(); else startSpikeStream();
+                }
+            });
+            t->start();
+        }
+    }
     pushTargets();
     if (enabledCount() > 0 || m_stream) m_poll.start();
 }
@@ -156,38 +181,61 @@ void OutputBus::rendererGone()
 {
     m_poll.stop();
     for (auto &o : m_outputs) if (o->enabled) disable(*o);
-    stopStream();
+    teardownStream();
     m_rendererReady = false;
 }
 
-// ---- the stream output (A0 spike) ------------------------------------------------------
+// ---- the stream output -----------------------------------------------------------------
 
-void OutputBus::startSpikeStream()
+namespace {
+const char *kStreamKeys[] = { "url", "key", "bitrateKbps", "resolution", "srtLatencyMs", "profile", "audioKbps", "fpsMode" };
+QVariant streamDefault(const QString &key)
 {
-    stopStream();
+    if (key == QLatin1String("bitrateKbps"))  return 6000;
+    if (key == QLatin1String("resolution"))   return QStringLiteral("1080p");
+    if (key == QLatin1String("srtLatencyMs")) return 120;
+    if (key == QLatin1String("profile"))      return QStringLiteral("baseline");
+    if (key == QLatin1String("audioKbps"))    return 160;
+    if (key == QLatin1String("fpsMode"))      return QStringLiteral("auto");
+    return QString();
+}
+} // namespace
+
+output::StreamConfig OutputBus::streamConfigFromSettings() const
+{
+    QSettings s;
+    auto v = [&](const char *k) { return s.value(QStringLiteral("output/stream/") + QLatin1String(k), streamDefault(QLatin1String(k))); };
     output::StreamConfig cfg;
-    cfg.url = qEnvironmentVariable("QCV_STREAM_SPIKE").toStdString();
-    const QString size = qEnvironmentVariable("QCV_STREAM_SPIKE_SIZE", QStringLiteral("1920x1080"));
-    const QStringList wh = size.split(QLatin1Char('x'));
-    if (wh.size() == 2) { cfg.width = wh[0].toUInt(); cfg.height = wh[1].toUInt(); }
-    cfg.bitrateKbps  = qEnvironmentVariable("QCV_STREAM_SPIKE_KBPS", QStringLiteral("6000")).toUInt();
-    cfg.srtLatencyMs = qEnvironmentVariable("QCV_STREAM_SPIKE_LATENCY_MS", QStringLiteral("120")).toInt();
-    cfg.streamId     = qEnvironmentVariable("QCV_STREAM_SPIKE_STREAMID").toStdString();
-    cfg.passphrase   = qEnvironmentVariable("QCV_STREAM_SPIKE_PASSPHRASE").toStdString();
-    cfg.profile      = qEnvironmentVariable("QCV_STREAM_SPIKE_PROFILE") == QStringLiteral("main")
-                     ? output::H264Profile::Main : output::H264Profile::Baseline;
-    const QString fps = qEnvironmentVariable("QCV_STREAM_SPIKE_FPS");
-    if (!fps.isEmpty()) {
-        const QStringList nd = fps.split(QLatin1Char('/'));
-        if (nd.size() == 2) { cfg.fpsNum = nd[0].toUInt(); cfg.fpsDen = nd[1].toUInt(); }
-        else fpsToRational(fps.toDouble(), &cfg.fpsNum, &cfg.fpsDen);
+    cfg.url = v("url").toString().trimmed().toStdString();
+    const QString res = v("resolution").toString();
+    if (res == QLatin1String("720p"))       { cfg.width = 1280; cfg.height = 720; }
+    else if (res == QLatin1String("540p"))  { cfg.width = 960;  cfg.height = 540; }
+    else if (res == QLatin1String("2160p")) { cfg.width = 3840; cfg.height = 2160; }
+    else                                    { cfg.width = 1920; cfg.height = 1080; }
+    cfg.bitrateKbps  = std::clamp(v("bitrateKbps").toUInt(), 500u, 50000u);
+    cfg.srtLatencyMs = std::clamp(v("srtLatencyMs").toInt(), 20, 5000);
+    cfg.profile      = v("profile").toString() == QLatin1String("main") ? output::H264Profile::Main
+                                                                          : output::H264Profile::Baseline;
+    cfg.audioKbps    = v("audioKbps").toUInt();
+    const QString fpsMode = v("fpsMode").toString();
+    if (fpsMode != QLatin1String("auto")) fpsToRational(fpsMode.toDouble(), &cfg.fpsNum, &cfg.fpsDen);
+    // The key: for SRT it is the stream id, unless the URL already carries
+    // one. (RTMP, A3: appended to the path.)
+    const QString key = v("key").toString().trimmed();
+    if (!key.isEmpty()) {
+        const QUrl u(QString::fromStdString(cfg.url));
+        const QUrlQuery q(u.query());
+        if (!q.hasQueryItem(QStringLiteral("streamid"))) cfg.streamId = key.toStdString();
     }
+    return cfg;
+}
+
+bool OutputBus::startStreamWith(const output::StreamConfig &cfg, std::string *error)
+{
+    teardownStream();
+    if (!m_rendererReady) { if (error) *error = "no renderer yet"; return false; }
     auto sink = std::make_unique<output::StreamSink>(output::makePlatformVideoEncoder());
-    std::string err;
-    if (!sink->start(cfg, &err)) {
-        qWarning("OutputBus: stream spike not started: %s", err.c_str());
-        return;
-    }
+    if (!sink->start(cfg, error)) return false;
     m_stream = std::move(sink);
     m_streamTarget = std::make_unique<output::OutputTarget>(m_stream.get());
     output::OutputSpec spec;
@@ -200,19 +248,116 @@ void OutputBus::startSpikeStream()
                 | (m_includeAnnotations ? qcbae::kOutputLayerAnnotations : 0u);
     m_streamTarget->setSpec(spec);
     m_streamTarget->setActive(true);
-    qInfo("OutputBus: stream spike -> %s at %ux%u, %u kbps", cfg.url.c_str(), cfg.width, cfg.height, cfg.bitrateKbps);
+    uint32_t fpsNum = 0, fpsDen = 0;
+    fpsToRational(m_fps ? m_fps() : 0.0, &fpsNum, &fpsDen);
+    m_stream->setSourceFps(fpsNum, fpsDen);
+    m_streamTarget->setSourceFps(fpsNum, fpsDen);
+    m_streamTap.store(m_stream.get(), std::memory_order_release);
+    pushTargets();
+    m_poll.start();
+    m_streamError.clear();
+    qInfo("OutputBus: stream -> %s at %ux%u, %u kbps, audio %u kbps", cfg.url.c_str(), cfg.width, cfg.height,
+          cfg.bitrateKbps, cfg.audioKbps);
+    emit streamChanged();
+    return true;
+}
+
+void OutputBus::startSpikeStream()
+{
+    output::StreamConfig cfg = streamConfigFromSettings();
+    cfg.url = qEnvironmentVariable("QCV_STREAM_SPIKE").toStdString();
+    const QString size = qEnvironmentVariable("QCV_STREAM_SPIKE_SIZE");
+    const QStringList wh = size.split(QLatin1Char('x'));
+    if (wh.size() == 2) { cfg.width = wh[0].toUInt(); cfg.height = wh[1].toUInt(); }
+    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE_KBPS"))       cfg.bitrateKbps  = qEnvironmentVariable("QCV_STREAM_SPIKE_KBPS").toUInt();
+    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE_LATENCY_MS")) cfg.srtLatencyMs = qEnvironmentVariable("QCV_STREAM_SPIKE_LATENCY_MS").toInt();
+    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE_AUDIO_KBPS")) cfg.audioKbps    = qEnvironmentVariable("QCV_STREAM_SPIKE_AUDIO_KBPS").toUInt();
+    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE_STREAMID"))   cfg.streamId     = qEnvironmentVariable("QCV_STREAM_SPIKE_STREAMID").toStdString();
+    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE_PASSPHRASE")) cfg.passphrase   = qEnvironmentVariable("QCV_STREAM_SPIKE_PASSPHRASE").toStdString();
+    if (qEnvironmentVariable("QCV_STREAM_SPIKE_PROFILE") == QLatin1String("main")) cfg.profile = output::H264Profile::Main;
+    const QString fps = qEnvironmentVariable("QCV_STREAM_SPIKE_FPS");
+    if (!fps.isEmpty()) {
+        const QStringList nd = fps.split(QLatin1Char('/'));
+        if (nd.size() == 2) { cfg.fpsNum = nd[0].toUInt(); cfg.fpsDen = nd[1].toUInt(); }
+        else fpsToRational(fps.toDouble(), &cfg.fpsNum, &cfg.fpsDen);
+    }
+    std::string err;
+    if (!startStreamWith(cfg, &err)) qWarning("OutputBus: stream spike not started: %s", err.c_str());
+}
+
+bool OutputBus::startStream()
+{
+    const output::StreamConfig cfg = streamConfigFromSettings();
+    std::string err;
+    if (cfg.url.empty()) err = "enter the server URL first";
+    else if (!m_streamAvailable) err = "no hardware encoder on this platform yet";
+    else if (startStreamWith(cfg, &err)) return true;
+    m_streamError = QString::fromStdString(err);
+    emit streamChanged();
+    return false;
 }
 
 void OutputBus::stopStream()
 {
+    teardownStream();
+    m_streamError.clear();   // the user's own stop is not an error, even mid-connect
+    emit streamChanged();
+}
+
+void OutputBus::teardownStream()
+{
     if (!m_stream) return;
-    // The renderer stops using the target (synchronous handshake), then the
-    // sink waits for the surfaces still on the GPU and shuts its threads.
+    // The audio thread stops seeing the sink, the renderer stops using the
+    // target (synchronous handshake), then the sink waits for the surfaces
+    // still on the GPU and shuts its threads.
+    m_streamTap.store(nullptr, std::memory_order_release);
     if (m_streamTarget) m_streamTarget->setActive(false);
     m_streamTarget.reset();
     pushTargets();
     m_stream->stop();
     m_stream.reset();
+    if (enabledCount() == 0) m_poll.stop();
+}
+
+void OutputBus::setStreamSetting(const QString &key, const QVariant &value)
+{
+    bool known = false;
+    for (const char *k : kStreamKeys) if (key == QLatin1String(k)) { known = true; break; }
+    if (!known) return;
+    QSettings s;
+    s.setValue(QStringLiteral("output/stream/") + key, value);
+    emit streamChanged();
+}
+
+QVariantMap OutputBus::stream() const
+{
+    QVariantMap m;
+    QSettings s;
+    for (const char *k : kStreamKeys) {
+        m.insert(QLatin1String(k), s.value(QStringLiteral("output/stream/") + QLatin1String(k), streamDefault(QLatin1String(k))));
+    }
+    m.insert(QStringLiteral("available"), m_streamAvailable);
+    m.insert(QStringLiteral("running"), m_stream != nullptr);
+    m.insert(QStringLiteral("error"), m_streamError);
+    if (m_stream) {
+        const output::StreamSink::Status st = m_stream->status();
+        m.insert(QStringLiteral("state"),       QString::fromStdString(st.state));
+        m.insert(QStringLiteral("encoder"),     QString::fromStdString(st.encoder));
+        m.insert(QStringLiteral("fps"),         st.fps);
+        m.insert(QStringLiteral("kbps"),        st.kbps);
+        m.insert(QStringLiteral("encoded"),     static_cast<qulonglong>(st.framesEncoded));
+        m.insert(QStringLiteral("repeated"),    static_cast<qulonglong>(st.framesRepeated));
+        m.insert(QStringLiteral("skipped"),     static_cast<qulonglong>(st.framesSkipped));
+        m.insert(QStringLiteral("dropped"),     static_cast<qulonglong>(st.framesDropped));
+        m.insert(QStringLiteral("audioSilent"), static_cast<qulonglong>(st.audioSilent));
+        m.insert(QStringLiteral("muxErrors"),   static_cast<qulonglong>(st.muxErrors));
+    } else {
+        m.insert(QStringLiteral("state"), m_streamError.isEmpty() ? QStringLiteral("off") : m_streamError);
+        m.insert(QStringLiteral("encoder"), QString());
+        m.insert(QStringLiteral("fps"), 0.0);
+        m.insert(QStringLiteral("kbps"), 0.0);
+    }
+    return m;
 }
 
 void OutputBus::restoreEnabled()
@@ -405,6 +550,12 @@ void OutputBus::poll()
     if (m_stream) {
         m_stream->setSourceFps(fpsNum, fpsDen);
         if (m_streamTarget) m_streamTarget->setSourceFps(fpsNum, fpsDen);
+        if (m_stream->failed()) {
+            // The session ended on its own: keep its last word as the status.
+            m_streamError = QString::fromStdString(m_stream->status().state);
+            teardownStream();
+        }
+        emit streamChanged();
     }
     for (auto &op : m_outputs) {
         Output &o = *op;
@@ -558,12 +709,14 @@ void OutputBus::tap(const float *stereo, uint32_t frames, bool muted)
     // Device thread: fixed buffers, no locks, no allocation. With no output
     // enabled there is no ring to feed and nothing is touched: the tap is
     // installed for the life of the player, the cost is only paid when on.
+    output::StreamSink *stream = m_streamTap.load(std::memory_order_acquire);
+    const bool silent = muted || m_feedMuted.load(std::memory_order_acquire);
+    if (stream) stream->pushAudio(stereo, frames, silent);
     bool any = false;
     for (auto &slot : m_audioSlots) if (slot.load(std::memory_order_acquire)) { any = true; break; }
     if (!any) return;
     constexpr uint32_t kChunk = 1024;
     thread_local float planes[2][kChunk];
-    const bool silent = muted || m_feedMuted.load(std::memory_order_acquire);
     const uint32_t flags = silent ? qcbae::kAudioPacketMuted : 0u;
     const int64_t now = qcbae::OutputRing::now_ns();
     uint32_t done = 0;

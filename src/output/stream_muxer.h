@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 struct AVFormatContext;
 struct AVStream;
@@ -29,6 +30,9 @@ struct MuxConfig {
     std::string streamId;            // empty: whatever the URL carries
     std::string passphrase;          // empty: no encryption
     int         pbKeyLen = 16;
+    // Audio (AAC-LC 48 kHz stereo); empty extradata = video only.
+    std::vector<uint8_t> audioExtradata;
+    uint32_t audioKbps = 160;
 };
 
 class StreamMuxer {
@@ -45,6 +49,9 @@ public:
 
     // One access unit, Annex-B, pts/dts in 90 kHz (no B-frames: equal).
     bool writeVideo(const uint8_t *data, size_t size, int64_t pts90k, int64_t dur90k, bool keyframe);
+    // One AAC frame, pts/dur in samples (1/48000).
+    bool writeAudio(const uint8_t *data, size_t size, int64_t ptsSamples, int64_t durSamples);
+    bool hasAudio() const { return m_audio != nullptr; }
 
     struct Stats { uint64_t packets = 0, bytes = 0, errors = 0; };
     Stats stats() const { return { m_packets.load(), m_bytes.load(), m_errors.load() }; }
@@ -55,6 +62,7 @@ private:
 
     AVFormatContext *m_ctx   = nullptr;
     AVStream        *m_video = nullptr;
+    AVStream        *m_audio = nullptr;
     bool             m_headerWritten = false;
     std::atomic<bool> m_interrupt{false};
     std::atomic<uint64_t> m_packets{0}, m_bytes{0}, m_errors{0};

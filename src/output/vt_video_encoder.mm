@@ -47,8 +47,8 @@ struct VtVideoEncoder::Impl {
         au.keyframe = key;
         const CMTime pts = CMSampleBufferGetPresentationTimeStamp(sbuf);
         const CMTime dur = CMSampleBufferGetDuration(sbuf);
-        au.pts90k = CMTIME_IS_VALID(pts) ? CMTimeConvertScale(pts, 90000, kCMTimeRoundingMethod_Default).value : 0;
-        au.dur90k = CMTIME_IS_VALID(dur) ? CMTimeConvertScale(dur, 90000, kCMTimeRoundingMethod_Default).value : 0;
+        au.pts = CMTIME_IS_VALID(pts) ? CMTimeConvertScale(pts, 90000, kCMTimeRoundingMethod_Default).value : 0;
+        au.dur = CMTIME_IS_VALID(dur) ? CMTimeConvertScale(dur, 90000, kCMTimeRoundingMethod_Default).value : 0;
 
         static const uint8_t kStart[4] = {0, 0, 0, 1};
         size_t total = 0;

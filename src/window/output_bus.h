@@ -49,6 +49,11 @@ class OutputBus : public QObject
     Q_PROPERTY(bool feedMuted READ feedMuted WRITE setFeedMuted NOTIFY feedMutedChanged)
     Q_PROPERTY(bool includeGuides READ includeGuides WRITE setIncludeGuides NOTIFY layersChanged)
     Q_PROPERTY(bool includeAnnotations READ includeAnnotations WRITE setIncludeAnnotations NOTIFY layersChanged)
+    // The stream output (plan A1): settings + live status in one map —
+    // available, running, state, encoder, fps, kbps, encoded, repeated,
+    // skipped, dropped, audioSilent, muxErrors, url, key, bitrateKbps,
+    // resolution, srtLatencyMs, profile, audioKbps, fpsMode.
+    Q_PROPERTY(QVariantMap stream READ stream NOTIFY streamChanged)
 
 public:
     explicit OutputBus(QObject *parent = nullptr);
@@ -77,6 +82,13 @@ public:
     Q_INVOKABLE bool isEnabled(const QString &id) const;
     Q_INVOKABLE void rescan();
 
+    // Stream output: settings persist in QSettings (output/stream/*); a
+    // session starts and stops here, never on launch.
+    QVariantMap stream() const;
+    Q_INVOKABLE void setStreamSetting(const QString &key, const QVariant &value);
+    Q_INVOKABLE bool startStream();
+    Q_INVOKABLE void stopStream();
+
     // The audio players' tap (AudioPlayer::OutputTap signature). `ctx`
     // is the bus. Device thread.
     static void audioTap(void *ctx, const float *stereo, uint32_t frames, bool muted);
@@ -85,6 +97,7 @@ signals:
     void outputsChanged();
     void feedMutedChanged();
     void layersChanged();
+    void streamChanged();
 
 private:
     struct Output {
@@ -123,15 +136,20 @@ private:
     void pushTargets();
     void restoreEnabled();
     void tap(const float *stereo, uint32_t frames, bool muted);
-    // The stream output (plan A0: env-driven spike behind QCV_STREAM_SPIKE;
-    // A1 makes it a setting with UI). One GPU-sink target beside the ring
-    // targets; the sink outlives the target's removal from the renderer.
+    // The stream output: one GPU-sink target beside the ring targets; the
+    // sink outlives the target's removal from the renderer. QCV_STREAM_SPIKE
+    // (A0) starts one from the environment with the renderer.
+    output::StreamConfig streamConfigFromSettings() const;
+    bool startStreamWith(const output::StreamConfig &cfg, std::string *error);
     void startSpikeStream();
-    void stopStream();
+    void teardownStream();
 
     std::vector<std::unique_ptr<Output>> m_outputs;
     std::unique_ptr<output::StreamSink>   m_stream;
     std::unique_ptr<output::OutputTarget> m_streamTarget;
+    std::atomic<output::StreamSink *>     m_streamTap{nullptr};   // the device thread's view
+    bool    m_streamAvailable = false;
+    QString m_streamError;
     std::function<IPlayerRenderer *()> m_renderer;
     std::function<double()>            m_fps;
     QTimer m_poll;

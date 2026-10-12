@@ -7,6 +7,8 @@ extern "C" {
 #include <libavutil/dict.h>
 #include <libavutil/error.h>
 #include <libavutil/opt.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/mem.h>
 }
 
 #include <QtLogging>
@@ -74,6 +76,25 @@ bool StreamMuxer::open(const MuxConfig &cfg, std::string *error)
     // Annex-B with in-band parameter sets: no extradata; mpegtsenc adds
     // the AUD when the access unit has none.
 
+    if (!cfg.audioExtradata.empty()) {
+        m_audio = avformat_new_stream(m_ctx, nullptr);
+        if (!m_audio) return fail("could not add the audio stream");
+        m_audio->id = 1;
+        m_audio->time_base = AVRational{1, 48000};
+        AVCodecParameters *ap = m_audio->codecpar;
+        ap->codec_type  = AVMEDIA_TYPE_AUDIO;
+        ap->codec_id    = AV_CODEC_ID_AAC;
+        ap->sample_rate = 48000;
+        ap->format      = AV_SAMPLE_FMT_FLTP;
+        ap->bit_rate    = static_cast<int64_t>(cfg.audioKbps) * 1000;
+        ap->frame_size  = 1024;
+        av_channel_layout_default(&ap->ch_layout, 2);
+        ap->extradata = static_cast<uint8_t *>(av_mallocz(cfg.audioExtradata.size() + AV_INPUT_BUFFER_PADDING_SIZE));
+        if (!ap->extradata) return fail("could not allocate the audio extradata");
+        std::memcpy(ap->extradata, cfg.audioExtradata.data(), cfg.audioExtradata.size());
+        ap->extradata_size = static_cast<int>(cfg.audioExtradata.size());
+    }
+
     // Protocol options. libavformat's srt protocol reads these as
     // AVOptions on the URLContext; the URL's own query keeps working too.
     AVDictionary *popts = nullptr;
@@ -102,8 +123,8 @@ bool StreamMuxer::open(const MuxConfig &cfg, std::string *error)
     if (mopts) av_dict_free(&mopts);
     if (rc < 0) return fail("write_header: " + avErr(rc));
     m_headerWritten = true;
-    qInfo("StreamMuxer: streaming %ux%u H.264 in MPEG-TS to %s (SRT latency %d ms)",
-          cfg.width, cfg.height, cfg.url.c_str(), cfg.srtLatencyMs);
+    qInfo("StreamMuxer: streaming %ux%u H.264%s in MPEG-TS to %s (SRT latency %d ms)",
+          cfg.width, cfg.height, m_audio ? " + AAC" : "", cfg.url.c_str(), cfg.srtLatencyMs);
     return true;
 }
 
@@ -119,11 +140,38 @@ bool StreamMuxer::writeVideo(const uint8_t *data, size_t size, int64_t pts90k, i
     pkt->dts = pts90k;
     pkt->duration = dur90k;
     if (keyframe) pkt->flags |= AV_PKT_FLAG_KEY;
+    av_packet_rescale_ts(pkt, AVRational{1, 90000}, m_video->time_base);
     const int rc = av_interleaved_write_frame(m_ctx, pkt);
     av_packet_free(&pkt);
     if (rc < 0) {
         m_errors.fetch_add(1, std::memory_order_relaxed);
         m_lastError = "write: " + avErr(rc);
+        if (m_errors.load() <= 3) qWarning("StreamMuxer: %s", m_lastError.c_str());
+        return false;
+    }
+    m_packets.fetch_add(1, std::memory_order_relaxed);
+    m_bytes.fetch_add(size, std::memory_order_relaxed);
+    return true;
+}
+
+bool StreamMuxer::writeAudio(const uint8_t *data, size_t size, int64_t ptsSamples, int64_t durSamples)
+{
+    if (!isOpen() || !m_audio || !data || size == 0) return false;
+    AVPacket *pkt = av_packet_alloc();
+    if (!pkt) return false;
+    if (av_new_packet(pkt, static_cast<int>(size)) < 0) { av_packet_free(&pkt); return false; }
+    std::memcpy(pkt->data, data, size);
+    pkt->stream_index = m_audio->index;
+    pkt->pts = ptsSamples;
+    pkt->dts = ptsSamples;
+    pkt->duration = durSamples;
+    pkt->flags |= AV_PKT_FLAG_KEY;
+    av_packet_rescale_ts(pkt, AVRational{1, 48000}, m_audio->time_base);
+    const int rc = av_interleaved_write_frame(m_ctx, pkt);
+    av_packet_free(&pkt);
+    if (rc < 0) {
+        m_errors.fetch_add(1, std::memory_order_relaxed);
+        m_lastError = "write audio: " + avErr(rc);
         if (m_errors.load() <= 3) qWarning("StreamMuxer: %s", m_lastError.c_str());
         return false;
     }
@@ -141,6 +189,7 @@ void StreamMuxer::close()
         m_ctx = nullptr;
     }
     m_video = nullptr;
+    m_audio = nullptr;
     m_headerWritten = false;
 }
 

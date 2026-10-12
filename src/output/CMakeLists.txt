@@ -7,6 +7,8 @@
 # qcv_window owns the sink through OutputBus.
 
 add_library(qcv_output STATIC
+    aac_encoder.cpp
+    aac_encoder.h
     stream_sink.cpp
     stream_sink.h
     stream_muxer.cpp
