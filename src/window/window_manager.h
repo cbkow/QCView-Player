@@ -388,7 +388,30 @@ public:
         QString timecode;
         QString priorAnnotationData;   // empty when noteWasNew
         bool    noteWasNew = false;
+        // What recreating the note needs (redo of an undone new note);
+        // the key is no longer always a parseable timecode (streams).
+        int     frame = 0;
+        double  timestampSeconds = 0.0;
+        QString capturedAt, hostTimecode, streamName;
     };
+
+    // The key a note minted now would get (plan B1): a timecode for a
+    // file, a capture stamp for a live stream (with the fields that say
+    // when and from what). One place for every site that used to derive
+    // it from frame + fps.
+    struct NoteKey {
+        QString key;
+        int     frame = 0;
+        double  timestampSeconds = 0.0;
+        bool    stream = false;
+        QString capturedAt, hostTimecode, streamName;
+    };
+    NoteKey currentNoteKey() const;
+    // Is this note the one the viewport shows: frame match for files,
+    // the Review key for streams (B2 sets it; empty = live, none match).
+    bool noteIsCurrent(const AnnotationNote &n, int currentFrame) const;
+    void applyNoteKeyFields(const NoteKey &k);
+    const MediaItem *activeStreamItem() const;
 
     // Display modes for the player swapchain. Two axes:
     //   1. SDR vs HDR (8-bit sRGB-encoded vs FP16 extended-linear /
@@ -1028,6 +1051,16 @@ public:
     Q_PROPERTY(QVariantList notesList READ notesList NOTIFY notesChanged)
     Q_PROPERTY(bool annotationsAllowed
                READ annotationsAllowed NOTIFY annotationsAllowedChanged)
+    // Stream notes (plan B1): the active item is a live stream whose
+    // notes live in the project sidecar; and the project must be saved
+    // before the first note (the panel shows a Save tile instead of
+    // Add note until it is).
+    Q_PROPERTY(bool activeNotesAreStream READ activeNotesAreStream NOTIFY streamNotesStateChanged)
+    Q_PROPERTY(bool notesNeedProjectSave READ notesNeedProjectSave NOTIFY streamNotesStateChanged)
+    bool activeNotesAreStream() const { return m_activeNotesAreStream; }
+    bool notesNeedProjectSave() const { return m_notesNeedProjectSave; }
+    // The Save tile's action: Main.qml answers with its projectSave().
+    Q_INVOKABLE void requestProjectSave() { emit projectSaveRequested(); }
 
     // List of notes for the current media as QVariantMaps (one per
     // note: timecode, frame, timestampSeconds, text, addressed,
@@ -1221,6 +1254,8 @@ signals:
     void hdrModeChanged();
     void brightnessChanged();
     void viewerAidsChanged();
+    void streamNotesStateChanged();
+    void projectSaveRequested();
     // Phase 3.H.6 — re-emitted from AnnotationManager.notesChanged
     // for QML bindings, plus fires when the active media swaps to
     // a different sidecar. annotationsAllowedChanged tracks the
@@ -1531,6 +1566,10 @@ private:
     QImage                               m_lastCleanThumbImage;
     QString                              m_lastCleanThumbTc;
     QList<AnnotationUndoEntry>           m_annotationUndoStack;
+    // Stream notes (plan B1/B2).
+    bool    m_activeNotesAreStream = false;
+    bool    m_notesNeedProjectSave = false;
+    QString m_reviewKey;   // B2: the stream note on the viewport; empty = live
     QList<AnnotationUndoEntry>           m_annotationRedoStack;
     bool                                 m_notesPanelVisible = false;
 
@@ -1824,6 +1863,7 @@ private:
     // worker BEFORE anything downstream tears down — the live worker
     // publishes into m_videoDecoder's slot, so it must stop first).
     std::unique_ptr<LiveSource>           m_liveDecoder;   // SRT decoder or QCBridgeAE ring reader
+    qint64                                m_liveOpenedMs = 0;   // wall clock when the live item opened (stream note timestamps)
     bool                                  m_liveActive          = false;
 
     // True while startImageSequence is mid-flight (the brief gap

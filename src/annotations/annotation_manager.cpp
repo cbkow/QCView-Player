@@ -20,7 +20,69 @@ AnnotationManager::~AnnotationManager() = default;
 void AnnotationManager::setMediaPath(const QString &mediaPath)
 {
     QMutexLocker lk(&notes_mutex_);
-    current_media_path_ = mediaPath;
+    source_ = Source{};
+    source_.kind = Source::Kind::Media;
+    source_.mediaPath = mediaPath;
+}
+
+void AnnotationManager::loadNotesForStream(const QString &streamDir, const QJsonObject &header)
+{
+    is_loading_.store(true);
+    Q_EMIT loadingChanged(true);
+    {
+        QMutexLocker lk(&notes_mutex_);
+        source_ = Source{};
+        source_.kind = Source::Kind::Stream;
+        source_.streamDir = streamDir;
+        source_.streamHeader = header;
+    }
+    std::vector<AnnotationNote> loaded;
+    QJsonObject onDisk;
+    const bool ok = annotation_io::loadNotesAt(streamDir, loaded, &onDisk);
+    {
+        QMutexLocker lk(&notes_mutex_);
+        if (ok) {
+            notes_ = std::move(loaded);
+            sortNotesByTimecode();
+        }
+        // Keep what the file already says (created, anything minNotes
+        // added) and refresh what we know now (the display name).
+        for (auto it = header.begin(); it != header.end(); ++it) onDisk.insert(it.key(), it.value());
+        source_.streamHeader = onDisk;
+    }
+    is_loading_.store(false);
+    Q_EMIT loadingChanged(false);
+    notifyNotesChanged();
+}
+
+bool AnnotationManager::isStreamSource() const
+{
+    QMutexLocker lk(&notes_mutex_);
+    return source_.kind == Source::Kind::Stream;
+}
+
+QJsonObject AnnotationManager::streamHeader() const
+{
+    QMutexLocker lk(&notes_mutex_);
+    return source_.streamHeader;
+}
+
+void AnnotationManager::setNoteStreamFields(const QString &key, const QString &capturedAt,
+                                            const QString &hostTimecode, const QString &streamName)
+{
+    {
+        QMutexLocker lk(&notes_mutex_);
+        auto it = std::find_if(notes_.begin(), notes_.end(),
+            [&](const AnnotationNote &n) { return n.timecode == key; });
+        if (it == notes_.end()) return;
+        it->captured_at   = capturedAt;
+        it->host_timecode = hostTimecode;
+        it->stream        = streamName;
+    }
+    if (!batch_mode_.load()) {
+        saveNotesAsyncLocked();
+        notifyNotesChanged();
+    }
 }
 
 void AnnotationManager::loadNotesForMedia(const QString &mediaPath)
@@ -49,7 +111,7 @@ void AnnotationManager::unloadNotes()
     {
         QMutexLocker lk(&notes_mutex_);
         notes_.clear();
-        current_media_path_.clear();
+        source_ = Source{};
     }
     notifyNotesChanged();
 }
@@ -59,7 +121,7 @@ void AnnotationManager::clearNotes()
     {
         QMutexLocker lk(&notes_mutex_);
         notes_.clear();
-        current_media_path_.clear();
+        source_ = Source{};
     }
     notifyNotesChanged();
 }
@@ -226,16 +288,26 @@ qsizetype AnnotationManager::noteCount() const
     return static_cast<qsizetype>(notes_.size());
 }
 
+QString AnnotationManager::imagesFolderLocked() const
+{
+    switch (source_.kind) {
+    case Source::Kind::Media:  return annotation_io::getImagesFolder(source_.mediaPath);
+    case Source::Kind::Stream: return annotation_io::imagesFolderIn(source_.streamDir);
+    case Source::Kind::None:   break;
+    }
+    return {};
+}
+
 QString AnnotationManager::imagesFolder() const
 {
     QMutexLocker lk(&notes_mutex_);
-    return annotation_io::getImagesFolder(current_media_path_);
+    return imagesFolderLocked();
 }
 
 QString AnnotationManager::annotationsDirectory() const
 {
     QMutexLocker lk(&notes_mutex_);
-    const QString images = annotation_io::getImagesFolder(current_media_path_);
+    const QString images = imagesFolderLocked();
     if (images.isEmpty()) return {};
     return QFileInfo(images).absolutePath();
 }
@@ -257,17 +329,20 @@ void AnnotationManager::saveNotesAsyncLocked()
     is_saving_.store(true);
     Q_EMIT savingChanged(true);
 
-    QString mediaPath;
+    Source src;
     std::vector<AnnotationNote> copy;
     {
         QMutexLocker lk(&notes_mutex_);
-        mediaPath = current_media_path_;
-        copy      = notes_;
+        src  = source_;
+        copy = notes_;
     }
 
-    // annotation_io::saveNotesAsync already runs off-thread via
-    // QtConcurrent. Fire-and-forget — we don't observe completion.
-    annotation_io::saveNotesAsync(copy, mediaPath);
+    // Off-thread, fire-and-forget — we don't observe completion.
+    switch (src.kind) {
+    case Source::Kind::Media:  annotation_io::saveNotesAsync(copy, src.mediaPath); break;
+    case Source::Kind::Stream: annotation_io::saveNotesAtAsync(src.streamDir, src.streamHeader, copy); break;
+    case Source::Kind::None:   break;
+    }
 
     is_saving_.store(false);
     Q_EMIT savingChanged(false);

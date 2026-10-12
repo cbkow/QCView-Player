@@ -199,6 +199,12 @@ Pane {
                 color: addMa.containsMouse ? Theme.surfaceHover : Theme.bg
                 border.width: 0
 
+                // Stream notes (plan B1) live in the project's sidecar, so
+                // an unsaved project gets a Save tile here instead of Add
+                // note; once saved the tile turns back into Add note.
+                readonly property bool needSave: WindowManager.notesNeedProjectSave
+                readonly property bool isStream: WindowManager.activeNotesAreStream
+
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: Theme.spacingLoose
@@ -206,14 +212,15 @@ Pane {
                     Item { Layout.fillHeight: true }
                     Icon {
                         Layout.alignment: Qt.AlignHCenter
-                        name: "plus"
+                        name: addTile.needSave ? "floppy-disk" : "plus"
                         size: 32
                         color: addMa.containsMouse ? Theme.success : Theme.textMuted
                     }
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.fillWidth: true
-                        text: qsTr("Add note here")
+                        text: addTile.needSave ? qsTr("Save the project to keep notes for this stream")
+                                               : qsTr("Add note here")
                         color: addMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
@@ -223,7 +230,9 @@ Pane {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.fillWidth: true
-                        text: qsTr("captures current frame")
+                        text: addTile.needSave ? qsTr("Save…")
+                              : (addTile.isStream ? qsTr("captures the live frame")
+                                                  : qsTr("captures current frame"))
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeTiny
@@ -237,7 +246,8 @@ Pane {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: WindowManager.addNoteAtCurrentFrame()
+                    onClicked: addTile.needSave ? WindowManager.requestProjectSave()
+                                                : WindowManager.addNoteAtCurrentFrame()
                 }
             }
 
@@ -718,7 +728,8 @@ Pane {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacing
                                 Text {
-                                    text: modelData.timecode
+                                    // Stream notes: the capture time of day; files: the timecode.
+                                    text: modelData.isStream ? modelData.captureLabel : modelData.timecode
                                     color: Theme.textPrimary
                                     font.family: Theme.monoFamily
                                     font.pixelSize: Theme.fontSizeSmall
@@ -731,7 +742,9 @@ Pane {
                                     }
                                 }
                                 Text {
-                                    text: "f" + modelData.frame
+                                    // Stream notes: the host's timecode when the feed carries one.
+                                    text: modelData.isStream ? (modelData.hostTimecode || "") : "f" + modelData.frame
+                                    visible: text.length > 0
                                     color: Theme.textMuted
                                     font.family: Theme.monoFamily
                                     font.pixelSize: Theme.fontSizeTiny

@@ -135,6 +135,11 @@ ApplicationWindow {
         }
     }
 
+    // The notes panel's Save tile (stream notes need the project on disk).
+    Connections {
+        target: WindowManager
+        function onProjectSaveRequested() { projectSave() }
+    }
     function projectSave() {
         const pm = WindowManager.project;
         if (!pm) return;

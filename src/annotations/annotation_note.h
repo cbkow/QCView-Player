@@ -49,6 +49,16 @@ struct AnnotationNote {
     // Look → sRGB / ACES 2.0") — the clip's own chain when it has one.
     // Empty = OCIO off. Optional "ocio" key on disk.
     QString ocio_chain;
+    // Notes on a live stream (plan B1): the key is a capture stamp
+    // (YYYYMMDD-HHMMSS-mmm, sorts chronologically) rather than a
+    // timecode; `frame` is 0 and `timestamp_seconds` counts from the
+    // stream's open. These three say when and from what. Optional
+    // "captured_at" / "host_timecode" / "stream" keys on disk.
+    QString captured_at;       // ISO 8601 local time with offset
+    QString host_timecode;     // the host's sequence time, when the feed carries one
+    QString stream;            // the stream item's display name at capture
+
+    bool isStreamNote() const { return !captured_at.isEmpty(); }
 
     AnnotationNote() = default;
     AnnotationNote(QString tc, double ts, int f, QString img, QString txt)

@@ -20,6 +20,15 @@ QJsonObject noteToJson(const AnnotationNote &note)
     if (!note.ocio_chain.isEmpty()) {
         obj.insert(QStringLiteral("ocio"),          note.ocio_chain);
     }
+    if (!note.captured_at.isEmpty()) {
+        obj.insert(QStringLiteral("captured_at"),   note.captured_at);
+    }
+    if (!note.host_timecode.isEmpty()) {
+        obj.insert(QStringLiteral("host_timecode"), note.host_timecode);
+    }
+    if (!note.stream.isEmpty()) {
+        obj.insert(QStringLiteral("stream"),        note.stream);
+    }
 
     // annotation_data: in-memory string → on-disk nested object.
     // Empty string serializes as JSON null (matches old app shape).
@@ -57,6 +66,9 @@ bool noteFromJson(const QJsonObject &obj, AnnotationNote &out)
     out.image_path        = obj.value(QStringLiteral("image")).toString();
     out.viewer_tag        = obj.value(QStringLiteral("viewer")).toString();
     out.ocio_chain        = obj.value(QStringLiteral("ocio")).toString();
+    out.captured_at       = obj.value(QStringLiteral("captured_at")).toString();
+    out.host_timecode     = obj.value(QStringLiteral("host_timecode")).toString();
+    out.stream            = obj.value(QStringLiteral("stream")).toString();
 
     // annotation_data: nested object → string. Null / missing → empty.
     if (obj.contains(QStringLiteral("annotation_data"))) {

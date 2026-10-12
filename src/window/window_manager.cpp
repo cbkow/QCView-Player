@@ -41,6 +41,7 @@
 
 #include "annotations/annotation_exporter.h"
 #include "annotations/annotation_manager.h"
+#include "annotations/annotation_io.h"
 #include "annotations/annotation_serializer.h"
 #include "annotations/annotation_thumbnail.h"
 #include "annotations/stroke_tessellator.h"
@@ -374,6 +375,10 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
                 this, &WindowManager::addRecentMedia);
         connect(m_project, &ProjectManager::projectSaved,
                 this, &WindowManager::addRecentProject);
+        // Plan B1: a stream's notes wait for the project to exist on disk.
+        connect(m_project, &ProjectManager::projectSaved, this, [this] {
+            if (m_notesNeedProjectSave) syncAnnotationManagerToActiveMedia();
+        });
         connect(m_project, &ProjectManager::projectOpened,
                 this, &WindowManager::addRecentProject);
 
@@ -4339,6 +4344,7 @@ void WindowManager::startLiveStream(const MediaItem &item)
     }
 
     m_liveActive = true;
+    m_liveOpenedMs = QDateTime::currentMSecsSinceEpoch();
     emit liveActiveChanged();
     emit liveDecoderChanged();
 }
@@ -4352,7 +4358,11 @@ void WindowManager::pushLiveTags(LiveSource *src, const QString &itemId)
 
 void WindowManager::stopLiveStream()
 {
+    // Plan B2's exitReview() goes here, before the guard: every item,
+    // mode and project transition passes through this function.
+    m_reviewKey.clear();
     if (!m_liveDecoder) return;
+    m_liveOpenedMs = 0;
 
     // Bridge audio goes first: its reader must stop before the frame
     // reader's segment housekeeping, and before the next source opens
@@ -7608,13 +7618,73 @@ bool WindowManager::annotationsAllowedForCurrentMedia() const
     const MediaItem *it = m_project->findItem(itemId);
     if (!it) return false;
     return it->type == MediaType::Video
-        || it->type == MediaType::ImageSequence;
+        || it->type == MediaType::ImageSequence
+        || it->type == MediaType::LiveStream;   // plan B1: notes on streams
+}
+
+const MediaItem *WindowManager::activeStreamItem() const
+{
+    if (!m_project || m_dualController || m_playlistActive) return nullptr;
+    const QString itemId = m_project->activeItemId();
+    const MediaItem *it = itemId.isEmpty() ? nullptr : m_project->findItem(itemId);
+    return (it && it->type == MediaType::LiveStream) ? it : nullptr;
+}
+
+WindowManager::NoteKey WindowManager::currentNoteKey() const
+{
+    NoteKey k;
+    if (const MediaItem *st = activeStreamItem()) {
+        k.stream = true;
+        if (!m_reviewKey.isEmpty()) {
+            // B2: the note already on the viewport.
+            k.key = m_reviewKey;
+            if (m_annotationManager) {
+                if (const AnnotationNote *n = m_annotationManager->noteAtTimecode(m_reviewKey)) {
+                    k.capturedAt = n->captured_at; k.hostTimecode = n->host_timecode;
+                    k.streamName = n->stream; k.timestampSeconds = n->timestamp_seconds;
+                }
+            }
+            return k;
+        }
+        const QDateTime now = QDateTime::currentDateTime();
+        k.key          = now.toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"));
+        // ISO 8601 local time WITH the offset ("2026-10-12T17:11:35.599-04:00").
+        k.capturedAt   = now.toOffsetFromUtc(now.offsetFromUtc()).toString(Qt::ISODateWithMs);
+        k.hostTimecode = m_liveDecoder ? m_liveDecoder->hostTimecode() : QString();
+        k.streamName   = st->name;
+        k.frame        = 0;
+        k.timestampSeconds = m_liveOpenedMs > 0 ? double(now.toMSecsSinceEpoch() - m_liveOpenedMs) / 1000.0 : 0.0;
+        return k;
+    }
+    k.frame = currentFrameUnified();
+    const double fps = m_timeline ? m_timeline->frameRate() : 24.0;
+    k.timestampSeconds = (fps > 0.0) ? k.frame / fps : 0.0;
+    TimecodeFormatter tc(static_cast<int>(std::round(fps * 1000.0)), 1000, /*dropFrame=*/false);
+    k.key = tc.isValid() ? tc.format(k.frame) : QStringLiteral("00:00:00:00");
+    return k;
+}
+
+bool WindowManager::noteIsCurrent(const AnnotationNote &n, int currentFrame) const
+{
+    if (m_activeNotesAreStream) return !m_reviewKey.isEmpty() && n.timecode == m_reviewKey;
+    return n.frame == currentFrame;
+}
+
+void WindowManager::applyNoteKeyFields(const NoteKey &k)
+{
+    if (!k.stream || !m_annotationManager) return;
+    m_annotationManager->setNoteStreamFields(k.key, k.capturedAt, k.hostTimecode, k.streamName);
 }
 
 void WindowManager::syncAnnotationManagerToActiveMedia()
 {
     if (!m_annotationManager) return;
     if (!annotationsAllowedForCurrentMedia()) {
+        if (m_activeNotesAreStream || m_notesNeedProjectSave) {
+            m_activeNotesAreStream = false;
+            m_notesNeedProjectSave = false;
+            emit streamNotesStateChanged();
+        }
         // No saving — clearNotes wipes in-memory state without
         // touching disk. Critical: drops the prior media's notes
         // before they can leak into the new media's sidecar.
@@ -7633,6 +7703,36 @@ void WindowManager::syncAnnotationManagerToActiveMedia()
         m_annotationManager->clearNotes();
         rebuildStoredAnnotationMesh();
         return;
+    }
+    if (it->type == MediaType::LiveStream) {
+        // Plan B1: a stream's notes live in the project sidecar, so the
+        // project must exist on disk first. Until it does the panel
+        // shows a Save tile; projectSaved re-runs this.
+        const QString projectPath = m_project->projectFilePath();
+        const bool wasStream = m_activeNotesAreStream, wasNeed = m_notesNeedProjectSave;
+        m_activeNotesAreStream = true;
+        if (projectPath.isEmpty()) {
+            m_notesNeedProjectSave = true;
+            m_annotationManager->clearNotes();
+        } else {
+            m_notesNeedProjectSave = false;
+            QString folder = annotation_io::findStreamFolder(projectPath, it->id);
+            if (folder.isEmpty()) folder = annotation_io::streamFolderName(it->name, it->id);
+            annotation_io::createStreamFolder(projectPath, folder);
+            QJsonObject header;
+            header.insert(QStringLiteral("stream"),     it->name);
+            header.insert(QStringLiteral("stream_id"),  it->id);
+            header.insert(QStringLiteral("stream_url"), it->path);
+            m_annotationManager->loadNotesForStream(annotation_io::getStreamDir(projectPath, folder), header);
+        }
+        if (wasStream != m_activeNotesAreStream || wasNeed != m_notesNeedProjectSave) emit streamNotesStateChanged();
+        rebuildStoredAnnotationMesh();
+        return;
+    }
+    if (m_activeNotesAreStream || m_notesNeedProjectSave) {
+        m_activeNotesAreStream = false;
+        m_notesNeedProjectSave = false;
+        emit streamNotesStateChanged();
     }
     // For image sequences, the "media path" is the directory (the
     // sidecar layout was designed around that — `.qcview/<dir-name>/`).
@@ -7673,17 +7773,14 @@ void WindowManager::onStrokeFinalized(std::unique_ptr<ActiveStroke> stroke)
     if (!stroke || !m_annotationManager || !m_annotator) return;
     if (!annotationsAllowedForCurrentMedia()) return;
 
-    const int frame = currentFrameUnified();
-    const double fps = m_timeline ? m_timeline->frameRate() : 24.0;
-    const double timestampSec = (fps > 0.0) ? frame / fps : 0.0;
+    if (m_notesNeedProjectSave) return;   // the panel asks for a save first
 
-    // SMPTE timecode — used as the note's primary key. Match the
-    // old app's HH:MM:SS:FF format. TimecodeFormatter handles DF
-    // for NTSC fps; non-DF rates fall through fine.
-    TimecodeFormatter tc(static_cast<int>(std::round(fps * 1000.0)),
-                          1000, /*dropFrame=*/false);
-    const QString timecode = tc.isValid() ? tc.format(frame)
-                                            : QStringLiteral("00:00:00:00");
+    // The key: SMPTE timecode (HH:MM:SS:FF) for a file, the capture
+    // stamp for a stream (plan B1) — one helper for every site.
+    const NoteKey nk = currentNoteKey();
+    const QString timecode = nk.key;
+    const int frame = nk.frame;
+    const double timestampSec = nk.timestampSeconds;
 
     // Add the note (no-op if one already exists at that timecode —
     // AnnotationManager dedups). Then merge the new stroke into the
@@ -7701,6 +7798,8 @@ void WindowManager::onStrokeFinalized(std::unique_ptr<ActiveStroke> stroke)
     undoEntry.priorAnnotationData =
         existing ? existing->annotation_data : QString();
     undoEntry.noteWasNew = freshNote;
+    undoEntry.frame = frame;  undoEntry.timestampSeconds = timestampSec;
+    undoEntry.capturedAt = nk.capturedAt;  undoEntry.hostTimecode = nk.hostTimecode;  undoEntry.streamName = nk.streamName;
     m_annotationUndoStack.append(undoEntry);
     m_annotationRedoStack.clear();   // any new edit invalidates redo
 
@@ -7712,6 +7811,10 @@ void WindowManager::onStrokeFinalized(std::unique_ptr<ActiveStroke> stroke)
             m_annotationUndoStack.removeLast(); // bail cleanly
             return;
         }
+        applyNoteKeyFields(nk);
+        existing = m_annotationManager->noteAtTimecode(timecode);
+        if (!existing) { m_annotationUndoStack.removeLast(); return; }
+        if (nk.stream && m_reviewKey.isEmpty()) m_reviewKey = timecode;   // B1: strokes keep landing on this note until B2's Review takes over
     }
 
     // Clean baseline FIRST — before updateNoteAnnotationData
@@ -7759,7 +7862,7 @@ void WindowManager::onEraseAt(QPointF normalizedPos)
     // need shape-specific math.
     auto notes = m_annotationManager->notes();
     for (const auto &n : notes) {
-        if (n.frame != frame) continue;
+        if (!noteIsCurrent(n, frame)) continue;
         if (n.annotation_data.isEmpty()) continue;
         auto strokes =
             AnnotationSerializer::jsonStringToStrokes(n.annotation_data);
@@ -7887,7 +7990,7 @@ void WindowManager::onSelectPointer(int phase, QPointF norm)
         const int frame = currentFrameUnified();
         const auto notes = m_annotationManager->notes();
         for (const auto &n : notes) {
-            if (n.frame != frame) continue;
+            if (!noteIsCurrent(n, frame)) continue;
             if (n.annotation_data.isEmpty()) continue;
             auto strokes = AnnotationSerializer::jsonStringToStrokes(
                 n.annotation_data);
@@ -8068,10 +8171,14 @@ bool WindowManager::annotationUndo()
 
     AnnotationUndoEntry redo;
     redo.timecode = e.timecode;
+    redo.frame = e.frame;  redo.timestampSeconds = e.timestampSeconds;
+    redo.capturedAt = e.capturedAt;  redo.hostTimecode = e.hostTimecode;  redo.streamName = e.streamName;
     if (const AnnotationNote *cur =
             m_annotationManager->noteAtTimecode(e.timecode)) {
         redo.priorAnnotationData = cur->annotation_data;
         redo.noteWasNew = false;
+        redo.frame = cur->frame;  redo.timestampSeconds = cur->timestamp_seconds;
+        redo.capturedAt = cur->captured_at;  redo.hostTimecode = cur->host_timecode;  redo.streamName = cur->stream;
     } else {
         redo.priorAnnotationData = QString();
         redo.noteWasNew = true;
@@ -8107,14 +8214,16 @@ bool WindowManager::annotationRedo()
     }
     m_annotationUndoStack.append(undo);
 
+    undo.frame = e.frame;  undo.timestampSeconds = e.timestampSeconds;
+    undo.capturedAt = e.capturedAt;  undo.hostTimecode = e.hostTimecode;  undo.streamName = e.streamName;
+
     if (e.noteWasNew) {
-        // Redo'ing an undo-of-newly-created-note: recreate it.
-        const double fps = m_timeline ? m_timeline->frameRate() : 24.0;
-        TimecodeFormatter tc(static_cast<int>(std::round(fps * 1000.0)),
-                              1000, /*dropFrame=*/false);
-        const int frame = tc.isValid() ? tc.parse(e.timecode) : 0;
-        const double ts = (fps > 0.0) ? frame / fps : 0.0;
-        m_annotationManager->addNote(ts, e.timecode, frame, QString());
+        // Redo'ing an undo-of-newly-created-note: recreate it from the
+        // entry (the key is a timecode for files, a stamp for streams).
+        m_annotationManager->addNote(e.timestampSeconds, e.timecode, e.frame, QString());
+        if (!e.capturedAt.isEmpty()) {
+            m_annotationManager->setNoteStreamFields(e.timecode, e.capturedAt, e.hostTimecode, e.streamName);
+        }
         if (!e.priorAnnotationData.isEmpty()) {
             m_annotationManager->updateNoteAnnotationData(
                 e.timecode, e.priorAnnotationData);
@@ -8152,6 +8261,15 @@ QVariantList WindowManager::notesList() const
         m[QStringLiteral("hasStrokes")]       = !n.annotation_data.isEmpty();
         m[QStringLiteral("viewerTag")]        = n.viewer_tag;
         m[QStringLiteral("ocioChain")]        = n.ocio_chain;
+        // Stream notes (plan B1): when and from what, for the card.
+        m[QStringLiteral("isStream")]         = n.isStreamNote();
+        m[QStringLiteral("capturedAt")]       = n.captured_at;
+        m[QStringLiteral("hostTimecode")]     = n.host_timecode;
+        m[QStringLiteral("stream")]           = n.stream;
+        {
+            const QDateTime at = QDateTime::fromString(n.captured_at, Qt::ISODateWithMs);
+            m[QStringLiteral("captureLabel")] = at.isValid() ? at.toString(QStringLiteral("HH:mm:ss.zzz")) : QString();
+        }
         // image_path is sidecar-relative ("images/note_<TC>.png");
         // join with the absolute images folder so QML's Image item
         // can load it directly. We expose two paths:
@@ -8207,21 +8325,18 @@ QVariantList WindowManager::notesList() const
 void WindowManager::addNoteAtCurrentFrame()
 {
     if (!m_annotationManager || !annotationsAllowedForCurrentMedia()) return;
+    if (m_notesNeedProjectSave) return;   // the panel asks for a save first
 
-    const int frame = currentFrameUnified();
-    const double fps = m_timeline ? m_timeline->frameRate() : 24.0;
-    const double timestampSec = (fps > 0.0) ? frame / fps : 0.0;
-
-    TimecodeFormatter tc(static_cast<int>(std::round(fps * 1000.0)),
-                          1000, /*dropFrame=*/false);
-    const QString timecode = tc.isValid() ? tc.format(frame)
-                                            : QStringLiteral("00:00:00:00");
+    const NoteKey nk = currentNoteKey();
+    const QString timecode = nk.key;
 
     AnnotationNote *existing =
         m_annotationManager->noteAtTimecode(timecode);
     if (!existing) {
-        m_annotationManager->addNote(timestampSec, timecode, frame,
+        m_annotationManager->addNote(nk.timestampSeconds, timecode, nk.frame,
                                       QString());
+        applyNoteKeyFields(nk);
+        if (nk.stream && m_reviewKey.isEmpty()) m_reviewKey = timecode;
     }
     // No strokes yet → only the clean thumbnail matters here.
     saveNoteCleanThumbnail(timecode);
@@ -8232,9 +8347,7 @@ namespace {
 // and `;` (drop-frame separator) with `_`. The timecode stays
 // canonical in the JSON; only filenames swap separators.
 QString timecodeFileStem(const QString &timecode) {
-    return QString(timecode)
-        .replace(QLatin1Char(':'), QLatin1Char('_'))
-        .replace(QLatin1Char(';'), QLatin1Char('_'));
+    return annotation_io::fileStemForKey(timecode);
 }
 } // namespace
 
@@ -8480,6 +8593,11 @@ void WindowManager::seekToAnnotationNote(const QString &timecode)
     if (!m_annotationManager) return;
     const AnnotationNote *n = m_annotationManager->noteAtTimecode(timecode);
     if (!n) return;
+    if (n->isStreamNote() || m_activeNotesAreStream) {
+        // B2: enterReview(timecode) — the stream keeps running; nothing to seek.
+        qInfo("seekToAnnotationNote: stream note %s (Review comes with B2)", qPrintable(timecode));
+        return;
+    }
     seekToFrame(n->frame);
 }
 
@@ -8584,7 +8702,7 @@ void WindowManager::rebuildStoredAnnotationMesh()
         const int frame = currentFrameUnified();
         const auto notes = m_annotationManager->notes();
         for (const auto &n : notes) {
-            if (n.frame != frame) continue;
+            if (!noteIsCurrent(n, frame)) continue;
             // Selected note mid-drag: render from the working copy
             // (live move/scale feedback) instead of the JSON, which
             // is only rewritten on Release.

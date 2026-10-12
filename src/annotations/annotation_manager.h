@@ -17,6 +17,7 @@
 
 #include "annotation_note.h"
 
+#include <QJsonObject>
 #include <QMutex>
 #include <QObject>
 #include <QString>
@@ -36,6 +37,15 @@ public:
     // ---- Media lifecycle ----
     void setMediaPath(const QString &mediaPath);
     void loadNotesForMedia(const QString &mediaPath);
+    // Notes on a live stream (plan B1): a folder in the project sidecar
+    // (annotation_io::getStreamDir) and the header its notes.json
+    // carries (stream, stream_id, stream_url). Same list, same CRUD.
+    void loadNotesForStream(const QString &streamDir, const QJsonObject &header);
+    bool isStreamSource() const;
+    QJsonObject streamHeader() const;
+    // The stream fields of one note, set once at capture (one save).
+    void setNoteStreamFields(const QString &key, const QString &capturedAt,
+                             const QString &hostTimecode, const QString &streamName);
     void unloadNotes();
     void clearNotes();   // Drop notes without saving (used when switching to a
                          // disabled state where saving would clobber data).
@@ -84,9 +94,19 @@ private:
     void saveNotesAsyncLocked();   // assumes notes_mutex_ NOT held
     void notifyNotesChanged();
 
+    // Where the notes live: a media file's sidecar, or a stream folder in
+    // the project's sidecar. Guarded by notes_mutex_ like the list.
+    struct Source {
+        enum class Kind { None, Media, Stream } kind = Kind::None;
+        QString     mediaPath;    // Media
+        QString     streamDir;    // Stream: absolute folder
+        QJsonObject streamHeader; // Stream: the notes.json header
+    };
+    QString imagesFolderLocked() const;   // caller holds notes_mutex_
+
     mutable QMutex              notes_mutex_;
     std::vector<AnnotationNote> notes_;
-    QString                     current_media_path_;
+    Source                      source_;
 
     std::atomic<bool> is_loading_{false};
     std::atomic<bool> is_saving_{false};

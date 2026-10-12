@@ -81,6 +81,7 @@ public:
     }
     void setVideoHoldMs(int ms) override { m_videoHoldMs.store(ms < 0 ? 0 : ms, std::memory_order_release); }
     double frameRate() const override { return m_hostFps.load(std::memory_order_acquire); }
+    QString hostTimecode() const override;
 
     double statFramesReceived() const override {
         return double(m_framesReceived.load(std::memory_order_acquire));
@@ -126,6 +127,8 @@ private:
     std::atomic<int>      m_audioState{0};
     std::atomic<int>      m_videoHoldMs{0};
     std::atomic<double>   m_hostFps{0.0};     // from the host's time stamps, worker thread writes
+    std::atomic<int64_t>  m_hostTimeValue{-1}; // the newest frame's host time (time_value/time_scale)
+    std::atomic<int64_t>  m_hostTimeScale{0};
 
     // Frames waiting out the video hold, worker thread only. A pooled
     // image in here is not reusable even though nobody else holds it.

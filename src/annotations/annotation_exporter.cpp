@@ -3,6 +3,7 @@
 // note-collection pre-pass.
 
 #include "annotation_exporter.h"
+#include "annotation_io.h"
 
 #include "annotation_manager.h"
 #include "annotation_note.h"
@@ -41,9 +42,7 @@ namespace qcv {
 namespace {
 
 QString fileStemForTimecode(const QString &timecode) {
-    return QString(timecode)
-        .replace(QLatin1Char(':'), QLatin1Char('_'))
-        .replace(QLatin1Char(';'), QLatin1Char('_'));
+    return annotation_io::fileStemForKey(timecode);
 }
 
 QString htmlEscape(const QString &s) {

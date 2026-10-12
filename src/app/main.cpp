@@ -684,6 +684,25 @@ int main(int argc, char *argv[])
             windowManager.play();
         });
     }
+    // Dev aid (plan B1): QCV_NOTE_TEST=<s> adds a note at the current
+    // frame that long after launch; QCV_NOTE_TEST_SAVE=<path.qcvproj>
+    // saves the project there one second before (stream notes need it).
+    if (qEnvironmentVariableIsSet("QCV_NOTE_TEST")) {
+        const int ms = static_cast<int>(qEnvironmentVariable("QCV_NOTE_TEST").toDouble() * 1000);
+        const QString savePath = qEnvironmentVariable("QCV_NOTE_TEST_SAVE");
+        if (!savePath.isEmpty()) {
+            QTimer::singleShot(std::max(0, ms - 1000), &windowManager, [&windowManager, savePath] {
+                const bool ok = windowManager.project() && windowManager.project()->saveProject(savePath);
+                qInfo("QCV_NOTE_TEST: save project %s -> %s", qPrintable(savePath), ok ? "ok" : "FAILED");
+            });
+        }
+        QTimer::singleShot(ms, &windowManager, [&windowManager] {
+            qInfo("QCV_NOTE_TEST: add note (allowed %d, needSave %d, stream %d)",
+                  windowManager.annotationsAllowed() ? 1 : 0, windowManager.notesNeedProjectSave() ? 1 : 0,
+                  windowManager.activeNotesAreStream() ? 1 : 0);
+            windowManager.addNoteAtCurrentFrame();
+        });
+    }
     if (qEnvironmentVariableIsSet("QCV_START_SECONDS")) {
         const QStringList times = qEnvironmentVariable("QCV_START_SECONDS").split(QLatin1Char(','));
         for (int k = 0; k < times.size(); ++k) {

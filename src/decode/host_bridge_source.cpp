@@ -397,6 +397,10 @@ void HostBridgeSource::workerLoop()
         const int64_t ptsUs = (d.time_value >= 0 && d.time_scale > 0)
             ? int64_t(double(d.time_value) * 1e6 / double(d.time_scale))
             : int64_t(steadyMs() - sessionStartMs) * 1000;
+        if (d.time_value >= 0 && d.time_scale > 0) {
+            m_hostTimeScale.store(d.time_scale, std::memory_order_relaxed);
+            m_hostTimeValue.store(d.time_value, std::memory_order_release);
+        }
 
         const int holdMs = m_videoHoldMs.load(std::memory_order_acquire);
         if (holdMs > 0) {
@@ -472,6 +476,26 @@ void HostBridgeSource::setNonFinite(bool v)
 {
     if (m_nonFinite.exchange(v, std::memory_order_acq_rel) != v)
         QMetaObject::invokeMethod(this, [this] { emit nonFiniteChanged(); }, Qt::QueuedConnection);
+}
+
+QString HostBridgeSource::hostTimecode() const
+{
+    const int64_t value = m_hostTimeValue.load(std::memory_order_acquire);
+    const int64_t scale = m_hostTimeScale.load(std::memory_order_relaxed);
+    if (value < 0 || scale <= 0) return {};
+    const double seconds = double(value) / double(scale);
+    const double fps = m_hostFps.load(std::memory_order_acquire);
+    const int h = int(seconds / 3600.0);
+    const int m = int(seconds / 60.0) % 60;
+    const int sec = int(seconds) % 60;
+    if (fps > 0.0) {
+        const int ff = int((seconds - double(int(seconds))) * fps + 1e-6);
+        return QStringLiteral("%1:%2:%3:%4").arg(h, 2, 10, QLatin1Char('0')).arg(m, 2, 10, QLatin1Char('0'))
+            .arg(sec, 2, 10, QLatin1Char('0')).arg(ff, 2, 10, QLatin1Char('0'));
+    }
+    const int ms = int((seconds - double(int(seconds))) * 1000.0);
+    return QStringLiteral("%1:%2:%3.%4").arg(h, 2, 10, QLatin1Char('0')).arg(m, 2, 10, QLatin1Char('0'))
+        .arg(sec, 2, 10, QLatin1Char('0')).arg(ms, 3, 10, QLatin1Char('0'));
 }
 
 } // namespace qcv

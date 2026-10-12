@@ -125,6 +125,10 @@ public:
     // cadence. The output bus tells sinks this; a sink that paces on it
     // must not be told 25 for a 23.976 feed.
     virtual double  frameRate() const { return 0.0; }
+    // The host's own time for the newest frame, as a timecode string
+    // (HH:MM:SS:FF at the host's rate, or HH:MM:SS.mmm when the rate is
+    // unknown); empty when the feed carries none (AE, SRT).
+    virtual QString hostTimecode() const { return {}; }
 
     // Polled by LiveStrip's 1 s timer. Q_INVOKABLE, not Q_PROPERTY:
     // per-frame NOTIFY signals would be pure churn.

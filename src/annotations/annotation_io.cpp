@@ -133,11 +133,148 @@ QString getImagesFolder(const QString &mediaPath)
     return sidecar.filePath(mediaName + QStringLiteral("/images"));
 }
 
+QString fileStemForKey(const QString &key)
+{
+    return QString(key)
+        .replace(QLatin1Char(':'), QLatin1Char('_'))
+        .replace(QLatin1Char(';'), QLatin1Char('_'));
+}
+
 QString generateImageFilename(const QString &timecode)
 {
-    QString tc = timecode;
-    tc.replace(QLatin1Char(':'), QLatin1Char('_'));
-    return QStringLiteral("note_") + tc + QStringLiteral(".png");
+    return QStringLiteral("note_") + fileStemForKey(timecode) + QStringLiteral(".png");
+}
+
+// ---- streams ----
+
+QString streamFolderName(const QString &itemName, const QString &itemId)
+{
+    QString name = sanitizeMediaName(itemName.trimmed());
+    if (name.isEmpty()) name = QStringLiteral("stream");
+    return name + QStringLiteral("__") + itemId.left(8);
+}
+
+QString findStreamFolder(const QString &projectPath, const QString &itemId)
+{
+    if (projectPath.isEmpty() || itemId.isEmpty()) return {};
+    const QDir sidecar = projectSidecarWithFallback(QFileInfo(projectPath).absoluteDir());
+    const QDir streams(sidecar.filePath(QStringLiteral("streams")));
+    if (!streams.exists()) return {};
+    const QString suffix = QStringLiteral("__") + itemId.left(8);
+    for (const QString &d : streams.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+        if (d.endsWith(suffix)) return d;
+    }
+    return {};
+}
+
+QString getStreamDir(const QString &projectPath, const QString &folderName)
+{
+    if (projectPath.isEmpty() || folderName.isEmpty()) return {};
+    const QDir sidecar = projectSidecarWithFallback(QFileInfo(projectPath).absoluteDir());
+    return sidecar.filePath(QStringLiteral("streams/") + folderName);
+}
+
+bool createStreamFolder(const QString &projectPath, const QString &folderName)
+{
+    if (projectPath.isEmpty() || folderName.isEmpty()) return false;
+    const QDir projectDir = QFileInfo(projectPath).absoluteDir();
+    const QString sidecarPath = projectDir.filePath(QStringLiteral(".qcview"));
+    const bool sidecarExisted = QDir(sidecarPath).exists();
+    const QString dir = QDir(sidecarPath).filePath(QStringLiteral("streams/") + folderName + QStringLiteral("/images"));
+    if (!QDir().mkpath(dir)) {
+        qWarning("annotation_io: failed to create %s", qPrintable(dir));
+        return false;
+    }
+    if (!sidecarExisted) setHiddenAttrIfWindows(sidecarPath);
+    return true;
+}
+
+// ---- folder-rooted I/O ----
+
+QString notesJsonPathIn(const QString &dir)
+{
+    return dir.isEmpty() ? QString() : dir + QStringLiteral("/notes.json");
+}
+
+QString imagesFolderIn(const QString &dir)
+{
+    return dir.isEmpty() ? QString() : dir + QStringLiteral("/images");
+}
+
+bool saveNotesAt(const QString &dir, const QJsonObject &header,
+                 const std::vector<AnnotationNote> &notes)
+{
+    if (dir.isEmpty()) return false;
+    if (!QDir().mkpath(dir)) {
+        qWarning("annotation_io: failed to create %s", qPrintable(dir));
+        return false;
+    }
+    QJsonObject root = header;
+    if (!root.contains(QStringLiteral("created"))) {
+        root.insert(QStringLiteral("created"),
+                    QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+    }
+    QJsonArray notesArr;
+    for (const AnnotationNote &n : notes) notesArr.append(noteToJson(n));
+    root.insert(QStringLiteral("notes"), notesArr);
+
+    const QString path = notesJsonPathIn(dir);
+    QSaveFile f(path);
+    if (!f.open(QIODevice::WriteOnly)) {
+        qWarning("annotation_io: cannot open %s for write: %s",
+                 qPrintable(path), qPrintable(f.errorString()));
+        return false;
+    }
+    f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    if (!f.commit()) {
+        qWarning("annotation_io: commit failed for %s", qPrintable(path));
+        return false;
+    }
+    return true;
+}
+
+bool loadNotesAt(const QString &dir, std::vector<AnnotationNote> &notes, QJsonObject *header)
+{
+    notes.clear();
+    if (header) *header = QJsonObject();
+    const QString path = notesJsonPathIn(dir);
+    if (path.isEmpty()) return false;
+    if (!QFileInfo::exists(path)) return true;   // no notes yet — not an error
+
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) {
+        qWarning("annotation_io: cannot open %s: %s", qPrintable(path), qPrintable(f.errorString()));
+        return false;
+    }
+    QJsonParseError err{};
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        qWarning("annotation_io: %s parse error: %s", qPrintable(path), qPrintable(err.errorString()));
+        return false;
+    }
+    const QJsonObject root = doc.object();
+    if (header) {
+        QJsonObject h = root;
+        h.remove(QStringLiteral("notes"));
+        *header = h;
+    }
+    const QJsonArray arr = root.value(QStringLiteral("notes")).toArray();
+    notes.reserve(static_cast<std::size_t>(arr.size()));
+    for (const QJsonValue &v : arr) {
+        if (!v.isObject()) continue;
+        AnnotationNote n;
+        if (noteFromJson(v.toObject(), n)) notes.push_back(std::move(n));
+    }
+    std::sort(notes.begin(), notes.end());
+    return true;
+}
+
+void saveNotesAtAsync(const QString &dir, const QJsonObject &header,
+                      const std::vector<AnnotationNote> &notes)
+{
+    QThreadPool::globalInstance()->start([dir, header, notes]() {
+        saveNotesAt(dir, header, notes);
+    });
 }
 
 QString getProjectAnnotationPath(const QString &projectPath,
@@ -220,68 +357,15 @@ bool saveNotes(const std::vector<AnnotationNote> &notes,
                const QString &mediaPath)
 {
     if (!createQcViewFolder(mediaPath)) return false;
-
-    QJsonObject root;
-    const QFileInfo info(mediaPath);
-    root.insert(QStringLiteral("media_file"), info.fileName());
-    root.insert(QStringLiteral("media_type"), kindForExtension(mediaPath));
-    root.insert(QStringLiteral("created"),
-                QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
-
-    QJsonArray notesArr;
-    for (const AnnotationNote &n : notes) {
-        notesArr.append(noteToJson(n));
-    }
-    root.insert(QStringLiteral("notes"), notesArr);
-
-    const QString path = getNotesJsonPath(mediaPath);
-    QSaveFile f(path);
-    if (!f.open(QIODevice::WriteOnly)) {
-        qWarning("annotation_io: cannot open %s for write: %s",
-                 qPrintable(path), qPrintable(f.errorString()));
-        return false;
-    }
-    f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
-    if (!f.commit()) {
-        qWarning("annotation_io: commit failed for %s", qPrintable(path));
-        return false;
-    }
-    return true;
+    QJsonObject header;
+    header.insert(QStringLiteral("media_file"), QFileInfo(mediaPath).fileName());
+    header.insert(QStringLiteral("media_type"), kindForExtension(mediaPath));
+    return saveNotesAt(QFileInfo(getNotesJsonPath(mediaPath)).absolutePath(), header, notes);
 }
 
 bool loadNotes(std::vector<AnnotationNote> &notes, const QString &mediaPath)
 {
-    notes.clear();
-    const QString path = getNotesJsonPath(mediaPath);
-    if (!QFileInfo::exists(path)) {
-        return true;  // No notes yet — not an error.
-    }
-
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
-        qWarning("annotation_io: cannot open %s: %s",
-                 qPrintable(path), qPrintable(f.errorString()));
-        return false;
-    }
-
-    QJsonParseError err{};
-    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
-    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        qWarning("annotation_io: %s parse error: %s",
-                 qPrintable(path), qPrintable(err.errorString()));
-        return false;
-    }
-
-    const QJsonArray arr =
-        doc.object().value(QStringLiteral("notes")).toArray();
-    notes.reserve(static_cast<std::size_t>(arr.size()));
-    for (const QJsonValue &v : arr) {
-        if (!v.isObject()) continue;
-        AnnotationNote n;
-        if (noteFromJson(v.toObject(), n)) notes.push_back(std::move(n));
-    }
-    std::sort(notes.begin(), notes.end());
-    return true;
+    return loadNotesAt(QFileInfo(getNotesJsonPath(mediaPath)).absolutePath(), notes);
 }
 
 void loadNotesAsync(const QString &mediaPath, LoadCallback callback)
