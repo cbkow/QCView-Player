@@ -1176,10 +1176,22 @@ void D3D11PlayerRenderer::renderThreadProc()
             void *ctx = D3D11DeviceManager::instance().context();
             m_impl->scopes[0].collectPending(ctx);
             m_impl->scopes[1].collectPending(ctx);
+            // So does an output copy the last draw issued: publish it as
+            // soon as the GPU is done rather than at the start of the next
+            // draw, which at 25p is the next source frame, 40 ms away (two
+            // frames when that map still found the copy in flight). Metal
+            // publishes from the command buffer's completion handler; this
+            // tick is the D3D11 equivalent.
+            settleOutputs();
         }
 
+        // A copy still in flight is waited on at a few milliseconds, not
+        // the idle tick: the GPU finishes it within a vblank or two.
+        bool outputPending = false;
+        for (auto &kv : m_impl->outputs) if (kv.second->anyPending()) { outputPending = true; break; }
+
         std::unique_lock lk(m_wakeMutex);
-        m_wakeCv.wait_for(lk, 16ms, [this]{
+        m_wakeCv.wait_for(lk, outputPending ? 3ms : 16ms, [this]{
             return m_stopRequested.load() || m_pendingDraw.load();
         });
     }
