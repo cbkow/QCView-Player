@@ -1968,6 +1968,368 @@ Rectangle {
                     }
                 }
 
+                // ---- Output ----------------------------------------
+                // The output bus (QCBridgeN): what QCView shows and
+                // plays, out to an installed sink (NDI) as a separate
+                // process, and the stream output (H.264 + AAC over SRT,
+                // encoded in-process). Its own section since the stream
+                // row arrived (Chris, 2026-10-12): a working panel, not a
+                // preference.
+                CollapsibleSection {
+                    id: outputSection
+                    objectName: "outputSection"
+                    Layout.fillWidth: true
+                    title: qsTr("Output")
+                    expanded: false
+
+                    ColumnLayout {
+                        x: Theme.paddingTight
+                        width: parent ? parent.width - 2 * Theme.paddingTight : 0
+                        spacing: Theme.spacingLoose
+
+                        // The output bus (QCBridgeN): what QCView shows and
+                        // plays, out to an installed sink (NDI first) as a
+                        // separate process. Nothing is sent until an output
+                        // is switched on here.
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Repeater {
+                                model: WindowManager.outputs ? WindowManager.outputs.outputs : []
+                                delegate: RowLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: modelData.name
+                                              + (modelData.enabled
+                                                 ? (modelData.present
+                                                    ? "  ·  " + (modelData.shape.length > 0 ? modelData.shape : qsTr("attached"))
+                                                      + (modelData.status.length > 0 ? "  ·  " + modelData.status : "")
+                                                    : "  ·  " + qsTr("waiting for the sink") + " (" + modelData.plugin + ")")
+                                                 : (modelData.installed ? "" : "  ·  " + qsTr("not installed")))
+                                        help: qsTr("Publish the viewport and the mixed audio to "
+                                                 + "this output. The sink runs as its own "
+                                                 + "application; QCView starts it when the "
+                                                 + "switch goes on and stops it when it goes off.")
+                                    }
+                                    SlotSwitch {
+                                        checked: modelData.enabled
+                                        onToggled: WindowManager.outputs.setEnabled(modelData.id, checked)
+                                    }
+                                    Item { Layout.preferredWidth: 22 }
+                                }
+                            }
+                            Text {
+                                visible: !WindowManager.outputs || WindowManager.outputs.outputs.length === 0
+                                Layout.fillWidth: true
+                                text: qsTr("No outputs installed. An output registers itself "
+                                         + "in Application Support/QCView/Outputs.")
+                                color: Theme.textMuted
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeTiny
+                                wrapMode: Text.WordWrap
+                            }
+                            // The stream output (plan A1): the viewport and the
+                            // mixed audio, H.264 + AAC in MPEG-TS over SRT, encoded
+                            // in-process by the platform's hardware encoder. A
+                            // session starts and stops here; the settings persist.
+                            ColumnLayout {
+                                id: streamBlock
+                                Layout.fillWidth: true
+                                Layout.topMargin: Theme.spacing
+                                spacing: 2
+                                property var st: WindowManager.outputs ? WindowManager.outputs.stream : ({})
+                                property bool running: st && st.running === true
+                                property bool available: st && st.available === true
+                                property bool showKey: false
+                                readonly property var kResolutions: ["1080p", "720p", "540p", "2160p"]
+                                readonly property var kFpsModes: ["auto", "24", "25", "30"]
+                                readonly property var kProfiles: ["baseline", "main"]
+                                readonly property var kAudioKbps: [0, 128, 160, 192, 256, 320]
+                                function setting(k, v) { WindowManager.outputs.setStreamSetting(k, v) }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: qsTr("Stream")
+                                              + (streamBlock.running
+                                                 ? "  ·  " + streamBlock.st.state
+                                                   + (streamBlock.st.state === "streaming"
+                                                      ? "  ·  " + Math.round(streamBlock.st.kbps) + " kbps"
+                                                        + "  ·  " + streamBlock.st.fps + " fps"
+                                                      : "")
+                                                 : (streamBlock.st && streamBlock.st.error && streamBlock.st.error.length > 0
+                                                    ? "  ·  " + streamBlock.st.error
+                                                    : (streamBlock.available ? "" : "  ·  " + qsTr("no hardware encoder"))))
+                                        help: qsTr("Send the viewport and the mixed audio to a "
+                                                 + "streaming server (Louper, or any SRT listener) "
+                                                 + "as H.264 + AAC over SRT, encoded on the GPU. "
+                                                 + "The picture is the same Rec.709 SDR picture "
+                                                 + "the output bus serves; the frame rate is fixed "
+                                                 + "for the session (a paused viewport repeats its "
+                                                 + "last frame).")
+                                    }
+                                    FlatButton {
+                                        Layout.preferredWidth: 110
+                                        Layout.preferredHeight: 22
+                                        enabled: streamBlock.available
+                                        variant: streamBlock.running ? "danger" : "primary"
+                                        text: streamBlock.running ? qsTr("Stop") : qsTr("Start")
+                                        onClicked: streamBlock.running ? WindowManager.outputs.stopStream()
+                                                                       : WindowManager.outputs.startStream()
+                                    }
+                                    Item { Layout.preferredWidth: 22 }
+                                }
+                                FlatTextField {
+                                    Layout.fillWidth: true
+                                    Layout.rightMargin: 22 + Theme.spacing
+                                    enabled: !streamBlock.running
+                                    placeholderText: qsTr("srt://host:port")
+                                    text: streamBlock.st ? (streamBlock.st.url || "") : ""
+                                    font.family: Theme.monoFamily
+                                    font.pixelSize: Theme.fontSizeMono
+                                    onEditingFinished: streamBlock.setting("url", text)
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.rightMargin: 22 + Theme.spacing
+                                    spacing: Theme.spacing
+                                    FlatTextField {
+                                        Layout.fillWidth: true
+                                        enabled: !streamBlock.running
+                                        placeholderText: qsTr("Stream key (SRT stream id)")
+                                        echoMode: streamBlock.showKey ? TextInput.Normal : TextInput.Password
+                                        text: streamBlock.st ? (streamBlock.st.key || "") : ""
+                                        font.family: Theme.monoFamily
+                                        font.pixelSize: Theme.fontSizeMono
+                                        onEditingFinished: streamBlock.setting("key", text)
+                                    }
+                                    FlatButton {
+                                        Layout.preferredWidth: 22
+                                        Layout.preferredHeight: 22
+                                        variant: "subtle"
+                                        iconName: streamBlock.showKey ? "eye-slash" : "eye"
+                                        iconSize: Theme.iconSizeSmall
+                                        tooltipText: streamBlock.showKey ? qsTr("Hide the key") : qsTr("Show the key")
+                                        onClicked: streamBlock.showKey = !streamBlock.showKey
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: qsTr("Video bitrate (kbps)")
+                                        help: qsTr("Constant-rate target. Louper suggests 2500–8000 "
+                                                 + "at 1080p.")
+                                    }
+                                    FlatSpinBox {
+                                        from: 500; to: 50000; stepSize: 500
+                                        enabled: !streamBlock.running
+                                        value: streamBlock.st ? (streamBlock.st.bitrateKbps || 6000) : 6000
+                                        onValueModified: streamBlock.setting("bitrateKbps", value)
+                                        Layout.preferredWidth: 110
+                                        font.family: Theme.monoFamily
+                                        font.pixelSize: Theme.fontSizeMono
+                                    }
+                                    RevertBtn {
+                                        dirty: streamBlock.st && streamBlock.st.bitrateKbps !== 6000
+                                        onClicked: streamBlock.setting("bitrateKbps", 6000)
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: qsTr("Resolution")
+                                        help: qsTr("The stream's raster; the viewport is letterboxed "
+                                                 + "into it like any output.")
+                                    }
+                                    FlatComboBox {
+                                        Layout.preferredWidth: 110
+                                        enabled: !streamBlock.running
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        model: streamBlock.kResolutions
+                                        currentIndex: Math.max(0, streamBlock.kResolutions.indexOf(
+                                            streamBlock.st ? streamBlock.st.resolution : "1080p"))
+                                        onActivated: streamBlock.setting("resolution", streamBlock.kResolutions[currentIndex])
+                                    }
+                                    RevertBtn {
+                                        dirty: streamBlock.st && streamBlock.st.resolution !== "1080p"
+                                        onClicked: streamBlock.setting("resolution", "1080p")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: qsTr("Frame rate")
+                                        help: qsTr("Auto takes the source's rate when the stream "
+                                                 + "starts (30 when it has none) and keeps it for "
+                                                 + "the session. A 23.976 source into a 30 fps "
+                                                 + "clock repeats six frames a second.")
+                                    }
+                                    FlatComboBox {
+                                        Layout.preferredWidth: 110
+                                        enabled: !streamBlock.running
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        model: ["Auto", "24", "25", "30"]
+                                        currentIndex: Math.max(0, streamBlock.kFpsModes.indexOf(
+                                            streamBlock.st ? streamBlock.st.fpsMode : "auto"))
+                                        onActivated: streamBlock.setting("fpsMode", streamBlock.kFpsModes[currentIndex])
+                                    }
+                                    RevertBtn {
+                                        dirty: streamBlock.st && streamBlock.st.fpsMode !== "auto"
+                                        onClicked: streamBlock.setting("fpsMode", "auto")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: qsTr("H.264 profile")
+                                        help: qsTr("Baseline is what Louper's recipe asks for; Main "
+                                                 + "gives better quality per bit where the service "
+                                                 + "accepts it. Never B-frames.")
+                                    }
+                                    FlatComboBox {
+                                        Layout.preferredWidth: 110
+                                        enabled: !streamBlock.running
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        model: ["Baseline", "Main"]
+                                        currentIndex: Math.max(0, streamBlock.kProfiles.indexOf(
+                                            streamBlock.st ? streamBlock.st.profile : "baseline"))
+                                        onActivated: streamBlock.setting("profile", streamBlock.kProfiles[currentIndex])
+                                    }
+                                    RevertBtn {
+                                        dirty: streamBlock.st && streamBlock.st.profile !== "baseline"
+                                        onClicked: streamBlock.setting("profile", "baseline")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: qsTr("Audio (kbps)")
+                                        help: qsTr("AAC stereo at 48 kHz from the mixed audio, "
+                                                 + "before Listen, mute and volume. Off sends "
+                                                 + "video only.")
+                                    }
+                                    FlatComboBox {
+                                        Layout.preferredWidth: 110
+                                        enabled: !streamBlock.running
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        model: ["Off", "128", "160", "192", "256", "320"]
+                                        currentIndex: Math.max(0, streamBlock.kAudioKbps.indexOf(
+                                            streamBlock.st ? Number(streamBlock.st.audioKbps) : 160))
+                                        onActivated: streamBlock.setting("audioKbps", streamBlock.kAudioKbps[currentIndex])
+                                    }
+                                    RevertBtn {
+                                        dirty: streamBlock.st && Number(streamBlock.st.audioKbps) !== 160
+                                        onClicked: streamBlock.setting("audioKbps", 160)
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacing
+                                    RowLabel {
+                                        text: qsTr("SRT latency (ms)")
+                                        help: qsTr("The SRT retransmission window, both ends "
+                                                 + "negotiate the larger. 120 ms suits a LAN or a "
+                                                 + "good link; raise it on a lossy one.")
+                                    }
+                                    FlatSpinBox {
+                                        from: 20; to: 5000; stepSize: 20
+                                        enabled: !streamBlock.running
+                                        value: streamBlock.st ? (streamBlock.st.srtLatencyMs || 120) : 120
+                                        onValueModified: streamBlock.setting("srtLatencyMs", value)
+                                        Layout.preferredWidth: 110
+                                        font.family: Theme.monoFamily
+                                        font.pixelSize: Theme.fontSizeMono
+                                    }
+                                    RevertBtn {
+                                        dirty: streamBlock.st && streamBlock.st.srtLatencyMs !== 120
+                                        onClicked: streamBlock.setting("srtLatencyMs", 120)
+                                    }
+                                }
+                                Text {
+                                    visible: streamBlock.running
+                                    Layout.fillWidth: true
+                                    Layout.rightMargin: 22 + Theme.spacing
+                                    text: streamBlock.running
+                                          ? (streamBlock.st.encoder + "  ·  " + streamBlock.st.encoded + " encoded, "
+                                             + streamBlock.st.repeated + " repeated, " + streamBlock.st.skipped + " skipped"
+                                             + (streamBlock.st.dropped > 0 ? ", " + streamBlock.st.dropped + " dropped" : "")
+                                             + (streamBlock.st.muxErrors > 0 ? ", " + streamBlock.st.muxErrors + " send errors" : ""))
+                                          : ""
+                                    color: Theme.textMuted
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeTiny
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Mute the feed")
+                                    help: qsTr("Silence the audio sent to outputs while you "
+                                             + "keep listening. The master mute (M) silences "
+                                             + "both.")
+                                }
+                                SlotSwitch {
+                                    checked: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
+                                    onToggled: WindowManager.outputs.feedMuted = checked
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
+                                    onClicked: WindowManager.outputs.feedMuted = false
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Include safety guides")
+                                    help: qsTr("Draw the safety guides into the output when "
+                                             + "the sink asks for them.")
+                                }
+                                SlotSwitch {
+                                    checked: WindowManager.outputs ? WindowManager.outputs.includeGuides : true
+                                    onToggled: WindowManager.outputs.includeGuides = checked
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeGuides : false
+                                    onClicked: WindowManager.outputs.includeGuides = true
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Include annotations")
+                                    help: qsTr("Draw note strokes into the output when the "
+                                             + "sink asks for them.")
+                                }
+                                SlotSwitch {
+                                    checked: WindowManager.outputs ? WindowManager.outputs.includeAnnotations : true
+                                    onToggled: WindowManager.outputs.includeAnnotations = checked
+                                }
+                                RevertBtn {
+                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeAnnotations : false
+                                    onClicked: WindowManager.outputs.includeAnnotations = true
+                                }
+                            }
+                        }
+                    }
+                }
+
 
                 // ---- Settings (Phase 7.6) ------------------------
                 // Performance + UI tunables. Three apply on next
@@ -2557,349 +2919,6 @@ Rectangle {
                                 // filler keeps the control column
                                 // aligned with the rows above.
                                 Item { Layout.preferredWidth: 22 }
-                            }
-                        }
-
-                        GroupHeader { label: qsTr("Output") }
-
-                        // The output bus (QCBridgeN): what QCView shows and
-                        // plays, out to an installed sink (NDI first) as a
-                        // separate process. Nothing is sent until an output
-                        // is switched on here.
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Repeater {
-                                model: WindowManager.outputs ? WindowManager.outputs.outputs : []
-                                delegate: RowLayout {
-                                    required property var modelData
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: modelData.name
-                                              + (modelData.enabled
-                                                 ? (modelData.present
-                                                    ? "  ·  " + (modelData.shape.length > 0 ? modelData.shape : qsTr("attached"))
-                                                      + (modelData.status.length > 0 ? "  ·  " + modelData.status : "")
-                                                    : "  ·  " + qsTr("waiting for the sink") + " (" + modelData.plugin + ")")
-                                                 : (modelData.installed ? "" : "  ·  " + qsTr("not installed")))
-                                        help: qsTr("Publish the viewport and the mixed audio to "
-                                                 + "this output. The sink runs as its own "
-                                                 + "application; QCView starts it when the "
-                                                 + "switch goes on and stops it when it goes off.")
-                                    }
-                                    SlotSwitch {
-                                        checked: modelData.enabled
-                                        onToggled: WindowManager.outputs.setEnabled(modelData.id, checked)
-                                    }
-                                    Item { Layout.preferredWidth: 22 }
-                                }
-                            }
-                            Text {
-                                visible: !WindowManager.outputs || WindowManager.outputs.outputs.length === 0
-                                Layout.fillWidth: true
-                                text: qsTr("No outputs installed. An output registers itself "
-                                         + "in Application Support/QCView/Outputs.")
-                                color: Theme.textMuted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeTiny
-                                wrapMode: Text.WordWrap
-                            }
-                            // The stream output (plan A1): the viewport and the
-                            // mixed audio, H.264 + AAC in MPEG-TS over SRT, encoded
-                            // in-process by the platform's hardware encoder. A
-                            // session starts and stops here; the settings persist.
-                            ColumnLayout {
-                                id: streamBlock
-                                Layout.fillWidth: true
-                                Layout.topMargin: Theme.spacing
-                                spacing: 2
-                                property var st: WindowManager.outputs ? WindowManager.outputs.stream : ({})
-                                property bool running: st && st.running === true
-                                property bool available: st && st.available === true
-                                property bool showKey: false
-                                readonly property var kResolutions: ["1080p", "720p", "540p", "2160p"]
-                                readonly property var kFpsModes: ["auto", "24", "25", "30"]
-                                readonly property var kProfiles: ["baseline", "main"]
-                                readonly property var kAudioKbps: [0, 128, 160, 192, 256, 320]
-                                function setting(k, v) { WindowManager.outputs.setStreamSetting(k, v) }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("Stream")
-                                              + (streamBlock.running
-                                                 ? "  ·  " + streamBlock.st.state
-                                                   + (streamBlock.st.state === "streaming"
-                                                      ? "  ·  " + Math.round(streamBlock.st.kbps) + " kbps"
-                                                        + "  ·  " + streamBlock.st.fps + " fps"
-                                                      : "")
-                                                 : (streamBlock.st && streamBlock.st.error && streamBlock.st.error.length > 0
-                                                    ? "  ·  " + streamBlock.st.error
-                                                    : (streamBlock.available ? "" : "  ·  " + qsTr("no hardware encoder"))))
-                                        help: qsTr("Send the viewport and the mixed audio to a "
-                                                 + "streaming server (Louper, or any SRT listener) "
-                                                 + "as H.264 + AAC over SRT, encoded on the GPU. "
-                                                 + "The picture is the same Rec.709 SDR picture "
-                                                 + "the output bus serves; the frame rate is fixed "
-                                                 + "for the session (a paused viewport repeats its "
-                                                 + "last frame).")
-                                    }
-                                    FlatButton {
-                                        Layout.preferredWidth: 110
-                                        Layout.preferredHeight: 22
-                                        enabled: streamBlock.available
-                                        variant: streamBlock.running ? "danger" : "primary"
-                                        text: streamBlock.running ? qsTr("Stop") : qsTr("Start")
-                                        onClicked: streamBlock.running ? WindowManager.outputs.stopStream()
-                                                                       : WindowManager.outputs.startStream()
-                                    }
-                                    Item { Layout.preferredWidth: 22 }
-                                }
-                                FlatTextField {
-                                    Layout.fillWidth: true
-                                    Layout.rightMargin: 22 + Theme.spacing
-                                    enabled: !streamBlock.running
-                                    placeholderText: qsTr("srt://host:port")
-                                    text: streamBlock.st ? (streamBlock.st.url || "") : ""
-                                    font.family: Theme.monoFamily
-                                    font.pixelSize: Theme.fontSizeMono
-                                    onEditingFinished: streamBlock.setting("url", text)
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Layout.rightMargin: 22 + Theme.spacing
-                                    spacing: Theme.spacing
-                                    FlatTextField {
-                                        Layout.fillWidth: true
-                                        enabled: !streamBlock.running
-                                        placeholderText: qsTr("Stream key (SRT stream id)")
-                                        echoMode: streamBlock.showKey ? TextInput.Normal : TextInput.Password
-                                        text: streamBlock.st ? (streamBlock.st.key || "") : ""
-                                        font.family: Theme.monoFamily
-                                        font.pixelSize: Theme.fontSizeMono
-                                        onEditingFinished: streamBlock.setting("key", text)
-                                    }
-                                    FlatButton {
-                                        Layout.preferredWidth: 22
-                                        Layout.preferredHeight: 22
-                                        variant: "subtle"
-                                        iconName: streamBlock.showKey ? "eye-slash" : "eye"
-                                        iconSize: Theme.iconSizeSmall
-                                        tooltipText: streamBlock.showKey ? qsTr("Hide the key") : qsTr("Show the key")
-                                        onClicked: streamBlock.showKey = !streamBlock.showKey
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("Video bitrate (kbps)")
-                                        help: qsTr("Constant-rate target. Louper suggests 2500–8000 "
-                                                 + "at 1080p.")
-                                    }
-                                    FlatSpinBox {
-                                        from: 500; to: 50000; stepSize: 500
-                                        enabled: !streamBlock.running
-                                        value: streamBlock.st ? (streamBlock.st.bitrateKbps || 6000) : 6000
-                                        onValueModified: streamBlock.setting("bitrateKbps", value)
-                                        Layout.preferredWidth: 110
-                                        font.family: Theme.monoFamily
-                                        font.pixelSize: Theme.fontSizeMono
-                                    }
-                                    RevertBtn {
-                                        dirty: streamBlock.st && streamBlock.st.bitrateKbps !== 6000
-                                        onClicked: streamBlock.setting("bitrateKbps", 6000)
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("Resolution")
-                                        help: qsTr("The stream's raster; the viewport is letterboxed "
-                                                 + "into it like any output.")
-                                    }
-                                    FlatComboBox {
-                                        Layout.preferredWidth: 110
-                                        enabled: !streamBlock.running
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        model: streamBlock.kResolutions
-                                        currentIndex: Math.max(0, streamBlock.kResolutions.indexOf(
-                                            streamBlock.st ? streamBlock.st.resolution : "1080p"))
-                                        onActivated: streamBlock.setting("resolution", streamBlock.kResolutions[currentIndex])
-                                    }
-                                    RevertBtn {
-                                        dirty: streamBlock.st && streamBlock.st.resolution !== "1080p"
-                                        onClicked: streamBlock.setting("resolution", "1080p")
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("Frame rate")
-                                        help: qsTr("Auto takes the source's rate when the stream "
-                                                 + "starts (30 when it has none) and keeps it for "
-                                                 + "the session. A 23.976 source into a 30 fps "
-                                                 + "clock repeats six frames a second.")
-                                    }
-                                    FlatComboBox {
-                                        Layout.preferredWidth: 110
-                                        enabled: !streamBlock.running
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        model: ["Auto", "24", "25", "30"]
-                                        currentIndex: Math.max(0, streamBlock.kFpsModes.indexOf(
-                                            streamBlock.st ? streamBlock.st.fpsMode : "auto"))
-                                        onActivated: streamBlock.setting("fpsMode", streamBlock.kFpsModes[currentIndex])
-                                    }
-                                    RevertBtn {
-                                        dirty: streamBlock.st && streamBlock.st.fpsMode !== "auto"
-                                        onClicked: streamBlock.setting("fpsMode", "auto")
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("H.264 profile")
-                                        help: qsTr("Baseline is what Louper's recipe asks for; Main "
-                                                 + "gives better quality per bit where the service "
-                                                 + "accepts it. Never B-frames.")
-                                    }
-                                    FlatComboBox {
-                                        Layout.preferredWidth: 110
-                                        enabled: !streamBlock.running
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        model: ["Baseline", "Main"]
-                                        currentIndex: Math.max(0, streamBlock.kProfiles.indexOf(
-                                            streamBlock.st ? streamBlock.st.profile : "baseline"))
-                                        onActivated: streamBlock.setting("profile", streamBlock.kProfiles[currentIndex])
-                                    }
-                                    RevertBtn {
-                                        dirty: streamBlock.st && streamBlock.st.profile !== "baseline"
-                                        onClicked: streamBlock.setting("profile", "baseline")
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("Audio (kbps)")
-                                        help: qsTr("AAC stereo at 48 kHz from the mixed audio, "
-                                                 + "before Listen, mute and volume. Off sends "
-                                                 + "video only.")
-                                    }
-                                    FlatComboBox {
-                                        Layout.preferredWidth: 110
-                                        enabled: !streamBlock.running
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        model: ["Off", "128", "160", "192", "256", "320"]
-                                        currentIndex: Math.max(0, streamBlock.kAudioKbps.indexOf(
-                                            streamBlock.st ? Number(streamBlock.st.audioKbps) : 160))
-                                        onActivated: streamBlock.setting("audioKbps", streamBlock.kAudioKbps[currentIndex])
-                                    }
-                                    RevertBtn {
-                                        dirty: streamBlock.st && Number(streamBlock.st.audioKbps) !== 160
-                                        onClicked: streamBlock.setting("audioKbps", 160)
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("SRT latency (ms)")
-                                        help: qsTr("The SRT retransmission window, both ends "
-                                                 + "negotiate the larger. 120 ms suits a LAN or a "
-                                                 + "good link; raise it on a lossy one.")
-                                    }
-                                    FlatSpinBox {
-                                        from: 20; to: 5000; stepSize: 20
-                                        enabled: !streamBlock.running
-                                        value: streamBlock.st ? (streamBlock.st.srtLatencyMs || 120) : 120
-                                        onValueModified: streamBlock.setting("srtLatencyMs", value)
-                                        Layout.preferredWidth: 110
-                                        font.family: Theme.monoFamily
-                                        font.pixelSize: Theme.fontSizeMono
-                                    }
-                                    RevertBtn {
-                                        dirty: streamBlock.st && streamBlock.st.srtLatencyMs !== 120
-                                        onClicked: streamBlock.setting("srtLatencyMs", 120)
-                                    }
-                                }
-                                Text {
-                                    visible: streamBlock.running
-                                    Layout.fillWidth: true
-                                    Layout.rightMargin: 22 + Theme.spacing
-                                    text: streamBlock.running
-                                          ? (streamBlock.st.encoder + "  ·  " + streamBlock.st.encoded + " encoded, "
-                                             + streamBlock.st.repeated + " repeated, " + streamBlock.st.skipped + " skipped"
-                                             + (streamBlock.st.dropped > 0 ? ", " + streamBlock.st.dropped + " dropped" : "")
-                                             + (streamBlock.st.muxErrors > 0 ? ", " + streamBlock.st.muxErrors + " send errors" : ""))
-                                          : ""
-                                    color: Theme.textMuted
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeTiny
-                                    wrapMode: Text.WordWrap
-                                }
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacing
-                                RowLabel {
-                                    text: qsTr("Mute the feed")
-                                    help: qsTr("Silence the audio sent to outputs while you "
-                                             + "keep listening. The master mute (M) silences "
-                                             + "both.")
-                                }
-                                SlotSwitch {
-                                    checked: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
-                                    onToggled: WindowManager.outputs.feedMuted = checked
-                                }
-                                RevertBtn {
-                                    dirty: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
-                                    onClicked: WindowManager.outputs.feedMuted = false
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacing
-                                RowLabel {
-                                    text: qsTr("Include safety guides")
-                                    help: qsTr("Draw the safety guides into the output when "
-                                             + "the sink asks for them.")
-                                }
-                                SlotSwitch {
-                                    checked: WindowManager.outputs ? WindowManager.outputs.includeGuides : true
-                                    onToggled: WindowManager.outputs.includeGuides = checked
-                                }
-                                RevertBtn {
-                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeGuides : false
-                                    onClicked: WindowManager.outputs.includeGuides = true
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacing
-                                RowLabel {
-                                    text: qsTr("Include annotations")
-                                    help: qsTr("Draw note strokes into the output when the "
-                                             + "sink asks for them.")
-                                }
-                                SlotSwitch {
-                                    checked: WindowManager.outputs ? WindowManager.outputs.includeAnnotations : true
-                                    onToggled: WindowManager.outputs.includeAnnotations = checked
-                                }
-                                RevertBtn {
-                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeAnnotations : false
-                                    onClicked: WindowManager.outputs.includeAnnotations = true
-                                }
                             }
                         }
 
