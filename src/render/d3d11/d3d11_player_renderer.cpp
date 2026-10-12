@@ -549,6 +549,19 @@ void main(uint3 id : SV_DispatchThreadID)
     std::unordered_map<output::OutputTarget *, std::unique_ptr<OutputRes>> outputs;
 };
 
+struct D3D11PlayerRenderer::OutputFrameInputs {
+    bool dual = false;
+    // single flow
+    ID3D11ShaderResourceView *srvA = nullptr;
+    int effAW = 0, effAH = 0, rawAW = 0, rawAH = 0;
+    // dual flow
+    bool perSide = false;  bool difference = false;  float diffGain = 1.0f;
+    int dualAW = 0, dualAH = 0, dualBW = 0, dualBH = 0;  bool dualA = false, dualB = false;
+    // both
+    int mode = 0;  float split = 0.5f;  int rotA = 0, rotB = 0;
+    std::shared_ptr<const OcioChainSnapshot> chains;
+};
+
 D3D11PlayerRenderer::D3D11PlayerRenderer()
     : m_impl(std::make_unique<Impl>()) {}
 
@@ -3013,18 +3026,6 @@ void D3D11PlayerRenderer::setStoredAnnotationStrokes(
 // frame, and is memcpy'd into the slot — the one CPU copy Windows owes.
 // =====================================================================
 
-struct D3D11PlayerRenderer::OutputFrameInputs {
-    bool dual = false;
-    // single flow
-    ID3D11ShaderResourceView *srvA = nullptr;
-    int effAW = 0, effAH = 0, rawAW = 0, rawAH = 0;
-    // dual flow
-    bool perSide = false;  bool difference = false;  float diffGain = 1.0f;
-    int dualAW = 0, dualAH = 0, dualBW = 0, dualBH = 0;  bool dualA = false, dualB = false;
-    // both
-    int mode = 0;  float split = 0.5f;  int rotA = 0, rotB = 0;
-    std::shared_ptr<const OcioChainSnapshot> chains;
-};
 
 void D3D11PlayerRenderer::setOutputTargets(const std::vector<output::OutputTarget *> &targets)
 {
