@@ -536,15 +536,31 @@ void main(uint3 id : SV_DispatchThreadID)
         RtTarget  canvas, canvasB, ocioOut, ocioOutB, combined;   // RGBA16F at the raster
         ComPtr<ID3D11Texture2D>        out;        // BGRA8 at the raster: the wire picture
         ComPtr<ID3D11RenderTargetView> outRtv;
-        ComPtr<ID3D11Texture2D>        staging;    // CPU-readable copy of `out`
         D3D11AnnotationRenderer        annotations;   // guides + strokes into `out`
         OutputStamp last;  bool haveLast = false;
-        // A frame copied to staging but not yet mapped: the GPU is on it.
-        // Mapped (without waiting) at the start of the next frame.
-        bool                   pending = false;
-        qcbae::OutputFrameDesc pendingDesc {};
-        int64_t                lastTraceNs = 0;
-        uint64_t               published = 0;
+        // CPU-readable copies of `out`, a small FIFO. Each frame is copied
+        // into the next free one and mapped (without waiting) at the start
+        // of a later frame, oldest first, so publication keeps the order.
+        // One was not enough: with vsync and the swapchain's frame queue
+        // the GPU runs two or three vblanks behind the render thread, the
+        // copy of frame N is still unfinished when frame N+1 is drawn, and
+        // a single slot made the pass skip every other frame (12 of 24).
+        static constexpr int kStagingSlots = 3;
+        struct Staging {
+            ComPtr<ID3D11Texture2D> tex;
+            bool                    pending = false;
+            qcbae::OutputFrameDesc  desc {};
+        };
+        Staging  staging[kStagingSlots];
+        int      stagingHead = 0;    // oldest pending
+        int      stagingCount = 0;   // pending copies
+        int64_t  lastTraceNs = 0;
+        uint64_t published = 0;
+        uint64_t stillDrawing = 0;   // maps that found the GPU not done yet
+        uint64_t skippedFull = 0;    // frames not copied: every slot pending
+        bool anyPending() const { return stagingCount > 0; }
+        bool full() const { return stagingCount == kStagingSlots; }
+        void resetStaging() { for (auto &st : staging) { st.tex.Reset(); st.pending = false; } stagingHead = 0; stagingCount = 0; }
     };
     std::unordered_map<output::OutputTarget *, std::unique_ptr<OutputRes>> outputs;
 };
@@ -3052,25 +3068,31 @@ void D3D11PlayerRenderer::settleOutputs()
     if (!ctx) return;
     for (auto &kv : m_impl->outputs) {
         auto &res = *kv.second;
-        if (!res.pending || !res.staging) continue;
-        D3D11_MAPPED_SUBRESOURCE mapped{};
-        const HRESULT hr = ctx->Map(res.staging.Get(), 0, D3D11_MAP_READ,
-                                    D3D11_MAP_FLAG_DO_NOT_WAIT, &mapped);
-        if (hr == DXGI_ERROR_WAS_STILL_DRAWING) continue;   // the GPU is still copying; next frame
-        res.pending = false;
-        if (FAILED(hr)) { qWarning("D3D11PlayerRenderer: output staging Map failed (0x%08lX)", static_cast<unsigned long>(hr)); continue; }
-        const qcbae::OutputFrameDesc &d = res.pendingDesc;
-        const uint64_t bytes = static_cast<uint64_t>(d.bytes_per_row) * d.height;
-        if (auto *slot = static_cast<uint8_t *>(kv.first->beginFrame(bytes))) {
-            const auto *src = static_cast<const uint8_t *>(mapped.pData);
-            const size_t row = std::min<size_t>(d.bytes_per_row, static_cast<size_t>(d.width) * 4u);
-            for (uint32_t y = 0; y < d.height; ++y) {
-                std::memcpy(slot + static_cast<size_t>(y) * d.bytes_per_row, src + static_cast<size_t>(y) * mapped.RowPitch, row);
+        // Oldest first; stop at the first copy the GPU has not finished,
+        // so frames are published in the order they were drawn.
+        while (res.anyPending()) {
+            auto &st = res.staging[res.stagingHead];
+            if (!st.tex) { st.pending = false; res.stagingHead = (res.stagingHead + 1) % Impl::OutputRes::kStagingSlots; --res.stagingCount; continue; }
+            D3D11_MAPPED_SUBRESOURCE mapped{};
+            const HRESULT hr = ctx->Map(st.tex.Get(), 0, D3D11_MAP_READ, D3D11_MAP_FLAG_DO_NOT_WAIT, &mapped);
+            if (hr == DXGI_ERROR_WAS_STILL_DRAWING) { ++res.stillDrawing; break; }   // next frame
+            st.pending = false;
+            res.stagingHead = (res.stagingHead + 1) % Impl::OutputRes::kStagingSlots;
+            --res.stagingCount;
+            if (FAILED(hr)) { qWarning("D3D11PlayerRenderer: output staging Map failed (0x%08lX)", static_cast<unsigned long>(hr)); continue; }
+            const qcbae::OutputFrameDesc &d = st.desc;
+            const uint64_t bytes = static_cast<uint64_t>(d.bytes_per_row) * d.height;
+            if (auto *slot = static_cast<uint8_t *>(kv.first->beginFrame(bytes))) {
+                const auto *src = static_cast<const uint8_t *>(mapped.pData);
+                const size_t row = std::min<size_t>(d.bytes_per_row, static_cast<size_t>(d.width) * 4u);
+                for (uint32_t y = 0; y < d.height; ++y) {
+                    std::memcpy(slot + static_cast<size_t>(y) * d.bytes_per_row, src + static_cast<size_t>(y) * mapped.RowPitch, row);
+                }
+                kv.first->commitFrame(d);
+                ++res.published;
             }
-            kv.first->commitFrame(d);
-            ++res.published;
+            ctx->Unmap(st.tex.Get(), 0);
         }
-        ctx->Unmap(res.staging.Get(), 0);
     }
 }
 
@@ -3130,16 +3152,17 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         st.aAct = m_aActive.load(std::memory_order_relaxed);  st.bAct = m_bActive.load(std::memory_order_relaxed);
         st.specGen = specGen;
         if (res.haveLast && st == res.last) continue;
-        // The previous frame's copy is still on the GPU: the sink gets the
-        // next one (lossy by design, O5).
-        if (res.pending) continue;
+        // Every staging copy still on the GPU: the sink gets the next frame
+        // (lossy by design, O5; counted in the trace line).
+        if (res.full()) { ++res.skippedFull; continue; }
         if (res.haveLast) {
             const int64_t nowNs = qcbae::OutputRing::now_ns();
             if (nowNs - res.lastTraceNs > 1000000000LL) {
                 res.lastTraceNs = nowNs;
                 const auto &l = res.last;
-                qInfo("D3D11PlayerRenderer: output publish (%llu so far): changed%s%s%s%s%s%s%s%s",
+                qInfo("D3D11PlayerRenderer: output publish (%llu so far, %llu waits, %llu skipped): changed%s%s%s%s%s%s%s%s",
                       static_cast<unsigned long long>(res.published),
+                      static_cast<unsigned long long>(res.stillDrawing), static_cast<unsigned long long>(res.skippedFull),
                       st.frames != l.frames ? " frames" : "", st.srcA != l.srcA ? " srcA" : "",
                       st.dualFrame != l.dualFrame ? " dualFrame" : "",
                       (st.mode != l.mode || st.split != l.split || st.diffGain != l.diffGain) ? " layout" : "",
@@ -3155,7 +3178,7 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         if (res.specGen != specGen || res.w != W || res.h != H || !res.out) {
             res.canvas = Impl::RtTarget{};  res.canvasB = Impl::RtTarget{};
             res.ocioOut = Impl::RtTarget{};  res.ocioOutB = Impl::RtTarget{};  res.combined = Impl::RtTarget{};
-            res.outRtv.Reset();  res.out.Reset();  res.staging.Reset();
+            res.outRtv.Reset();  res.out.Reset();  res.resetStaging();
             D3D11_TEXTURE2D_DESC td{};
             td.Width = static_cast<UINT>(W);  td.Height = static_cast<UINT>(H);
             td.MipLevels = 1;  td.ArraySize = 1;
@@ -3165,11 +3188,12 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
             td.BindFlags = D3D11_BIND_RENDER_TARGET;
             D3D11_TEXTURE2D_DESC ts = td;
             ts.Usage = D3D11_USAGE_STAGING;  ts.BindFlags = 0;  ts.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-            if (FAILED(device->CreateTexture2D(&td, nullptr, res.out.GetAddressOf()))
-                || FAILED(device->CreateRenderTargetView(res.out.Get(), nullptr, res.outRtv.GetAddressOf()))
-                || FAILED(device->CreateTexture2D(&ts, nullptr, res.staging.GetAddressOf()))) {
+            bool ok = SUCCEEDED(device->CreateTexture2D(&td, nullptr, res.out.GetAddressOf()))
+                   && SUCCEEDED(device->CreateRenderTargetView(res.out.Get(), nullptr, res.outRtv.GetAddressOf()));
+            for (auto &st : res.staging) ok = ok && SUCCEEDED(device->CreateTexture2D(&ts, nullptr, st.tex.GetAddressOf()));
+            if (!ok) {
                 qWarning("D3D11PlayerRenderer: output %dx%d BGRA8 targets failed", W, H);
-                res.out.Reset();  res.outRtv.Reset();  res.staging.Reset();
+                res.out.Reset();  res.outRtv.Reset();  res.resetStaging();
                 continue;
             }
             if (!res.annotations.isInitialized()
@@ -3317,8 +3341,9 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
             }
         }
 
-        // ---- 4. to the CPU side: staging now, the slot next frame ----
-        ctx->CopyResource(res.staging.Get(), res.out.Get());
+        // ---- 4. to the CPU side: staging now, the ring slot once the GPU is done ----
+        auto &stg = res.staging[(res.stagingHead + res.stagingCount) % Impl::OutputRes::kStagingSlots];
+        ctx->CopyResource(stg.tex.Get(), res.out.Get());
         qcbae::OutputFrameDesc d {};
         d.width = spec.width;  d.height = spec.height;
         d.bytes_per_row = spec.bytesPerRow();
@@ -3331,8 +3356,9 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         d.presentation_ns    = qcbae::OutputRing::now_ns();
         d.source_frame_index = in.dual ? m_impl->lastDualFrame : (m_decoder ? m_decoder->currentFrame() : -1);
         d.source_fps_num = t->fpsNum();  d.source_fps_den = t->fpsDen();
-        res.pendingDesc = d;
-        res.pending     = true;
+        stg.desc    = d;
+        stg.pending = true;
+        ++res.stagingCount;
         res.last        = st;
         res.haveLast    = true;
     }
