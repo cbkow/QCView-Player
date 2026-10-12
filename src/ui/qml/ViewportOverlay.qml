@@ -688,7 +688,7 @@ Pane {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
-            iconName: "columns"
+            iconName: "square-split-horizontal"
             tooltipText: qsTr("Side-by-side")
             checkable: true
             checked: WindowManager.compositorMode === 1
@@ -698,7 +698,7 @@ Pane {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
-            iconName: "square-split-horizontal"
+            iconName: "arrows-out-line-horizontal"
             tooltipText: qsTr("Split wipe")
             checkable: true
             checked: WindowManager.compositorMode === 2
