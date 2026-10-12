@@ -678,7 +678,7 @@ Pane {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
-            iconName: "square"
+            iconName: "rectangle"
             tooltipText: qsTr("Single view")
             checkable: true
             checked: WindowManager.compositorMode === 0
@@ -688,7 +688,7 @@ Pane {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
-            iconName: "square-split-horizontal"
+            iconName: "columns"
             tooltipText: qsTr("Side-by-side")
             checkable: true
             checked: WindowManager.compositorMode === 1
@@ -698,7 +698,7 @@ Pane {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
-            iconName: "split-horizontal"
+            iconName: "square-split-horizontal"
             tooltipText: qsTr("Split wipe")
             checkable: true
             checked: WindowManager.compositorMode === 2
@@ -708,7 +708,7 @@ Pane {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
             cornerRadius: 0
-            iconName: "exclude"
+            iconName: "intersect-square"
             tooltipText: qsTr("Difference")
             checkable: true
             checked: WindowManager.compositorMode === 3
