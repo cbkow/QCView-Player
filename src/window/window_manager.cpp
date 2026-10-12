@@ -2747,6 +2747,7 @@ double WindowManager::currentAudioSourceSeconds() const
 
 void WindowManager::setReviewSpeed(double speed)
 {
+    if (liveTransportLocked("review speed")) return;
     // Preset range only — the engines clamp wider, but the feature
     // is "review speeds", not shuttle (that's the A/J/D/L gesture).
     if (speed < 0.25) speed = 0.25;
@@ -4394,8 +4395,16 @@ void WindowManager::stopLiveStream()
 // Unified transport routing — image-seq vs video.
 // ---------------------------------------------------------------------------
 
+bool WindowManager::liveTransportLocked(const char *what) const
+{
+    if (!m_liveActive || m_dualController) return false;
+    qInfo("WindowManager: %s ignored on a live item (the feed runs; mute with M)", what);
+    return true;
+}
+
 void WindowManager::togglePlayback()
 {
+    if (liveTransportLocked("play/pause")) return;
     // Capture user intent BEFORE flipping decoder state — the EOS
     // loop-wrap handler reads this to decide whether to auto-resume
     // after seek(0) when looping a short clip. Without this, a
@@ -4464,6 +4473,7 @@ void WindowManager::play()
 
 void WindowManager::pause()
 {
+    if (liveTransportLocked("pause")) return;
     m_userWantsPlayback = false;
     if (m_dualController) {
         m_dualController->pause();
@@ -4761,6 +4771,7 @@ void WindowManager::seekToTimeAndResume(double seconds, bool resume)
 
 void WindowManager::seekToTime(double seconds)
 {
+    if (liveTransportLocked("seek")) return;
     // Canonical seek. `seconds` is a TIMELINE position. Each branch
     // converts to its own decoder's frame space using THAT decoder's
     // fps — never a global one.
@@ -4941,6 +4952,7 @@ void WindowManager::closeMedia()
 
 void WindowManager::stepFrames(int delta)
 {
+    if (liveTransportLocked("frame step")) return;
     if (delta == 0) return;
     // Pause first — frame-stepping while playing is ambiguous (the
     // wall clock would race the step). Old app's StepFrame:
@@ -5127,6 +5139,7 @@ constexpr int    kFastSeekTickMs       = 33;
 
 void WindowManager::startFastSeek(int direction)
 {
+    if (liveTransportLocked("fast seek")) return;
     if (direction == 0) return;
     direction = (direction > 0) ? 1 : -1;
 

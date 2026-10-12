@@ -406,6 +406,11 @@ public:
         bool    stream = false;
         QString capturedAt, hostTimecode, streamName;
     };
+    // A live item in single view has no transport: pausing it only stops
+    // the bridge audio (the device stops, the taps go silent) and a seek
+    // has nowhere to go. Every transport entry point asks this first;
+    // B2 turns Space on a live item into freeze / back to live instead.
+    bool liveTransportLocked(const char *what) const;
     NoteKey currentNoteKey() const;
     // Is this note the one the viewport shows: frame match for files,
     // the Review key for streams (B2 sets it; empty = live, none match).
