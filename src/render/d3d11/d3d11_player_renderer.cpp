@@ -3190,7 +3190,7 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
             ts.Usage = D3D11_USAGE_STAGING;  ts.BindFlags = 0;  ts.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
             bool ok = SUCCEEDED(device->CreateTexture2D(&td, nullptr, res.out.GetAddressOf()))
                    && SUCCEEDED(device->CreateRenderTargetView(res.out.Get(), nullptr, res.outRtv.GetAddressOf()));
-            for (auto &st : res.staging) ok = ok && SUCCEEDED(device->CreateTexture2D(&ts, nullptr, st.tex.GetAddressOf()));
+            for (auto &sg : res.staging) ok = ok && SUCCEEDED(device->CreateTexture2D(&ts, nullptr, sg.tex.GetAddressOf()));
             if (!ok) {
                 qWarning("D3D11PlayerRenderer: output %dx%d BGRA8 targets failed", W, H);
                 res.out.Reset();  res.outRtv.Reset();  res.resetStaging();
