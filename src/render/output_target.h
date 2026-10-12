@@ -12,12 +12,17 @@
 // source mutex, like setDualController), so by the time the bus destroys
 // a ring no frame can be mid-write into it.
 //
+// A target may instead carry an IGpuFrameSink (render/gpu_frame_sink.h):
+// the same pass, but the picture goes to the sink as an NV12 surface, no
+// ring involved. gpuSink() is set once at construction.
+//
 // No Qt here: qcv_render's Metal and D3D11 implementations include this.
 
 #pragma once
 
 #include "decode/qcbae/output_desc.h"
 #include "decode/qcbae/output_ring.h"
+#include "render/gpu_frame_sink.h"
 
 #include <atomic>
 #include <cstdint>
@@ -42,6 +47,9 @@ struct OutputSpec {
 class OutputTarget {
 public:
     explicit OutputTarget(qcbae::OutputRing *ring) : m_ring(ring) {}
+    // A GPU-sink target (the stream output): no ring, the renderer hands
+    // the converted picture to the sink instead of a slot.
+    explicit OutputTarget(IGpuFrameSink *sink) : m_ring(nullptr), m_gpuSink(sink) {}
 
     // ---- GUI thread ----
     void setSpec(const OutputSpec &spec)
@@ -78,9 +86,11 @@ public:
     uint64_t capacity() const { return m_ring && m_ring->header() ? m_ring->header()->pixels_capacity : 0; }
 
     qcbae::OutputRing *ring() const { return m_ring; }
+    IGpuFrameSink *gpuSink() const { return m_gpuSink; }
 
 private:
     qcbae::OutputRing   *m_ring;
+    IGpuFrameSink       *m_gpuSink = nullptr;
     mutable std::mutex   m_mutex;
     OutputSpec           m_spec;
     uint64_t             m_generation = 0;

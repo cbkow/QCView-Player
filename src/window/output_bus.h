@@ -19,6 +19,7 @@
 
 #include "decode/qcbae/audio_ring.h"
 #include "decode/qcbae/output_ring.h"
+#include "output/stream_sink.h"
 #include "render/output_target.h"
 
 #include <QObject>
@@ -122,8 +123,15 @@ private:
     void pushTargets();
     void restoreEnabled();
     void tap(const float *stereo, uint32_t frames, bool muted);
+    // The stream output (plan A0: env-driven spike behind QCV_STREAM_SPIKE;
+    // A1 makes it a setting with UI). One GPU-sink target beside the ring
+    // targets; the sink outlives the target's removal from the renderer.
+    void startSpikeStream();
+    void stopStream();
 
     std::vector<std::unique_ptr<Output>> m_outputs;
+    std::unique_ptr<output::StreamSink>   m_stream;
+    std::unique_ptr<output::OutputTarget> m_streamTarget;
     std::function<IPlayerRenderer *()> m_renderer;
     std::function<double()>            m_fps;
     QTimer m_poll;

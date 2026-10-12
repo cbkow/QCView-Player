@@ -76,6 +76,7 @@ target_link_libraries(qcv_window
         qcv_timeline    # exposes TimelineController via WindowManager
         qcv_annotations # ViewportAnnotator owned + exposed by WindowManager (B.6.5)
         qcv_dual        # Phase 7.7 — DualPlaybackController owned by WindowManager
+        qcv_output      # the stream output's sink, owned by OutputBus
 )
 
 # Phase 7.5: when QCV_NATIVE_PLAYER is on, WindowManager instantiates

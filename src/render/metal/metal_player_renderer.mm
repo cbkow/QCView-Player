@@ -26,6 +26,7 @@
 #include "metal_yuv_renderer.h"
 #include "render/player_window.h"
 #include "render/safety_overlay.h"
+#include "render/gpu_frame_sink.h"
 
 #include <unordered_map>
 
@@ -36,6 +37,8 @@ extern "C" {
 #include <libavutil/frame.h>
 }
 #import <QuartzCore/CATransaction.h>
+
+#import <CoreVideo/CoreVideo.h>
 
 #include <QtLogging>
 #include <QColorSpace>
@@ -461,6 +464,95 @@ kernel void dual_combine(texture2d<float, access::read>  a   [[texture(0)]],
         return target;
     }
 
+    // ---- Stream output (plan A0): the wire texture → NV12 planes of a
+    // CVPixelBuffer the sink hands out, BT.709 limited range, 4:2:0 by
+    // averaging the 2x2 block. One thread per 2x2 block.
+    id<MTLComputePipelineState> nv12Pso = nil;
+    CVMetalTextureCacheRef      nv12Cache = nullptr;
+
+    bool ensureNv12Pso()
+    {
+        if (nv12Pso && nv12Cache) return true;
+        static const char *kNv12Msl = R"(
+#include <metal_stdlib>
+using namespace metal;
+kernel void bgra_to_nv12(texture2d<float, access::read>  src [[texture(0)]],
+                         texture2d<float, access::write> yp  [[texture(1)]],
+                         texture2d<float, access::write> uvp [[texture(2)]],
+                         uint2 gid [[thread_position_in_grid]])
+{
+    const uint2 base = gid * 2;
+    const uint2 maxp = uint2(src.get_width() - 1, src.get_height() - 1);
+    if (base.x > maxp.x || base.y > maxp.y) return;
+    const float3 kY = float3(0.2126, 0.7152, 0.0722);
+    float3 sum = float3(0.0);
+    for (uint j = 0; j < 2; ++j) {
+        for (uint i = 0; i < 2; ++i) {
+            const uint2 p = min(base + uint2(i, j), maxp);
+            const float3 rgb = saturate(src.read(p).rgb);
+            yp.write(float4(dot(rgb, kY) * (219.0 / 255.0) + 16.0 / 255.0), base + uint2(i, j));
+            sum += rgb;
+        }
+    }
+    const float3 rgb = sum * 0.25;
+    const float y  = dot(rgb, kY);
+    const float cb = (rgb.b - y) / 1.8556 * (224.0 / 255.0) + 128.0 / 255.0;
+    const float cr = (rgb.r - y) / 1.5748 * (224.0 / 255.0) + 128.0 / 255.0;
+    uvp.write(float4(cb, cr, 0.0, 0.0), gid);
+}
+)";
+        NSError *err = nil;
+        if (!nv12Pso) {
+            id<MTLLibrary> lib = [device newLibraryWithSource:@(kNv12Msl) options:nil error:&err];
+            id<MTLFunction> fn = lib ? [lib newFunctionWithName:@"bgra_to_nv12"] : nil;
+            nv12Pso = fn ? [device newComputePipelineStateWithFunction:fn error:&err] : nil;
+            if (!nv12Pso) {
+                qWarning("MetalPlayerRenderer: NV12 pipeline failed: %s",
+                         err ? [err.localizedDescription UTF8String] : "(no error)");
+                return false;
+            }
+        }
+        if (!nv12Cache) {
+            const CVReturn rc = CVMetalTextureCacheCreate(kCFAllocatorDefault, nullptr, device, nullptr, &nv12Cache);
+            if (rc != kCVReturnSuccess || !nv12Cache) {
+                qWarning("MetalPlayerRenderer: NV12 texture cache failed (%d)", rc);
+                nv12Cache = nullptr;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // `out` (BGRA8, W x H) → the two planes of `pix`. Returns false when
+    // the planes could not be wrapped (nothing encoded).
+    bool encodeNv12(id<MTLCommandBuffer> cb, id<MTLTexture> out, CVPixelBufferRef pix,
+                    CVMetalTextureRef *yOut, CVMetalTextureRef *uvOut)
+    {
+        if (!ensureNv12Pso()) return false;
+        const size_t W = CVPixelBufferGetWidthOfPlane(pix, 0), H = CVPixelBufferGetHeightOfPlane(pix, 0);
+        if (W != out.width || H != out.height) return false;
+        NSDictionary *usage = @{ (id)kCVMetalTextureUsage: @(MTLTextureUsageShaderWrite | MTLTextureUsageShaderRead) };
+        CVMetalTextureRef yCv = nullptr, uvCv = nullptr;
+        CVReturn rc = CVMetalTextureCacheCreateTextureFromImage(
+            kCFAllocatorDefault, nv12Cache, pix, (__bridge CFDictionaryRef)usage,
+            MTLPixelFormatR8Unorm, W, H, 0, &yCv);
+        if (rc != kCVReturnSuccess || !yCv) { if (yCv) CFRelease(yCv); return false; }
+        rc = CVMetalTextureCacheCreateTextureFromImage(
+            kCFAllocatorDefault, nv12Cache, pix, (__bridge CFDictionaryRef)usage,
+            MTLPixelFormatRG8Unorm, CVPixelBufferGetWidthOfPlane(pix, 1), CVPixelBufferGetHeightOfPlane(pix, 1), 1, &uvCv);
+        if (rc != kCVReturnSuccess || !uvCv) { CFRelease(yCv); if (uvCv) CFRelease(uvCv); return false; }
+        id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
+        [enc setComputePipelineState:nv12Pso];
+        [enc setTexture:out atIndex:0];
+        [enc setTexture:CVMetalTextureGetTexture(yCv) atIndex:1];
+        [enc setTexture:CVMetalTextureGetTexture(uvCv) atIndex:2];
+        [enc dispatchThreads:MTLSizeMake((W + 1) / 2, (H + 1) / 2, 1)
+       threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+        [enc endEncoding];
+        *yOut = yCv;  *uvOut = uvCv;
+        return true;
+    }
+
     int frameCount = 0;
 
     // ---- Output bus (QCBridgeN/PLAN.md P2) --------------------------------
@@ -739,6 +831,8 @@ void MetalPlayerRenderer::shutdown()
     }
     m_impl->outputs.clear();
     m_outputs.clear();
+    if (m_impl->nv12Cache) { CFRelease(m_impl->nv12Cache); m_impl->nv12Cache = nullptr; }
+    m_impl->nv12Pso = nil;
     for (auto &sc : m_impl->scopes) sc.shutdown();
     m_impl->annotations.shutdown();
     m_impl->videoFrameRgba           = nil;
@@ -2828,21 +2922,28 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
             res.canvasB16f = [m_impl->device newTextureWithDescriptor:d16];
         }
 
-        // ---- the slot ----
-        const uint64_t bytes = spec.frameBytes();
-        void *slot = t->beginFrame(bytes);
-        if (!slot) continue;   // lossy by design: the sink gets the next one
-        id<MTLBuffer> slotBuf = nil;
-        if (auto it = res.slotBuffers.find(slot); it != res.slotBuffers.end()) {
-            slotBuf = it->second;
+        // ---- the slot, or the sink's surface ----
+        output::IGpuFrameSink *sink = t->gpuSink();
+        void *surface = nullptr;         // sink targets: the NV12 CVPixelBuffer to write
+        id<MTLBuffer> slotBuf = nil;     // ring targets: the slot
+        if (sink) {
+            surface = sink->acquireSurface(spec.width, spec.height);
+            if (!surface) continue;      // the sink is full: it repeats its last picture
         } else {
-            slotBuf = [m_impl->device newBufferWithBytesNoCopy:slot
-                                                        length:static_cast<NSUInteger>(t->capacity())
-                                                       options:MTLResourceStorageModeShared
-                                                   deallocator:nil];
-            if (slotBuf) res.slotBuffers[slot] = slotBuf;
+            const uint64_t bytes = spec.frameBytes();
+            void *slot = t->beginFrame(bytes);
+            if (!slot) continue;   // lossy by design: the sink gets the next one
+            if (auto it = res.slotBuffers.find(slot); it != res.slotBuffers.end()) {
+                slotBuf = it->second;
+            } else {
+                slotBuf = [m_impl->device newBufferWithBytesNoCopy:slot
+                                                            length:static_cast<NSUInteger>(t->capacity())
+                                                           options:MTLResourceStorageModeShared
+                                                       deallocator:nil];
+                if (slotBuf) res.slotBuffers[slot] = slotBuf;
+            }
+            if (!slotBuf) { t->abandonFrame(); qWarning("MetalPlayerRenderer: output slot cannot be wrapped as a buffer"); continue; }
         }
-        if (!slotBuf) { t->abandonFrame(); qWarning("MetalPlayerRenderer: output slot cannot be wrapped as a buffer"); continue; }
 
         // ---- 1. composite at the raster ----
         const bool sideA = spec.content == qcbae::OutputContent::SideA;
@@ -2980,6 +3081,31 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
                 }
             }
             [enc endEncoding];
+        }
+
+        // ---- 4a. a sink: NV12 into its surface, handed over when the GPU is done ----
+        if (sink) {
+            auto pix = static_cast<CVPixelBufferRef>(surface);
+            CVMetalTextureRef yCv = nullptr, uvCv = nullptr;
+            if (!m_impl->encodeNv12(cb, res.out, pix, &yCv, &uvCv)) {
+                sink->release(surface);
+                qWarning("MetalPlayerRenderer: stream surface could not be wrapped; frame skipped");
+                continue;
+            }
+            output::GpuFrameDesc gd;
+            gd.width = spec.width;  gd.height = spec.height;
+            gd.presentation_ns    = qcbae::OutputRing::now_ns();
+            gd.source_frame_index = in.dual ? m_impl->lastDualFrame : (m_decoder ? m_decoder->currentFrame() : -1);
+            [cb addCompletedHandler:^(id<MTLCommandBuffer> done) {
+                CFRelease(yCv);
+                CFRelease(uvCv);
+                if (done.status == MTLCommandBufferStatusCompleted) sink->submit(surface, gd);
+                else sink->release(surface);
+            }];
+            CVMetalTextureCacheFlush(m_impl->nv12Cache, 0);
+            res.last     = st;
+            res.haveLast = true;
+            continue;
         }
 
         // ---- 4. into the slot ----

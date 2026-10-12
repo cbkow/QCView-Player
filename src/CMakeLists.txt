@@ -19,6 +19,10 @@ add_subdirectory(annotations)
 # Must be added BEFORE render (render depends on dual for the
 # DualCompositor delegate in MetalPlayerRenderer's dual branch).
 add_subdirectory(dual)
+# The stream output (plan A): paced sink + hardware encoder + muxer.
+# Before window (OutputBus owns the sink); after decode (FFmpeg, the ring
+# clock).
+add_subdirectory(output)
 add_subdirectory(window)
 add_subdirectory(render)
 add_subdirectory(app)

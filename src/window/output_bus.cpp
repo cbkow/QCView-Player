@@ -147,15 +147,72 @@ void OutputBus::rendererReady()
 {
     m_rendererReady = true;
     restoreEnabled();
+    if (qEnvironmentVariableIsSet("QCV_STREAM_SPIKE")) startSpikeStream();
     pushTargets();
-    if (enabledCount() > 0) m_poll.start();
+    if (enabledCount() > 0 || m_stream) m_poll.start();
 }
 
 void OutputBus::rendererGone()
 {
     m_poll.stop();
     for (auto &o : m_outputs) if (o->enabled) disable(*o);
+    stopStream();
     m_rendererReady = false;
+}
+
+// ---- the stream output (A0 spike) ------------------------------------------------------
+
+void OutputBus::startSpikeStream()
+{
+    stopStream();
+    output::StreamConfig cfg;
+    cfg.url = qEnvironmentVariable("QCV_STREAM_SPIKE").toStdString();
+    const QString size = qEnvironmentVariable("QCV_STREAM_SPIKE_SIZE", QStringLiteral("1920x1080"));
+    const QStringList wh = size.split(QLatin1Char('x'));
+    if (wh.size() == 2) { cfg.width = wh[0].toUInt(); cfg.height = wh[1].toUInt(); }
+    cfg.bitrateKbps  = qEnvironmentVariable("QCV_STREAM_SPIKE_KBPS", QStringLiteral("6000")).toUInt();
+    cfg.srtLatencyMs = qEnvironmentVariable("QCV_STREAM_SPIKE_LATENCY_MS", QStringLiteral("120")).toInt();
+    cfg.streamId     = qEnvironmentVariable("QCV_STREAM_SPIKE_STREAMID").toStdString();
+    cfg.passphrase   = qEnvironmentVariable("QCV_STREAM_SPIKE_PASSPHRASE").toStdString();
+    cfg.profile      = qEnvironmentVariable("QCV_STREAM_SPIKE_PROFILE") == QStringLiteral("main")
+                     ? output::H264Profile::Main : output::H264Profile::Baseline;
+    const QString fps = qEnvironmentVariable("QCV_STREAM_SPIKE_FPS");
+    if (!fps.isEmpty()) {
+        const QStringList nd = fps.split(QLatin1Char('/'));
+        if (nd.size() == 2) { cfg.fpsNum = nd[0].toUInt(); cfg.fpsDen = nd[1].toUInt(); }
+        else fpsToRational(fps.toDouble(), &cfg.fpsNum, &cfg.fpsDen);
+    }
+    auto sink = std::make_unique<output::StreamSink>(output::makePlatformVideoEncoder());
+    std::string err;
+    if (!sink->start(cfg, &err)) {
+        qWarning("OutputBus: stream spike not started: %s", err.c_str());
+        return;
+    }
+    m_stream = std::move(sink);
+    m_streamTarget = std::make_unique<output::OutputTarget>(m_stream.get());
+    output::OutputSpec spec;
+    spec.width = cfg.width;  spec.height = cfg.height;
+    spec.format = qcbae::OutputPixelFormat::BGRA8;
+    spec.transfer = qcbae::OutputTransfer::SdrRec709;
+    spec.content = qcbae::OutputContent::Composite;
+    spec.fit = qcbae::OutputFit::Letterbox;
+    spec.layers = (m_includeGuides ? qcbae::kOutputLayerGuides : 0u)
+                | (m_includeAnnotations ? qcbae::kOutputLayerAnnotations : 0u);
+    m_streamTarget->setSpec(spec);
+    m_streamTarget->setActive(true);
+    qInfo("OutputBus: stream spike -> %s at %ux%u, %u kbps", cfg.url.c_str(), cfg.width, cfg.height, cfg.bitrateKbps);
+}
+
+void OutputBus::stopStream()
+{
+    if (!m_stream) return;
+    // The renderer stops using the target (synchronous handshake), then the
+    // sink waits for the surfaces still on the GPU and shuts its threads.
+    if (m_streamTarget) m_streamTarget->setActive(false);
+    m_streamTarget.reset();
+    pushTargets();
+    m_stream->stop();
+    m_stream.reset();
 }
 
 void OutputBus::restoreEnabled()
@@ -180,7 +237,7 @@ void OutputBus::setEnabled(const QString &id, bool on)
     s.setValue(QStringLiteral("output/enabled/") + id, on);
     if (on == o->enabled) return;
     if (on) enable(*o); else disable(*o);
-    if (enabledCount() > 0) m_poll.start(); else m_poll.stop();
+    if (enabledCount() > 0 || m_stream) m_poll.start(); else m_poll.stop();
     emit outputsChanged();
 }
 
@@ -333,6 +390,7 @@ void OutputBus::pushTargets()
     if (!r) return;
     std::vector<output::OutputTarget *> targets;
     for (auto &o : m_outputs) if (o->enabled && o->target) targets.push_back(o->target.get());
+    if (m_streamTarget) targets.push_back(m_streamTarget.get());
     r->setOutputTargets(targets);
 }
 
@@ -344,6 +402,10 @@ void OutputBus::poll()
     uint32_t fpsNum = 0, fpsDen = 0;
     fpsToRational(m_fps ? m_fps() : 0.0, &fpsNum, &fpsDen);
     const int64_t now = qcbae::OutputRing::now_ns();
+    if (m_stream) {
+        m_stream->setSourceFps(fpsNum, fpsDen);
+        if (m_streamTarget) m_streamTarget->setSourceFps(fpsNum, fpsDen);
+    }
     for (auto &op : m_outputs) {
         Output &o = *op;
         if (!o.enabled || !o.ring || !o.target) continue;
