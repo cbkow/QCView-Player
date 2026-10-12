@@ -7,6 +7,7 @@
 #include <QMetaObject>
 
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 
 #if !defined(_WIN32)
@@ -218,6 +219,10 @@ void HostBridgeSource::workerLoop()
     constexpr int kStatWindow = 240;
     int     statFrames = 0;
     uint64_t statSkipped = 0;          // sequences never taken this window
+    uint64_t statDupPixels = 0;        // frames whose pixels fingerprint like the previous one
+    uint64_t statSameTime = 0;         // frames stamped with the previous host time
+    uint64_t prevFingerprint = 0;      // 0 = none yet
+    int64_t  prevTimeValue = INT64_MIN;
     uint64_t statAllocs  = m_poolAllocs; // pool allocations at the window start
     qint64   lastTakeMs  = 0;
     double  statCopySum = 0, statCopyMax = 0;
@@ -330,26 +335,43 @@ void HostBridgeSource::workerLoop()
         for (int y = 0; y < h; ++y)
             std::memcpy(img->scanLine(y), src + size_t(y) * d.bytes_per_row, rowBytes);
         ring.release();
+        // A cheap fingerprint of the picture (512 bytes from each of 16 rows):
+        // a frame that fingerprints like the one before it is a duplicate the
+        // producer handed over, however its time stamp moved.
+        uint64_t fp = 1469598103934665603ULL;
+        for (int i = 0; rowBytes >= 1024 && i < 16; ++i) {
+            const int y = int((int64_t(h) * (2 * i + 1)) / 32);
+            const auto *row = reinterpret_cast<const uint64_t *>(img->constScanLine(y) + (rowBytes / 2 & ~size_t(7)) - 256);
+            for (int k = 0; k < 64; ++k) { fp ^= row[k]; fp *= 1099511628211ULL; }
+        }
+        const bool dupPixels = prevFingerprint != 0 && fp == prevFingerprint;
+        const bool sameTime  = prevTimeValue != INT64_MIN && d.time_value == prevTimeValue;
+        const int64_t timeDelta = prevTimeValue != INT64_MIN ? d.time_value - prevTimeValue : 0;
+        prevFingerprint = fp; prevTimeValue = d.time_value;
+        if (dupPixels) ++statDupPixels;
+        if (sameTime)  ++statSameTime;
         const double copyMs = std::chrono::duration<double, std::milli>(
             std::chrono::steady_clock::now() - copyStart).count();
         statCopySum += copyMs;
         if (copyMs > statCopyMax) statCopyMax = copyMs;
         // Dev aid: QCV_BRIDGE_TRACE — one line per intake drop or slow take.
         static const bool trace = qEnvironmentVariableIsSet("QCV_BRIDGE_TRACE");
-        if (trace && (skippedNow > 0 || copyMs > 20.0 || sinceLastTakeMs > 60)) {
-            qInfo("HostBridgeSource: seq %llu skipped %llu — %lld ms since the last take, copy %.2f ms, pool %zu%s",
+        if (trace && (skippedNow > 0 || copyMs > 20.0 || sinceLastTakeMs > 60 || dupPixels || sameTime)) {
+            qInfo("HostBridgeSource: seq %llu skipped %llu — %lld ms since the last take, copy %.2f ms, pool %zu%s%s%s, host time %+lld ticks",
                   (unsigned long long)lastSeen, (unsigned long long)skippedNow, (long long)sinceLastTakeMs, copyMs,
-                  m_pool.size(), m_poolAllocs != allocsBefore ? " (allocated)" : "");
+                  m_pool.size(), m_poolAllocs != allocsBefore ? " (allocated)" : "",
+                  dupPixels ? ", DUPLICATE PIXELS" : "", sameTime ? ", SAME HOST TIME" : "", (long long)timeDelta);
         }
         if (++statFrames == kStatWindow) {
             const double secs = std::chrono::duration<double>(
                 std::chrono::steady_clock::now() - statStart).count();
-            qInfo("HostBridgeSource: %d frames %dx%d in %.2f s = %.2f fps; skipped %llu; "
+            qInfo("HostBridgeSource: %d frames %dx%d in %.2f s = %.2f fps; skipped %llu; duplicate pixels %llu; same host time %llu; "
                   "ring copy mean %.3f max %.3f ms; pool %zu (%llu allocations)",
                   statFrames, w, h, secs, secs > 0 ? statFrames / secs : 0.0,
-                  (unsigned long long)statSkipped, statCopySum / statFrames, statCopyMax,
+                  (unsigned long long)statSkipped, (unsigned long long)statDupPixels, (unsigned long long)statSameTime,
+                  statCopySum / statFrames, statCopyMax,
                   m_pool.size(), (unsigned long long)(m_poolAllocs - statAllocs));
-            statFrames = 0; statCopySum = 0; statCopyMax = 0; statSkipped = 0; statAllocs = m_poolAllocs;
+            statFrames = 0; statCopySum = 0; statCopyMax = 0; statSkipped = 0; statDupPixels = 0; statSameTime = 0; statAllocs = m_poolAllocs;
             statStart = std::chrono::steady_clock::now();
         }
 
