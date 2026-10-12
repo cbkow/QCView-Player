@@ -621,6 +621,15 @@ void DualAudioMixer::processAudio(float *output, uint32_t frameCount)
     // Shuttle preempts normal playback (which the gesture paused):
     // mix the grain engines, honoring per-side mutes, through the
     // same soft-limit shape as the normal path below.
+    // Per-side drain buffers, thread_local and grow-once (the shuttle
+    // branch drains live sides with them too).
+    static thread_local std::vector<float> sideBuf;
+    static thread_local std::vector<float> srcBuf;
+    if (sideBuf.size() < samples) sideBuf.resize(samples);
+    // Scratch for the stage: ratio ≤ 1.015 plus interpolation margin.
+    const size_t scratchFrames = static_cast<size_t>(frameCount) * 2 + 16;
+    if (srcBuf.size() < scratchFrames * 2) srcBuf.resize(scratchFrames * 2);
+
     if (m_shuttleActive.load()) {
         static thread_local std::vector<float> shuttleBuf;
         if (shuttleBuf.size() < samples) shuttleBuf.resize(samples);
@@ -642,6 +651,24 @@ void DualAudioMixer::processAudio(float *output, uint32_t frameCount)
         };
         mixEngine(m_shuttleA.get(), m_mutedA.load());
         mixEngine(m_shuttleB.get(), m_mutedB.load());
+        // A live side has no shuttle engine and no transport: it keeps
+        // playing through the gesture, the same drain as when the file
+        // side runs (2026-10-12: it went silent for the length of a J/L
+        // hold, and its queue was left to pile up meanwhile).
+        auto mixLive = [&](IAudioSource *dec, SideSync &sync, bool muted, bool inGap) {
+            if (!dec || !dec->isLive() || !dec->hasAudio()) return;
+            sync.drain.process(*dec, sideBuf.data(), frameCount, 1.0,
+                               srcBuf.data(), scratchFrames,
+                               sync.srcFramesConsumed, sync.req,
+                               /*extraHold=*/inGap);
+            if (muted) return;
+            if (!m_livePlaydown.load(std::memory_order_acquire)) return;
+            for (size_t i = 0; i < samples; ++i) {
+                output[i] += sideBuf[i];
+            }
+        };
+        mixLive(m_decoderA.get(), m_syncA, m_mutedA.load(), m_inGapA.load());
+        mixLive(m_decoderB.get(), m_syncB, m_mutedB.load(), m_inGapB.load());
         if (auto tap = m_tap.load(std::memory_order_acquire)) {
             tap(m_tapCtx.load(std::memory_order_acquire), output, frameCount,
                 m_masterMuted.load(std::memory_order_relaxed));
@@ -684,14 +711,7 @@ void DualAudioMixer::processAudio(float *output, uint32_t frameCount)
     // Pull each side through its drain stage into a temp buffer, sum
     // into output. Both sides land at 48k stereo float32 (the
     // decoders resample on their decode threads), so direct
-    // accumulation works. Buffers are thread_local and grow-once —
-    // same idiom the pre-servo version used for sideBuf.
-    static thread_local std::vector<float> sideBuf;
-    static thread_local std::vector<float> srcBuf;
-    if (sideBuf.size() < samples) sideBuf.resize(samples);
-    // Scratch for the stage: ratio ≤ 1.015 plus interpolation margin.
-    const size_t scratchFrames = static_cast<size_t>(frameCount) * 2 + 16;
-    if (srcBuf.size() < scratchFrames * 2) srcBuf.resize(scratchFrames * 2);
+    // accumulation works (sideBuf / srcBuf declared above).
 
     auto pullAndMix = [&](IAudioSource *dec, SideSync &sync,
                           bool muted, bool inGap) {
