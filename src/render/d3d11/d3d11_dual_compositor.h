@@ -88,6 +88,10 @@ public:
     // cached textures. Must be called before renderFrame on the same
     // context. No-op if no frame source set yet.
     void prepareFrames(void *ctx);
+    // How many times a side has resolved a frame it had not seen before,
+    // across both sides. A live side advances this while the transport
+    // is paused; the renderer counts a change as a displayed frame.
+    uint64_t sideFrames() const;
 
     // Bind pipeline + SRVs + UBO, draw fullscreen triangle into the
     // already-bound RTV (caller has set viewport and cleared the

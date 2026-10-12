@@ -187,6 +187,7 @@ struct D3D11PlayerRenderer::Impl {
     // a new master frame.
     void                            *lastDualController = nullptr;
     int                              lastDualFrame = -1;
+    uint64_t                         lastSideFrames = 0;   // dualCompositor.sideFrames() last counted
     void countDualFrame(void *controller)
     {
         const int f = controller
@@ -2080,6 +2081,14 @@ void D3D11PlayerRenderer::drawDualFrame()
     // sets prepared=false, renderFrame returns).
     m_impl->dualCompositor.prepareFrames(ctx);
     m_impl->countDualFrame(m_dualControllerPtr.load(std::memory_order_acquire));
+    // A side that resolved a frame it had not shown before is a new frame
+    // too — a live side while the transport is paused, which the master
+    // frame index never reflects. Without this the output bus saw no
+    // change and a paused dual view with a Premiere feed went out frozen.
+    if (const uint64_t sf = m_impl->dualCompositor.sideFrames(); sf != m_impl->lastSideFrames) {
+        m_impl->lastSideFrames = sf;
+        m_impl->displayedFrames.fetch_add(1, std::memory_order_relaxed);
+    }
 
     // Per-side chains: A and B resolve to different chains (their clips'
     // pins differ, not ganged). Equal chains keep one pass, as before.

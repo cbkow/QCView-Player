@@ -386,6 +386,13 @@ struct D3D11DualCompositor::Impl {
     int   srcBW          = 1;
     int   srcBH          = 1;
 
+    // The payload each side last resolved, held so a new frame can never
+    // reuse its address, and how many new ones there have been: a live
+    // side keeps delivering while the transport is paused, and the
+    // renderer counts those as frames (the output bus publishes on it).
+    std::shared_ptr<void> lastPayload[2];
+    uint64_t sideFrames = 0;
+
     // Cache invalidation seams (dual_compositor.mm:484-504).
     int   cachedGeneration       = -1;
     int   lastRenderedMasterFrame = -1;
@@ -687,6 +694,10 @@ void D3D11DualCompositor::prepareFrames(void *ctxVoid)
             (slot == 0) ? frameSrc->pullA(masterFrame)
                         : frameSrc->pullB(masterFrame);
         if (payload.kind == DualFramePayload::Kind::Empty) return;
+        if (payload.keepAlive.get() != m_impl->lastPayload[slot].get()) {
+            m_impl->lastPayload[slot] = payload.keepAlive;
+            ++m_impl->sideFrames;
+        }
 
         // F.2.13 — Vulkan zero-copy path. The bridge is now per-slot
         // (only output texture + viewCache + format/dim); the heavy
@@ -814,6 +825,11 @@ void D3D11DualCompositor::prepareFrames(void *ctxVoid)
     m_impl->srcBW   = std::max(1, srcBW);
     m_impl->srcBH   = std::max(1, srcBH);
     m_impl->prepared = true;
+}
+
+uint64_t D3D11DualCompositor::sideFrames() const
+{
+    return m_impl ? m_impl->sideFrames : 0;
 }
 
 void D3D11DualCompositor::releasePrepared()
