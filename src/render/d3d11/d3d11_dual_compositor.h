@@ -98,6 +98,11 @@ public:
     // Difference yields the side itself). `consume` = false keeps this
     // frame's prepared sources for the second pass.
     void renderFrame(void *ctx, int dstW, int dstH, int passSide = 0, bool consume = true);
+    // What `consume` does on its own: forget this frame's prepared
+    // sources. For a caller that rendered them more than once with
+    // consume=false (the output bus draws the frame again per sink) and
+    // is done. Mirrors dual::DualCompositor::releasePrepared on Metal.
+    void releasePrepared();
     float diffGain() const;
 
     // Snapshot of the geometry the last renderFrame() drew, for the

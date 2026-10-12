@@ -816,6 +816,11 @@ void D3D11DualCompositor::prepareFrames(void *ctxVoid)
     m_impl->prepared = true;
 }
 
+void D3D11DualCompositor::releasePrepared()
+{
+    if (m_impl) m_impl->prepared = false;
+}
+
 void D3D11DualCompositor::renderFrame(void *ctxVoid, int dstW, int dstH,
                                       int passSide, bool consume)
 {

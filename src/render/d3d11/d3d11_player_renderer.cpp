@@ -34,6 +34,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <unordered_map>
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <dcomp.h>
@@ -495,6 +496,57 @@ void main(uint3 id : SV_DispatchThreadID)
     int                              captureSrcW = 0;
     int                              captureSrcH = 0;
     D3D11AnnotationRenderer          captureAnnotations;
+
+    // ---- Output bus (QCBridgeN/PLAN.md P2, P4) ---------------------------
+    // Its own SDR-capture OCIO instances so a published frame never fights a
+    // screenshot for an output texture.
+    D3D11OcioRenderer                outputOcio;
+    D3D11OcioRenderer                outputOcioB;
+
+    // What a published frame was made from: the pass runs only when one of
+    // these differs from the last frame published to that sink (O5).
+    struct OutputStamp {
+        quint64     frames = 0;
+        const void *srcA = nullptr;
+        int         dualFrame = -1;
+        int         mode = 0;  float split = 0.5f;  float diffGain = 1.0f;
+        float       gain = 1.0f;  float viewerGamma = 1.0f;  int viewerChannel = 0;
+        const void *chains = nullptr;
+        bool        safetyLoaded = false;  unsigned safetyRev = 0;
+        unsigned    strokesHash = 0;  size_t activePts = 0;
+        int         effAW = 0, effAH = 0, effBW = 0, effBH = 0;
+        int         rotA = 0, rotB = 0;
+        bool        aAct = true, bAct = true;
+        uint64_t    specGen = 0;
+        bool operator==(const OutputStamp &o) const
+        {
+            return frames == o.frames && srcA == o.srcA && dualFrame == o.dualFrame
+                && mode == o.mode && split == o.split && diffGain == o.diffGain
+                && gain == o.gain && viewerGamma == o.viewerGamma && viewerChannel == o.viewerChannel
+                && chains == o.chains && safetyLoaded == o.safetyLoaded && safetyRev == o.safetyRev
+                && strokesHash == o.strokesHash && activePts == o.activePts
+                && effAW == o.effAW && effAH == o.effAH && effBW == o.effBW && effBH == o.effBH
+                && rotA == o.rotA && rotB == o.rotB && aAct == o.aAct && bAct == o.bAct
+                && specGen == o.specGen;
+        }
+    };
+    struct OutputRes {
+        uint64_t  specGen = ~0ull;
+        int       w = 0, h = 0;
+        RtTarget  canvas, canvasB, ocioOut, ocioOutB, combined;   // RGBA16F at the raster
+        ComPtr<ID3D11Texture2D>        out;        // BGRA8 at the raster: the wire picture
+        ComPtr<ID3D11RenderTargetView> outRtv;
+        ComPtr<ID3D11Texture2D>        staging;    // CPU-readable copy of `out`
+        D3D11AnnotationRenderer        annotations;   // guides + strokes into `out`
+        OutputStamp last;  bool haveLast = false;
+        // A frame copied to staging but not yet mapped: the GPU is on it.
+        // Mapped (without waiting) at the start of the next frame.
+        bool                   pending = false;
+        qcbae::OutputFrameDesc pendingDesc {};
+        int64_t                lastTraceNs = 0;
+        uint64_t               published = 0;
+    };
+    std::unordered_map<output::OutputTarget *, std::unique_ptr<OutputRes>> outputs;
 };
 
 D3D11PlayerRenderer::D3D11PlayerRenderer()
@@ -702,6 +754,14 @@ bool D3D11PlayerRenderer::init(PlayerWindow *window)
     if (!m_impl->captureOcioB.initialize()) {
         qWarning("D3D11PlayerRenderer::init: B-side capture OCIO renderer init failed");
     }
+    m_impl->outputOcio.setSdrCapture(true);
+    if (!m_impl->outputOcio.initialize()) {
+        qWarning("D3D11PlayerRenderer::init: output OCIO renderer init failed");
+    }
+    m_impl->outputOcioB.setSdrCapture(true);
+    if (!m_impl->outputOcioB.initialize()) {
+        qWarning("D3D11PlayerRenderer::init: B-side output OCIO renderer init failed");
+    }
     m_impl->captureOcio.setSdrCapture(true);
     for (auto &sc : m_impl->scopes) {
         if (!sc.initialize()) qWarning("D3D11PlayerRenderer: scope renderer init failed");
@@ -848,6 +908,11 @@ void D3D11PlayerRenderer::shutdown()
     m_impl->annotations.shutdown();
     m_impl->ocio.shutdown();
     m_impl->captureOcio.shutdown();
+    m_impl->outputOcio.shutdown();
+    m_impl->outputOcioB.shutdown();
+    for (auto &kv : m_impl->outputs) kv.second->annotations.shutdown();
+    m_impl->outputs.clear();
+    m_outputs.clear();
     m_impl->ocioB.shutdown();
     m_impl->captureOcioB.shutdown();
     m_impl->dualCanvasB  = {};
@@ -1379,6 +1444,7 @@ void D3D11PlayerRenderer::drawFrame()
     // Source mutex (Impl::sourceMutex) for the draw, released just
     // before Present so a GUI setter never waits on a vsync.
     std::unique_lock<std::mutex> srcLock(m_impl->sourceMutex);
+    settleOutputs();
 
     // Phase F.2.8 — HDR mode pivot. If the user toggled the HDR mode
     // since the last frame, hdrSwapchain may have recreated the
@@ -1823,6 +1889,19 @@ void D3D11PlayerRenderer::drawFrame()
     // post-Present would read the wrong one).
     // Vectorscope tap (source → scope image; lags by design). Binds its
     // own targets; everything after rebinds theirs.
+    // ---- Output bus: the picture again at each sink's raster ----
+    if (!m_outputs.empty() && m_impl->videoA.srv) {
+        OutputFrameInputs in;
+        in.dual   = false;
+        in.srvA   = m_impl->videoA.srv.Get();
+        in.effAW  = dispAW;  in.effAH = dispAH;
+        in.rawAW  = m_impl->videoA.width;  in.rawAH = m_impl->videoA.height;
+        in.rotA   = rotQA;
+        in.mode   = static_cast<int>(CompositorMode::Single);
+        in.chains = chains;
+        encodeOutputs(ctx, device, in);
+    }
+
     m_impl->encodeScope(ctx, m_ocio, m_impl->videoA.srv.Get(),
                         m_impl->videoA.width, m_impl->videoA.height,
                         nullptr, 0, 0);
@@ -1854,6 +1933,7 @@ void D3D11PlayerRenderer::drawDualFrame()
     // Source mutex (Impl::sourceMutex) for the dual draw, released
     // just before Present.
     std::unique_lock<std::mutex> srcLock(m_impl->sourceMutex);
+    settleOutputs();
 
     // HDR mode pivot — same handling as single-flow. Re-init the
     // annotation renderer if the swapchain format flipped.
@@ -1982,7 +2062,7 @@ void D3D11PlayerRenderer::drawDualFrame()
         vp.MinDepth = 0; vp.MaxDepth = 1;
         ctx->RSSetViewports(1, &vp);
         m_impl->dualCompositor.renderFrame(ctx, canvasW, canvasH,
-                                           perSide ? 1 : 0, /*consume=*/!perSide);
+                                           perSide ? 1 : 0, /*consume=*/!perSide && m_outputs.empty());
 
         // Hover-thumb corner overlays — drawn into the canvas BEFORE
         // OCIO so the thumb shares the main image's color treatment,
@@ -2027,7 +2107,7 @@ void D3D11PlayerRenderer::drawDualFrame()
         vp.MinDepth = 0; vp.MaxDepth = 1;
         ctx->RSSetViewports(1, &vp);
         m_impl->dualCompositor.renderFrame(ctx, canvasW, canvasH, /*passSide=*/2,
-                                           /*consume=*/true);
+                                           /*consume=*/m_outputs.empty());
     }
 
     // Pass 1b — OCIO over the canvas: A's chain, or each side's when
@@ -2285,6 +2365,27 @@ void D3D11PlayerRenderer::drawDualFrame()
                     drawSide(fitInto(fitX, fitY, fitW, fitH, sAW, sAH), rawAW, rawAH);
             }
         }
+    }
+
+    // ---- Output bus: the composite again at each sink's raster ----
+    // The main pass kept this frame's prepared sources (consume=false
+    // above); the bus pass draws them once more per sink, then lets go.
+    if (!m_outputs.empty()) {
+        OutputFrameInputs in;
+        in.dual       = true;
+        in.perSide    = perSide;
+        in.difference = difference;
+        in.diffGain   = diffGain;
+        in.chains     = chains;
+        const auto &ll = m_impl->dualCompositor.lastLayout();
+        in.dualAW = ll.srcAW;  in.dualAH = ll.srcAH;  in.dualBW = ll.srcBW;  in.dualBH = ll.srcBH;
+        in.dualA  = ll.aValid;  in.dualB = ll.bValid;
+        in.mode   = m_compMode.load(std::memory_order_acquire);
+        in.split  = m_splitPos.load(std::memory_order_acquire);
+        in.rotA   = m_rotQA.load(std::memory_order_relaxed);
+        in.rotB   = m_rotQB.load(std::memory_order_relaxed);
+        encodeOutputs(ctx, device, in);
+        m_impl->dualCompositor.releasePrepared();
     }
 
     // Vectorscope tap: the per-side sources this frame composited.
@@ -2902,6 +3003,340 @@ void D3D11PlayerRenderer::setStoredAnnotationStrokes(
     m_storedStrokes = strokes;
     requestUpdate();
 }
+
+// =====================================================================
+// Output bus (QCBridgeN/PLAN.md P2, P4): the corrected canvas, rendered
+// again at a sink's raster and copied into its ring slot, only when
+// something changed. The Metal pass's twin; the difference is the end:
+// D3D11 cannot wrap foreign memory, so the wire picture goes to a
+// staging texture, is mapped without waiting at the start of the next
+// frame, and is memcpy'd into the slot — the one CPU copy Windows owes.
+// =====================================================================
+
+struct D3D11PlayerRenderer::OutputFrameInputs {
+    bool dual = false;
+    // single flow
+    ID3D11ShaderResourceView *srvA = nullptr;
+    int effAW = 0, effAH = 0, rawAW = 0, rawAH = 0;
+    // dual flow
+    bool perSide = false;  bool difference = false;  float diffGain = 1.0f;
+    int dualAW = 0, dualAH = 0, dualBW = 0, dualBH = 0;  bool dualA = false, dualB = false;
+    // both
+    int mode = 0;  float split = 0.5f;  int rotA = 0, rotB = 0;
+    std::shared_ptr<const OcioChainSnapshot> chains;
+};
+
+void D3D11PlayerRenderer::setOutputTargets(const std::vector<output::OutputTarget *> &targets)
+{
+    std::lock_guard<std::mutex> lk(m_impl->sourceMutex);
+    // A pending readback holds no ring state (the slot is only opened at
+    // the copy), so a target that leaves just drops its resources.
+    for (auto it = m_impl->outputs.begin(); it != m_impl->outputs.end();) {
+        const bool keep = std::find(targets.begin(), targets.end(), it->first) != targets.end();
+        if (!keep) {
+            it->second->annotations.shutdown();
+            it = m_impl->outputs.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    m_outputs = targets;
+    qInfo("D3D11PlayerRenderer: %zu output target(s)", m_outputs.size());
+    requestUpdate();
+}
+
+void D3D11PlayerRenderer::settleOutputs()
+{
+    auto *ctx = static_cast<ID3D11DeviceContext *>(D3D11DeviceManager::instance().context());
+    if (!ctx) return;
+    for (auto &kv : m_impl->outputs) {
+        auto &res = *kv.second;
+        if (!res.pending || !res.staging) continue;
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        const HRESULT hr = ctx->Map(res.staging.Get(), 0, D3D11_MAP_READ,
+                                    D3D11_MAP_FLAG_DO_NOT_WAIT, &mapped);
+        if (hr == DXGI_ERROR_WAS_STILL_DRAWING) continue;   // the GPU is still copying; next frame
+        res.pending = false;
+        if (FAILED(hr)) { qWarning("D3D11PlayerRenderer: output staging Map failed (0x%08lX)", static_cast<unsigned long>(hr)); continue; }
+        const qcbae::OutputFrameDesc &d = res.pendingDesc;
+        const uint64_t bytes = static_cast<uint64_t>(d.bytes_per_row) * d.height;
+        if (auto *slot = static_cast<uint8_t *>(kv.first->beginFrame(bytes))) {
+            const auto *src = static_cast<const uint8_t *>(mapped.pData);
+            const size_t row = std::min<size_t>(d.bytes_per_row, static_cast<size_t>(d.width) * 4u);
+            for (uint32_t y = 0; y < d.height; ++y) {
+                std::memcpy(slot + static_cast<size_t>(y) * d.bytes_per_row, src + static_cast<size_t>(y) * mapped.RowPitch, row);
+            }
+            kv.first->commitFrame(d);
+            ++res.published;
+        }
+        ctx->Unmap(res.staging.Get(), 0);
+    }
+}
+
+void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const OutputFrameInputs &in)
+{
+    auto *ctx    = static_cast<ID3D11DeviceContext *>(ctxVoid);
+    auto *device = static_cast<ID3D11Device *>(deviceVoid);
+    if (!ctx || !device) return;
+    const float gain = m_gain.load(std::memory_order_relaxed);
+
+    for (output::OutputTarget *t : m_outputs) {
+        if (!t->active()) continue;
+        uint64_t specGen = 0;
+        const output::OutputSpec spec = t->spec(&specGen);
+        if (!spec.valid() || spec.format != qcbae::OutputPixelFormat::BGRA8) continue;
+        // Side B alone: the single flow has no B here, the dual compositor
+        // no B-only layout (as on Metal). Side A: the Single layout.
+        const bool sideA = spec.content == qcbae::OutputContent::SideA;
+        if (spec.content == qcbae::OutputContent::SideB) continue;
+
+        auto &resPtr = m_impl->outputs[t];
+        if (!resPtr) resPtr = std::make_unique<Impl::OutputRes>();
+        Impl::OutputRes &res = *resPtr;
+
+        // ---- the stamp ----
+        Impl::OutputStamp st {};
+        st.frames    = m_impl->displayedFrames.load(std::memory_order_relaxed);
+        st.srcA      = in.srvA;
+        st.dualFrame = m_impl->lastDualFrame;
+        st.mode = in.mode;  st.split = in.split;  st.diffGain = in.diffGain;
+        st.gain = gain;
+        st.viewerGamma   = m_viewerGamma.load(std::memory_order_relaxed);
+        st.viewerChannel = m_viewerChannel.load(std::memory_order_relaxed);
+        st.chains = in.chains.get();
+        st.safetyLoaded = m_safety && m_safety->isLoaded();
+        st.safetyRev    = m_safety ? m_safety->revision() : 0u;
+        {
+            std::lock_guard<std::mutex> lock(m_storedStrokesMutex);
+            unsigned h = static_cast<unsigned>(m_storedStrokes.size()) * 2654435761u;
+            for (const ActiveStroke &sk : m_storedStrokes) {
+                h = h * 31u + static_cast<unsigned>(sk.points.size());
+                for (const QPointF &pt : sk.points) {
+                    const float fx = static_cast<float>(pt.x()), fy = static_cast<float>(pt.y());
+                    unsigned bx = 0, by = 0;
+                    std::memcpy(&bx, &fx, sizeof bx); std::memcpy(&by, &fy, sizeof by);
+                    h = (h * 31u) ^ bx; h = (h * 31u) ^ by;
+                }
+            }
+            st.strokesHash = h;
+        }
+        ActiveStroke activeCopy;
+        const bool haveActive = m_annotator && m_annotator->snapshotActiveStroke(activeCopy);
+        st.activePts = haveActive ? activeCopy.points.size() : 0u;
+        st.effAW = in.dual ? in.dualAW : in.effAW;  st.effAH = in.dual ? in.dualAH : in.effAH;
+        st.effBW = in.dual ? in.dualBW : 0;         st.effBH = in.dual ? in.dualBH : 0;
+        st.rotA = in.rotA;  st.rotB = in.rotB;
+        st.aAct = m_aActive.load(std::memory_order_relaxed);  st.bAct = m_bActive.load(std::memory_order_relaxed);
+        st.specGen = specGen;
+        if (res.haveLast && st == res.last) continue;
+        // The previous frame's copy is still on the GPU: the sink gets the
+        // next one (lossy by design, O5).
+        if (res.pending) continue;
+        if (res.haveLast) {
+            const int64_t nowNs = qcbae::OutputRing::now_ns();
+            if (nowNs - res.lastTraceNs > 1000000000LL) {
+                res.lastTraceNs = nowNs;
+                const auto &l = res.last;
+                qInfo("D3D11PlayerRenderer: output publish (%llu so far): changed%s%s%s%s%s%s%s%s",
+                      static_cast<unsigned long long>(res.published),
+                      st.frames != l.frames ? " frames" : "", st.srcA != l.srcA ? " srcA" : "",
+                      st.dualFrame != l.dualFrame ? " dualFrame" : "",
+                      (st.mode != l.mode || st.split != l.split || st.diffGain != l.diffGain) ? " layout" : "",
+                      (st.gain != l.gain || st.viewerGamma != l.viewerGamma || st.viewerChannel != l.viewerChannel) ? " viewer" : "",
+                      st.chains != l.chains ? " chains" : "",
+                      (st.safetyLoaded != l.safetyLoaded || st.safetyRev != l.safetyRev) ? " guides" : "",
+                      (st.strokesHash != l.strokesHash || st.activePts != l.activePts) ? " strokes" : "");
+            }
+        }
+
+        // ---- resources for this raster ----
+        const int W = static_cast<int>(spec.width), H = static_cast<int>(spec.height);
+        if (res.specGen != specGen || res.w != W || res.h != H || !res.out) {
+            res.canvas = Impl::RtTarget{};  res.canvasB = Impl::RtTarget{};
+            res.ocioOut = Impl::RtTarget{};  res.ocioOutB = Impl::RtTarget{};  res.combined = Impl::RtTarget{};
+            res.outRtv.Reset();  res.out.Reset();  res.staging.Reset();
+            D3D11_TEXTURE2D_DESC td{};
+            td.Width = static_cast<UINT>(W);  td.Height = static_cast<UINT>(H);
+            td.MipLevels = 1;  td.ArraySize = 1;
+            td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+            td.SampleDesc.Count = 1;
+            td.Usage = D3D11_USAGE_DEFAULT;
+            td.BindFlags = D3D11_BIND_RENDER_TARGET;
+            D3D11_TEXTURE2D_DESC ts = td;
+            ts.Usage = D3D11_USAGE_STAGING;  ts.BindFlags = 0;  ts.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            if (FAILED(device->CreateTexture2D(&td, nullptr, res.out.GetAddressOf()))
+                || FAILED(device->CreateRenderTargetView(res.out.Get(), nullptr, res.outRtv.GetAddressOf()))
+                || FAILED(device->CreateTexture2D(&ts, nullptr, res.staging.GetAddressOf()))) {
+                qWarning("D3D11PlayerRenderer: output %dx%d BGRA8 targets failed", W, H);
+                res.out.Reset();  res.outRtv.Reset();  res.staging.Reset();
+                continue;
+            }
+            if (!res.annotations.isInitialized()
+                || res.annotations.targetPixelFormat() != static_cast<int>(DXGI_FORMAT_B8G8R8A8_UNORM)) {
+                res.annotations.shutdown();
+                res.annotations.initialize(static_cast<int>(DXGI_FORMAT_B8G8R8A8_UNORM));
+            }
+            res.specGen = specGen;  res.w = W;  res.h = H;  res.haveLast = false;
+            qInfo("D3D11PlayerRenderer: output pass %dx%d BGRA8 (content %u, layers 0x%x)",
+                  W, H, static_cast<unsigned>(spec.content), spec.layers);
+        }
+        if (!res.canvas.ensure(device, W, H)) continue;
+        if (in.dual && in.perSide && !res.canvasB.ensure(device, W, H)) continue;
+
+        auto bind = [&](ID3D11RenderTargetView *rtv, bool opaque) {
+            ctx->OMSetRenderTargets(1, &rtv, nullptr);
+            const float clear[4] = {0.0f, 0.0f, 0.0f, opaque ? 1.0f : 0.0f};
+            ctx->ClearRenderTargetView(rtv, clear);
+            D3D11_VIEWPORT vp{};
+            vp.Width = static_cast<float>(W);  vp.Height = static_cast<float>(H);
+            vp.MinDepth = 0;  vp.MaxDepth = 1;
+            ctx->RSSetViewports(1, &vp);
+        };
+
+        // ---- 1. composite at the raster ----
+        if (!in.dual) {
+            bind(res.canvas.rtv.Get(), false);
+            D3D11Compositor::PassOptions sourceOpts;
+            sourceOpts.sourceOnly = true;   // brightness applied here, pre-OCIO, as the window does
+            m_impl->compositor.renderSingle(ctx, in.srvA, W, H, in.effAW, in.effAH,
+                                            /*bgMode=*/0, 0.0f, 0.0f, 0.0f, 0.0f, false, in.rotA, &sourceOpts);
+        } else {
+            const auto liveMode = static_cast<CompositorMode>(m_compMode.load(std::memory_order_acquire));
+            if (sideA) m_impl->dualCompositor.setMode(CompositorMode::Single);
+            bind(res.canvas.rtv.Get(), false);
+            m_impl->dualCompositor.renderFrame(ctx, W, H, in.perSide ? 1 : 0, /*consume=*/false);
+            if (in.perSide) {
+                bind(res.canvasB.rtv.Get(), false);
+                m_impl->dualCompositor.renderFrame(ctx, W, H, /*passSide=*/2, /*consume=*/false);
+            }
+            if (sideA) m_impl->dualCompositor.setMode(liveMode);
+        }
+
+        // ---- 2. OCIO: the SDR equivalent of the live view ----
+        ID3D11ShaderResourceView *corrected = res.canvas.srv.Get();
+        if (in.chains && in.chains->engaged) {
+            const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
+            D3D11OcioRenderer *capA = nullptr;
+            if (specA.needsSdrCapture()) {
+                if (m_impl->outputOcio.isInitialized() && rebuildOcio(m_impl->outputOcio, specA)) capA = &m_impl->outputOcio;
+            } else if (m_impl->ocio.isInitialized() && rebuildOcio(m_impl->ocio, specA)) {
+                capA = &m_impl->ocio;
+            }
+            if (capA && res.ocioOut.ensure(device, W, H)) {
+                capA->apply(ctx, res.canvas.srv.Get(), res.ocioOut.rtv.Get(), W, H);
+                corrected = res.ocioOut.srv.Get();
+                if (in.dual && in.perSide && res.canvasB.srv) {
+                    const OcioChainSpec &specB = in.chains->b;
+                    D3D11OcioRenderer *capB = nullptr;
+                    if (specB.needsSdrCapture()) {
+                        if (m_impl->outputOcioB.isInitialized() && rebuildOcio(m_impl->outputOcioB, specB)) capB = &m_impl->outputOcioB;
+                    } else if (m_impl->ocioB.isInitialized() && rebuildOcio(m_impl->ocioB, specB)) {
+                        capB = &m_impl->ocioB;
+                    }
+                    ID3D11ShaderResourceView *srvB = res.canvasB.srv.Get();
+                    if (capB && res.ocioOutB.ensure(device, W, H)) {
+                        capB->apply(ctx, res.canvasB.srv.Get(), res.ocioOutB.rtv.Get(), W, H);
+                        srvB = res.ocioOutB.srv.Get();
+                    }
+                    corrected = m_impl->combineSides(ctx, device, corrected, srvB, res.combined, W, H,
+                                                     in.difference, in.diffGain);
+                }
+            }
+        }
+
+        // ---- 3. the wire picture: black letterbox, then the layers ----
+        uint32_t drawn = 0;
+        {
+            bind(res.outRtv.Get(), true);
+            D3D11Compositor::PassOptions opts;
+            opts.encoding        = D3D11Compositor::OutputEncoding::Sdr;
+            opts.applyBrightness = in.dual;   // single applied it in pass 1
+            m_impl->compositor.renderSingle(ctx, corrected, W, H, W, H, /*bgMode=*/0,
+                                            0.0f, 0.0f, 0.0f, 0.0f, false, 0, &opts);
+            if (res.annotations.isInitialized()) {
+                res.annotations.beginFrame();
+                const bool wantGuides  = (spec.layers & qcbae::kOutputLayerGuides) && m_safety && m_safety->isLoaded();
+                const bool wantStrokes = (spec.layers & qcbae::kOutputLayerAnnotations) && !in.dual && m_annotator;
+                auto fit = [](float x, float y, float w, float h, float sw, float sh) -> QRectF {
+                    if (sw <= 0 || sh <= 0 || w <= 0 || h <= 0) return QRectF(x, y, w, h);
+                    const float ca = w / h, sa = sw / sh;
+                    float fw, fh;
+                    if (sa > ca) { fw = w; fh = w / sa; } else { fh = h; fw = h * sa; }
+                    return QRectF(x + (w - fw) * 0.5f, y + (h - fh) * 0.5f, fw, fh);
+                };
+                if (!in.dual) {
+                    const double rawW = (in.rotA & 1) ? in.rawAH : in.rawAW;
+                    const double rawH = (in.rotA & 1) ? in.rawAW : in.rawAH;
+                    const QRectF r = fit(0, 0, float(W), float(H), float(in.effAW), float(in.effAH));
+                    if (wantGuides && r.width() >= 2 && r.height() >= 2) {
+                        const TessellatedMesh m = m_safety->meshForImage(r.topLeft(), r.size(), rawW, rawH);
+                        if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H); drawn |= qcbae::kOutputLayerGuides; }
+                    }
+                    if (wantStrokes && r.width() >= 2 && in.effAW > 0) {
+                        const float fx = float(r.x()), fy = float(r.y()), fw = float(r.width()), fh = float(r.height());
+                        const float lineScale = fw / float(in.effAW);
+                        if (haveActive) {
+                            const TessellatedMesh m = StrokeTessellator::tessellate(activeCopy, fx, fy, fw, fh, lineScale);
+                            if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                        }
+                        std::vector<ActiveStroke> stored;
+                        { std::lock_guard<std::mutex> lock(m_storedStrokesMutex); stored = m_storedStrokes; }
+                        for (const ActiveStroke &sk : stored) {
+                            const TessellatedMesh m = StrokeTessellator::tessellate(sk, fx, fy, fw, fh, lineScale);
+                            if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                        }
+                    }
+                } else if (wantGuides) {
+                    auto effF = [](float w, float h, int n, int d) -> std::pair<float, float> {
+                        if (w <= 0 || h <= 0 || n <= 0 || d <= 0 || n == d) return { w, h };
+                        if (n > d) return { w * n / d, h };
+                        return { w, h * float(d) / n };
+                    };
+                    auto *src = m_dualFrameSource.load(std::memory_order_acquire);
+                    float rawAW = src ? float(src->sourceWidth('A'))  : 0.0f;
+                    float rawAH = src ? float(src->sourceHeight('A')) : 0.0f;
+                    float rawBW = src ? float(src->sourceWidth('B'))  : 0.0f;
+                    float rawBH = src ? float(src->sourceHeight('B')) : 0.0f;
+                    auto [sAW, sAH] = effF(rawAW, rawAH, m_parNumA.load(), m_parDenA.load());
+                    auto [sBW, sBH] = effF(rawBW, rawBH, m_parNumB.load(), m_parDenB.load());
+                    if (in.rotA & 1) { std::swap(sAW, sAH); std::swap(rawAW, rawAH); }
+                    if (in.rotB & 1) { std::swap(sBW, sBH); std::swap(rawBW, rawBH); }
+                    auto drawSide = [&](const QRectF &r, float rw, float rh) {
+                        if (r.width() < 2.0 || r.height() < 2.0) return;
+                        const TessellatedMesh m = m_safety->meshForImage(r.topLeft(), r.size(), rw, rh);
+                        if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H); drawn |= qcbae::kOutputLayerGuides; }
+                    };
+                    if (in.mode == static_cast<int>(CompositorMode::SideBySide) && !sideA) {
+                        if (sAW > 0.0f) drawSide(fit(0, 0, W * 0.5f, float(H), sAW, sAH), rawAW, rawAH);
+                        if (sBW > 0.0f) drawSide(fit(W * 0.5f, 0, W * 0.5f, float(H), sBW, sBH), rawBW, rawBH);
+                    } else if (sAW > 0.0f) {
+                        drawSide(fit(0, 0, float(W), float(H), sAW, sAH), rawAW, rawAH);
+                    }
+                }
+            }
+        }
+
+        // ---- 4. to the CPU side: staging now, the slot next frame ----
+        ctx->CopyResource(res.staging.Get(), res.out.Get());
+        qcbae::OutputFrameDesc d {};
+        d.width = spec.width;  d.height = spec.height;
+        d.bytes_per_row = spec.bytesPerRow();
+        d.pixel_format  = static_cast<uint32_t>(spec.format);
+        d.transfer      = static_cast<uint32_t>(spec.transfer);
+        d.content       = static_cast<uint32_t>(spec.content);
+        d.layers        = drawn;
+        d.flags         = ((in.dual ? in.dualA : in.srvA != nullptr) ? qcbae::kOutputFrameHasA : 0u)
+                        | ((in.dual && in.dualB) ? qcbae::kOutputFrameHasB : 0u);
+        d.presentation_ns    = qcbae::OutputRing::now_ns();
+        d.source_frame_index = in.dual ? m_impl->lastDualFrame : (m_decoder ? m_decoder->currentFrame() : -1);
+        d.source_fps_num = t->fpsNum();  d.source_fps_den = t->fpsDen();
+        res.pendingDesc = d;
+        res.pending     = true;
+        res.last        = st;
+        res.haveLast    = true;
+    }
+}
+
 QImage D3D11PlayerRenderer::captureScreenshot()
 {
     // Caller (typically WindowManager on the GUI thread) blocks here

@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "output_target.h"
 #include "color/ocio_chain_spec.h"
 #include "render/iplayer_renderer.h"
 
@@ -86,6 +87,7 @@ public:
     void setStoredAnnotationStrokes(
         const std::vector<ActiveStroke> &strokes) override;
     QImage captureScreenshot() override;
+    void setOutputTargets(const std::vector<output::OutputTarget *> &targets) override;
 
     // ---- Windows-specific (called by WindowManager) ----
     // The renderer's child HWND tracks the centerStage rect inside the
@@ -228,6 +230,15 @@ private:
     std::atomic<int>                m_hoverThumbHB{0};
     std::mutex                 m_storedStrokesMutex;
     std::vector<ActiveStroke>  m_storedStrokes;
+
+    // The output bus (QCBridgeN/PLAN.md P2, P4): the enabled outputs the
+    // frame is published into. Set under sourceMutex; read by the draws.
+    // The pass mirrors the Metal one; the readback (staging + Map +
+    // memcpy into the ring slot) is the one CPU copy Windows owes (O9).
+    std::vector<output::OutputTarget *> m_outputs;
+    struct OutputFrameInputs;
+    void encodeOutputs(void *ctx, void *device, const OutputFrameInputs &in);
+    void settleOutputs();
 };
 
 } // namespace qcv
