@@ -177,6 +177,7 @@ struct MetalPlayerRenderer::Impl {
     // a new master frame.
     void                *lastDualController = nullptr;
     int                  lastDualFrame = -1;
+    uint64_t             lastSideFrames = 0;   // dualCompositor.sideFrames() last counted
     void countDualFrame(void *controller)
     {
         const int f = controller
@@ -1225,6 +1226,14 @@ void MetalPlayerRenderer::drawFrame()
         // tracking (no waitUntilCompleted).
         m_impl->dualCompositor.prepareFrames((__bridge void *)cb);
         m_impl->countDualFrame(m_dualControllerPtr.load(std::memory_order_acquire));
+        // A side that resolved a frame it had not shown before is a new frame
+        // too — a live side while the transport is paused, which the master
+        // frame index never reflects (the D3D11 pass had this as a frozen
+        // output with a Premiere feed; same count here for the same reason).
+        if (const uint64_t sf = m_impl->dualCompositor.sideFrames(); sf != m_impl->lastSideFrames) {
+            m_impl->lastSideFrames = sf;
+            m_impl->displayedFrames.fetch_add(1, std::memory_order_relaxed);
+        }
         settleOutputs(/*wait=*/false);
 
         // ---- Pass 1: dual composite → compositeRawDual (RGBA16F) ----

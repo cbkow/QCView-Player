@@ -77,6 +77,10 @@ public:
     // bound by the subsequent renderFrame() call. No-op for
     // CPU-kind frames or when no converter is wired.
     void prepareFrames(void *cmdBuffer);
+    // How many times a side has resolved a frame it had not seen before,
+    // across both sides. A live side advances this while the transport
+    // is paused; the renderer counts a change as a displayed frame.
+    uint64_t sideFrames() const;
 
     // Render parameters — set by the player renderer in response to
     // user toggles. Atomic stores.

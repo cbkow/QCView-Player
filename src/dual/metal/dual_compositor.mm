@@ -357,6 +357,12 @@ struct DualCompositor::Impl {
     // not display it during the decoder's seek window. -1 means
     // no prior render.
     int lastRenderedMasterFrame = -1;
+    // The frame each side last resolved, held so a new one can never reuse
+    // its address, and how many new ones there have been: a live side keeps
+    // delivering while the transport is paused, and the renderer counts
+    // those as frames (the output bus publishes on it).
+    std::shared_ptr<DualFrame> lastSideFrame[2];
+    uint64_t sideFrames = 0;
 
     // Spinner pass — built on first cold transition, kept alive
     // until shutdown(). Cheap to leave around.
@@ -609,6 +615,8 @@ void DualCompositor::prepareFrames(void *cmdBufferPtr)
     auto frameB = m_controller->pullFrameB(masterFrame);
     logPull('A', masterFrame, frameA);
     logPull('B', masterFrame, frameB);
+    if (frameA && frameA != m_impl->lastSideFrame[0]) { m_impl->lastSideFrame[0] = frameA; ++m_impl->sideFrames; }
+    if (frameB && frameB != m_impl->lastSideFrame[1]) { m_impl->lastSideFrame[1] = frameB; ++m_impl->sideFrames; }
 
     const bool aPastEnd = m_controller->aPastEnd(masterFrame);
     const bool bPastEnd = m_controller->bPastEnd(masterFrame);
@@ -914,6 +922,11 @@ bool DualCompositor::renderFrame(void *encoderPtr, int dstWidth, int dstHeight,
 
     if (consume) m_impl->prepared = false;
     return true;
+}
+
+uint64_t DualCompositor::sideFrames() const
+{
+    return m_impl ? m_impl->sideFrames : 0;
 }
 
 void DualCompositor::releasePrepared()
