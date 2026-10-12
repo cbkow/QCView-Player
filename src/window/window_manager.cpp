@@ -130,6 +130,11 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     m_outputBus->setRendererAccessor([this] { return fetchActiveRenderer(m_playerWindow.data()); });
     m_outputBus->setFpsAccessor([this]() -> double {
         if (m_dualController) return m_dualController->fps();
+        // A live source has no frame index; it knows its own rate (or 0).
+        if (m_liveDecoder) {
+            const double f = m_liveDecoder->frameRate();
+            if (f > 0.0) return f;
+        }
         return m_videoDecoder ? m_videoDecoder->fps() : 0.0;
     });
 

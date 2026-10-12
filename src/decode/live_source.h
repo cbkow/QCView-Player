@@ -120,6 +120,11 @@ public:
     // Same-machine shared memory rather than a network stream: LiveStrip
     // shows throughput differently and drops network wording.
     virtual bool    sharedMemory() const { return false; }
+    // The source's frame rate as far as it knows it (0 = unknown): a
+    // network stream's declared rate, a QCBridge feed's measured host
+    // cadence. The output bus tells sinks this; a sink that paces on it
+    // must not be told 25 for a 23.976 feed.
+    virtual double  frameRate() const { return 0.0; }
 
     // Polled by LiveStrip's 1 s timer. Q_INVOKABLE, not Q_PROPERTY:
     // per-frame NOTIFY signals would be pure churn.

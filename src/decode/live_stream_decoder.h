@@ -147,6 +147,7 @@ private:
     std::atomic<int>      m_height{0};
     std::atomic<bool>     m_hasAudio{false};
     std::atomic<int>      m_reconnects{0};
+    std::atomic<double>   m_streamFps{0.0};   // the stream's declared rate, 0 until the session opens
     std::atomic<qint64>   m_framesReceived{0};
     std::atomic<qint64>   m_framesConflated{0};
     std::atomic<qint64>   m_bytesReceived{0};

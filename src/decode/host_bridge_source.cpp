@@ -223,6 +223,8 @@ void HostBridgeSource::workerLoop()
     uint64_t statSameTime = 0;         // frames stamped with the previous host time
     uint64_t prevFingerprint = 0;      // 0 = none yet
     int64_t  prevTimeValue = INT64_MIN;
+    int64_t  prevTimeDelta = 0;           // host ticks between consecutive frames
+    int      sameDeltaRun  = 0;           // how many in a row agreed
     uint64_t statAllocs  = m_poolAllocs; // pool allocations at the window start
     qint64   lastTakeMs  = 0;
     double  statCopySum = 0, statCopyMax = 0;
@@ -348,6 +350,17 @@ void HostBridgeSource::workerLoop()
         const bool sameTime  = prevTimeValue != INT64_MIN && d.time_value == prevTimeValue;
         const int64_t timeDelta = prevTimeValue != INT64_MIN ? d.time_value - prevTimeValue : 0;
         prevFingerprint = fp; prevTimeValue = d.time_value;
+        // The host's cadence: three equal intervals in a row make a rate
+        // (Premiere stamps each frame with sequence time; AE's viewer sends
+        // -1, which never agrees and leaves the rate unknown).
+        if (timeDelta > 0 && d.time_value >= 0 && d.time_scale > 0) {
+            if (timeDelta == prevTimeDelta) {
+                if (++sameDeltaRun >= 3) m_hostFps.store(double(d.time_scale) / double(timeDelta), std::memory_order_release);
+            } else {
+                sameDeltaRun = 0;
+            }
+            prevTimeDelta = timeDelta;
+        }
         if (dupPixels) ++statDupPixels;
         if (sameTime)  ++statSameTime;
         const double copyMs = std::chrono::duration<double, std::milli>(
