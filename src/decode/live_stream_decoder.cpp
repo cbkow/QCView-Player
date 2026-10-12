@@ -252,6 +252,10 @@ bool LiveStreamDecoder::connectOnce()
         return false;
     }
     AVStream *vs = fmt->streams[videoIdx];
+    {
+        const AVRational r = av_guess_frame_rate(fmt, vs, nullptr);
+        m_streamFps.store(r.num > 0 && r.den > 0 ? av_q2d(r) : 0.0, std::memory_order_release);
+    }
 
     // v1 demuxes everything and discards non-video, but reports audio
     // presence truthfully so the UI can say "audio not yet supported"

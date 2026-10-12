@@ -91,6 +91,7 @@ public:
     int     reconnectCount() const override {
         return m_reconnects.load(std::memory_order_acquire);
     }
+    double frameRate() const override { return m_streamFps.load(std::memory_order_acquire); }
     qint64  framesReceived() const {
         return m_framesReceived.load(std::memory_order_acquire);
     }
