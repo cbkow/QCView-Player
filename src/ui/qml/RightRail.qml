@@ -265,6 +265,11 @@ Pane {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.paddingTight
                     Layout.rightMargin: Theme.paddingTight
+                    // The 4px inter-card gap. The Inspector carries it as its
+                    // tail pad while it is shown; with nothing loaded the
+                    // Waveform section is the neighbour above, and it has none.
+                    Layout.topMargin: (inspectorPanel.visible && inspectorPanel.implicitHeight > 0)
+                                      || imageSeqPanel.visible ? 0 : Theme.paddingTight
                     Layout.bottomMargin: Theme.paddingTight
                     color: Theme.card
                     radius: Theme.radiusBase
