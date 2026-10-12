@@ -139,6 +139,7 @@ private:
     // Reused frame buffers, worker thread only. An image is reusable once
     // the renderer has let go of every copy of it (QImage::isDetached()).
     std::vector<QImage>   m_pool;
+    uint64_t              m_poolAllocs = 0;   // images allocated (not reused), worker thread only
 };
 
 } // namespace qcv

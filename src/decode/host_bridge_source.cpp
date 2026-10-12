@@ -146,6 +146,7 @@ QImage *HostBridgeSource::takePoolImage(int w, int h)
     if (m_pool.size() >= cap && m_held.empty()) m_pool.erase(m_pool.begin());
     if (!m_held.empty() && m_pool.capacity() == m_pool.size()) m_pool.reserve(m_pool.size() + 8);
     m_pool.emplace_back(w, h, QImage::Format_RGBA16FPx4);
+    ++m_poolAllocs;
     return &m_pool.back();
 }
 
@@ -216,6 +217,9 @@ void HostBridgeSource::workerLoop()
     // (the copy out of the ring, on this thread) and the rate frames arrive.
     constexpr int kStatWindow = 240;
     int     statFrames = 0;
+    uint64_t statSkipped = 0;          // sequences never taken this window
+    uint64_t statAllocs  = m_poolAllocs; // pool allocations at the window start
+    qint64   lastTakeMs  = 0;
     double  statCopySum = 0, statCopyMax = 0;
     auto    statStart = std::chrono::steady_clock::now();
 
@@ -278,6 +282,7 @@ void HostBridgeSource::workerLoop()
 
         qcbae::FrameDesc d {};
         const void *pixels = nullptr;
+        const uint64_t seqBefore = lastSeen;
         if (!ring.acquire_latest(&lastSeen, &d, &pixels)) {
             if (hs == qcbae::HostState::PausedFocus) {
                 setStatus(Paused, sentence(QStringLiteral(
@@ -309,8 +314,16 @@ void HostBridgeSource::workerLoop()
             continue;
         }
 
+        // Sequences are monotonic: a jump is frames the producer published
+        // that this reader never took (latest wins), i.e. dropped at intake.
+        const uint64_t skippedNow = (seqBefore != 0 && lastSeen > seqBefore + 1) ? lastSeen - seqBefore - 1 : 0;
+        statSkipped += skippedNow;
+        const qint64 takeMs = steadyMs();
+        const qint64 sinceLastTakeMs = lastTakeMs ? takeMs - lastTakeMs : 0;
+        lastTakeMs = takeMs;
         const int w = int(d.width), h = int(d.height);
         const auto copyStart = std::chrono::steady_clock::now();
+        const uint64_t allocsBefore = m_poolAllocs;
         QImage *img = takePoolImage(w, h);
         const auto *src = static_cast<const uint8_t *>(pixels);
         const size_t rowBytes = size_t(w) * 8u;
@@ -321,14 +334,22 @@ void HostBridgeSource::workerLoop()
             std::chrono::steady_clock::now() - copyStart).count();
         statCopySum += copyMs;
         if (copyMs > statCopyMax) statCopyMax = copyMs;
+        // Dev aid: QCV_BRIDGE_TRACE — one line per intake drop or slow take.
+        static const bool trace = qEnvironmentVariableIsSet("QCV_BRIDGE_TRACE");
+        if (trace && (skippedNow > 0 || copyMs > 20.0 || sinceLastTakeMs > 60)) {
+            qInfo("HostBridgeSource: seq %llu skipped %llu — %lld ms since the last take, copy %.2f ms, pool %zu%s",
+                  (unsigned long long)lastSeen, (unsigned long long)skippedNow, (long long)sinceLastTakeMs, copyMs,
+                  m_pool.size(), m_poolAllocs != allocsBefore ? " (allocated)" : "");
+        }
         if (++statFrames == kStatWindow) {
             const double secs = std::chrono::duration<double>(
                 std::chrono::steady_clock::now() - statStart).count();
-            qInfo("HostBridgeSource: %d frames %dx%d in %.2f s = %.2f fps; "
-                  "ring copy mean %.3f max %.3f ms",
+            qInfo("HostBridgeSource: %d frames %dx%d in %.2f s = %.2f fps; skipped %llu; "
+                  "ring copy mean %.3f max %.3f ms; pool %zu (%llu allocations)",
                   statFrames, w, h, secs, secs > 0 ? statFrames / secs : 0.0,
-                  statCopySum / statFrames, statCopyMax);
-            statFrames = 0; statCopySum = 0; statCopyMax = 0;
+                  (unsigned long long)statSkipped, statCopySum / statFrames, statCopyMax,
+                  m_pool.size(), (unsigned long long)(m_poolAllocs - statAllocs));
+            statFrames = 0; statCopySum = 0; statCopyMax = 0; statSkipped = 0; statAllocs = m_poolAllocs;
             statStart = std::chrono::steady_clock::now();
         }
 
