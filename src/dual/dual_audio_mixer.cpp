@@ -278,26 +278,30 @@ void DualAudioMixer::seekPerSide(double sourceSecondsA,
     const double offsetSec =
         m_syncOffsetMs.load(std::memory_order_relaxed) / 1000.0;
 
-    if (m_decoderA && m_decoderA->hasAudio()) {
-        if (sourceSecondsA >= 0.0) {
-            m_decoderA->seek(sourceSecondsA - offsetSec);
-            reanchorSide(m_syncA, sourceSecondsA - offsetSec);
-            m_lastSeekPosA.store(sourceSecondsA);
+    // A live side has no timeline, so the controller hands it -1 (its fps
+    // is 0): that is not a gap. Treating it as one held the side silent
+    // after every step / seek while paused, until the pump's
+    // updatePerSide ran again on play (2026-10-12). Same rule as there.
+    auto seekSide = [&](IAudioSource *dec, double sourceSeconds,
+                        std::atomic<bool> &inGap,
+                        std::atomic<double> &lastSeekPos, SideSync &sync) {
+        if (dec && dec->isLive()) {
+            inGap.store(!dec->hasAudio());
+            return;
         }
-        m_inGapA.store(sourceSecondsA < 0.0);
-    } else {
-        m_inGapA.store(true);
-    }
-    if (m_decoderB && m_decoderB->hasAudio()) {
-        if (sourceSecondsB >= 0.0) {
-            m_decoderB->seek(sourceSecondsB - offsetSec);
-            reanchorSide(m_syncB, sourceSecondsB - offsetSec);
-            m_lastSeekPosB.store(sourceSecondsB);
+        if (!dec || !dec->hasAudio()) {
+            inGap.store(true);
+            return;
         }
-        m_inGapB.store(sourceSecondsB < 0.0);
-    } else {
-        m_inGapB.store(true);
-    }
+        if (sourceSeconds >= 0.0) {
+            dec->seek(sourceSeconds - offsetSec);
+            reanchorSide(sync, sourceSeconds - offsetSec);
+            lastSeekPos.store(sourceSeconds);
+        }
+        inGap.store(sourceSeconds < 0.0);
+    };
+    seekSide(m_decoderA.get(), sourceSecondsA, m_inGapA, m_lastSeekPosA, m_syncA);
+    seekSide(m_decoderB.get(), sourceSecondsB, m_inGapB, m_lastSeekPosB, m_syncB);
 }
 
 void DualAudioMixer::reanchorSide(SideSync &sync, double anchorSrcSec)
@@ -527,7 +531,9 @@ void DualAudioMixer::beginShuttle(double srcSecA, double srcSecB,
 
     auto beginSide = [&](ShuttleAudioEngine &e, IAudioSource *dec,
                          const QString &path, double srcSec) {
-        const bool usable = dec && dec->hasAudio() && !path.isEmpty();
+        // A live side has no file for the grain reader (its path is the
+        // bridge URL); it keeps playing through the gesture instead.
+        const bool usable = dec && !dec->isLive() && dec->hasAudio() && !path.isEmpty();
         e.begin(usable ? path : QString(),
                 std::max(0.0, srcSec), signedSpeed,
                 dec ? dec->routingMode() : 0);
@@ -569,7 +575,8 @@ void DualAudioMixer::endShuttle()
     if (m_shuttleA) m_shuttleA->end();
     if (m_shuttleB) m_shuttleB->end();
 #if QCV_DUAL_HAS_AUDIO_DEVICE
-    if (m_device && !m_playing.load()) m_device->stop();
+    // A live side keeps the device running (as pause() does).
+    if (m_device && !m_playing.load() && !anyLive()) m_device->stop();
 #endif
 }
 
