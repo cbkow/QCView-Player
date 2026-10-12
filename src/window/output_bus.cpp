@@ -493,7 +493,12 @@ void OutputBus::audioTap(void *ctx, const float *stereo, uint32_t frames, bool m
 
 void OutputBus::tap(const float *stereo, uint32_t frames, bool muted)
 {
-    // Device thread: fixed buffers, no locks, no allocation.
+    // Device thread: fixed buffers, no locks, no allocation. With no output
+    // enabled there is no ring to feed and nothing is touched: the tap is
+    // installed for the life of the player, the cost is only paid when on.
+    bool any = false;
+    for (auto &slot : m_audioSlots) if (slot.load(std::memory_order_acquire)) { any = true; break; }
+    if (!any) return;
     constexpr uint32_t kChunk = 1024;
     thread_local float planes[2][kChunk];
     const bool silent = muted || m_feedMuted.load(std::memory_order_acquire);
