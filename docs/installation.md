@@ -52,6 +52,13 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.5
+
+- **Output on Windows** — the NDI feed from the D3D11 renderer no longer skipped every other frame, and a frame reaches the sink within milliseconds of the GPU finishing it instead of at the next draw: two frames behind the viewport at a receiver on the same machine, down from four. Dual view with a live side (a Premiere or After Effects feed) now publishes while QCView's own transport is paused, on both platforms.
+- **Output frame rate** — a live feed tells the sink its real rate (a 23.976 Premiere sequence goes out as 23.976, not 25), so receivers pace it correctly.
+- **Interface** — the view-mode buttons above the viewport use clearer icons for single, side-by-side, split wipe and difference; the Keyboard Shortcuts card keeps its spacing below the scopes with nothing loaded.
+- **Diagnostics** — the live-feed reader's log line now counts frames it never took and duplicates it was handed, and `QCV_BRIDGE_TRACE=1` logs each one.
+
 What's new in 2.5.4
 
 - **Live audio from Premiere Pro** — with QCBridgeAE 0.3.1 and **Audio Stream** ticked for the device in Premiere's Playback preferences, the sequence's audio arrives beside the picture over the bridge: the Inspector's Audio card shows the stream's state, rate and channels with per-channel meters, **Listen in QCView** plays it (off by default — Premiere is playing it already), 5.1 and 7.1 fold to stereo by the same routing rules as files, **Mute scrub audio** applies to it, and an **A/V sync (Live)** offset per host application delays the audio or holds the picture. Live sides in dual view carry their audio into the mix.
