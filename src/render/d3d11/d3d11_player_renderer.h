@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "output_target.h"
+#include "render/output_target.h"
 #include "color/ocio_chain_spec.h"
 #include "render/iplayer_renderer.h"
 

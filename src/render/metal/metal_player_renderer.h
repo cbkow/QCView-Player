@@ -21,7 +21,7 @@
 #pragma once
 
 #include "iplayer_renderer.h"
-#include "output_target.h"
+#include "render/output_target.h"
 
 #include "annotations/active_stroke.h"
 #include "color/linear_stage.h"
