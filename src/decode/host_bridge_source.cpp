@@ -337,14 +337,18 @@ void HostBridgeSource::workerLoop()
         for (int y = 0; y < h; ++y)
             std::memcpy(img->scanLine(y), src + size_t(y) * d.bytes_per_row, rowBytes);
         ring.release();
-        // A cheap fingerprint of the picture (512 bytes from each of 16 rows):
+        // A cheap fingerprint of the picture (64 samples across each of 16 rows):
         // a frame that fingerprints like the one before it is a duplicate the
         // producer handed over, however its time stamp moved.
         uint64_t fp = 1469598103934665603ULL;
         for (int i = 0; rowBytes >= 1024 && i < 16; ++i) {
             const int y = int((int64_t(h) * (2 * i + 1)) / 32);
-            const auto *row = reinterpret_cast<const uint64_t *>(img->constScanLine(y) + (rowBytes / 2 & ~size_t(7)) - 256);
-            for (int k = 0; k < 64; ++k) { fp ^= row[k]; fp *= 1099511628211ULL; }
+            const uchar *row = img->constScanLine(y);
+            const size_t usable = rowBytes - 8;
+            for (int k = 0; k < 64; ++k) {   // spread across the row, not a middle strip
+                uint64_t word; std::memcpy(&word, row + ((usable * k / 64) & ~size_t(7)), 8);
+                fp ^= word; fp *= 1099511628211ULL;
+            }
         }
         const bool dupPixels = prevFingerprint != 0 && fp == prevFingerprint;
         const bool sameTime  = prevTimeValue != INT64_MIN && d.time_value == prevTimeValue;
