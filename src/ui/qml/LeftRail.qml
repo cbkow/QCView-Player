@@ -2013,9 +2013,12 @@ Rectangle {
                                                  + "application; QCView starts it when the "
                                                  + "switch goes on and stops it when it goes off.")
                                     }
-                                    SlotSwitch {
-                                        checked: modelData.enabled
-                                        onToggled: WindowManager.outputs.setEnabled(modelData.id, checked)
+                                    FlatButton {
+                                        Layout.preferredWidth: 110
+                                        Layout.preferredHeight: 22
+                                        variant: modelData.enabled ? "danger" : "primary"
+                                        text: modelData.enabled ? qsTr("Stop") : qsTr("Start")
+                                        onClicked: WindowManager.outputs.setEnabled(modelData.id, !modelData.enabled)
                                     }
                                     Item { Layout.preferredWidth: 22 }
                                 }
@@ -2094,7 +2097,6 @@ Rectangle {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    Layout.rightMargin: 22 + Theme.spacing
                                     spacing: Theme.spacing
                                     FlatTextField {
                                         Layout.fillWidth: true
@@ -2106,14 +2108,29 @@ Rectangle {
                                         font.pixelSize: Theme.fontSizeMono
                                         onEditingFinished: streamBlock.setting("key", text)
                                     }
-                                    FlatButton {
+                                    // The show/hide eye takes the revert column's
+                                    // 22 px slot, drawn like RevertBtn so it lines up
+                                    // with the arrows below it.
+                                    Item {
                                         Layout.preferredWidth: 22
                                         Layout.preferredHeight: 22
-                                        variant: "subtle"
-                                        iconName: streamBlock.showKey ? "eye-slash" : "eye"
-                                        iconSize: Theme.iconSizeSmall
-                                        tooltipText: streamBlock.showKey ? qsTr("Hide the key") : qsTr("Show the key")
-                                        onClicked: streamBlock.showKey = !streamBlock.showKey
+                                        Icon {
+                                            anchors.centerIn: parent
+                                            name: streamBlock.showKey ? "eye-slash" : "eye"
+                                            size: Theme.iconSizeSmall
+                                            color: eyeMa.containsMouse ? Theme.accent : Theme.textMuted
+                                        }
+                                        MouseArea {
+                                            id: eyeMa
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            hoverEnabled: true
+                                            onClicked: streamBlock.showKey = !streamBlock.showKey
+                                            FlatToolTip {
+                                                visible: eyeMa.containsMouse
+                                                text: streamBlock.showKey ? qsTr("Hide the key") : qsTr("Show the key")
+                                            }
+                                        }
                                     }
                                 }
                                 RowLayout {
