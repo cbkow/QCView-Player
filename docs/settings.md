@@ -26,3 +26,11 @@ On by default. Click and drag anywhere on the viewport to move the whole window,
 ## Hover Thumbnails
 
 Toggle the timeline hover thumbnail preview on or off (low-RAM systems or focus-mode users may prefer it off).
+
+## Live audio
+
+Two settings apply to the audio a QCBridge feed carries: **A/V sync (Live)**, an offset per host application that delays the audio (or, when negative, holds the picture) so the two meet on your system, and the **live audio buffer**, the depth the feed's jitter buffer fills to before it plays. Raise the buffer if a busy host chops the sound; lower it for a tighter feel.
+
+## Output
+
+Outputs — the NDI® sink and the stream to a review service — have moved out of Settings into their own **Output** section in the Left Rail. See [Output](/output/).

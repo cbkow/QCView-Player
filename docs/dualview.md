@@ -41,6 +41,10 @@ Per-side mute and an A/B level mixer live in the Inspector's Audio routing contr
 A separate **A/V Sync Offset** value is stored for dual view (different from the single-view value) — your offset for compositing two sources doesn't get applied to single-source playback and vice versa.
 
 
+## Live sides
+
+A live source — a QCBridge feed from After Effects or Premiere Pro, or an SRT stream — can take either side. The chip shows the feed's status dot, and the live side has no clip on the timeline: it plays whenever the host sends, and keeps playing while the file side is paused, stepped, shuttled or seeked. Its audio joins the mix like a file's, with the same per-side mute and Listen rule. With a live source on both sides there is no clock to drive, so the transport and the timeline hide. Notes are not available in dual view; freeze and annotate a feed in single view.
+
 ## Aligning Clips
 
 Drag clips on the track or trim their ends to sync them. Use `Ctrl + K` (Windows) or `CMD + K` (MacOS) to cut a clip at the playhead (for example to clip off slates or unwanted heads), then **Delete** to remove the unwanted segment.

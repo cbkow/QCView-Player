@@ -22,6 +22,8 @@ The bottom of the viewport contains playback controls and timeline navigation. T
 | Fast-forward | Press and hold — accelerates over time | `D` / `L` (hold) | `D` / `L` (hold) |
 | End | Jump to end of media | `End` (or `Fn + →`) | `End` |
 
+On a live feed the transport keys are ignored and `M` mutes it; `Space` freezes the feed for a note and brings it back (see [Notes on live feeds](/annotations/#notes-on-live-feeds)).
+
 In **playlist mode**, additional **Prev clip** / **Next clip** buttons appear. They jump the playhead to the start of the previous or next clip in the playlist. Prev snaps to the current clip's start first (mid-clip); a second press jumps to the previous clip.
 
 ![Prev clip and Next clip transport buttons in playlist mode](images/qcv011.jpg)

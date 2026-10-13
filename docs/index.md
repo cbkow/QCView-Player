@@ -37,9 +37,14 @@ nav_order: 1
 - GPU vectorscope and waveform (nits on HDR sources, manual % / nits scale) with a peak readout, and a per-clip Transfer override for sources without usable tags
 - Screenshots and notes exports apply the OCIO transform
 
+### Live Feeds and Output
+- Live sources: After Effects and Premiere Pro through [QCBridgeAE](/qcbridge/adobe/) (full-float picture, Premiere's audio), Blender through [QCBridge](/qcbridge/blender/), and SRT streams
+- Notes on a live feed: freeze the frame, draw, review it again later; notes live in the project with capture time and host timecode, and open in minNotes
+- Output: the corrected viewport with mixed audio as an NDI® source (QCBridgeN) or as an H.264 + AAC stream over SRT or RTMP to Louper or any server, encoded by the GPU, with automatic reconnect
+
 ### Review Tools
 - Annotations + notes with brush, line smoothing, screenshot illustrations, and Markdown / HTML / PDF / DOCX export
-- Dual-view comparison: side-by-side, split-wipe with mouse-drag seam, difference mode, independent A / B controls
+- Dual-view comparison: side-by-side, split-wipe with mouse-drag seam, difference mode, independent A / B controls, a live feed on either side
 - Title-safety guides for broadcast and social-media deliverables
 - Live background switching for alpha-channel review
 

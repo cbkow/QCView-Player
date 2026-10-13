@@ -13,7 +13,7 @@ nav_order: 2
 
 ## Requirements
 
-- **QCView 2.4.0 or newer** on the same machine.
+- **QCView 2.4.0 or newer** on the same machine. Audio from Premiere Pro needs QCView 2.5.4 and QCBridgeAE 0.3.1; notes on the feed and the stream output need QCView 2.5.6.
 - After Effects or Premiere Pro with Mercury Transmit (any current release).
 - macOS on Apple Silicon, or Windows x64.
 
@@ -59,3 +59,23 @@ The feed carries no colour tag, so with OCIO off the scopes read it as SDR. The 
 - You can stream from AE and Premiere at the same time and between them, or use them in QCView Dual View review modes.
 
 ![QCView player window](images/qcbridge_008.png)
+
+---
+
+## Audio from Premiere Pro
+
+Premiere Pro can push the sequence's audio alongside the picture. In *Settings → Playback*, tick **Audio Stream** for the QCBridgeAE device. The Inspector's **Audio** card then shows the stream's state, rate and channels with per-channel meters.
+
+- **Listen in QCView** plays the feed's audio through QCView. It is off by default — Premiere is already playing it — and useful when QCView is on another output or when the feed is sent on through the Output section, which carries the audio whether you listen or not.
+- 5.1 and 7.1 sequences fold to stereo by the same routing rules as files; **Mute scrub audio** applies to the feed too.
+- **A/V sync (Live)** in Settings delays the audio or holds the picture, per host application, to line the two up on your system.
+- Live audio keeps a small jitter buffer that fills before it plays and refills after an underrun, so a busy Premiere does not chop the sound.
+
+After Effects sends picture only.
+
+## Working with the feed in QCView
+
+- **The transport keys leave the feed alone.** Play/pause, frame step, shuttle and seek have no meaning for a feed, so they are ignored; `M` mutes it. On a live item, `Space` freezes the feed for a note and brings it back — see [Notes on live feeds](/annotations/#notes-on-live-feeds).
+- **Notes** on a feed capture the frame you are looking at and live in the QCView project. For Premiere Pro each note records the sequence timecode it came from.
+- **Dual view** takes a feed on either side. It keeps playing, with its audio in the mix, while the file side is paused, stepped or shuttled. See [Dual View](/dual-view/#live-sides).
+- **Sending it on.** The [Output](/output/) section publishes the viewport — the feed with QCView's colour transform, guides and notes — as an NDI® source or as an H.264 stream to a review service.
