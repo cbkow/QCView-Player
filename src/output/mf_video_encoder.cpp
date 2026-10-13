@@ -389,13 +389,13 @@ const char *MfVideoEncoder::name() const { return m_impl->name.c_str(); }
 
 bool MfVideoEncoder::prepareSurfaces(uint32_t width, uint32_t height, std::string *error)
 {
+    // Only the size: the textures are created on first acquire, on the
+    // render thread, once the D3D11 device exists (the bus may start a
+    // session before the renderer has initialised).
     Impl &I = *m_impl;
     if (I.poolW == width && I.poolH == height) return true;
     releaseSurfaces();
-    if (!I.device()) {
-        if (error) *error = "no D3D11 device for the stream surfaces";
-        return false;
-    }
+    (void)error;
     std::lock_guard<std::mutex> lk(I.poolMutex);
     I.poolW = width; I.poolH = height;
     return true;
