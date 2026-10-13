@@ -72,6 +72,7 @@ public:
     ~LiveStreamDecoder() override;
 
     void setSink(LiveFrameSink *sink) override { m_sink = sink; }
+    void setPublishEnabled(bool on) override { m_publish.store(on, std::memory_order_release); }
 
     // WindowManager installs the renderer's requestUpdate here (see
     // LiveSource). Same cross-thread contract as the dual sources'
@@ -140,6 +141,7 @@ private:
 
     std::thread           m_thread;
     std::atomic<bool>     m_stopRequested{false};
+    std::atomic<bool>     m_publish{true};   // plan B2: off while a Review frame is shown
     std::mutex            m_sleepMutex;
     std::condition_variable m_sleepCv;
 

@@ -42,6 +42,8 @@ struct UBO {
     int    rotA;         // per-side display rotation, quarter-turns CW
     int    rotB;         //   {0..3}; srcSize arrives display-swapped
     int    clampRgb;     // 1 = clamp the sample to 0..1 (OCIO bypassed)
+    int    linearizeSrc; // 1 = the sample is sRGB-encoded and the drawable
+                         //     is linear-light: decode it (Review bypass)
 };
 
 struct VsOut {
@@ -97,6 +99,15 @@ static inline float4 sampleFit(texture2d<float, access::sample> src,
     else if (rot == 2) t = float2(1.0 - t.x, 1.0 - t.y);    // 180
     else if (rot == 3) t = float2(1.0 - t.y, t.x);          // 270 CW
     return src.sample(smp, t);
+}
+
+// sRGB EOTF for a display-referred source on a linear-light drawable
+// (plan B2's Review picture); the same curve bg_fs uses for its fill.
+static inline float3 srgbToLinearSrc(float3 c)
+{
+    float3 lo = c / 12.92;
+    float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+    return select(hi, lo, c <= 0.04045);
 }
 
 fragment float4 fs_main(VsOut in [[stage_in]],
@@ -183,6 +194,7 @@ fragment float4 fs_main(VsOut in [[stage_in]],
     // for OCIO. With OCIO bypassed the present pass restores the old
     // 0..1 raw view, so an EDR drawable never shows them as HDR.
     if (u.clampRgb != 0) color.rgb = clamp(color.rgb, 0.0, 1.0);
+    if (u.linearizeSrc != 0) color.rgb = srgbToLinearSrc(color.rgb);
     color.rgb *= u.brightness;
     return color;
 }
@@ -478,6 +490,7 @@ struct MetalCompositor::Impl {
 
     float                      brightness      = 1.0f;
     bool                       clampToUnit     = false;
+    bool                       linearizeSource = false;   // plan B2 Review on an EDR drawable
 };
 
 MetalCompositor::MetalCompositor()
@@ -494,6 +507,11 @@ MetalCompositor::~MetalCompositor()
 void MetalCompositor::setBrightness(float brightness)
 {
     if (m_impl) m_impl->brightness = brightness;
+}
+
+void MetalCompositor::setLinearizeSource(bool on)
+{
+    if (m_impl) m_impl->linearizeSource = on;
 }
 
 void MetalCompositor::setClampToUnit(bool clamp)
@@ -665,6 +683,7 @@ void MetalCompositor::renderSources(void *encoderPtr,
         float borderR, borderG, borderB;
         int   rotA, rotB;
         int   clampRgb;
+        int   linearizeSrc;
     } ubo = {
         static_cast<float>(dstWidth),  static_cast<float>(dstHeight),
         static_cast<float>(srcAW),     static_cast<float>(srcAH),
@@ -677,6 +696,7 @@ void MetalCompositor::renderSources(void *encoderPtr,
         0.0f, 0.0f, 0.0f,
         rotA & 3, rotB & 3,
         m_impl->clampToUnit ? 1 : 0,
+        m_impl->linearizeSource ? 1 : 0,
     };
 
     [enc setRenderPipelineState:m_impl->pipeline];
@@ -759,6 +779,7 @@ void MetalCompositor::renderCornerOverlay(void *encoderPtr,
         float borderR, borderG, borderB;
         int   rotA, rotB;
         int   clampRgb;
+        int   linearizeSrc;
     } ubo = {
         boxW, boxH,
         static_cast<float>(thumbW), static_cast<float>(thumbH),
@@ -776,6 +797,7 @@ void MetalCompositor::renderCornerOverlay(void *encoderPtr,
         /*borderRGB ≈ #474747=*/0.28f, 0.28f, 0.28f,
         rotQuarters & 3, rotQuarters & 3,
         /*clampRgb=*/0,
+        /*linearizeSrc=*/0,
     };
 
     [enc setRenderPipelineState:m_impl->pipeline];

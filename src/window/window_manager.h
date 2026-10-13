@@ -411,6 +411,11 @@ public:
     // has nowhere to go. Every transport entry point asks this first;
     // B2 turns Space on a live item into freeze / back to live instead.
     bool liveTransportLocked(const char *what) const;
+    // B2 helpers (see the Q_INVOKABLEs above).
+    void showReviewImage(const QImage &img);
+    void adoptReviewNote(const QString &timecode);
+    void ensureFrozenForNote();
+    void stepReviewNote(int delta);
     NoteKey currentNoteKey() const;
     // Is this note the one the viewport shows: frame match for files,
     // the Review key for streams (B2 sets it; empty = live, none match).
@@ -1066,6 +1071,18 @@ public:
     bool notesNeedProjectSave() const { return m_notesNeedProjectSave; }
     // The Save tile's action: Main.qml answers with its projectSave().
     Q_INVOKABLE void requestProjectSave() { emit projectSaveRequested(); }
+    // Plan B2 — LIVE / REVIEW on a live item. Review puts a stream note's
+    // captured frame (or a transient freeze of the feed) on the viewport:
+    // the live source keeps receiving but publishes nothing, the renderer
+    // bypasses the view transform (the frame is display-referred already),
+    // the outputs follow the viewport. Space / Escape / the pill leave it.
+    Q_PROPERTY(bool liveReview READ liveReview NOTIFY liveReviewChanged)
+    Q_PROPERTY(QString reviewLabel READ reviewLabel NOTIFY liveReviewChanged)
+    bool liveReview() const { return !m_reviewKey.isEmpty() || m_reviewTransient; }
+    QString reviewLabel() const { return m_reviewLabel; }
+    Q_INVOKABLE void enterReview(const QString &timecode);   // a note's frame
+    Q_INVOKABLE void freezeLive();                           // the feed's current frame
+    Q_INVOKABLE void exitReview();                           // back to live
 
     // List of notes for the current media as QVariantMaps (one per
     // note: timecode, frame, timestampSeconds, text, addressed,
@@ -1261,6 +1278,7 @@ signals:
     void viewerAidsChanged();
     void streamNotesStateChanged();
     void projectSaveRequested();
+    void liveReviewChanged();
     // Phase 3.H.6 — re-emitted from AnnotationManager.notesChanged
     // for QML bindings, plus fires when the active media swaps to
     // a different sidecar. annotationsAllowedChanged tracks the
@@ -1574,7 +1592,11 @@ private:
     // Stream notes (plan B1/B2).
     bool    m_activeNotesAreStream = false;
     bool    m_notesNeedProjectSave = false;
-    QString m_reviewKey;   // B2: the stream note on the viewport; empty = live
+    QString m_reviewKey;   // B2: the stream note on the viewport; empty = live or a transient freeze
+    bool    m_reviewTransient = false;   // B2: frozen without a note yet
+    NoteKey m_frozenKey;                 // minted when the feed froze; the first note takes it
+    QImage  m_reviewImage;               // what the viewport shows in Review (RGBA8888)
+    QString m_reviewLabel;               // "HH:mm:ss" of the capture, for the pill
     QList<AnnotationUndoEntry>           m_annotationRedoStack;
     bool                                 m_notesPanelVisible = false;
 

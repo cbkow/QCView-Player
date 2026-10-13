@@ -96,7 +96,8 @@ cbuffer Constants : register(b0) {
     float4 mediaRect;      // layoutMode 0: xy = min, zw = size (dst pixels)
     float  refNits;        // reference luminance for encodings 1 / 2
     int    applyBrightness;// 0 = source written without the multiplier
-    float2 _pad1;
+    int    encodeSource;   // 1 = the source is sRGB: encode it like the fill
+    float  _pad1;
 };
 
 Texture2D    src       : register(t0);
@@ -299,6 +300,7 @@ float4 PSMain(VsOut input) : SV_TARGET
     {
         float2 srcUv = (fragPx - fitRectMin) / fitRectSize;
         float4 v = src.Sample(srcSamp, rotatedSrcUv(srcUv));
+        if (encodeSource != 0) v.rgb = encodeFill(v.rgb);
         // Source-over-alpha composite onto the bg fill, then write
         // fully-opaque to the swapchain so DComp doesn't compose
         // transparent video pixels against whatever's underneath the
@@ -407,7 +409,8 @@ struct CompositorCB {
     float mediaRect[4];   // 144  layoutMode 0: min.xy, size.zw (dst px)
     float refNits;        // 148
     int   applyBrightness;// 152
-    float pad1[2];        // 160
+    int   encodeSource;   // 156
+    float pad1;           // 160
 };
 static_assert(sizeof(CompositorCB) == 160,
               "CompositorCB must match HLSL packing exactly.");
@@ -702,6 +705,7 @@ void D3D11Compositor::renderSingle(void *ctxVoid, void *srcSrvVoid,
     cb.rotQ       = rotQuarters & 3;
     cb.brightness = m_impl->brightness;
     cb.applyBrightness = (!opts || opts->applyBrightness) ? 1 : 0;
+    cb.encodeSource    = (opts && opts->encodeSource) ? 1 : 0;
     cb.borderPx       = borderPx;
     cb.borderColor[0] = borderR;
     cb.borderColor[1] = borderG;

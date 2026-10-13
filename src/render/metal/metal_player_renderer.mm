@@ -907,6 +907,14 @@ void MetalPlayerRenderer::setHdrMode(HdrMode mode)
     m_impl->hdr.setMode(mode);
 }
 
+void MetalPlayerRenderer::setViewTransformBypass(bool on)
+{
+    if (m_viewBypass.exchange(on, std::memory_order_acq_rel) != on) {
+        qInfo("MetalPlayerRenderer: view transform %s (Review)", on ? "bypassed" : "restored");
+        requestUpdate();
+    }
+}
+
 void MetalPlayerRenderer::setBrightness(float brightness)
 {
     // Brightness is the linear stage's gain: applied inside the split
@@ -2273,7 +2281,9 @@ void MetalPlayerRenderer::drawFrame()
     // compositeCorrected just aliases compositeRaw (no copy).
     void *compositeCorrected = (__bridge void *)m_impl->compositeRaw;
     const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
-    if (haveSourceTexture && chains && chains->engaged
+    // Plan B2: a Review picture is display-referred already.
+    const bool viewBypass = m_viewBypass.load(std::memory_order_acquire);
+    if (haveSourceTexture && chains && chains->engaged && !viewBypass
         && m_impl->compositeRaw) {
         m_impl->ocio.setStage(chains->single.stage(m_gain.load(std::memory_order_relaxed)));
         m_impl->ocio.setViewer(currentViewerAids());
@@ -2332,7 +2342,7 @@ void MetalPlayerRenderer::drawFrame()
     // ---- Vectorscope tap (source(s) → scope image; lags by design) ----
     if (haveSourceTexture) {
         const bool hybridB = m_decoderB && m_impl->videoFrameRgbaB;
-        m_impl->encodeScope(cb, m_ocio, sourceTexture, sourceW, sourceH,
+        m_impl->encodeScope(cb, viewBypass ? nullptr : m_ocio, sourceTexture, sourceW, sourceH,
                             hybridB ? (__bridge void *)m_impl->videoFrameRgbaB : nullptr,
                             hybridB ? m_impl->videoFrameWB : 0,
                             hybridB ? m_impl->videoFrameHB : 0);
@@ -2383,6 +2393,10 @@ void MetalPlayerRenderer::drawFrame()
             m_impl->presentCompositor.setClampToUnit(
                 compositeCorrected ==
                 (__bridge void *)m_impl->compositeRaw);
+            // The Review PNG is sRGB; a linear-light drawable needs it
+            // decoded like the fill (plan B2).
+            m_impl->presentCompositor.setLinearizeSource(
+                viewBypass && isLinearHdrMode(m_impl->hdr.appliedMode()));
             m_impl->presentCompositor.renderSingle(
                 (__bridge void *)enc, compositeCorrected,
                 m_impl->compositeW, m_impl->compositeH, dstW, dstH);
@@ -2631,7 +2645,8 @@ void MetalPlayerRenderer::drawFrame()
             void *correctedTex =
                 (__bridge void *)m_impl->captureSourceRgba16f;
             const auto capChains = m_ocio ? m_ocio->snapshot() : nullptr;
-            if (capChains && capChains->engaged) {
+            if (capChains && capChains->engaged
+                && !m_viewBypass.load(std::memory_order_acquire)) {
                 m_impl->captureOcio.setStage(
                     capChains->single.stage(m_gain.load(std::memory_order_relaxed)));
                 m_impl->captureOcio.setViewer(currentViewerAids());
@@ -2996,7 +3011,7 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
 
         // ---- 2. OCIO: the SDR equivalent of the live view ----
         void *corrected = (__bridge void *)res.canvas16f;
-        if (in.chains && in.chains->engaged) {
+        if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
             const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
             m_impl->outputOcio.setStage(specA.stage(gain));
             m_impl->outputOcio.setViewer(aids);

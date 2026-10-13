@@ -122,6 +122,10 @@ public:
         // the single-flow present pass, where the source pass already
         // applied it pre-OCIO. The fill is never brightness-scaled.
         bool applyBrightness = true;
+        // Encode the source for the swapchain the way the fill is
+        // encoded: the picture is display-referred sRGB (plan B2's
+        // Review PNG with the view transform bypassed). SDR: no-op.
+        bool encodeSource = false;
         // Media footprint for the bounds fill. nullptr → whole
         // destination is "inside" (plain fill).
         const BackgroundLayout *layout = nullptr;

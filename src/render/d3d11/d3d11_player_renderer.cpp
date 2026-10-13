@@ -1537,7 +1537,9 @@ void D3D11PlayerRenderer::drawFrame()
     // active chain is buildable (rebuild() succeeds OR has succeeded
     // earlier on the same generation).
     const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
-    bool useOcio = chains && chains->engaged && m_impl->ocio.isInitialized();
+    // Plan B2: a Review picture is display-referred already.
+    const bool viewBypass = m_viewBypass.load(std::memory_order_acquire);
+    bool useOcio = chains && chains->engaged && !viewBypass && m_impl->ocio.isInitialized();
     if (useOcio) {
         useOcio = rebuildOcio(m_impl->ocio, chains->single);
         // Every other chain in the project, built in the background, so
@@ -1793,6 +1795,10 @@ void D3D11PlayerRenderer::drawFrame()
         vp.MinDepth = 0; vp.MaxDepth = 1;
         ctx->RSSetViewports(1, &vp);
 
+        // Review (plan B2): the PNG is final — no brightness, and it is
+        // encoded for an scRGB / PQ swapchain exactly like the fill.
+        presentOpts.applyBrightness = !viewBypass;
+        presentOpts.encodeSource    = viewBypass;
         m_impl->compositor.renderSingle(
             ctx,
             m_impl->videoA.srv.Get(),
@@ -1944,7 +1950,7 @@ void D3D11PlayerRenderer::drawFrame()
         encodeOutputs(ctx, device, in);
     }
 
-    m_impl->encodeScope(ctx, m_ocio, m_impl->videoA.srv.Get(),
+    m_impl->encodeScope(ctx, viewBypass ? nullptr : m_ocio, m_impl->videoA.srv.Get(),
                         m_impl->videoA.width, m_impl->videoA.height,
                         nullptr, 0, 0);
 
@@ -2462,7 +2468,8 @@ void D3D11PlayerRenderer::drawDualFrame()
 void D3D11PlayerRenderer::warmCaptureOcio(const OcioChainSpec &spec)
 {
     const auto chains = m_ocio ? m_ocio->snapshot() : nullptr;
-    if (!chains || !chains->engaged || !m_impl->captureOcio.isInitialized()) {
+    if (!chains || !chains->engaged || !m_impl->captureOcio.isInitialized()
+        || m_viewBypass.load(std::memory_order_acquire)) {
         return;
     }
     m_impl->captureSpec     = spec;
@@ -2611,7 +2618,8 @@ void D3D11PlayerRenderer::serviceScreenshotRequest(bool fromDualCanvas)
     {
         D3D11OcioRenderer *capOcio = nullptr;
         const auto capChains = m_ocio ? m_ocio->snapshot() : nullptr;
-        if (capChains && capChains->engaged) {
+        if (capChains && capChains->engaged
+            && !m_viewBypass.load(std::memory_order_acquire)) {
             // The chain on screen: A's on the dual canvas (B's is added
             // below when the sides differ), single view the clip's.
             const OcioChainSpec &spec = fromDualCanvas ? capChains->a : capChains->single;
@@ -2774,6 +2782,14 @@ void D3D11PlayerRenderer::setHdrMode(HdrMode mode)
     // annotation PSO if the format changes).
     m_impl->hdrSwapchain.setMode(mode);
     requestUpdate();
+}
+
+void D3D11PlayerRenderer::setViewTransformBypass(bool on)
+{
+    if (m_viewBypass.exchange(on, std::memory_order_acq_rel) != on) {
+        qInfo("D3D11PlayerRenderer: view transform %s (Review)", on ? "bypassed" : "restored");
+        requestUpdate();
+    }
 }
 
 void D3D11PlayerRenderer::setBrightness(float brightness)
@@ -3260,7 +3276,7 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
 
         // ---- 2. OCIO: the SDR equivalent of the live view ----
         ID3D11ShaderResourceView *corrected = res.canvas.srv.Get();
-        if (in.chains && in.chains->engaged) {
+        if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
             const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
             D3D11OcioRenderer *capA = nullptr;
             if (specA.needsSdrCapture()) {

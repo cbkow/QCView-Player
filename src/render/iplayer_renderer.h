@@ -244,6 +244,15 @@ public:
     // sRGB; a tonemap pass is a follow-up.
     virtual QImage captureScreenshot() { return QImage(); }
 
+    // Plan B2 (notes on live streams): while a stream's Review frame is
+    // on the viewport — a display-referred sRGB PNG QCView captured
+    // itself — the view transform must not run again over it. The
+    // single draw, the capture, the output pass and the scope tap all
+    // treat OCIO as disengaged while this is set; the compositor
+    // encodes the picture for a linear / PQ swapchain the way it
+    // encodes its own fill. Thread-safe; takes effect at the next draw.
+    virtual void setViewTransformBypass(bool /*on*/) {}
+
     // Phase 3.H.5 — hover-thumbnail handle from
     // TimelineThumbnailCache (uint64_t handle into
     // MetalTexturePool::thumbnailInstance()). Renderer composites

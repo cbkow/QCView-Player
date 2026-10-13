@@ -86,6 +86,7 @@ public:
     void setStoredAnnotationStrokes(
         const std::vector<ActiveStroke> &strokes) override;
     QImage captureScreenshot() override;
+    void setViewTransformBypass(bool on) override;
     void setOutputTargets(const std::vector<output::OutputTarget *> &targets) override;
 
 private:
@@ -136,6 +137,7 @@ private:
     // Brightness as linear-stage gain (applied inside the split OCIO
     // chain, before the View — see color/linear_stage.h). 1.0 = identity.
     std::atomic<float>          m_gain{1.0f};
+    std::atomic<bool>           m_viewBypass{false};   // plan B2: Review picture on the viewport
     std::atomic<float>          m_viewerGamma{1.0f};
     std::atomic<int>            m_viewerChannel{0};
     BackgroundMode      m_bgMode    = BackgroundMode::Black;

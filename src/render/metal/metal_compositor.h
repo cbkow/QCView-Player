@@ -78,6 +78,11 @@ public:
     // on when OCIO is bypassed so the raw view keeps its old 0..1 look.
     // Baked into the UBO like brightness; corner overlays never clamp.
     void setClampToUnit(bool clamp);
+    // Decode the sample as sRGB before brightness: the source is a
+    // display-referred picture (plan B2's Review PNG) and the drawable is
+    // linear-light, so it must take the same EOTF the fill does. Only the
+    // present compositor sets it, only while the view transform is bypassed.
+    void setLinearizeSource(bool on);
 
     // Two-source render. `encoder` is an active
     // id<MTLRenderCommandEncoder> (passed as void* to keep this

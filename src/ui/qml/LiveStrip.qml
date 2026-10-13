@@ -85,12 +85,13 @@ Rectangle {
         Rectangle {
             width: 8; height: 8; radius: 4
             Layout.alignment: Qt.AlignVCenter
-            color: root.isLive ? "#e5484d"
+            color: WindowManager.liveReview ? "#e6a23c"
+                 : root.isLive ? "#e5484d"
                  : (root.isReconnecting || root.isConnecting || root.isPaused)
                    ? "#e6a23c" : Theme.textMuted
-            // On-air pulse while live.
+            // On-air pulse while live (steady in Review — plan B2).
             SequentialAnimation on opacity {
-                running: root.isLive
+                running: root.isLive && !WindowManager.liveReview
                 loops: Animation.Infinite
                 NumberAnimation { from: 1.0; to: 0.35; duration: 900 }
                 NumberAnimation { from: 0.35; to: 1.0; duration: 900 }
@@ -98,7 +99,8 @@ Rectangle {
             opacity: 1.0
         }
         Text {
-            text: root.isLive ? qsTr("LIVE")
+            text: WindowManager.liveReview ? qsTr("REVIEW · %1").arg(WindowManager.reviewLabel)
+                : root.isLive ? qsTr("LIVE")
                 : root.isPaused ? qsTr("PAUSED")
                 : (root.isShm && (root.isReconnecting || root.isConnecting)) ? qsTr("WAITING")
                 : root.isReconnecting ? qsTr("RECONNECTING")

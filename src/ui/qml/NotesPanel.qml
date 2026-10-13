@@ -186,13 +186,69 @@ Pane {
             Layout.preferredWidth: root.kAddTileWidth
             Layout.fillHeight: true
 
+            // Plan B2 — the LIVE / REVIEW pill for a stream item. Review
+            // puts a note's captured frame (or a frozen feed) on the
+            // viewport; clicking the pill freezes the feed or goes back
+            // to live (Space and Escape do the same).
+            Rectangle {
+                id: reviewPill
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: visible ? 26 : 0
+                radius: Theme.radiusSmall
+                visible: WindowManager.activeNotesAreStream
+                readonly property bool inReview: WindowManager.liveReview
+                color: pillMa.containsMouse ? Theme.surfaceHover : Theme.bg
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 6
+                    Rectangle {
+                        width: 8; height: 8; radius: 4
+                        Layout.alignment: Qt.AlignVCenter
+                        color: reviewPill.inReview ? "#e6a23c" : "#e5484d"
+                    }
+                    Text {
+                        Layout.alignment: Qt.AlignVCenter
+                        text: reviewPill.inReview
+                              ? qsTr("REVIEW · %1").arg(WindowManager.reviewLabel)
+                              : qsTr("LIVE")
+                        color: Theme.textBright
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.bold: true
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+                    Text {
+                        Layout.alignment: Qt.AlignVCenter
+                        visible: pillMa.containsMouse
+                        text: reviewPill.inReview ? qsTr("back to live") : qsTr("freeze")
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                    }
+                }
+                MouseArea {
+                    id: pillMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: reviewPill.inReview ? WindowManager.exitReview()
+                                                   : WindowManager.freezeLive()
+                }
+            }
+
             // 2/3 height — primary action.
             Rectangle {
                 id: addTile
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: parent.top
-                height: parent.height * 2 / 3 - 2
+                anchors.top: reviewPill.bottom
+                anchors.topMargin: reviewPill.visible ? 4 : 0
+                height: parent.height * 2 / 3 - 2 - (reviewPill.visible ? reviewPill.height + 4 : 0)
                 radius: Theme.radiusSmall
                 // Borderless. Hover lifts the fill; the icon and
                 // label color shift carry the affordance.
@@ -231,7 +287,8 @@ Pane {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.fillWidth: true
                         text: addTile.needSave ? qsTr("Save…")
-                              : (addTile.isStream ? qsTr("captures the live frame")
+                              : (addTile.isStream ? (WindowManager.liveReview ? qsTr("on the frozen frame")
+                                                                              : qsTr("freezes the feed"))
                                                   : qsTr("captures current frame"))
                         color: Theme.textMuted
                         font.family: Theme.fontFamily

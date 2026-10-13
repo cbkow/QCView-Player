@@ -107,6 +107,11 @@ public:
     // of the live A/V offset, since audio can only be delayed, never
     // advanced, relative to its real-time arrival.
     virtual void setVideoHoldMs(int ms) { Q_UNUSED(ms); }
+    // Plan B2: Review on a live item. While off, frames are still taken
+    // from the ring / decoded (nothing upstream stalls, the hold queue
+    // drains, counters run) but none reaches the sink, so the Review
+    // picture WindowManager published stays on the viewport. Default on.
+    virtual void setPublishEnabled(bool on) { Q_UNUSED(on); }
     // The stream's colour tags as FFmpeg names ("smpte2084", "bt2020",
     // "bt2020nc"), empty when the source has none to give — a network
     // stream's codec parameters carry them; a QCBridge feed is the host's

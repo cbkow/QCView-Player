@@ -503,6 +503,12 @@ void LiveStreamDecoder::publishFrame(AVFrame *frame, AVCodecContext *cctx,
 {
     LiveFrameSink *sink = m_sink;
     if (!sink) return;
+    // Review (plan B2): decoded and counted, not published — the viewport
+    // keeps the Review picture until WindowManager re-enables this.
+    if (!m_publish.load(std::memory_order_acquire)) {
+        m_framesReceived.fetch_add(1, std::memory_order_acq_rel);
+        return;
+    }
 
     const int64_t pts = (frame->best_effort_timestamp != AV_NOPTS_VALUE)
                         ? frame->best_effort_timestamp : frame->pts;

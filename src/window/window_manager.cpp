@@ -2119,6 +2119,7 @@ void WindowManager::tearDownDualIslandToSingleState()
 void WindowManager::setCompositorMode(int mode)
 {
     if (m_compositorMode == mode) return;
+    exitReview();   // plan B2: Review belongs to the single view
 
     // A playlist is never a dual-view side (colour plan stage 2): entering
     // dual from one loads the clip under the playhead as its own media
@@ -4359,9 +4360,9 @@ void WindowManager::pushLiveTags(LiveSource *src, const QString &itemId)
 
 void WindowManager::stopLiveStream()
 {
-    // Plan B2's exitReview() goes here, before the guard: every item,
-    // mode and project transition passes through this function.
-    m_reviewKey.clear();
+    // Review ends here, before the guard: every item, mode and project
+    // transition passes through this function (plan B2).
+    exitReview();
     if (!m_liveDecoder) return;
     m_liveOpenedMs = 0;
 
@@ -4402,9 +4403,156 @@ bool WindowManager::liveTransportLocked(const char *what) const
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Plan B2 — LIVE / REVIEW on a live item.
+//
+// Review puts a display-referred picture QCView captured itself (a note's
+// clean PNG, or the feed's frame at the moment of a freeze) into the
+// single view's publish slot, holds the live source's frames back
+// (setPublishEnabled(false): still received, never published) and has
+// the renderer skip the view transform over it. The outputs encode the
+// viewport, so NDI and the stream show the same frozen picture. Every
+// item / mode / project transition reaches stopLiveStream(), which exits.
+// ---------------------------------------------------------------------------
+
+namespace {
+QString reviewLabelFor(const QString &capturedAt, const QString &key)
+{
+    QDateTime at = QDateTime::fromString(capturedAt, Qt::ISODateWithMs);
+    if (!at.isValid()) at = QDateTime::fromString(key, QStringLiteral("yyyyMMdd-HHmmss-zzz"));
+    return at.isValid() ? at.toString(QStringLiteral("HH:mm:ss")) : key;
+}
+} // namespace
+
+void WindowManager::showReviewImage(const QImage &img)
+{
+    if (!m_liveDecoder || !m_videoDecoder || img.isNull()) return;
+    m_liveDecoder->setPublishEnabled(false);
+    const QImage rgba = img.format() == QImage::Format_RGBA8888
+                        ? img : img.convertToFormat(QImage::Format_RGBA8888);
+    m_videoDecoder->publishExternalFrame(FrameHandle::cpu(rgba, 0), 0);
+#ifdef QCV_NATIVE_PLAYER
+    if (auto *r = fetchActiveRenderer(m_playerWindow.data())) {
+        r->setViewTransformBypass(true);
+        r->requestUpdate();
+    }
+#endif
+}
+
+void WindowManager::enterReview(const QString &timecode)
+{
+    if (!activeStreamItem() || !m_liveDecoder || !m_annotationManager) return;
+    const AnnotationNote *n = m_annotationManager->noteAtTimecode(timecode);
+    if (!n) return;
+    const QString imagesDir = m_annotationManager->imagesFolder();
+    const QString abs = imagesDir + QLatin1Char('/') + annotation_io::generateImageFilename(timecode);
+    QImage img(abs);
+    // The clean capture may still be on its way to disk (async PNG write).
+    if (img.isNull() && m_lastCleanThumbTc == timecode && !m_lastCleanThumbImage.isNull()) {
+        img = m_lastCleanThumbImage;
+    }
+    if (img.isNull()) {
+        qWarning("Review: no frame for note %s (%s)", qPrintable(timecode), qPrintable(abs));
+        toast(tr("This note has no captured frame"), 1);
+        return;
+    }
+    m_reviewImage     = img.convertToFormat(QImage::Format_RGBA8888);
+    m_reviewKey       = timecode;
+    m_reviewTransient = false;
+    m_reviewLabel     = reviewLabelFor(n->captured_at, timecode);
+    showReviewImage(m_reviewImage);
+    qInfo("Review: note %s (%dx%d) on the viewport", qPrintable(timecode),
+          m_reviewImage.width(), m_reviewImage.height());
+    emit liveReviewChanged();
+    rebuildStoredAnnotationMesh();
+    emit notesChanged();   // the cards mark the current note
+}
+
+void WindowManager::freezeLive()
+{
+    if (!activeStreamItem() || !m_liveDecoder || liveReview()) return;
+#ifdef QCV_NATIVE_PLAYER
+    auto *pw = qobject_cast<qcv::PlayerWindow *>(m_playerWindow.data());
+    if (!pw || !pw->renderer()) return;
+    const QImage img = pw->renderer()->captureScreenshot();
+    if (img.isNull()) {
+        toast(tr("No frame to freeze yet"), 1);
+        return;
+    }
+    m_frozenKey       = currentNoteKey();   // the capture stamp of this frame; the first note takes it
+    m_reviewImage     = img.convertToFormat(QImage::Format_RGBA8888);
+    m_reviewTransient = true;
+    m_reviewLabel     = reviewLabelFor(m_frozenKey.capturedAt, m_frozenKey.key);
+    showReviewImage(m_reviewImage);
+    qInfo("Review: feed frozen at %s (%dx%d)", qPrintable(m_frozenKey.key),
+          m_reviewImage.width(), m_reviewImage.height());
+    emit liveReviewChanged();
+#endif
+}
+
+void WindowManager::exitReview()
+{
+    const bool was = liveReview();
+    m_reviewKey.clear();
+    m_reviewTransient = false;
+    m_reviewImage     = QImage();
+    m_reviewLabel.clear();
+    if (m_liveDecoder) m_liveDecoder->setPublishEnabled(true);
+#ifdef QCV_NATIVE_PLAYER
+    if (auto *r = fetchActiveRenderer(m_playerWindow.data())) r->setViewTransformBypass(false);
+#endif
+    if (!was) return;
+    qInfo("Review: back to live");
+    emit liveReviewChanged();
+    rebuildStoredAnnotationMesh();   // empty for live
+    emit notesChanged();
+}
+
+void WindowManager::adoptReviewNote(const QString &timecode)
+{
+    // A fresh stream note took the frozen frame: Review is that note now.
+    m_reviewKey       = timecode;
+    m_reviewTransient = false;
+    const AnnotationNote *n = m_annotationManager ? m_annotationManager->noteAtTimecode(timecode) : nullptr;
+    m_reviewLabel = reviewLabelFor(n ? n->captured_at : QString(), timecode);
+    emit liveReviewChanged();
+}
+
+void WindowManager::ensureFrozenForNote()
+{
+    if (activeStreamItem() && !liveReview()) freezeLive();
+}
+
+void WindowManager::stepReviewNote(int delta)
+{
+    if (!m_annotationManager || delta == 0) return;
+    // notes() is kept sorted by key; capture stamps sort chronologically.
+    const auto notes = m_annotationManager->notes();
+    if (notes.empty()) return;
+    int idx = -1;
+    for (size_t i = 0; i < notes.size(); ++i) {
+        if (notes[i].timecode == m_reviewKey) { idx = static_cast<int>(i); break; }
+    }
+    int target;
+    if (idx < 0) {
+        // A transient freeze: ← goes to the latest note, → has nowhere to go.
+        if (delta > 0) return;
+        target = static_cast<int>(notes.size()) - 1;
+    } else {
+        target = idx + (delta < 0 ? -1 : 1);
+    }
+    if (target < 0 || target >= static_cast<int>(notes.size())) return;
+    enterReview(notes[static_cast<size_t>(target)].timecode);
+}
+
 void WindowManager::togglePlayback()
 {
-    if (liveTransportLocked("play/pause")) return;
+    if (m_liveActive && !m_dualController) {
+        // Plan B2: Space on a live item freezes the feed (a transient
+        // Review) or, in Review, returns to live.
+        if (liveReview()) exitReview(); else freezeLive();
+        return;
+    }
     // Capture user intent BEFORE flipping decoder state — the EOS
     // loop-wrap handler reads this to decide whether to auto-resume
     // after seek(0) when looping a short clip. Without this, a
@@ -4952,7 +5100,12 @@ void WindowManager::closeMedia()
 
 void WindowManager::stepFrames(int delta)
 {
-    if (liveTransportLocked("frame step")) return;
+    if (m_liveActive && !m_dualController) {
+        // Plan B2: in Review, ←/→ walk the stream's notes; live, no step.
+        if (liveReview()) stepReviewNote(delta);
+        else liveTransportLocked("frame step");
+        return;
+    }
     if (delta == 0) return;
     // Pause first — frame-stepping while playing is ambiguous (the
     // wall clock would race the step). Old app's StepFrame:
@@ -6699,6 +6852,12 @@ bool WindowManager::eventFilter(QObject *watched, QEvent *event)
         clearAnnotationSelection();
         return true;
     }
+    // Esc in Review on a live item — back to live (plan B2). After the
+    // stroke and selection rungs, before fullscreen's own Esc.
+    if (mods == Qt::NoModifier && ke->key() == Qt::Key_Escape && liveReview()) {
+        exitReview();
+        return true;
+    }
     // Del / Backspace — delete the pointer-tool selection. Consumed
     // only when a stroke is actually selected, so the bin's own
     // delete shortcuts keep working otherwise. (Text-input focus
@@ -6790,6 +6949,8 @@ void WindowManager::setAnnotationActive(bool on)
         m_annotator->setMode(ViewportMode::Playback);
         return;
     }
+    // Plan B2: drawing on a live item happens on a frozen frame.
+    if (on && activeStreamItem() && !liveReview()) freezeLive();
     m_annotator->setMode(on ? ViewportMode::Annotation : ViewportMode::Playback);
     if (!on && annotationSelectionActive()) {
         clearAnnotationSelection();
@@ -7648,6 +7809,8 @@ WindowManager::NoteKey WindowManager::currentNoteKey() const
     NoteKey k;
     if (const MediaItem *st = activeStreamItem()) {
         k.stream = true;
+        // B2: a frozen feed without a note yet — the key minted at the freeze.
+        if (m_reviewTransient && m_reviewKey.isEmpty()) return m_frozenKey;
         if (!m_reviewKey.isEmpty()) {
             // B2: the note already on the viewport.
             k.key = m_reviewKey;
@@ -7787,6 +7950,7 @@ void WindowManager::onStrokeFinalized(std::unique_ptr<ActiveStroke> stroke)
     if (!annotationsAllowedForCurrentMedia()) return;
 
     if (m_notesNeedProjectSave) return;   // the panel asks for a save first
+    ensureFrozenForNote();   // plan B2: a stroke on a live feed lands on a frozen frame
 
     // The key: SMPTE timecode (HH:MM:SS:FF) for a file, the capture
     // stamp for a stream (plan B1) — one helper for every site.
@@ -7827,7 +7991,7 @@ void WindowManager::onStrokeFinalized(std::unique_ptr<ActiveStroke> stroke)
         applyNoteKeyFields(nk);
         existing = m_annotationManager->noteAtTimecode(timecode);
         if (!existing) { m_annotationUndoStack.removeLast(); return; }
-        if (nk.stream && m_reviewKey.isEmpty()) m_reviewKey = timecode;   // B1: strokes keep landing on this note until B2's Review takes over
+        if (nk.stream) adoptReviewNote(timecode);   // B2: the frozen frame is this note's now
     }
 
     // Clean baseline FIRST — before updateNoteAnnotationData
@@ -8339,6 +8503,7 @@ void WindowManager::addNoteAtCurrentFrame()
 {
     if (!m_annotationManager || !annotationsAllowedForCurrentMedia()) return;
     if (m_notesNeedProjectSave) return;   // the panel asks for a save first
+    ensureFrozenForNote();   // plan B2: "Add note here" on a live feed freezes it first
 
     const NoteKey nk = currentNoteKey();
     const QString timecode = nk.key;
@@ -8349,7 +8514,7 @@ void WindowManager::addNoteAtCurrentFrame()
         m_annotationManager->addNote(nk.timestampSeconds, timecode, nk.frame,
                                       QString());
         applyNoteKeyFields(nk);
-        if (nk.stream && m_reviewKey.isEmpty()) m_reviewKey = timecode;
+        if (nk.stream) adoptReviewNote(timecode);
     }
     // No strokes yet → only the clean thumbnail matters here.
     saveNoteCleanThumbnail(timecode);
@@ -8392,7 +8557,10 @@ void WindowManager::saveNoteCleanThumbnail(const QString &timecode)
         qWarning("saveNoteCleanThumbnail: no player/renderer");
         return;
     }
-    const QImage img = pw->renderer()->captureScreenshot();
+    // A stream note's clean frame IS the Review picture (plan B2): the
+    // pixels that froze, not a capture of them through the bypass.
+    const QImage img = (activeStreamItem() && !m_reviewImage.isNull())
+                       ? m_reviewImage : pw->renderer()->captureScreenshot();
     if (img.isNull()) {
         qWarning("saveNoteCleanThumbnail: captureScreenshot returned empty QImage");
         return;
@@ -8607,8 +8775,7 @@ void WindowManager::seekToAnnotationNote(const QString &timecode)
     const AnnotationNote *n = m_annotationManager->noteAtTimecode(timecode);
     if (!n) return;
     if (n->isStreamNote() || m_activeNotesAreStream) {
-        // B2: enterReview(timecode) — the stream keeps running; nothing to seek.
-        qInfo("seekToAnnotationNote: stream note %s (Review comes with B2)", qPrintable(timecode));
+        enterReview(timecode);   // plan B2: the note's frame on the viewport
         return;
     }
     seekToFrame(n->frame);

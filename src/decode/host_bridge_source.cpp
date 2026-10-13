@@ -153,7 +153,9 @@ QImage *HostBridgeSource::takePoolImage(int w, int h)
 
 void HostBridgeSource::publishFrame(QImage *img, int64_t ptsUs)
 {
-    if (LiveFrameSink *sink = m_sink) {
+    // Review (plan B2): the frame is taken and released like any other,
+    // but not published — the viewport keeps the Review picture.
+    if (LiveFrameSink *sink = m_publish.load(std::memory_order_acquire) ? m_sink : nullptr) {
         sink->publishExternalFrame(FrameHandle::cpu(*img, ptsUs), ptsUs);
     }
     std::function<void()> cb;
