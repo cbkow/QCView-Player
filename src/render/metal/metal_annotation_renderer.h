@@ -35,6 +35,11 @@ public:
     bool isInitialized() const;
     int  targetPixelFormat() const;
 
+    // How the stroke colours (sRGB) are written: 0 as they are (SDR),
+    // 2 PQ Rec.2100 with `refNits` as graphics white, 3 HLG Rec.2100
+    // (white at 75 %). The output bus's HDR transfers; the viewport is 0.
+    void setEncoding(int encoding, float refNits);
+
     // Encode triangle draw calls for `mesh` into an active
     // id<MTLRenderCommandEncoder> (passed as void*). targetWidth /
     // targetHeight are the drawable's size in pixels — used to

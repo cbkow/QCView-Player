@@ -2,6 +2,7 @@
 #include "output/stream_muxer.h"
 
 #include "render/iplayer_renderer.h"
+#include "color/ocio_config_manager.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -127,6 +128,17 @@ void OutputBus::loadManifest(const QString &path)
     for (const auto &a : j.value(QStringLiteral("args")).toArray()) o->args << a.toString();
     o->installed = !o->exec.isEmpty() && QFileInfo::exists(o->exec);
     o->plugin = o->installed ? QStringLiteral("installed") : QStringLiteral("not installed");
+    {
+        QSettings s;
+        const QString k = QStringLiteral("output/") + id + QLatin1Char('/');
+        o->transfer  = std::clamp(s.value(k + QStringLiteral("transfer"), 1).toInt(), 1, 3);
+        o->hdrView   = s.value(k + QStringLiteral("hdrView")).toString();
+        o->primaries = std::clamp(s.value(k + QStringLiteral("primaries"), 1).toInt(), 1, 2);
+        o->peakNits  = s.value(k + QStringLiteral("peakNits"), 1000.0).toDouble();
+        o->minNits   = s.value(k + QStringLiteral("minNits"), 0.005).toDouble();
+        o->maxCll    = s.value(k + QStringLiteral("maxCll"), 1000).toInt();
+        o->maxFall   = s.value(k + QStringLiteral("maxFall"), 400).toInt();
+    }
     qInfo("OutputBus: output '%s' (%s) from %s%s", qPrintable(o->id), qPrintable(o->name),
           qPrintable(path), o->installed ? "" : " — executable missing");
     m_outputs.push_back(std::move(o));
@@ -611,6 +623,26 @@ void OutputBus::answer(Output &o)
         std::snprintf(reply.message, sizeof reply.message, "%s", msg);
     };
     const auto fmt = static_cast<qcbae::OutputPixelFormat>(r.pixel_format);
+    // The transfer: the sink's wish, or (Unspecified) this output's setting.
+    // PQ and HLG render through a Rec.2100 display of the OCIO config.
+    const uint32_t transfer = r.transfer != 0 ? r.transfer : static_cast<uint32_t>(o.transfer);
+    const bool hdr = transfer != static_cast<uint32_t>(qcbae::OutputTransfer::SdrRec709);
+    QString hdrDisplay, hdrView, hdrWhy;
+    if (hdr) {
+        OCIOConfigManager *ocio = m_ocio ? m_ocio() : nullptr;
+        if (transfer > static_cast<uint32_t>(qcbae::OutputTransfer::HlgRec2020)) hdrWhy = QStringLiteral("unknown transfer");
+        else if (!ocio)                   hdrWhy = QStringLiteral("HDR outputs need the OCIO chain");
+        else if (ocio->engine() != 0)     hdrWhy = QStringLiteral("HDR outputs need the OCIO engine (minColor later)");
+        else {
+            hdrDisplay = hdrDisplayFor(static_cast<int>(transfer));
+            if (hdrDisplay.isEmpty()) hdrWhy = QStringLiteral("no Rec.2100 display in the OCIO config");
+            else {
+                const QStringList views = ocio->viewsForDisplay(hdrDisplay);
+                hdrView = views.contains(o.hdrView) ? o.hdrView : views.value(0);
+                if (hdrView.isEmpty()) hdrWhy = QStringLiteral("the Rec.2100 display has no views");
+            }
+        }
+    }
     if (r.protocol_version != qcbae::kOutputDescVersion) {
         refuse(qcbae::OutputRefusal::VersionMismatch, "this QCView speaks output protocol 1");
     } else if (r.width == 0 || r.height == 0
@@ -618,8 +650,8 @@ void OutputBus::answer(Output &o)
         refuse(qcbae::OutputRefusal::TooLarge, "above the 3840x2160 canvas cap");
     } else if (fmt != qcbae::OutputPixelFormat::BGRA8 && fmt != qcbae::OutputPixelFormat::RGB10) {
         refuse(qcbae::OutputRefusal::UnsupportedFormat, "BGRA8 or RGB10; RGBA16F comes with the HDR transfers");
-    } else if (static_cast<qcbae::OutputTransfer>(r.transfer) != qcbae::OutputTransfer::SdrRec709) {
-        refuse(qcbae::OutputRefusal::UnsupportedTransfer, "SDR Rec.709 only for now");
+    } else if (!hdrWhy.isEmpty()) {
+        refuse(qcbae::OutputRefusal::UnsupportedTransfer, hdrWhy.toUtf8().constData());
     } else if (r.fit != 0 && static_cast<qcbae::OutputFit>(r.fit) != qcbae::OutputFit::Letterbox) {
         refuse(qcbae::OutputRefusal::UnsupportedFormat, "letterbox fit only for now");
     } else if (r.content > static_cast<uint32_t>(qcbae::OutputContent::SideB)) {
@@ -629,7 +661,10 @@ void OutputBus::answer(Output &o)
         spec.width    = r.width;
         spec.height   = r.height;
         spec.format   = fmt;
-        spec.transfer = qcbae::OutputTransfer::SdrRec709;
+        spec.transfer = static_cast<qcbae::OutputTransfer>(transfer);
+        spec.hdrDisplay = hdrDisplay.toStdString();
+        spec.hdrView    = hdrView.toStdString();
+        o.hdrDisplayUsed = hdrDisplay;  o.hdrViewUsed = hdrView;
         spec.fit      = qcbae::OutputFit::Letterbox;
         spec.content  = r.content == 0 ? qcbae::OutputContent::Composite
                                        : static_cast<qcbae::OutputContent>(r.content);
@@ -644,15 +679,67 @@ void OutputBus::answer(Output &o)
         reply.content      = static_cast<uint32_t>(spec.content);
         reply.layers       = spec.layers;
         const char *fmtName = spec.format == qcbae::OutputPixelFormat::RGB10 ? "RGB10" : "BGRA8";
-        std::snprintf(reply.message, sizeof reply.message, "%ux%u %s SDR from QCView", spec.width, spec.height, fmtName);
-        o.shape = QStringLiteral("%1x%2 %3").arg(spec.width).arg(spec.height).arg(QLatin1String(fmtName));
+        const char *tfName  = transfer == 2 ? "PQ Rec.2100" : transfer == 3 ? "HLG Rec.2100" : "SDR Rec.709";
+        std::snprintf(reply.message, sizeof reply.message, "%ux%u %s %s from QCView", spec.width, spec.height, fmtName, tfName);
+        o.shape = QStringLiteral("%1x%2 %3 %4").arg(spec.width).arg(spec.height).arg(QLatin1String(fmtName), QLatin1String(tfName));
+        if (hdr) o.shape += QStringLiteral(" · %1").arg(hdrView);
     }
     o.accepted = reply.accepted != 0;
     o.ring->write_reply(reply, o.reqGen);
+    if (o.accepted) writeHdrInfo(o, transfer);
     qInfo("OutputBus: %s: request %llu (%ux%u fmt %u transfer %u content %u layers 0x%x) -> %s \"%s\"",
           qPrintable(o.id), static_cast<unsigned long long>(o.reqGen), r.width, r.height, r.pixel_format,
           r.transfer, r.content, r.layers, o.accepted ? "accepted" : "refused", reply.message);
     if (!o.accepted) o.shape = QString::fromUtf8(reply.message);
+}
+
+QString OutputBus::hdrDisplayFor(int transfer) const
+{
+    OCIOConfigManager *ocio = m_ocio ? m_ocio() : nullptr;
+    if (!ocio) return {};
+    const QStringList displays = ocio->displays();
+    // The config's Rec.2100 displays: "Rec.2100-PQ - Display" (ACES studio),
+    // "Rec.2100-PQ" (Blender), then any PQ / HLG display that is not a P3
+    // container (a P3 container cannot be signalled on SDI or by the AJA SDK).
+    const char *tag = transfer == 3 ? "HLG" : "PQ";
+    for (const QString &d : displays)
+        if (d.contains(QStringLiteral("2100-") + QLatin1String(tag), Qt::CaseInsensitive)) return d;
+    for (const QString &d : displays)
+        if (d.contains(QLatin1String(tag), Qt::CaseInsensitive) && !d.contains(QLatin1String("P3"), Qt::CaseInsensitive)) return d;
+    return {};
+}
+
+void OutputBus::writeHdrInfo(Output &o, uint32_t transfer)
+{
+    if (!o.ring) return;
+    qcbae::OutputHdrInfo info {};
+    info.transfer = transfer;
+    if (transfer != static_cast<uint32_t>(qcbae::OutputTransfer::SdrRec709)) {
+        info.primaries          = static_cast<uint32_t>(o.primaries);
+        info.max_mastering_nits = static_cast<float>(o.peakNits);
+        info.min_mastering_nits = static_cast<float>(o.minNits);
+        info.max_cll            = static_cast<uint32_t>(std::max(0, o.maxCll));
+        info.max_fall           = static_cast<uint32_t>(std::max(0, o.maxFall));
+    }
+    o.ring->write_hdr_info(info);
+}
+
+void OutputBus::setOutputSetting(const QString &id, const QString &key, const QVariant &value)
+{
+    Output *o = find(id);
+    if (!o) return;
+    if      (key == QLatin1String("transfer"))  o->transfer  = std::clamp(value.toInt(), 1, 3);
+    else if (key == QLatin1String("hdrView"))   o->hdrView   = value.toString();
+    else if (key == QLatin1String("primaries")) o->primaries = std::clamp(value.toInt(), 1, 2);
+    else if (key == QLatin1String("peakNits"))  o->peakNits  = std::max(1.0, value.toDouble());
+    else if (key == QLatin1String("minNits"))   o->minNits   = std::max(0.0, value.toDouble());
+    else if (key == QLatin1String("maxCll"))    o->maxCll    = std::max(0, value.toInt());
+    else if (key == QLatin1String("maxFall"))   o->maxFall   = std::max(0, value.toInt());
+    else return;
+    QSettings s;
+    s.setValue(QStringLiteral("output/") + id + QLatin1Char('/') + key, value);
+    if (o->enabled && o->ring && o->accepted) answer(*o);
+    emit outputsChanged();
 }
 
 // ---- settings ----------------------------------------------------------------------
@@ -698,6 +785,19 @@ QVariantList OutputBus::outputs() const
         m.insert(QStringLiteral("enabled"),   o->enabled);
         m.insert(QStringLiteral("present"),   o->present);
         m.insert(QStringLiteral("accepted"),  o->accepted);
+        m.insert(QStringLiteral("transfer"),  o->transfer);
+        m.insert(QStringLiteral("hdrView"),   o->hdrView);
+        {
+            const QString d = hdrDisplayFor(o->transfer);
+            m.insert(QStringLiteral("hdrDisplay"), d);
+            OCIOConfigManager *ocio = m_ocio ? m_ocio() : nullptr;
+            m.insert(QStringLiteral("hdrViews"), (ocio && !d.isEmpty()) ? ocio->viewsForDisplay(d) : QStringList{});
+        }
+        m.insert(QStringLiteral("primaries"), o->primaries);
+        m.insert(QStringLiteral("peakNits"),  o->peakNits);
+        m.insert(QStringLiteral("minNits"),   o->minNits);
+        m.insert(QStringLiteral("maxCll"),    o->maxCll);
+        m.insert(QStringLiteral("maxFall"),   o->maxFall);
         m.insert(QStringLiteral("shape"),     o->shape);
         m.insert(QStringLiteral("status"),    o->status);
         m.insert(QStringLiteral("plugin"),    o->plugin);

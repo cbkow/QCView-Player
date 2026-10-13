@@ -86,12 +86,43 @@ inline constexpr uint64_t output_frame_bytes(uint32_t width, uint32_t height, Ou
 
 // The display transform the sink wants the canvas rendered for. QCView maps
 // it to an OCIO display/view (the user may override per output).
+// In a request, Unspecified means "the producer's per-output setting" (QCView's
+// Output section chooses); the reply and every frame carry the one in use.
 enum class OutputTransfer : uint32_t {
     Unspecified = 0,
     SdrRec709   = 1,   // Rec.709 primaries, BT.1886 / sRGB-class display
     PqRec2020   = 2,   // ST 2084 in Rec.2020
     HlgRec2020  = 3,
 };
+
+// The mastering display's primaries, for the HDR metadata (the container is
+// Rec.2020 for PQ and HLG regardless; "P3" is content limited to P3-D65).
+enum class OutputPrimaries : uint32_t {
+    Unspecified = 0,
+    Rec2020     = 1,
+    P3D65       = 2,
+};
+
+// HDR static metadata (ST 2086 + CTA-861 content light levels) for the frames
+// the producer sends, written beside the reply (OutputHdrBlock in the ring,
+// at kOutputHdrInfoOffset). The sink forwards it to its wire's signalling
+// (HDMI InfoFrame; SDI carries only the transfer and colorimetry in its VPID).
+// Zero fields are "unspecified". For SDR the transfer is SdrRec709 and the
+// rest is zero.
+struct OutputHdrInfo {
+    uint32_t transfer;              // OutputTransfer of the frames
+    uint32_t primaries;             // OutputPrimaries of the mastering display
+    float    max_mastering_nits;    // 0 = unspecified
+    float    min_mastering_nits;
+    uint32_t max_cll;               // nits
+    uint32_t max_fall;              // nits
+    uint32_t _pad0[2];
+};
+static_assert(sizeof(OutputHdrInfo) == 32, "OutputHdrInfo is a wire format — size change needs a version bump");
+
+// Byte offset of the OutputHdrBlock from the mapping start: inside the first
+// page, past the header (which stays well under 1 KB), before the slots.
+inline constexpr uint64_t kOutputHdrInfoOffset = 1024u;
 
 // How a canvas whose aspect differs from the raster is placed.
 enum class OutputFit : uint32_t {
@@ -132,6 +163,9 @@ enum OutputHeaderFlags : uint32_t {
     // when its rings are retired; a sink the user started goes back to
     // waiting instead.
     kOutputLaunchedByProducer = 1u << 0,
+    // The OutputHdrBlock at kOutputHdrInfoOffset is present and written by the
+    // producer (added 2026-10-13). A consumer that predates it never looks.
+    kOutputHeaderHasHdrInfo   = 1u << 1,
 };
 
 // Per-frame flags.

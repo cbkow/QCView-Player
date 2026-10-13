@@ -150,7 +150,8 @@ bool OutputRing::create(const std::string& name, uint64_t pixels_capacity,
     header_->slots_offset      = head_bytes;
     header_->total_size        = total;
     header_->producer_protocol = kOutputDescVersion;
-    header_->header_flags      = header_flags;
+    header_->header_flags      = header_flags | kOutputHeaderHasHdrInfo;
+    std::memset(static_cast<char*>(map_.base()) + kOutputHdrInfoOffset, 0, sizeof(OutputHdrBlock));
     // Atomics zeroed by the mapping: latest 0, no claim, state Active, no
     // consumer, no request, no reply.
     return true;
@@ -326,6 +327,39 @@ void OutputRing::release() {
 
 bool OutputRing::producer_alive() const {
     return valid() && process_alive(header_->producer_pid);
+}
+
+void OutputRing::write_hdr_info(const OutputHdrInfo& info) {
+    if (!valid()) return;
+    auto* b = reinterpret_cast<OutputHdrBlock*>(static_cast<char*>(map_.base()) + kOutputHdrInfoOffset);
+    const uint64_t s = b->lock.load(std::memory_order_relaxed);
+    b->lock.store(s + 1u, std::memory_order_release);
+    std::atomic_thread_fence(std::memory_order_release);
+    b->info = info;
+    b->generation.fetch_add(1u, std::memory_order_release);
+    b->lock.store(s + 2u, std::memory_order_release);
+}
+
+bool OutputRing::has_hdr_info() const {
+    return valid() && (header_->header_flags & kOutputHeaderHasHdrInfo) != 0u;
+}
+
+bool OutputRing::read_hdr_info(OutputHdrInfo* out, uint64_t* known) const {
+    if (!has_hdr_info() || out == nullptr || known == nullptr) return false;
+    const auto* b = reinterpret_cast<const OutputHdrBlock*>(static_cast<const char*>(map_.base()) + kOutputHdrInfoOffset);
+    for (int attempt = 0; attempt < 8; ++attempt) {
+        const uint64_t s1 = b->lock.load(std::memory_order_acquire);
+        if ((s1 & 1u) != 0u) continue;
+        const uint64_t gen = b->generation.load(std::memory_order_acquire);
+        if (gen == 0u || gen == *known) return false;
+        OutputHdrInfo copy = b->info;
+        std::atomic_thread_fence(std::memory_order_acquire);
+        if (b->lock.load(std::memory_order_acquire) != s1) continue;
+        *out = copy;
+        *known = gen;
+        return true;
+    }
+    return false;
 }
 
 bool OutputRing::launched_by_producer() const {

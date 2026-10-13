@@ -539,6 +539,8 @@ void main(uint3 id : SV_DispatchThreadID)
         ComPtr<ID3D11RenderTargetView> outRtv;
         ComPtr<ID3D11ShaderResourceView> outSrv;    // read by the NV12 passes (sink targets)
         D3D11AnnotationRenderer        annotations;   // guides + strokes into `out`
+        int                            annEncode = -2;   // the stroke encode the annotations were built for
+        D3D11OcioRenderer              ocio, ocioB;      // the output's own chain for PQ / HLG (its display and view)
         // Sink targets (the stream): the Y and CbCr render-target views of
         // each NV12 surface the sink has handed out, by texture.
         struct Nv12Views { ComPtr<ID3D11RenderTargetView> y, uv; };
@@ -3386,12 +3388,18 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
                 res.out.Reset();  res.outRtv.Reset();  res.outSrv.Reset();  res.resetStaging();
                 continue;
             }
+            // Guides and strokes take the output's transfer, not the target
+            // format's default (the 10-bit SDR picture lives in R10G10B10A2 too):
+            // 0 SDR, 2 PQ at 203 nits graphics white, 3 HLG at 75 %.
+            const int annEncode = spec.transfer == qcbae::OutputTransfer::PqRec2020 ? 2
+                                : spec.transfer == qcbae::OutputTransfer::HlgRec2020 ? 3 : 0;
             if (!res.annotations.isInitialized()
-                || res.annotations.targetPixelFormat() != static_cast<int>(outFmt)) {
+                || res.annotations.targetPixelFormat() != static_cast<int>(outFmt)
+                || res.annEncode != annEncode) {
                 res.annotations.shutdown();
-                // The wire is SDR whatever its depth: the 10-bit target must not
-                // pick the HDR10 PQ stroke shader the swapchain would.
-                res.annotations.initialize(static_cast<int>(outFmt), /*sdrEncode=*/true);
+                res.annotations.initialize(static_cast<int>(outFmt), annEncode);
+                res.annotations.setReferenceLuminance(203.0f);
+                res.annEncode = annEncode;
             }
             res.specGen = specGen;  res.w = W;  res.h = H;  res.haveLast = false;
             qInfo("D3D11PlayerRenderer: output pass %dx%d %s (content %u, layers 0x%x)",
@@ -3436,12 +3444,27 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
             if (sideA) m_impl->dualCompositor.setMode(liveMode);
         }
 
-        // ---- 2. OCIO: the SDR equivalent of the live view ----
+        // ---- 2. OCIO: the SDR equivalent of the live view — or, for a PQ / HLG
+        //         output, the live chain through the output's own Rec.2100
+        //         display and view (no display LUT: that is the monitor's) ----
         ID3D11ShaderResourceView *corrected = res.canvas.srv.Get();
         if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
-            const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
+            const bool hdr = spec.transfer != qcbae::OutputTransfer::SdrRec709 && !spec.hdrDisplay.empty();
+            auto forHdr = [&](const OcioChainSpec &s) {
+                OcioChainSpec h = s;
+                h.display = QString::fromStdString(spec.hdrDisplay);
+                h.view    = QString::fromStdString(spec.hdrView);
+                h.displayLutPath.clear();  h.sdrDisplay.clear();  h.sdrView.clear();
+                return h;
+            };
+            const OcioChainSpec &liveA = in.dual ? in.chains->a : in.chains->single;
+            const OcioChainSpec  hdrA  = hdr ? forHdr(liveA) : OcioChainSpec{};
+            const OcioChainSpec &specA = hdr ? hdrA : liveA;
             D3D11OcioRenderer *capA = nullptr;
-            if (specA.needsSdrCapture()) {
+            if (hdr) {
+                if (!res.ocio.isInitialized()) res.ocio.initialize();
+                if (res.ocio.isInitialized() && rebuildOcio(res.ocio, specA)) capA = &res.ocio;
+            } else if (specA.needsSdrCapture()) {
                 if (m_impl->outputOcio.isInitialized() && rebuildOcio(m_impl->outputOcio, specA)) capA = &m_impl->outputOcio;
             } else if (m_impl->ocio.isInitialized() && rebuildOcio(m_impl->ocio, specA)) {
                 capA = &m_impl->ocio;
@@ -3450,9 +3473,13 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
                 capA->apply(ctx, res.canvas.srv.Get(), res.ocioOut.rtv.Get(), W, H);
                 corrected = res.ocioOut.srv.Get();
                 if (in.dual && in.perSide && res.canvasB.srv) {
-                    const OcioChainSpec &specB = in.chains->b;
+                    const OcioChainSpec  hdrB  = hdr ? forHdr(in.chains->b) : OcioChainSpec{};
+                    const OcioChainSpec &specB = hdr ? hdrB : in.chains->b;
                     D3D11OcioRenderer *capB = nullptr;
-                    if (specB.needsSdrCapture()) {
+                    if (hdr) {
+                        if (!res.ocioB.isInitialized()) res.ocioB.initialize();
+                        if (res.ocioB.isInitialized() && rebuildOcio(res.ocioB, specB)) capB = &res.ocioB;
+                    } else if (specB.needsSdrCapture()) {
                         if (m_impl->outputOcioB.isInitialized() && rebuildOcio(m_impl->outputOcioB, specB)) capB = &m_impl->outputOcioB;
                     } else if (m_impl->ocioB.isInitialized() && rebuildOcio(m_impl->ocioB, specB)) {
                         capB = &m_impl->ocioB;

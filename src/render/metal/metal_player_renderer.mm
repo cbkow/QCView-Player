@@ -601,6 +601,7 @@ kernel void bgra_to_nv12(texture2d<float, access::read>  src [[texture(0)]],
         id<MTLTexture> out        = nil;   // W x H in the wire format; blit source
         MetalCompositor         compositor;     // baked at the wire format
         MetalAnnotationRenderer annotations;    // guides + strokes into `out`
+        MetalOcioRenderer       ocio, ocioB;    // the output's own chain for PQ / HLG (its display and view)
         // The ring's slots wrapped once each as no-copy buffers, keyed by
         // the slot's pixel pointer (page-aligned, capacity page-rounded).
         std::unordered_map<const void *, id<MTLBuffer>> slotBuffers;
@@ -2929,6 +2930,10 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
                 res.annotations.shutdown();
                 res.annotations.initialize(static_cast<int>(outFmt));
             }
+            // Guides and strokes take the output's transfer: SDR as they are,
+            // PQ at 203 nits graphics white, HLG at 75 %.
+            res.annotations.setEncoding(spec.transfer == qcbae::OutputTransfer::PqRec2020 ? 2
+                                      : spec.transfer == qcbae::OutputTransfer::HlgRec2020 ? 3 : 0, 203.0f);
             res.slotBuffers.clear();
             res.specGen = specGen;  res.w = W;  res.h = H;  res.haveLast = false;
             qInfo("MetalPlayerRenderer: output pass %dx%d %s (content %u, layers 0x%x)",
@@ -3015,23 +3020,41 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
             if (sideA) m_impl->dualCompositor.setMode(liveMode);
         }
 
-        // ---- 2. OCIO: the SDR equivalent of the live view ----
+        // ---- 2. OCIO: the SDR equivalent of the live view — or, for a PQ / HLG
+        //         output, the live chain through the output's own Rec.2100
+        //         display and view (no display LUT: that is the monitor's) ----
         void *corrected = (__bridge void *)res.canvas16f;
         if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
-            const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
-            m_impl->outputOcio.setStage(specA.stage(gain));
-            m_impl->outputOcio.setViewer(aids);
-            m_impl->outputOcio.rebuild(specA);
-            if (m_impl->outputOcio.hasPipeline()) {
-                void *o = m_impl->outputOcio.apply(cmdBuffer, (__bridge void *)res.canvas16f, W, H);
+            const bool hdr = spec.transfer != qcbae::OutputTransfer::SdrRec709 && !spec.hdrDisplay.empty();
+            auto forHdr = [&](const OcioChainSpec &s) {
+                OcioChainSpec h = s;
+                h.display = QString::fromStdString(spec.hdrDisplay);
+                h.view    = QString::fromStdString(spec.hdrView);
+                h.displayLutPath.clear();  h.sdrDisplay.clear();  h.sdrView.clear();
+                return h;
+            };
+            const OcioChainSpec &liveA = in.dual ? in.chains->a : in.chains->single;
+            const OcioChainSpec  hdrA  = hdr ? forHdr(liveA) : OcioChainSpec{};
+            const OcioChainSpec &specA = hdr ? hdrA : liveA;
+            MetalOcioRenderer &ocioA = hdr ? res.ocio : m_impl->outputOcio;
+            if (hdr && !ocioA.isInitialized()) ocioA.initialize();
+            ocioA.setStage(specA.stage(gain));
+            ocioA.setViewer(aids);
+            ocioA.rebuild(specA);
+            if (ocioA.hasPipeline()) {
+                void *o = ocioA.apply(cmdBuffer, (__bridge void *)res.canvas16f, W, H);
                 if (o) corrected = o;
             }
             if (in.dual && in.perSide && res.canvasB16f) {
-                m_impl->outputOcioB.setStage(in.chains->b.stage(gain));
-                m_impl->outputOcioB.setViewer(aids);
-                m_impl->outputOcioB.rebuild(in.chains->b);
-                void *outB = m_impl->outputOcioB.hasPipeline()
-                    ? m_impl->outputOcioB.apply(cmdBuffer, (__bridge void *)res.canvasB16f, W, H)
+                const OcioChainSpec  hdrB  = hdr ? forHdr(in.chains->b) : OcioChainSpec{};
+                const OcioChainSpec &specB = hdr ? hdrB : in.chains->b;
+                MetalOcioRenderer &ocioB = hdr ? res.ocioB : m_impl->outputOcioB;
+                if (hdr && !ocioB.isInitialized()) ocioB.initialize();
+                ocioB.setStage(specB.stage(gain));
+                ocioB.setViewer(aids);
+                ocioB.rebuild(specB);
+                void *outB = ocioB.hasPipeline()
+                    ? ocioB.apply(cmdBuffer, (__bridge void *)res.canvasB16f, W, H)
                     : nullptr;
                 if (!outB) outB = (__bridge void *)res.canvasB16f;
                 corrected = (__bridge void *)m_impl->combineSides(

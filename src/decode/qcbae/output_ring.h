@@ -95,6 +95,16 @@ struct OutputRingHeader {
     OutputReply           reply;
 };
 
+// The HDR metadata block (OutputHdrInfo) behind a seqlock, at
+// kOutputHdrInfoOffset; advertised by kOutputHeaderHasHdrInfo.
+struct OutputHdrBlock {
+    std::atomic<uint64_t> lock;
+    std::atomic<uint64_t> generation;   // 0 = never written
+    OutputHdrInfo         info;
+};
+static_assert(sizeof(OutputHdrBlock) == 48, "OutputHdrBlock is a wire format");
+static_assert(sizeof(OutputRingHeader) <= kOutputHdrInfoOffset, "the header must end before the HDR block");
+
 struct OutputSlotHeader {
     std::atomic<uint64_t> seq;   // seqlock; odd = write in progress
     OutputFrameDesc       desc;
@@ -118,6 +128,8 @@ public:
     // two processes on the same machine can compare (mach_absolute_time on
     // macOS, QueryPerformanceCounter on Windows, CLOCK_MONOTONIC elsewhere).
     static int64_t now_ns();
+    // Producer: publishes the HDR metadata for the frames it sends.
+    void write_hdr_info(const OutputHdrInfo& info);
 
     // --- Producer -------------------------------------------------------------
     // `pixels_capacity` bounds the largest frame this mapping will carry; a
@@ -166,6 +178,10 @@ public:
     bool producer_alive() const;
     bool launched_by_producer() const;
     uint32_t producer_protocol() const;
+    // The producer's HDR metadata, when the ring carries the block
+    // (kOutputHeaderHasHdrInfo) and it changed since `*known`.
+    bool has_hdr_info() const;
+    bool read_hdr_info(OutputHdrInfo* out, uint64_t* known) const;
 
     // --- Both -------------------------------------------------------------------
     bool valid() const { return map_.valid(); }

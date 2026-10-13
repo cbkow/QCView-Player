@@ -140,6 +140,26 @@ float4 PSMain(VsOut i) : SV_TARGET
 }
 )";
 
+// HLG (BT.2100): the stroke's sRGB colour as scene light with reference
+// white at 75 % signal (BT.2408 graphics white), through the HLG OETF.
+// uRefNits is not used: HLG is relative to the display's peak.
+constexpr const char *kPsHlslHlg = R"(
+float3 hlgEncode(float3 lin)
+{
+    const float a = 0.17883277, b = 0.28466892, c = 0.55991073;
+    float3 l  = max(lin, 0.0);
+    float3 lo = sqrt(3.0 * l);
+    float3 hi = a * log(max(12.0 * l - b, 1e-6)) + c;
+    return lerp(lo, hi, step(1.0 / 12.0, l));
+}
+float4 PSMain(VsOut i) : SV_TARGET
+{
+    float3 lin709  = srgbToLinear(i.col.rgb);
+    float3 lin2020 = mul(kBt709ToBt2020, lin709);
+    return float4(hlgEncode(lin2020 * 0.1875), i.col.a);   // 0.75^2 / 3: white lands on 75 %
+}
+)";
+
 ComPtr<ID3DBlob> compileHlsl(const char *src, const char *entry, const char *target)
 {
     ComPtr<ID3DBlob> code, errors;
@@ -192,7 +212,7 @@ D3D11AnnotationRenderer::~D3D11AnnotationRenderer()
     shutdown();
 }
 
-bool D3D11AnnotationRenderer::initialize(int targetFormat, bool sdrEncode)
+bool D3D11AnnotationRenderer::initialize(int targetFormat, int encode)
 {
     auto &mgr = D3D11DeviceManager::instance();
     m_impl->device = static_cast<ID3D11Device *>(mgr.device());
@@ -210,17 +230,19 @@ bool D3D11AnnotationRenderer::initialize(int targetFormat, bool sdrEncode)
     //   anything else            → SDR (pass-through)
     const char *psVariantBody = kPsHlslSdr;
     const char *psVariantName = "SDR";
-    switch (sdrEncode ? DXGI_FORMAT_UNKNOWN : static_cast<DXGI_FORMAT>(targetFormat)) {
-        case DXGI_FORMAT_R10G10B10A2_UNORM:
-            psVariantBody = kPsHlslHdr10Pq;
-            psVariantName = "HDR10 PQ";
-            break;
-        case DXGI_FORMAT_R16G16B16A16_FLOAT:
-            psVariantBody = kPsHlslScrgb;
-            psVariantName = "scRGB linear";
-            break;
-        default:
-            break;
+    int variant = encode;
+    if (variant < 0) {
+        switch (static_cast<DXGI_FORMAT>(targetFormat)) {
+            case DXGI_FORMAT_R10G10B10A2_UNORM:  variant = 2; break;
+            case DXGI_FORMAT_R16G16B16A16_FLOAT: variant = 1; break;
+            default:                             variant = 0; break;
+        }
+    }
+    switch (variant) {
+        case 1: psVariantBody = kPsHlslScrgb;   psVariantName = "scRGB linear"; break;
+        case 2: psVariantBody = kPsHlslHdr10Pq; psVariantName = "HDR10 PQ";     break;
+        case 3: psVariantBody = kPsHlslHlg;     psVariantName = "HLG";          break;
+        default: break;
     }
     const std::string psSource = std::string(kPsHlslCommon) + psVariantBody;
 

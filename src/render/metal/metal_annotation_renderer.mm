@@ -35,7 +35,34 @@ struct VertexOut {
 
 struct UBO {
     float2 targetSize;   // pixels
+    int    encoding;     // 0 sRGB as is, 2 PQ Rec.2100, 3 HLG Rec.2100
+    float  refNits;      // PQ graphics white
 };
+
+float3 srgbToLinear(float3 c)
+{
+    float3 lo = c / 12.92;
+    float3 hi = pow(max((c + 0.055) / 1.055, 0.0), 2.4);
+    return select(lo, hi, c > 0.04045);
+}
+constant float3x3 kBt709ToBt2020 = float3x3(
+    float3(0.6274040, 0.0690970, 0.0163914),
+    float3(0.3292820, 0.9195400, 0.0880132),
+    float3(0.0433136, 0.0113612, 0.8955950));
+float3 pqEncode(float3 lin)
+{
+    const float m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625, c3 = 18.6875;
+    float3 Y = pow(max(lin, 0.0), m1);
+    return pow((c1 + c2 * Y) / (1.0 + c3 * Y), m2);
+}
+float3 hlgEncode(float3 lin)
+{
+    const float a = 0.17883277, b = 0.28466892, c = 0.55991073;
+    float3 l  = max(lin, 0.0);
+    float3 lo = sqrt(3.0 * l);
+    float3 hi = a * log(max(12.0 * l - b, 1e-6)) + c;
+    return select(lo, hi, l > 1.0 / 12.0);
+}
 
 vertex VertexOut stroke_vertex(VertexIn in [[stage_in]],
                                constant UBO &u [[buffer(1)]])
@@ -51,8 +78,17 @@ vertex VertexOut stroke_vertex(VertexIn in [[stage_in]],
     return out;
 }
 
-fragment float4 stroke_fragment(VertexOut in [[stage_in]])
+fragment float4 stroke_fragment(VertexOut in [[stage_in]],
+                                constant UBO &u [[buffer(1)]])
 {
+    if (u.encoding == 2) {
+        float3 lin2020 = kBt709ToBt2020 * srgbToLinear(in.color.rgb);
+        return float4(pqEncode(lin2020 * (u.refNits / 10000.0)), in.color.a);
+    }
+    if (u.encoding == 3) {
+        float3 lin2020 = kBt709ToBt2020 * srgbToLinear(in.color.rgb);
+        return float4(hlgEncode(lin2020 * 0.1875), in.color.a);   // 0.75^2 / 3: white on 75 %
+    }
     return in.color;
 }
 )";
@@ -63,6 +99,8 @@ constexpr std::size_t kInitialVertexBufferBytes = 1u << 20;   // 1 MB
 
 struct MetalAnnotationRenderer::Impl {
     id<MTLRenderPipelineState> pipeline       = nil;
+    int                        encoding       = 0;
+    float                      refNits        = 203.0f;
     id<MTLBuffer>              vertexBuffer   = nil;
     std::size_t                vertexBufferCap = 0;
     // Append cursor inside vertexBuffer. Each drawMesh writes at
@@ -179,6 +217,13 @@ bool MetalAnnotationRenderer::isInitialized() const
     return m_impl && m_impl->pipeline != nil;
 }
 
+void MetalAnnotationRenderer::setEncoding(int encoding, float refNits)
+{
+    if (!m_impl) return;
+    m_impl->encoding = encoding;
+    m_impl->refNits  = refNits;
+}
+
 int MetalAnnotationRenderer::targetPixelFormat() const
 {
     return m_impl ? m_impl->targetPixelFmt : 0;
@@ -242,10 +287,12 @@ void MetalAnnotationRenderer::drawMesh(void *encoderPtr,
                  atIndex:0];
 
     struct UBO {
-        float w;
-        float h;
-    } ubo = { static_cast<float>(targetWidth), static_cast<float>(targetHeight) };
+        float targetWidth, targetHeight;
+        int   encoding;
+        float refNits;
+    } ubo = { static_cast<float>(targetWidth), static_cast<float>(targetHeight), m_impl->encoding, m_impl->refNits };
     [enc setVertexBytes:&ubo length:sizeof(ubo) atIndex:1];
+    [enc setFragmentBytes:&ubo length:sizeof(ubo) atIndex:1];
 
     [enc drawPrimitives:MTLPrimitiveTypeTriangle
             vertexStart:0

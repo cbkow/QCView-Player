@@ -38,6 +38,10 @@ struct OutputSpec {
     qcbae::OutputContent     content  = qcbae::OutputContent::Composite;
     qcbae::OutputFit         fit      = qcbae::OutputFit::Letterbox;
     uint32_t layers = 0;   // qcbae::OutputLayers the producer will draw
+    // PQ / HLG transfers render through the output's own OCIO display and
+    // view (a Rec.2100 display of the config, no display LUT); empty = the
+    // live chain's SDR equivalent, as before.
+    std::string hdrDisplay, hdrView;
 
     bool valid() const { return width > 0 && height > 0; }
     uint32_t bytesPerRow() const { return qcbae::output_aligned_bytes_per_row(width, format); }
