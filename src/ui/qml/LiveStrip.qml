@@ -28,10 +28,13 @@ Rectangle {
         color: Theme.divider
     }
 
-    // The colour panel is as useful live as it is for a file; Main.qml
-    // binds the same state the TransportBar toggles.
+    // The colour and notes panels are as useful live as for a file;
+    // Main.qml binds the same state the TransportBar toggles (plan B2:
+    // notes on streams live in the project, Review shows them).
     property bool colorPanelVisible: false
+    property bool notesPanelVisible: false
     signal toggleColorPanel()
+    signal toggleNotesPanel()
 
     readonly property var live: WindowManager.liveDecoder
     // Status enum mirror (LiveSource::Status).
@@ -260,13 +263,21 @@ Rectangle {
             }
         }
 
-        // ---- Colour panel — the one panel that matters live -------
+        // ---- Colour / Notes panels — the two that matter live ------
         FlatButton {
             iconName: "palette"
             checkable: true
             checked: root.colorPanelVisible
             tooltipText: qsTr("Color panel (⌃3)")
             onClicked: root.toggleColorPanel()
+        }
+        FlatButton {
+            iconName: "note-pencil"
+            checkable: true
+            enabled: WindowManager.annotationsAllowed
+            checked: root.notesPanelVisible
+            tooltipText: qsTr("Notes panel (⌃4)")
+            onClicked: root.toggleNotesPanel()
         }
 
         // ---- Screenshots — the transport action that works live --

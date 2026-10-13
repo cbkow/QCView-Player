@@ -1518,6 +1518,8 @@ ApplicationWindow {
             // state and toggle as the TransportBar's button.
             colorPanelVisible: root.colorPanelVisible
             onToggleColorPanel: root.colorPanelVisible = !root.colorPanelVisible
+            notesPanelVisible: root.notesPanelVisible
+            onToggleNotesPanel: root.notesPanelVisible = !root.notesPanelVisible
         }
 
         // ---- Bottom band 1: Transport
