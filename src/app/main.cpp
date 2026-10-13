@@ -9,6 +9,7 @@
 #include <QDataStream>
 #include <QDateTime>
 #include <QDir>
+#include <QSettings>
 #include <QFile>
 #include <QFontDatabase>
 #include <QGuiApplication>
@@ -463,6 +464,19 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationVersion(QStringLiteral(QCV_VERSION_STR));
     QGuiApplication::setOrganizationName(QStringLiteral("QCView"));
     QGuiApplication::setOrganizationDomain(QStringLiteral("qcview.app"));
+
+    // Dev aid: QCV_SETTINGS_DIR=<dir> keeps every QSettings (recents, the
+    // output stream, window frame, live offsets...) in an .ini under that
+    // directory instead of the user's defaults domain, so a scripted test
+    // run never lands its scratch projects in the user's Recent Projects
+    // (2026-10-13: a test project opened from Recents looked like a wrong
+    // live item restored). Must precede the first QSettings construction.
+    if (qEnvironmentVariableIsSet("QCV_SETTINGS_DIR")) {
+        const QString dir = qEnvironmentVariable("QCV_SETTINGS_DIR");
+        QDir().mkpath(dir);
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, dir);
+    }
 
     QGuiApplication app(argc, argv);
 
