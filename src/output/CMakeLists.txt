@@ -27,6 +27,23 @@ if(APPLE)
         "-framework CoreMedia"
         "-framework CoreVideo"
     )
+elseif(WIN32)
+    # Media Foundation on the renderer's D3D11 device (plan A2). The device
+    # comes from qcv_render's D3D11DeviceManager; qcv_render links nothing
+    # of ours back, so the dependency is one way.
+    target_sources(qcv_output PRIVATE
+        mf_video_encoder.h
+        mf_video_encoder.cpp
+    )
+    target_link_libraries(qcv_output PRIVATE
+        qcv_render
+        mfplat.lib
+        mfuuid.lib
+        d3d11.lib
+        dxguid.lib
+        ole32.lib
+        oleaut32.lib
+    )
 else()
     target_sources(qcv_output PRIVATE
         no_video_encoder.cpp

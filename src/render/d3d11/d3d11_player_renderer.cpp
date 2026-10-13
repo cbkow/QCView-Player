@@ -537,7 +537,12 @@ void main(uint3 id : SV_DispatchThreadID)
         RtTarget  canvas, canvasB, ocioOut, ocioOutB, combined;   // RGBA16F at the raster
         ComPtr<ID3D11Texture2D>        out;        // BGRA8 at the raster: the wire picture
         ComPtr<ID3D11RenderTargetView> outRtv;
+        ComPtr<ID3D11ShaderResourceView> outSrv;    // read by the NV12 passes (sink targets)
         D3D11AnnotationRenderer        annotations;   // guides + strokes into `out`
+        // Sink targets (the stream): the Y and CbCr render-target views of
+        // each NV12 surface the sink has handed out, by texture.
+        struct Nv12Views { ComPtr<ID3D11RenderTargetView> y, uv; };
+        std::unordered_map<void *, Nv12Views> nv12Views;
         OutputStamp last;  bool haveLast = false;
         // CPU-readable copies of `out`, a small FIFO. Each frame is copied
         // into the next free one and mapped (without waiting) at the start
@@ -563,6 +568,137 @@ void main(uint3 id : SV_DispatchThreadID)
         bool full() const { return stagingCount == kStagingSlots; }
         void resetStaging() { for (auto &st : staging) { st.tex.Reset(); st.pending = false; } stagingHead = 0; stagingCount = 0; }
     };
+
+    // Stream output (plan A2): the wire texture → the two planes of an NV12
+    // surface, BT.709 limited range, 4:2:0 by averaging the 2x2 block — the
+    // same maths as the Metal kernel, as two fullscreen pixel passes
+    // (plane 0 at full size into an R8 view, plane 1 at half size into an
+    // R8G8 view of the same texture).
+    ComPtr<ID3D11VertexShader>       nv12Vs;
+    ComPtr<ID3D11PixelShader>        nv12Ps;
+    ComPtr<ID3D11Buffer>             nv12Cb;
+    int                              nv12Support = -1;   // -1 unknown, 0 no NV12 render target, 1 yes
+
+    bool ensureNv12(ID3D11Device *device)
+    {
+        if (nv12Vs && nv12Ps && nv12Cb) return true;
+        static const char *kNv12Hlsl = R"(
+Texture2D<float4> src : register(t0);
+cbuffer P : register(b0) { uint plane; uint srcW; uint srcH; uint pad; };
+struct VsOut { float4 pos : SV_Position; };
+VsOut vs_main(uint id : SV_VertexID)
+{
+    float2 p = float2((id << 1) & 2, id & 2);
+    VsOut o; o.pos = float4(p * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0); return o;
+}
+float4 ps_main(VsOut i) : SV_Target
+{
+    const float3 kY = float3(0.2126, 0.7152, 0.0722);
+    int2 px = int2(i.pos.xy);
+    if (plane == 0) {
+        float3 rgb = saturate(src.Load(int3(px, 0)).rgb);
+        return float4(dot(rgb, kY) * (219.0 / 255.0) + 16.0 / 255.0, 0.0, 0.0, 1.0);
+    }
+    int2 b  = px * 2;
+    int2 mx = int2(int(srcW) - 1, int(srcH) - 1);
+    float3 sum = float3(0.0, 0.0, 0.0);
+    [unroll] for (int j = 0; j < 2; ++j)
+        [unroll] for (int k = 0; k < 2; ++k)
+            sum += saturate(src.Load(int3(min(b + int2(k, j), mx), 0)).rgb);
+    float3 rgb = sum * 0.25;
+    float y  = dot(rgb, kY);
+    float cb = (rgb.b - y) / 1.8556 * (224.0 / 255.0) + 128.0 / 255.0;
+    float cr = (rgb.r - y) / 1.5748 * (224.0 / 255.0) + 128.0 / 255.0;
+    return float4(cb, cr, 0.0, 1.0);
+}
+)";
+        ComPtr<ID3DBlob> vsb, psb, err;
+        if (FAILED(D3DCompile(kNv12Hlsl, std::strlen(kNv12Hlsl), "nv12_vs", nullptr, nullptr, "vs_main", "vs_5_0", 0, 0,
+                              vsb.GetAddressOf(), err.GetAddressOf()))
+            || FAILED(device->CreateVertexShader(vsb->GetBufferPointer(), vsb->GetBufferSize(), nullptr, nv12Vs.GetAddressOf()))) {
+            qWarning("D3D11PlayerRenderer: NV12 vertex shader failed: %s",
+                     err ? static_cast<const char *>(err->GetBufferPointer()) : "");
+            nv12Vs.Reset();
+            return false;
+        }
+        err.Reset();
+        if (FAILED(D3DCompile(kNv12Hlsl, std::strlen(kNv12Hlsl), "nv12_ps", nullptr, nullptr, "ps_main", "ps_5_0", 0, 0,
+                              psb.GetAddressOf(), err.GetAddressOf()))
+            || FAILED(device->CreatePixelShader(psb->GetBufferPointer(), psb->GetBufferSize(), nullptr, nv12Ps.GetAddressOf()))) {
+            qWarning("D3D11PlayerRenderer: NV12 pixel shader failed: %s",
+                     err ? static_cast<const char *>(err->GetBufferPointer()) : "");
+            nv12Vs.Reset();  nv12Ps.Reset();
+            return false;
+        }
+        D3D11_BUFFER_DESC bd{};
+        bd.ByteWidth = 16;
+        bd.Usage     = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        if (FAILED(device->CreateBuffer(&bd, nullptr, nv12Cb.GetAddressOf()))) {
+            nv12Vs.Reset();  nv12Ps.Reset();
+            return false;
+        }
+        return true;
+    }
+
+    // The two plane views of an NV12 texture (R8 → Y, R8G8 → CbCr).
+    static bool makeNv12Views(ID3D11Device *device, ID3D11Texture2D *tex, OutputRes::Nv12Views *v)
+    {
+        D3D11_RENDER_TARGET_VIEW_DESC rd{};
+        rd.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+        rd.Texture2D.MipSlice = 0;
+        rd.Format = DXGI_FORMAT_R8_UNORM;
+        if (FAILED(device->CreateRenderTargetView(tex, &rd, v->y.GetAddressOf()))) return false;
+        rd.Format = DXGI_FORMAT_R8G8_UNORM;
+        if (FAILED(device->CreateRenderTargetView(tex, &rd, v->uv.GetAddressOf()))) { v->y.Reset(); return false; }
+        return true;
+    }
+
+    // `out` (BGRA8, W x H) → the NV12 texture's two planes.
+    bool encodeNv12(ID3D11DeviceContext *ctx, ID3D11Device *device, OutputRes &res,
+                    ID3D11Texture2D *nv12, int W, int H)
+    {
+        if (nv12Support < 0) {
+            UINT sup = 0;
+            nv12Support = (SUCCEEDED(device->CheckFormatSupport(DXGI_FORMAT_NV12, &sup))
+                           && (sup & D3D11_FORMAT_SUPPORT_RENDER_TARGET)) ? 1 : 0;
+            if (!nv12Support) qWarning("D3D11PlayerRenderer: NV12 is not a render target on this device; the stream output cannot convert");
+        }
+        if (!nv12Support || !ensureNv12(device) || !res.outSrv) return false;
+        auto it = res.nv12Views.find(nv12);
+        if (it == res.nv12Views.end()) {
+            if (res.nv12Views.size() > 16) res.nv12Views.clear();
+            OutputRes::Nv12Views v;
+            if (!makeNv12Views(device, nv12, &v)) return false;
+            it = res.nv12Views.emplace(nv12, std::move(v)).first;
+        }
+        ID3D11ShaderResourceView *srv = res.outSrv.Get();
+        ID3D11Buffer *cb = nv12Cb.Get();
+        ctx->IASetInputLayout(nullptr);
+        ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        ctx->VSSetShader(nv12Vs.Get(), nullptr, 0);
+        ctx->PSSetShader(nv12Ps.Get(), nullptr, 0);
+        ctx->PSSetShaderResources(0, 1, &srv);
+        ctx->PSSetConstantBuffers(0, 1, &cb);
+        ctx->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+        auto pass = [&](ID3D11RenderTargetView *rtv, uint32_t plane, int w, int h) {
+            struct { uint32_t plane, srcW, srcH, pad; } params{plane, static_cast<uint32_t>(W), static_cast<uint32_t>(H), 0u};
+            ctx->UpdateSubresource(cb, 0, nullptr, &params, 0, 0);
+            ctx->OMSetRenderTargets(1, &rtv, nullptr);
+            D3D11_VIEWPORT vp{};
+            vp.Width = static_cast<float>(w);  vp.Height = static_cast<float>(h);
+            vp.MinDepth = 0;  vp.MaxDepth = 1;
+            ctx->RSSetViewports(1, &vp);
+            ctx->Draw(3, 0);
+        };
+        pass(it->second.y.Get(),  0u, W, H);
+        pass(it->second.uv.Get(), 1u, (W + 1) / 2, (H + 1) / 2);
+        ID3D11ShaderResourceView *nullSrv = nullptr;
+        ctx->PSSetShaderResources(0, 1, &nullSrv);
+        ctx->OMSetRenderTargets(0, nullptr, nullptr);
+        return true;
+    }
+
     std::unordered_map<output::OutputTarget *, std::unique_ptr<OutputRes>> outputs;
 };
 
@@ -3189,9 +3325,11 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         st.aAct = m_aActive.load(std::memory_order_relaxed);  st.bAct = m_bActive.load(std::memory_order_relaxed);
         st.specGen = specGen;
         if (res.haveLast && st == res.last) continue;
+        output::IGpuFrameSink *sink = t->gpuSink();
         // Every staging copy still on the GPU: the sink gets the next frame
-        // (lossy by design, O5; counted in the trace line).
-        if (res.full()) { ++res.skippedFull; continue; }
+        // (lossy by design, O5; counted in the trace line). Sink targets
+        // have no staging: their surface comes from the sink.
+        if (!sink && res.full()) { ++res.skippedFull; continue; }
         if (res.haveLast) {
             const int64_t nowNs = qcbae::OutputRing::now_ns();
             if (nowNs - res.lastTraceNs > 1000000000LL) {
@@ -3215,22 +3353,24 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         if (res.specGen != specGen || res.w != W || res.h != H || !res.out) {
             res.canvas = Impl::RtTarget{};  res.canvasB = Impl::RtTarget{};
             res.ocioOut = Impl::RtTarget{};  res.ocioOutB = Impl::RtTarget{};  res.combined = Impl::RtTarget{};
-            res.outRtv.Reset();  res.out.Reset();  res.resetStaging();
+            res.outRtv.Reset();  res.outSrv.Reset();  res.out.Reset();  res.resetStaging();
+            res.nv12Views.clear();
             D3D11_TEXTURE2D_DESC td{};
             td.Width = static_cast<UINT>(W);  td.Height = static_cast<UINT>(H);
             td.MipLevels = 1;  td.ArraySize = 1;
             td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
             td.SampleDesc.Count = 1;
             td.Usage = D3D11_USAGE_DEFAULT;
-            td.BindFlags = D3D11_BIND_RENDER_TARGET;
+            td.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;   // the NV12 passes read it
             D3D11_TEXTURE2D_DESC ts = td;
             ts.Usage = D3D11_USAGE_STAGING;  ts.BindFlags = 0;  ts.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
             bool ok = SUCCEEDED(device->CreateTexture2D(&td, nullptr, res.out.GetAddressOf()))
-                   && SUCCEEDED(device->CreateRenderTargetView(res.out.Get(), nullptr, res.outRtv.GetAddressOf()));
+                   && SUCCEEDED(device->CreateRenderTargetView(res.out.Get(), nullptr, res.outRtv.GetAddressOf()))
+                   && SUCCEEDED(device->CreateShaderResourceView(res.out.Get(), nullptr, res.outSrv.GetAddressOf()));
             for (auto &sg : res.staging) ok = ok && SUCCEEDED(device->CreateTexture2D(&ts, nullptr, sg.tex.GetAddressOf()));
             if (!ok) {
                 qWarning("D3D11PlayerRenderer: output %dx%d BGRA8 targets failed", W, H);
-                res.out.Reset();  res.outRtv.Reset();  res.resetStaging();
+                res.out.Reset();  res.outRtv.Reset();  res.outSrv.Reset();  res.resetStaging();
                 continue;
             }
             if (!res.annotations.isInitialized()
@@ -3244,6 +3384,13 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         }
         if (!res.canvas.ensure(device, W, H)) continue;
         if (in.dual && in.perSide && !res.canvasB.ensure(device, W, H)) continue;
+
+        // ---- a sink target: its NV12 surface, or nothing this frame ----
+        void *surface = nullptr;
+        if (sink) {
+            surface = sink->acquireSurface(spec.width, spec.height);
+            if (!surface) continue;      // the sink is full: it repeats its last picture
+        }
 
         auto bind = [&](ID3D11RenderTargetView *rtv, bool opaque) {
             ctx->OMSetRenderTargets(1, &rtv, nullptr);
@@ -3376,6 +3523,29 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
                     }
                 }
             }
+        }
+
+        // ---- 4a. a sink: NV12 into its surface, handed over now ----
+        // The conversion is queued on the immediate context; the encoder
+        // works on the same device, so its read of the surface is ordered
+        // after these draws. Flush so the GPU starts on it at once.
+        if (sink) {
+            auto *nv12 = static_cast<ID3D11Texture2D *>(surface);
+            if (!m_impl->encodeNv12(ctx, device, res, nv12, W, H)) {
+                sink->release(surface);
+                qWarning("D3D11PlayerRenderer: stream surface could not be written; frame skipped");
+                continue;
+            }
+            ctx->Flush();
+            output::GpuFrameDesc gd;
+            gd.width = spec.width;  gd.height = spec.height;
+            gd.presentation_ns    = qcbae::OutputRing::now_ns();
+            gd.source_frame_index = in.dual ? m_impl->lastDualFrame : (m_decoder ? m_decoder->currentFrame() : -1);
+            sink->submit(surface, gd);
+            ++res.published;
+            res.last     = st;
+            res.haveLast = true;
+            continue;
         }
 
         // ---- 4. to the CPU side: staging now, the ring slot once the GPU is done ----

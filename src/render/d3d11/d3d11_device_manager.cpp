@@ -4,6 +4,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <d3d11.h>
+#include <d3d10.h>   // ID3D10Multithread
 #include <dxgi1_2.h>
 #include <wrl/client.h>
 
@@ -37,7 +38,9 @@ bool D3D11DeviceManager::initialize()
     std::lock_guard lock(m_mutex);
     if (m_initialized) return true;
 
-    UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+    // VIDEO_SUPPORT: the stream output's Media Foundation encoder shares
+    // this device through IMFDXGIDeviceManager (plan A2), which needs it.
+    UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_VIDEO_SUPPORT;
 #ifdef _DEBUG
     flags |= D3D11_CREATE_DEVICE_DEBUG;
     m_impl->hasDebug = true;
@@ -69,12 +72,31 @@ bool D3D11DeviceManager::initialize()
             m_impl->device.GetAddressOf(), &flOut,
             m_impl->context.GetAddressOf());
     }
+    if (FAILED(hr) && (flags & D3D11_CREATE_DEVICE_VIDEO_SUPPORT)) {
+        qWarning("D3D11DeviceManager: device creation with VIDEO_SUPPORT failed "
+                 "(hr=0x%08lX); retrying without (no stream encoder)",
+                 static_cast<unsigned long>(hr));
+        flags &= ~static_cast<UINT>(D3D11_CREATE_DEVICE_VIDEO_SUPPORT);
+        hr = D3D11CreateDevice(
+            nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags,
+            flReq, _countof(flReq), D3D11_SDK_VERSION,
+            m_impl->device.GetAddressOf(), &flOut,
+            m_impl->context.GetAddressOf());
+    }
     if (FAILED(hr)) {
         qCritical("D3D11DeviceManager: D3D11CreateDevice failed (hr=0x%08lX)",
                   static_cast<unsigned long>(hr));
         return false;
     }
     m_impl->featureLevel = static_cast<unsigned int>(flOut);
+    // The immediate context is used from the render thread, FFmpeg's
+    // D3D11VA decode threads and the Media Foundation encoder; the runtime
+    // serializes them once multithread protection is on. (The decode
+    // bridge sets it too; from here it is on from the first frame.)
+    {
+        ComPtr<ID3D10Multithread> mt;
+        if (SUCCEEDED(m_impl->context.As(&mt)) && mt) mt->SetMultithreadProtected(TRUE);
+    }
 
     // Pull IDXGIFactory2 out of the device (avoids creating a separate
     // factory that may not match the adapter we got).

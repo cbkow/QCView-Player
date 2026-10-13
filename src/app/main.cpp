@@ -705,7 +705,7 @@ int main(int argc, char *argv[])
         const int ms = static_cast<int>(qEnvironmentVariable("QCV_NOTE_TEST").toDouble() * 1000);
         const QString savePath = qEnvironmentVariable("QCV_NOTE_TEST_SAVE");
         if (!savePath.isEmpty()) {
-            QTimer::singleShot(std::max(0, ms - 1000), &windowManager, [&windowManager, savePath] {
+            QTimer::singleShot((std::max)(0, ms - 1000), &windowManager, [&windowManager, savePath] {
                 const bool ok = windowManager.project() && windowManager.project()->saveProject(savePath);
                 qInfo("QCV_NOTE_TEST: save project %s -> %s", qPrintable(savePath), ok ? "ok" : "FAILED");
             });
