@@ -6,7 +6,7 @@ nav_order: 12
 
 # Output
 
-The **Output** section in the Left Rail sends what the viewport shows, with the mixed audio, somewhere else: to an NDI® source on the network through the QCBridgeN sink, or to a streaming server as an H.264 + AAC stream encoded inside QCView. Both carry the same Rec.709 SDR picture — the view transform, splits and wipes, the safety guides and the note strokes if you include them — so a reviewer sees what you see.
+The **Output** section in the Left Rail sends what the viewport shows, with the mixed audio via SRT or NDI.
 
 Nothing is sent unless an output is switched on. Starting an output does not change playback.
 
@@ -27,7 +27,7 @@ The **Stream** block sends the viewport and audio to a streaming server. QCView 
 
 | Setting | What it does |
 |---|---|
-| **URL** | `srt://host:port` or `rtmp://host/app` (`rtmps://` for TLS). |
+| **URL** | `srt://host:port` or `rtmp://hoßst/app` (`rtmps://` for TLS). |
 | **Key** | For SRT, sent as the stream id. For RTMP, appended to the URL as the stream name. Hidden by default; the eye reveals it. |
 | **Video bitrate** | kbps, constant-rate. 6000 suits 1080p; 4000 suits 720p. |
 | **Resolution** | 2160p, 1080p, 720p or 540p. The picture is letterboxed into it. |
