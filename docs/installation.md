@@ -52,6 +52,14 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.6
+
+- **Stream output (macOS)** — the Output section can send the viewport and the mixed audio as an H.264 / AAC stream over SRT to a review service such as Louper, encoded inside QCView by the Mac's hardware encoder, with no OBS in between: URL and stream key, video bitrate, resolution, frame rate, Baseline or Main profile, audio bitrate and SRT latency, with live counters while it runs. Windows follows.
+- **Output section** — Output moves out of Settings into its own collapsible section in the left rail, and the sink rows get a Start / Stop button like the stream's.
+- **Notes on live feeds** — a note added on a Premiere Pro, After Effects or SRT feed captures the live frame and is kept in the project's `.qcview/streams/` folder under the item's name, stamped with the capture time and the host's timecode. An unsaved project shows a Save tile first, so nothing lands on disk until the project has a home. Jumping back to a captured frame comes next.
+- **Live audio** — Premiere Pro's audio no longer chops: the jitter buffer fills to its target before it plays and fills again after an underrun.
+- **Live feeds and the transport** — Space, K, the frame-step and shuttle keys, Home / End and the review-speed key no longer pause or mute a live feed; M still mutes it. In dual view with a live side, stepping and shuttling while paused no longer silence the live side.
+
 What's new in 2.5.5
 
 - **Output on Windows** — the NDI feed from the D3D11 renderer no longer skipped every other frame, and a frame reaches the sink within milliseconds of the GPU finishing it instead of at the next draw: two frames behind the viewport at a receiver on the same machine, down from four. Dual view with a live side (a Premiere or After Effects feed) now publishes while QCView's own transport is paused, on both platforms.
