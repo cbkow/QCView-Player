@@ -490,28 +490,6 @@ Pane {
                     onClicked: exportDocxDialog.open()
                 }
 
-                // Plan B3 — a stream's notes folder straight into minNotes
-                // (cards, insert as blocks, its own exports).
-                Rectangle {
-                    visible: WindowManager.activeNotesAreStream
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    color: Theme.divider
-                }
-                FlatButton {
-                    visible: WindowManager.activeNotesAreStream
-                    Layout.fillWidth: true
-                    text: qsTr("Open in minNotes")
-                    hoverColor: Theme.success
-                    enabled: WindowManager.minNotesAvailable
-                             && WindowManager.notesList
-                             && WindowManager.notesList.length > 0
-                    tooltipText: WindowManager.minNotesAvailable
-                                 ? qsTr("Open this stream's notes folder in minNotes")
-                                 : qsTr("minNotes is not installed")
-                    onClicked: WindowManager.openNotesInMinNotes()
-                }
-
                 Item { Layout.fillHeight: true }
 
                 Rectangle {
@@ -519,11 +497,32 @@ Pane {
                     Layout.preferredHeight: 1
                     color: Theme.divider
                 }
-                FlatButton {
+                // The bottom row: Cancel, and for a stream item (plan B3)
+                // "Open in minNotes" beside it — on the same row, so the
+                // panel keeps its height and Cancel stays in frame.
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Cancel")
-                    variant: "danger"
-                    onClicked: root.exportPanelVisible = false
+                    spacing: Theme.spacing
+                    FlatButton {
+                        visible: WindowManager.activeNotesAreStream
+                        Layout.fillWidth: true
+                        text: qsTr("Open in minNotes")
+                        hoverColor: Theme.success
+                        enabled: WindowManager.minNotesAvailable
+                                 && WindowManager.notesList
+                                 && WindowManager.notesList.length > 0
+                        tooltipText: WindowManager.minNotesAvailable
+                                     ? qsTr("Open this stream's notes folder in minNotes")
+                                     : qsTr("minNotes is not installed")
+                        onClicked: WindowManager.openNotesInMinNotes()
+                    }
+                    FlatButton {
+                        Layout.fillWidth: !WindowManager.activeNotesAreStream
+                        Layout.preferredWidth: WindowManager.activeNotesAreStream ? 72 : -1
+                        text: qsTr("Cancel")
+                        variant: "danger"
+                        onClicked: root.exportPanelVisible = false
+                    }
                 }
             }
         }
