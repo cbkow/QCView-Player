@@ -3025,7 +3025,12 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
         //         display and view (no display LUT: that is the monitor's) ----
         void *corrected = (__bridge void *)res.canvas16f;
         if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
-            const bool hdr = spec.transfer != qcbae::OutputTransfer::SdrRec709 && !spec.hdrDisplay.empty();
+            // HDR outputs: with a view named, the live chain through the output's
+            // Rec.2100 display (a per-output capture-style renderer, built inline);
+            // without one, the live chain as the viewport shows it — pass-through.
+            const bool hdrOut = spec.transfer != qcbae::OutputTransfer::SdrRec709;
+            const bool hdr    = hdrOut && !spec.hdrDisplay.empty();
+            const bool live   = hdrOut && spec.hdrDisplay.empty();
             auto forHdr = [&](const OcioChainSpec &s) {
                 OcioChainSpec h = s;
                 h.display = QString::fromStdString(spec.hdrDisplay);
@@ -3036,8 +3041,8 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
             const OcioChainSpec &liveA = in.dual ? in.chains->a : in.chains->single;
             const OcioChainSpec  hdrA  = hdr ? forHdr(liveA) : OcioChainSpec{};
             const OcioChainSpec &specA = hdr ? hdrA : liveA;
-            MetalOcioRenderer &ocioA = hdr ? res.ocio : m_impl->outputOcio;
-            if (hdr && !ocioA.isInitialized()) ocioA.initialize();
+            MetalOcioRenderer &ocioA = hdr ? res.ocio : live ? m_impl->ocio : m_impl->outputOcio;
+            if (hdr && !ocioA.isInitialized()) { ocioA.setSdrCapture(true); ocioA.initialize(); }
             ocioA.setStage(specA.stage(gain));
             ocioA.setViewer(aids);
             ocioA.rebuild(specA);
@@ -3048,8 +3053,8 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
             if (in.dual && in.perSide && res.canvasB16f) {
                 const OcioChainSpec  hdrB  = hdr ? forHdr(in.chains->b) : OcioChainSpec{};
                 const OcioChainSpec &specB = hdr ? hdrB : in.chains->b;
-                MetalOcioRenderer &ocioB = hdr ? res.ocioB : m_impl->outputOcioB;
-                if (hdr && !ocioB.isInitialized()) ocioB.initialize();
+                MetalOcioRenderer &ocioB = hdr ? res.ocioB : live ? m_impl->ocioB : m_impl->outputOcioB;
+                if (hdr && !ocioB.isInitialized()) { ocioB.setSdrCapture(true); ocioB.initialize(); }
                 ocioB.setStage(specB.stage(gain));
                 ocioB.setViewer(aids);
                 ocioB.rebuild(specB);

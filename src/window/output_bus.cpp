@@ -627,21 +627,22 @@ void OutputBus::answer(Output &o)
     // PQ and HLG render through a Rec.2100 display of the OCIO config.
     const uint32_t transfer = r.transfer != 0 ? r.transfer : static_cast<uint32_t>(o.transfer);
     const bool hdr = transfer != static_cast<uint32_t>(qcbae::OutputTransfer::SdrRec709);
+    // The transfer is what the wire is told and signals. By default the
+    // picture goes out as displayed (the live chain's output, or the raw
+    // composite with OCIO off — a Premiere or After Effects feed that is
+    // already PQ or HLG passes straight through). Only when the output
+    // names a view on the config's Rec.2100 display is the live chain
+    // re-rendered through it (an SDR grade shown on an HDR monitor).
     QString hdrDisplay, hdrView, hdrWhy;
-    if (hdr) {
+    if (transfer > static_cast<uint32_t>(qcbae::OutputTransfer::HlgRec2020)) hdrWhy = QStringLiteral("unknown transfer");
+    if (hdr && hdrWhy.isEmpty() && !o.hdrView.isEmpty()) {
         OCIOConfigManager *ocio = m_ocio ? m_ocio() : nullptr;
-        if (transfer > static_cast<uint32_t>(qcbae::OutputTransfer::HlgRec2020)) hdrWhy = QStringLiteral("unknown transfer");
-        else if (!ocio)                   hdrWhy = QStringLiteral("HDR outputs need the OCIO chain");
-        else if (ocio->engine() != 0)     hdrWhy = QStringLiteral("HDR outputs need the OCIO engine (minColor later)");
-        else {
-            hdrDisplay = hdrDisplayFor(static_cast<int>(transfer));
-            if (hdrDisplay.isEmpty()) hdrWhy = QStringLiteral("no Rec.2100 display in the OCIO config");
-            else {
-                const QStringList views = ocio->viewsForDisplay(hdrDisplay);
-                hdrView = views.contains(o.hdrView) ? o.hdrView : views.value(0);
-                if (hdrView.isEmpty()) hdrWhy = QStringLiteral("the Rec.2100 display has no views");
-            }
+        const QString d = hdrDisplayFor(static_cast<int>(transfer));
+        if (ocio && ocio->engine() == 0 && !d.isEmpty() && ocio->viewsForDisplay(d).contains(o.hdrView)) {
+            hdrDisplay = d;
+            hdrView    = o.hdrView;
         }
+        // else: the view is gone (another config) — pass through, say so in the row
     }
     if (r.protocol_version != qcbae::kOutputDescVersion) {
         refuse(qcbae::OutputRefusal::VersionMismatch, "this QCView speaks output protocol 1");
@@ -682,14 +683,16 @@ void OutputBus::answer(Output &o)
         const char *tfName  = transfer == 2 ? "PQ Rec.2100" : transfer == 3 ? "HLG Rec.2100" : "SDR Rec.709";
         std::snprintf(reply.message, sizeof reply.message, "%ux%u %s %s from QCView", spec.width, spec.height, fmtName, tfName);
         o.shape = QStringLiteral("%1x%2 %3 %4").arg(spec.width).arg(spec.height).arg(QLatin1String(fmtName), QLatin1String(tfName));
-        if (hdr) o.shape += QStringLiteral(" · %1").arg(hdrView);
+        if (hdr) o.shape += hdrView.isEmpty() ? QStringLiteral(" · as displayed") : QStringLiteral(" · %1").arg(hdrView);
     }
     o.accepted = reply.accepted != 0;
     o.ring->write_reply(reply, o.reqGen);
     if (o.accepted) writeHdrInfo(o, transfer);
-    qInfo("OutputBus: %s: request %llu (%ux%u fmt %u transfer %u content %u layers 0x%x) -> %s \"%s\"",
+    qInfo("OutputBus: %s: request %llu (%ux%u fmt %u transfer %u content %u layers 0x%x) -> %s \"%s\"%s",
           qPrintable(o.id), static_cast<unsigned long long>(o.reqGen), r.width, r.height, r.pixel_format,
-          r.transfer, r.content, r.layers, o.accepted ? "accepted" : "refused", reply.message);
+          r.transfer, r.content, r.layers, o.accepted ? "accepted" : "refused", reply.message,
+          hdr ? qPrintable(hdrView.isEmpty() ? QStringLiteral(" [as displayed]")
+                                             : QStringLiteral(" [%1 / %2]").arg(hdrDisplay, hdrView)) : "");
     if (!o.accepted) o.shape = QString::fromUtf8(reply.message);
 }
 

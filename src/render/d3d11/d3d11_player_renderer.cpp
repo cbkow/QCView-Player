@@ -3449,7 +3449,14 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         //         display and view (no display LUT: that is the monitor's) ----
         ID3D11ShaderResourceView *corrected = res.canvas.srv.Get();
         if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
-            const bool hdr = spec.transfer != qcbae::OutputTransfer::SdrRec709 && !spec.hdrDisplay.empty();
+            // HDR outputs: with a view named, the live chain through the output's
+            // Rec.2100 display (an inline-built per-output renderer, so the first
+            // published frame is already converted); without one, the live chain
+            // as the viewport shows it — pass-through, not the SDR capture
+            // equivalent an SDR output takes.
+            const bool hdrOut = spec.transfer != qcbae::OutputTransfer::SdrRec709;
+            const bool hdr    = hdrOut && !spec.hdrDisplay.empty();
+            const bool live   = hdrOut && spec.hdrDisplay.empty();
             auto forHdr = [&](const OcioChainSpec &s) {
                 OcioChainSpec h = s;
                 h.display = QString::fromStdString(spec.hdrDisplay);
@@ -3462,8 +3469,10 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
             const OcioChainSpec &specA = hdr ? hdrA : liveA;
             D3D11OcioRenderer *capA = nullptr;
             if (hdr) {
-                if (!res.ocio.isInitialized()) res.ocio.initialize();
+                if (!res.ocio.isInitialized()) { res.ocio.setSdrCapture(true); res.ocio.initialize(); }   // capture instances build inline; sdrDisplay is cleared so no override applies
                 if (res.ocio.isInitialized() && rebuildOcio(res.ocio, specA)) capA = &res.ocio;
+            } else if (live) {
+                if (m_impl->ocio.isInitialized() && rebuildOcio(m_impl->ocio, specA)) capA = &m_impl->ocio;
             } else if (specA.needsSdrCapture()) {
                 if (m_impl->outputOcio.isInitialized() && rebuildOcio(m_impl->outputOcio, specA)) capA = &m_impl->outputOcio;
             } else if (m_impl->ocio.isInitialized() && rebuildOcio(m_impl->ocio, specA)) {
@@ -3477,8 +3486,10 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
                     const OcioChainSpec &specB = hdr ? hdrB : in.chains->b;
                     D3D11OcioRenderer *capB = nullptr;
                     if (hdr) {
-                        if (!res.ocioB.isInitialized()) res.ocioB.initialize();
+                        if (!res.ocioB.isInitialized()) { res.ocioB.setSdrCapture(true); res.ocioB.initialize(); }
                         if (res.ocioB.isInitialized() && rebuildOcio(res.ocioB, specB)) capB = &res.ocioB;
+                    } else if (live) {
+                        if (m_impl->ocioB.isInitialized() && rebuildOcio(m_impl->ocioB, specB)) capB = &m_impl->ocioB;
                     } else if (specB.needsSdrCapture()) {
                         if (m_impl->outputOcioB.isInitialized() && rebuildOcio(m_impl->outputOcioB, specB)) capB = &m_impl->outputOcioB;
                     } else if (m_impl->ocioB.isInitialized() && rebuildOcio(m_impl->ocioB, specB)) {

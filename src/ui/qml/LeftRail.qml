@@ -2044,23 +2044,20 @@ Rectangle {
                                             currentIndex: Math.max(0, Math.min(2, (outRow.modelData.transfer || 1) - 1))
                                             onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "transfer", currentIndex + 1)
                                         }
+                                        // "(as displayed)" sends the picture as the viewport
+                                        // shows it, tagged with the transfer — a PQ or HLG feed
+                                        // from Premiere or After Effects passes straight through.
+                                        // A view re-renders the live chain through the config's
+                                        // Rec.2100 display for that transfer.
                                         FlatComboBox {
-                                            visible: parent.transfer > 1 && outRow.modelData.hdrViews.length > 0
+                                            visible: parent.transfer > 1
                                             Layout.fillWidth: true
                                             font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeSmall
-                                            model: outRow.modelData.hdrViews
-                                            currentIndex: Math.max(0, outRow.modelData.hdrViews.indexOf(outRow.modelData.hdrView))
-                                            onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "hdrView", textAt(currentIndex))
-                                        }
-                                        Text {
-                                            visible: parent.transfer > 1 && outRow.modelData.hdrViews.length === 0
-                                            Layout.fillWidth: true
-                                            text: qsTr("no Rec.2100 display in this OCIO config")
-                                            color: Theme.textMuted
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeTiny
-                                            elide: Text.ElideRight
+                                            model: [qsTr("(as displayed)")].concat(outRow.modelData.hdrViews)
+                                            currentIndex: Math.max(0, outRow.modelData.hdrViews.indexOf(outRow.modelData.hdrView) + 1)
+                                            onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "hdrView",
+                                                                                                currentIndex === 0 ? "" : textAt(currentIndex))
                                         }
                                         FlatComboBox {
                                             visible: parent.transfer === 2
