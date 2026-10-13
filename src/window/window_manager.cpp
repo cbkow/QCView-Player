@@ -376,7 +376,17 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         connect(m_project, &ProjectManager::projectSaved,
                 this, &WindowManager::addRecentProject);
         // Plan B1: a stream's notes wait for the project to exist on disk.
-        connect(m_project, &ProjectManager::projectSaved, this, [this] {
+        // Save As to another folder: the stream notes live in the sidecar
+        // beside the project file, so copy every live item's folder across
+        // (the old file stays, so a copy, not a move) and point the
+        // manager at the new place.
+        connect(m_project, &ProjectManager::projectSaved, this, [this](const QString &path) {
+            const QString oldPath = m_notesProjectPath;
+            if (!oldPath.isEmpty() && !path.isEmpty()
+                && QFileInfo(oldPath).absolutePath() != QFileInfo(path).absolutePath()) {
+                carryStreamNotes(oldPath, path);
+                if (m_activeNotesAreStream) syncAnnotationManagerToActiveMedia();
+            }
             if (m_notesNeedProjectSave) syncAnnotationManagerToActiveMedia();
         });
         connect(m_project, &ProjectManager::projectOpened,
@@ -4518,6 +4528,40 @@ void WindowManager::adoptReviewNote(const QString &timecode)
     emit liveReviewChanged();
 }
 
+namespace {
+bool copyDirRecursive(const QString &src, const QString &dst)
+{
+    QDir s(src);
+    if (!s.exists()) return false;
+    if (!QDir().mkpath(dst)) return false;
+    bool ok = true;
+    for (const QFileInfo &fi : s.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot)) {
+        const QString to = dst + QLatin1Char('/') + fi.fileName();
+        if (fi.isDir()) ok = copyDirRecursive(fi.absoluteFilePath(), to) && ok;
+        else if (!QFileInfo::exists(to)) ok = QFile::copy(fi.absoluteFilePath(), to) && ok;
+    }
+    return ok;
+}
+} // namespace
+
+void WindowManager::carryStreamNotes(const QString &oldProjectPath, const QString &newProjectPath)
+{
+    if (!m_project) return;
+    int copied = 0;
+    for (const MediaItem &it : m_project->mediaPool()) {
+        if (it.type != MediaType::LiveStream) continue;
+        const QString folder = annotation_io::findStreamFolder(oldProjectPath, it.id);
+        if (folder.isEmpty()) continue;
+        const QString src = annotation_io::getStreamDir(oldProjectPath, folder);
+        const QString dst = annotation_io::getStreamDir(newProjectPath, folder);
+        if (QFileInfo::exists(dst + QStringLiteral("/notes.json"))) continue;   // already there
+        if (copyDirRecursive(src, dst)) ++copied;
+        else qWarning("carryStreamNotes: copy failed %s -> %s", qPrintable(src), qPrintable(dst));
+    }
+    qInfo("carryStreamNotes: %d stream folder(s) copied to %s", copied,
+          qPrintable(QFileInfo(newProjectPath).absolutePath()));
+}
+
 void WindowManager::ensureFrozenForNote()
 {
     if (activeStreamItem() && !liveReview()) freezeLive();
@@ -7892,9 +7936,11 @@ void WindowManager::syncAnnotationManagerToActiveMedia()
             m_annotationManager->clearNotes();
         } else {
             m_notesNeedProjectSave = false;
+            m_notesProjectPath = projectPath;
             QString folder = annotation_io::findStreamFolder(projectPath, it->id);
             if (folder.isEmpty()) folder = annotation_io::streamFolderName(it->name, it->id);
-            annotation_io::createStreamFolder(projectPath, folder);
+            // The folder is created by the first note's save (the writers
+            // mkpath), not by looking at the item.
             QJsonObject header;
             header.insert(QStringLiteral("stream"),     it->name);
             header.insert(QStringLiteral("stream_id"),  it->id);

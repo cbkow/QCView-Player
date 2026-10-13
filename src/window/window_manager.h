@@ -415,6 +415,7 @@ public:
     void showReviewImage(const QImage &img);
     void adoptReviewNote(const QString &timecode);
     void ensureFrozenForNote();
+    void carryStreamNotes(const QString &oldProjectPath, const QString &newProjectPath);
     void stepReviewNote(int delta);
     NoteKey currentNoteKey() const;
     // Is this note the one the viewport shows: frame match for files,
@@ -1597,6 +1598,7 @@ private:
     NoteKey m_frozenKey;                 // minted when the feed froze; the first note takes it
     QImage  m_reviewImage;               // what the viewport shows in Review (RGBA8888)
     QString m_reviewLabel;               // "HH:mm:ss" of the capture, for the pill
+    QString m_notesProjectPath;          // the project file whose sidecar holds the stream notes in use
     QList<AnnotationUndoEntry>           m_annotationRedoStack;
     bool                                 m_notesPanelVisible = false;
 

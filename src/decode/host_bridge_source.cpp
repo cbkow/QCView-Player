@@ -85,6 +85,7 @@ void HostBridgeSource::close()
     m_sleepCv.notify_all();
     m_thread.join();
     m_pool.clear();
+    m_lastFrame = QImage();
     setStatus(Idle, {});
     qInfo("HostBridgeSource: closed ('%s')", qPrintable(m_url));
 }
@@ -157,7 +158,12 @@ void HostBridgeSource::publishFrame(QImage *img, int64_t ptsUs)
     // but not published — the viewport keeps the Review picture.
     if (LiveFrameSink *sink = m_publish.load(std::memory_order_acquire) ? m_sink : nullptr) {
         sink->publishExternalFrame(FrameHandle::cpu(*img, ptsUs), ptsUs);
+        m_republish.store(false, std::memory_order_release);
     }
+    // Shared copy (one pool slot stays pinned until the next frame): what
+    // the worker republishes when publishing resumes with no new frame.
+    m_lastFrame = *img;
+    m_lastPts   = ptsUs;
     std::function<void()> cb;
     {
         std::lock_guard<std::mutex> lk(m_frameCbMutex);
@@ -293,6 +299,11 @@ void HostBridgeSource::workerLoop()
         const void *pixels = nullptr;
         const uint64_t seqBefore = lastSeen;
         if (!ring.acquire_latest(&lastSeen, &d, &pixels)) {
+            // Review ended while the host sends nothing: show its last frame.
+            if (m_republish.exchange(false, std::memory_order_acq_rel) && !m_lastFrame.isNull()) {
+                QImage again = m_lastFrame;
+                publishFrame(&again, m_lastPts);
+            }
             if (hs == qcbae::HostState::PausedFocus) {
                 setStatus(Paused, sentence(QStringLiteral(
                     "%1 stopped sending when it lost focus — untick “Disable video "

@@ -41,10 +41,8 @@ void AnnotationManager::loadNotesForStream(const QString &streamDir, const QJson
     const bool ok = annotation_io::loadNotesAt(streamDir, loaded, &onDisk);
     {
         QMutexLocker lk(&notes_mutex_);
-        if (ok) {
-            notes_ = std::move(loaded);
-            sortNotesByTimecode();
-        }
+        notes_ = ok ? std::move(loaded) : std::vector<AnnotationNote>{};
+        if (ok) sortNotesByTimecode();
         // Keep what the file already says (created, anything minNotes
         // added) and refresh what we know now (the display name).
         for (auto it = header.begin(); it != header.end(); ++it) onDisk.insert(it.key(), it.value());

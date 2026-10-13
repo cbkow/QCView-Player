@@ -80,7 +80,14 @@ public:
         return static_cast<AudioState>(m_audioState.load(std::memory_order_acquire));
     }
     void setVideoHoldMs(int ms) override { m_videoHoldMs.store(ms < 0 ? 0 : ms, std::memory_order_release); }
-    void setPublishEnabled(bool on) override { m_publish.store(on, std::memory_order_release); }
+    void setPublishEnabled(bool on) override
+    {
+        // Resuming: the worker republishes the last frame it saw, so a
+        // paused host (no new frame coming) does not leave the Review
+        // picture on the viewport through the view transform.
+        if (on && !m_publish.exchange(true, std::memory_order_acq_rel)) m_republish.store(true, std::memory_order_release);
+        else if (!on) m_publish.store(false, std::memory_order_release);
+    }
     double frameRate() const override { return m_hostFps.load(std::memory_order_acquire); }
     QString hostTimecode() const override;
 
@@ -128,6 +135,9 @@ private:
     std::atomic<int>      m_audioState{0};
     std::atomic<int>      m_videoHoldMs{0};
     std::atomic<bool>     m_publish{true};     // plan B2: off while a Review frame is shown
+    std::atomic<bool>     m_republish{false};  // publishing resumed: send m_lastFrame again
+    QImage                m_lastFrame;         // the newest frame (shared copy), worker thread only
+    int64_t               m_lastPts = 0;
     std::atomic<double>   m_hostFps{0.0};     // from the host's time stamps, worker thread writes
     std::atomic<int64_t>  m_hostTimeValue{-1}; // the newest frame's host time (time_value/time_scale)
     std::atomic<int64_t>  m_hostTimeScale{0};
