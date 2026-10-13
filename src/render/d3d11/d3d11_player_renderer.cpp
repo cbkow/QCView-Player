@@ -3287,7 +3287,8 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         if (!t->active()) continue;
         uint64_t specGen = 0;
         const output::OutputSpec spec = t->spec(&specGen);
-        if (!spec.valid() || spec.format != qcbae::OutputPixelFormat::BGRA8) continue;
+        if (!spec.valid()) continue;
+        if (spec.format != qcbae::OutputPixelFormat::BGRA8 && spec.format != qcbae::OutputPixelFormat::RGB10) continue;
         // Side B alone: the single flow has no B here, the dual compositor
         // no B-only layout (as on Metal). Side A: the Single layout.
         const bool sideA = spec.content == qcbae::OutputContent::SideA;
@@ -3362,10 +3363,15 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
             res.ocioOut = Impl::RtTarget{};  res.ocioOutB = Impl::RtTarget{};  res.combined = Impl::RtTarget{};
             res.outRtv.Reset();  res.outSrv.Reset();  res.out.Reset();  res.resetStaging();
             res.nv12Views.clear();
+            // The wire picture: BGRA8, or RGB10 — R10G10B10A2_UNORM's memory
+            // layout (R in the low bits, two unused on top) is the bus's RGB10,
+            // so the staging copy is the same 4 bytes per pixel with no repack.
+            const bool tenBit = spec.format == qcbae::OutputPixelFormat::RGB10;
+            const DXGI_FORMAT outFmt = tenBit ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
             D3D11_TEXTURE2D_DESC td{};
             td.Width = static_cast<UINT>(W);  td.Height = static_cast<UINT>(H);
             td.MipLevels = 1;  td.ArraySize = 1;
-            td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+            td.Format = outFmt;
             td.SampleDesc.Count = 1;
             td.Usage = D3D11_USAGE_DEFAULT;
             td.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;   // the NV12 passes read it
@@ -3376,18 +3382,20 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
                    && SUCCEEDED(device->CreateShaderResourceView(res.out.Get(), nullptr, res.outSrv.GetAddressOf()));
             for (auto &sg : res.staging) ok = ok && SUCCEEDED(device->CreateTexture2D(&ts, nullptr, sg.tex.GetAddressOf()));
             if (!ok) {
-                qWarning("D3D11PlayerRenderer: output %dx%d BGRA8 targets failed", W, H);
+                qWarning("D3D11PlayerRenderer: output %dx%d %s targets failed", W, H, tenBit ? "RGB10" : "BGRA8");
                 res.out.Reset();  res.outRtv.Reset();  res.outSrv.Reset();  res.resetStaging();
                 continue;
             }
             if (!res.annotations.isInitialized()
-                || res.annotations.targetPixelFormat() != static_cast<int>(DXGI_FORMAT_B8G8R8A8_UNORM)) {
+                || res.annotations.targetPixelFormat() != static_cast<int>(outFmt)) {
                 res.annotations.shutdown();
-                res.annotations.initialize(static_cast<int>(DXGI_FORMAT_B8G8R8A8_UNORM));
+                // The wire is SDR whatever its depth: the 10-bit target must not
+                // pick the HDR10 PQ stroke shader the swapchain would.
+                res.annotations.initialize(static_cast<int>(outFmt), /*sdrEncode=*/true);
             }
             res.specGen = specGen;  res.w = W;  res.h = H;  res.haveLast = false;
-            qInfo("D3D11PlayerRenderer: output pass %dx%d BGRA8 (content %u, layers 0x%x)",
-                  W, H, static_cast<unsigned>(spec.content), spec.layers);
+            qInfo("D3D11PlayerRenderer: output pass %dx%d %s (content %u, layers 0x%x)",
+                  W, H, tenBit ? "RGB10" : "BGRA8", static_cast<unsigned>(spec.content), spec.layers);
         }
         if (!res.canvas.ensure(device, W, H)) continue;
         if (in.dual && in.perSide && !res.canvasB.ensure(device, W, H)) continue;

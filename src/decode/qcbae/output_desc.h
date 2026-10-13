@@ -58,6 +58,10 @@ enum class OutputPixelFormat : uint32_t {
     Unspecified = 0,
     BGRA8       = 1,   // 8-bit, the order NDI and every 8-bit card take natively
     RGBA16F     = 2,   // half float, for HDR transfers and scene-referred sinks
+    RGB10       = 3,   // 10-bit RGB in a 32-bit word: R bits 0-9, G 10-19, B 20-29, top two
+                       // unused. The GPU's R10G10B10A2 render target and AJA's 10-bit
+                       // RGB frame store share this layout, so neither side repacks.
+                       // Full range; the transfer says what the values encode.
     // P216 and v210 join here when a sink asks (O7); the output shader writes
     // them, the sink never repacks.
 };
@@ -66,6 +70,7 @@ inline constexpr uint32_t output_bytes_per_pixel(OutputPixelFormat f) {
     switch (f) {
         case OutputPixelFormat::BGRA8:   return 4u;
         case OutputPixelFormat::RGBA16F: return 8u;
+        case OutputPixelFormat::RGB10:   return 4u;
         default:                         return 0u;
     }
 }

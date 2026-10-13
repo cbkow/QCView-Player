@@ -607,8 +607,8 @@ void OutputBus::answer(Output &o)
     } else if (r.width == 0 || r.height == 0
                || r.width > qcbae::kOutputMaxWidth || r.height > qcbae::kOutputMaxHeight) {
         refuse(qcbae::OutputRefusal::TooLarge, "above the 3840x2160 canvas cap");
-    } else if (fmt != qcbae::OutputPixelFormat::BGRA8) {
-        refuse(qcbae::OutputRefusal::UnsupportedFormat, "BGRA8 only for now; RGBA16F comes with the HDR transfers");
+    } else if (fmt != qcbae::OutputPixelFormat::BGRA8 && fmt != qcbae::OutputPixelFormat::RGB10) {
+        refuse(qcbae::OutputRefusal::UnsupportedFormat, "BGRA8 or RGB10; RGBA16F comes with the HDR transfers");
     } else if (static_cast<qcbae::OutputTransfer>(r.transfer) != qcbae::OutputTransfer::SdrRec709) {
         refuse(qcbae::OutputRefusal::UnsupportedTransfer, "SDR Rec.709 only for now");
     } else if (r.fit != 0 && static_cast<qcbae::OutputFit>(r.fit) != qcbae::OutputFit::Letterbox) {
@@ -634,8 +634,9 @@ void OutputBus::answer(Output &o)
         reply.transfer     = static_cast<uint32_t>(spec.transfer);
         reply.content      = static_cast<uint32_t>(spec.content);
         reply.layers       = spec.layers;
-        std::snprintf(reply.message, sizeof reply.message, "%ux%u BGRA8 SDR from QCView", spec.width, spec.height);
-        o.shape = QStringLiteral("%1x%2 BGRA8").arg(spec.width).arg(spec.height);
+        const char *fmtName = spec.format == qcbae::OutputPixelFormat::RGB10 ? "RGB10" : "BGRA8";
+        std::snprintf(reply.message, sizeof reply.message, "%ux%u %s SDR from QCView", spec.width, spec.height, fmtName);
+        o.shape = QStringLiteral("%1x%2 %3").arg(spec.width).arg(spec.height).arg(QLatin1String(fmtName));
     }
     o.accepted = reply.accepted != 0;
     o.ring->write_reply(reply, o.reqGen);

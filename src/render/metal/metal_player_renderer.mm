@@ -2825,7 +2825,8 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
         if (!t->active()) continue;
         uint64_t specGen = 0;
         const output::OutputSpec spec = t->spec(&specGen);
-        if (!spec.valid() || spec.format != qcbae::OutputPixelFormat::BGRA8) continue;
+        if (!spec.valid()) continue;
+        if (spec.format != qcbae::OutputPixelFormat::BGRA8 && spec.format != qcbae::OutputPixelFormat::RGB10) continue;
         if (spec.content == qcbae::OutputContent::SideB && !(in.dual ? in.dualB : in.hasB)) continue;
 
         auto &resPtr = m_impl->outputs[t];
@@ -2908,25 +2909,30 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
             res.canvas16f  = [m_impl->device newTextureWithDescriptor:d16];
             res.canvasB16f = nil;
             res.combined   = nil;
+            // The wire picture: BGRA8, or RGB10 — RGB10A2Unorm's memory layout
+            // (R in the low bits, two unused on top) is the bus's RGB10, so the
+            // blit into the slot is the same 4 bytes per pixel with no repack.
+            const bool tenBit = spec.format == qcbae::OutputPixelFormat::RGB10;
+            const MTLPixelFormat outFmt = tenBit ? MTLPixelFormatRGB10A2Unorm : MTLPixelFormatBGRA8Unorm;
             MTLTextureDescriptor *d8 = [MTLTextureDescriptor
-                texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:W height:H mipmapped:NO];
+                texture2DDescriptorWithPixelFormat:outFmt width:W height:H mipmapped:NO];
             d8.storageMode = MTLStorageModePrivate;
             d8.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget;
             res.out = [m_impl->device newTextureWithDescriptor:d8];
             if (!res.compositor.isInitialized()
-                || res.compositor.targetPixelFormat() != static_cast<int>(MTLPixelFormatBGRA8Unorm)) {
+                || res.compositor.targetPixelFormat() != static_cast<int>(outFmt)) {
                 res.compositor.shutdown();
-                res.compositor.initialize(static_cast<int>(MTLPixelFormatBGRA8Unorm));
+                res.compositor.initialize(static_cast<int>(outFmt));
             }
             if (!res.annotations.isInitialized()
-                || res.annotations.targetPixelFormat() != static_cast<int>(MTLPixelFormatBGRA8Unorm)) {
+                || res.annotations.targetPixelFormat() != static_cast<int>(outFmt)) {
                 res.annotations.shutdown();
-                res.annotations.initialize(static_cast<int>(MTLPixelFormatBGRA8Unorm));
+                res.annotations.initialize(static_cast<int>(outFmt));
             }
             res.slotBuffers.clear();
             res.specGen = specGen;  res.w = W;  res.h = H;  res.haveLast = false;
-            qInfo("MetalPlayerRenderer: output pass %dx%d BGRA8 (content %u, layers 0x%x)",
-                  W, H, static_cast<unsigned>(spec.content), spec.layers);
+            qInfo("MetalPlayerRenderer: output pass %dx%d %s (content %u, layers 0x%x)",
+                  W, H, tenBit ? "RGB10" : "BGRA8", static_cast<unsigned>(spec.content), spec.layers);
         }
         if (!res.canvas16f || !res.out || !res.compositor.isInitialized()) continue;
         if (in.dual && in.perSide && !res.canvasB16f) {

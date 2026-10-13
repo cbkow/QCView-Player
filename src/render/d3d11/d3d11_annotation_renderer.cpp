@@ -192,7 +192,7 @@ D3D11AnnotationRenderer::~D3D11AnnotationRenderer()
     shutdown();
 }
 
-bool D3D11AnnotationRenderer::initialize(int targetFormat)
+bool D3D11AnnotationRenderer::initialize(int targetFormat, bool sdrEncode)
 {
     auto &mgr = D3D11DeviceManager::instance();
     m_impl->device = static_cast<ID3D11Device *>(mgr.device());
@@ -210,7 +210,7 @@ bool D3D11AnnotationRenderer::initialize(int targetFormat)
     //   anything else            → SDR (pass-through)
     const char *psVariantBody = kPsHlslSdr;
     const char *psVariantName = "SDR";
-    switch (static_cast<DXGI_FORMAT>(targetFormat)) {
+    switch (sdrEncode ? DXGI_FORMAT_UNKNOWN : static_cast<DXGI_FORMAT>(targetFormat)) {
         case DXGI_FORMAT_R10G10B10A2_UNORM:
             psVariantBody = kPsHlslHdr10Pq;
             psVariantName = "HDR10 PQ";

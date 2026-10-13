@@ -32,8 +32,10 @@ public:
     // Build the PSO for `targetFormat` (a DXGI_FORMAT value passed as
     // int so headers don't drag in <d3d11.h>). Re-call after a
     // swapchain format change. Phase F.2.9: the pixel-shader variant
-    // (SDR / scRGB-linear / HDR10 PQ) is picked from targetFormat.
-    bool initialize(int targetFormat);
+    // (SDR / scRGB-linear / HDR10 PQ) is picked from targetFormat;
+    // `sdrEncode` forces the SDR variant whatever the format (the output
+    // bus's 10-bit SDR picture lives in R10G10B10A2 too).
+    bool initialize(int targetFormat, bool sdrEncode = false);
     void shutdown();
     bool isInitialized() const;
     int  targetPixelFormat() const;
