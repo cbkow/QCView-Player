@@ -59,6 +59,12 @@ bool AnnotationManager::isStreamSource() const
     return source_.kind == Source::Kind::Stream;
 }
 
+QString AnnotationManager::streamDir() const
+{
+    QMutexLocker lk(&notes_mutex_);
+    return source_.kind == Source::Kind::Stream ? source_.streamDir : QString();
+}
+
 QJsonObject AnnotationManager::streamHeader() const
 {
     QMutexLocker lk(&notes_mutex_);

@@ -42,6 +42,7 @@ public:
     // carries (stream, stream_id, stream_url). Same list, same CRUD.
     void loadNotesForStream(const QString &streamDir, const QJsonObject &header);
     bool isStreamSource() const;
+    QString streamDir() const;   // Stream source: the absolute folder; empty otherwise
     QJsonObject streamHeader() const;
     // The stream fields of one note, set once at capture (one save).
     void setNoteStreamFields(const QString &key, const QString &capturedAt,

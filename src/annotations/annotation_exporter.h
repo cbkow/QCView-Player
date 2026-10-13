@@ -75,8 +75,17 @@ private:
         QString ocioChain;        // the OCIO chain it went through, if any
         int     imageWidth        = 0;
         int     imageHeight       = 0;
+        // Stream notes (plan B3): the heading is the capture time and the
+        // host's timecode, not a file timecode and frame.
+        bool    isStream          = false;
+        QString capturedAt;       // ISO 8601 with offset
+        QString hostTimecode;     // HH:MM:SS:FF at the host's rate; may be empty
     };
     std::vector<ExportNote> collectNotes() const;
+    // The note heading's two parts: "01:02:03:04" + "frame 1500" for a
+    // file, "2026-10-12 17:16:15.599" + "TC 00:01:02:03" for a stream.
+    struct Heading { QString main, sub; };
+    static Heading headingFor(const ExportNote &n);
 
     // Common HTML body building block — used by both the HTML
     // and PDF paths (QTextDocument's print path takes HTML).

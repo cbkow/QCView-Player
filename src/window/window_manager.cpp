@@ -8827,6 +8827,70 @@ void WindowManager::seekToAnnotationNote(const QString &timecode)
     seekToFrame(n->frame);
 }
 
+// ---------------------------------------------------------------------------
+// Plan B3 — "Open in minNotes": the stream folder as a minnotes:/// link.
+// minNotes resolves minnotes:///<path> to the path (app/main.cpp
+// resolveAndOpen) and, from plan C on, opens a folder holding notes.json as
+// the stream's cards. The scheme is registered by the installed app on
+// both platforms (Info.plist CFBundleURLTypes; the Setup's HKLM Classes).
+// ---------------------------------------------------------------------------
+
+namespace {
+QString minNotesLocation()
+{
+#if defined(Q_OS_MACOS)
+    const QStringList candidates = {
+        QStringLiteral("/Applications/minNotes.app"),
+        QDir::homePath() + QStringLiteral("/Applications/minNotes.app"),
+    };
+    for (const QString &c : candidates) if (QFileInfo::exists(c)) return c;
+    return {};
+#elif defined(Q_OS_WIN)
+    const QString pf = qEnvironmentVariable("ProgramFiles");
+    const QString exe = pf + QStringLiteral("/minNotes/minNotes.exe");
+    if (QFileInfo::exists(exe)) return exe;
+    const QSettings cls(QStringLiteral("HKEY_LOCAL_MACHINE\\Software\\Classes\\minnotes"), QSettings::NativeFormat);
+    if (cls.contains(QStringLiteral("URL Protocol"))) return QStringLiteral("minnotes:");
+    return {};
+#else
+    return {};
+#endif
+}
+} // namespace
+
+bool WindowManager::minNotesAvailable() const
+{
+    static const bool available = !minNotesLocation().isEmpty();
+    return available;
+}
+
+bool WindowManager::openNotesInMinNotes()
+{
+    if (!m_annotationManager) return false;
+    const QString dir = m_annotationManager->streamDir();
+    if (dir.isEmpty()) {
+        qInfo("openNotesInMinNotes: the active item has no stream notes folder");
+        return false;
+    }
+    QUrl url = QUrl::fromLocalFile(QDir(dir).absolutePath());
+    url.setScheme(QStringLiteral("minnotes"));
+    qInfo("openNotesInMinNotes: %s", qPrintable(url.toString()));
+    if (QDesktopServices::openUrl(url)) return true;
+    // No scheme handler: start the app with the folder as its argument
+    // (macOS `open -a` delivers it as an open-document event; the Windows
+    // single instance forwards it).
+    const QString loc = minNotesLocation();
+    if (loc.isEmpty() || loc.endsWith(QLatin1Char(':'))) {
+        toast(tr("minNotes is not installed"), 1);
+        return false;
+    }
+#if defined(Q_OS_MACOS)
+    return QProcess::startDetached(QStringLiteral("/usr/bin/open"), {QStringLiteral("-a"), loc, dir});
+#else
+    return QProcess::startDetached(loc, {dir});
+#endif
+}
+
 bool WindowManager::exportAnnotationNotes(const QString &format,
                                            const QString &path,
                                            const QString &baseName)

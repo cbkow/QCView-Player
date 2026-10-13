@@ -1104,6 +1104,11 @@ public:
                                                      bool addressed);
     Q_INVOKABLE void deleteAnnotationNote(const QString &timecode);
     Q_INVOKABLE void seekToAnnotationNote(const QString &timecode);
+    // Plan B3: hand a stream's notes folder to minNotes (minnotes:///<dir>;
+    // its single instance picks it up). Available when minNotes is installed.
+    Q_PROPERTY(bool minNotesAvailable READ minNotesAvailable CONSTANT)
+    bool minNotesAvailable() const;
+    Q_INVOKABLE bool openNotesInMinNotes();
 
     // Phase 3.H.6 Stage D — exports. format ∈ {"markdown","html",
     // "pdf"}. For markdown the path is an output directory (the

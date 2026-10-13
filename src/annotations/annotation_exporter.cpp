@@ -106,6 +106,9 @@ AnnotationExporter::collectNotes() const
         en.addressed        = n.addressed;
         en.viewerTag        = n.viewer_tag;
         en.ocioChain        = n.ocio_chain;
+        en.isStream         = n.isStreamNote();
+        en.capturedAt       = n.captured_at;
+        en.hostTimecode     = n.host_timecode;
 
         // Resolve the on-disk PNG. Prefer the annotated sibling
         // when present so the export shows what the user was
@@ -125,6 +128,18 @@ AnnotationExporter::collectNotes() const
         out.push_back(std::move(en));
     }
     return out;
+}
+
+AnnotationExporter::Heading AnnotationExporter::headingFor(const ExportNote &n)
+{
+    if (n.isStream) {
+        const QDateTime at = QDateTime::fromString(n.capturedAt, Qt::ISODateWithMs);
+        Heading h;
+        h.main = at.isValid() ? at.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")) : n.timecode;
+        h.sub  = n.hostTimecode.isEmpty() ? QString() : QStringLiteral("TC %1").arg(n.hostTimecode);
+        return h;
+    }
+    return { n.timecode, QStringLiteral("frame %1").arg(QString::number(n.frame)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -222,9 +237,10 @@ bool AnnotationExporter::exportMarkdown(const QString &outputDir,
             }
         }
 
-        md << QStringLiteral("## %1 (frame %2)%3")
-                .arg(n.timecode,
-                     QString::number(n.frame),
+        const Heading hd = headingFor(n);
+        md << QStringLiteral("## %1%2%3")
+                .arg(hd.main,
+                     hd.sub.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(hd.sub),
                      n.addressed
                        ? QStringLiteral(" ✅")
                        : QString());
@@ -309,11 +325,12 @@ QString AnnotationExporter::buildHtmlBody(
     out += QStringLiteral("<hr/>");
 
     for (const auto &n : notes) {
+        const Heading hd = headingFor(n);
         out += QStringLiteral("<h2>%1 <span style='color:#888;"
                               "font-size:12px;font-weight:normal;'>"
-                              "(frame %2)%3</span></h2>")
-                  .arg(htmlEscape(n.timecode),
-                       QString::number(n.frame),
+                              "%2%3</span></h2>")
+                  .arg(htmlEscape(hd.main),
+                       hd.sub.isEmpty() ? QString() : QStringLiteral("(%1)").arg(htmlEscape(hd.sub)),
                        n.addressed
                          ? QStringLiteral(" ✅ addressed")
                          : QString());
@@ -549,9 +566,10 @@ bool AnnotationExporter::exportPdf(const QString &outputFile)
         QTextBlockFormat headerBlock = pageBreak;
         headerBlock.setBottomMargin(18);
         cur.insertBlock(headerBlock);
-        cur.insertText(n.timecode, noteHeaderFmt);
-        cur.insertText(QStringLiteral("   frame %1%2").arg(
-            QString::number(n.frame),
+        const Heading hd = headingFor(n);
+        cur.insertText(hd.main, noteHeaderFmt);
+        cur.insertText(QStringLiteral("   %1%2").arg(
+            hd.sub,
             n.addressed ? QStringLiteral("   ✅ addressed")
                         : QString()), noteSubFmt);
 
@@ -913,10 +931,11 @@ bool AnnotationExporter::exportDocx(const QString &outputFile)
             w.writeEndElement();
             w.writeEndElement();
 
+            const Heading hd = headingFor(n);
             writePara(w,
-                QStringLiteral("%1   frame %2%3").arg(
-                    n.timecode,
-                    QString::number(n.frame),
+                QStringLiteral("%1   %2%3").arg(
+                    hd.main,
+                    hd.sub,
                     n.addressed ? QStringLiteral("   ✅ addressed")
                                 : QString()),
                 QStringLiteral("Heading2"));
