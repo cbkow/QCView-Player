@@ -54,11 +54,12 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 What's new in 2.5.6
 
-- **Stream output (macOS)** — the Output section can send the viewport and the mixed audio as an H.264 / AAC stream over SRT to a review service such as Louper, encoded inside QCView by the Mac's hardware encoder, with no OBS in between: URL and stream key, video bitrate, resolution, frame rate, Baseline or Main profile, audio bitrate and SRT latency, with live counters while it runs. Windows follows.
+- **Stream output** — the Output section can send the viewport and the mixed audio to a review service such as Louper, or to any SRT listener or RTMP server, as H.264 + AAC encoded inside QCView by the hardware encoder (VideoToolbox on macOS, Media Foundation on Windows), with no OBS in between. URL and stream key, video bitrate, resolution, frame rate, Baseline or Main profile, audio bitrate and SRT latency, live counters while it runs, and a session that reconnects on its own if the connection drops. See [Output](/output/).
 - **Output section** — Output moves out of Settings into its own collapsible section in the left rail, and the sink rows get a Start / Stop button like the stream's.
-- **Notes on live feeds** — a note added on a Premiere Pro, After Effects or SRT feed captures the live frame and is kept in the project's `.qcview/streams/` folder under the item's name, stamped with the capture time and the host's timecode. An unsaved project shows a Save tile first, so nothing lands on disk until the project has a home. Jumping back to a captured frame comes next.
+- **Notes on live feeds** — a note on a Premiere Pro, After Effects or SRT feed freezes the feed and captures the frame. Notes live in the project's `.qcview/streams/` folder under the item's name, stamped with the capture time and the host's timecode; an unsaved project shows a Save tile first. Space freezes the feed and brings it back, Escape returns to live, clicking a note shows its frame again for review, ← / → walk the notes, and the outputs show what the viewport shows. A LIVE / REVIEW pill in the Notes panel and the live strip say which you are looking at. Exports head stream notes with their capture time, and **Open in minNotes** hands the notes folder to minNotes 1.0.3.
 - **Live audio** — Premiere Pro's audio no longer chops: the jitter buffer fills to its target before it plays and fills again after an underrun.
-- **Live feeds and the transport** — Space, K, the frame-step and shuttle keys, Home / End and the review-speed key no longer pause or mute a live feed; M still mutes it. In dual view with a live side, stepping and shuttling while paused no longer silence the live side.
+- **Live feeds and the transport** — the transport keys no longer pause or mute a live feed; M still mutes it. In dual view with a live side, stepping and shuttling while paused no longer silence the live side.
+- **Projects** — Save As to another folder carries a stream's notes with it; the live strip gains a Notes panel button.
 
 What's new in 2.5.5
 
