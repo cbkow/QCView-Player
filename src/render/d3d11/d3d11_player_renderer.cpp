@@ -674,13 +674,20 @@ float4 ps_main(VsOut i) : SV_Target
         }
         ID3D11ShaderResourceView *srv = res.outSrv.Get();
         ID3D11Buffer *cb = nv12Cb.Get();
+        // `out` is still bound as step 3's render target: binding it as a
+        // shader resource while it is would be refused (the slot stays
+        // null and the planes come out black). Unbind first.
+        ctx->OMSetRenderTargets(0, nullptr, nullptr);
         ctx->IASetInputLayout(nullptr);
         ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         ctx->VSSetShader(nv12Vs.Get(), nullptr, 0);
+        ctx->GSSetShader(nullptr, nullptr, 0);
         ctx->PSSetShader(nv12Ps.Get(), nullptr, 0);
         ctx->PSSetShaderResources(0, 1, &srv);
         ctx->PSSetConstantBuffers(0, 1, &cb);
         ctx->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+        ctx->OMSetDepthStencilState(nullptr, 0);
+        ctx->RSSetState(nullptr);
         auto pass = [&](ID3D11RenderTargetView *rtv, uint32_t plane, int w, int h) {
             struct { uint32_t plane, srcW, srcH, pad; } params{plane, static_cast<uint32_t>(W), static_cast<uint32_t>(H), 0u};
             ctx->UpdateSubresource(cb, 0, nullptr, &params, 0, 0);
