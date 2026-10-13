@@ -3469,8 +3469,12 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
             const OcioChainSpec &specA = hdr ? hdrA : liveA;
             D3D11OcioRenderer *capA = nullptr;
             if (hdr) {
-                if (!res.ocio.isInitialized()) { res.ocio.setSdrCapture(true); res.ocio.initialize(); }   // capture instances build inline; sdrDisplay is cleared so no override applies
+                if (!res.ocio.isInitialized()) { res.ocio.setSdrCapture(true); res.ocio.initialize(); }   // sdrDisplay is cleared, so no capture override applies
                 if (res.ocio.isInitialized() && rebuildOcio(res.ocio, specA)) capA = &res.ocio;
+                // The chain compiles on a worker; until it lands nothing is
+                // published (a raw picture tagged PQ would stand until the next
+                // change), and the loop is asked round again.
+                if (!capA || !res.ocio.hasPipeline()) { requestUpdate(); continue; }
             } else if (live) {
                 if (m_impl->ocio.isInitialized() && rebuildOcio(m_impl->ocio, specA)) capA = &m_impl->ocio;
             } else if (specA.needsSdrCapture()) {

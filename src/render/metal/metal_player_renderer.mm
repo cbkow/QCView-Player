@@ -3046,6 +3046,7 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
             ocioA.setStage(specA.stage(gain));
             ocioA.setViewer(aids);
             ocioA.rebuild(specA);
+            if (hdr && !ocioA.hasPipeline()) { requestUpdate(); continue; }   // hold until the output's chain exists
             if (ocioA.hasPipeline()) {
                 void *o = ocioA.apply(cmdBuffer, (__bridge void *)res.canvas16f, W, H);
                 if (o) corrected = o;
