@@ -582,7 +582,16 @@ void OutputBus::poll()
                 if (!o.proc) o.plugin = o.installed ? QStringLiteral("installed") : QStringLiteral("not installed");
             }
         }
-        o.target->setActive(present && o.accepted);
+        const bool active = present && o.accepted;
+        if (active && !o.target->active()) {
+            // The pass publishes on change only, and on Windows nothing redraws
+            // while the picture is paused: a sink that just attached would wait
+            // for the next frame. Ask for one so it gets the picture now.
+            o.target->setActive(true);
+            if (IPlayerRenderer *r = m_renderer ? m_renderer() : nullptr) r->requestUpdate();
+        } else {
+            o.target->setActive(active);
+        }
         std::string status;
         if (o.ring->read_status(&status, &o.statusGen)) {
             o.status = QString::fromStdString(status);
