@@ -27,7 +27,7 @@ The **Stream** block sends the viewport and audio to a streaming server. QCView 
 
 | Setting | What it does |
 |---|---|
-| **URL** | `srt://host:port` or `rtmp://hoßst/app` (`rtmps://` for TLS). |
+| **URL** | `srt://host:port` or `rtmp://host/app` (`rtmps://` for TLS). |
 | **Key** | For SRT, sent as the stream id. For RTMP, appended to the URL as the stream name. Hidden by default; the eye reveals it. |
 | **Video bitrate** | kbps, constant-rate. 6000 suits 1080p; 4000 suits 720p. |
 | **Resolution** | 2160p, 1080p, 720p or 540p. The picture is letterboxed into it. |
