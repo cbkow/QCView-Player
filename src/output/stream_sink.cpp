@@ -54,6 +54,10 @@ bool StreamSink::start(const StreamConfig &cfg, std::string *error)
     m_framesIn = 0; m_framesRepeated = 0; m_framesSkipped = 0; m_framesDroppedQueue = 0;
     m_audioFrames = 0; m_audioSilent = 0;
     m_fps = 0.0; m_kbps = 0.0;
+    m_reconnects = 0;
+    m_forceKey.store(false, std::memory_order_release);
+    m_waitKey.store(false, std::memory_order_release);
+    { std::lock_guard<std::mutex> lk(m_extraMutex); m_videoExtradata.clear(); }
     m_clockT0.store(0, std::memory_order_release);
     m_muxReady.store(false, std::memory_order_release);
     m_audioRing.clear();
@@ -206,18 +210,19 @@ void StreamSink::pacedThread()
     const bool encOk = m_encoder->open(spec, [this](EncodedUnit &&au) { enqueue(std::move(au)); }, &err);
     if (!encOk) { setState("error: " + err); m_failed.store(true); m_running.store(false); return; }
 
-    MuxConfig mc;
-    mc.url = m_cfg.url;  mc.width = m_cfg.width;  mc.height = m_cfg.height;
-    mc.fpsNum = num;  mc.fpsDen = den;
-    mc.srtLatencyMs = m_cfg.srtLatencyMs;
-    mc.streamId = m_cfg.streamId;  mc.passphrase = m_cfg.passphrase;
-    if (m_aac.isOpen()) { mc.audioExtradata = m_aac.extradata(); mc.audioKbps = m_cfg.audioKbps; }
-    setState("connecting to " + m_cfg.url);
-    if (!m_muxer.open(mc, &err)) {
-        setState("error: " + err);
+    {
+        MuxConfig mc;
+        mc.url = m_cfg.url;  mc.width = m_cfg.width;  mc.height = m_cfg.height;
+        mc.fpsNum = num;  mc.fpsDen = den;
+        mc.srtLatencyMs = m_cfg.srtLatencyMs;
+        mc.streamId = m_cfg.streamId;  mc.passphrase = m_cfg.passphrase;
+        if (m_aac.isOpen()) { mc.audioExtradata = m_aac.extradata(); mc.audioKbps = m_cfg.audioKbps; }
+        m_muxCfg = mc;
+    }
+    // The first connect retries like a reconnect would (a server that is
+    // not up yet, a room still opening); Stop ends it.
+    if (!connectWithBackoff("connecting")) {
         m_encoder->close();
-        m_failed.store(true);
-        m_running.store(false);
         return;
     }
     m_muxReady.store(true, std::memory_order_release);
@@ -252,7 +257,8 @@ void StreamSink::pacedThread()
         }
         if (last) {
             const int64_t pts = static_cast<int64_t>(tick) * dur90k;
-            m_encoder->encode(last, pts, dur90k, forceKey);
+            const bool key = forceKey || m_forceKey.exchange(false, std::memory_order_acq_rel);
+            m_encoder->encode(last, pts, dur90k, key);
             forceKey = false;
         }
         // Behind by more than two periods (a stall, a sleep): skip ticks
@@ -269,7 +275,7 @@ void StreamSink::pacedThread()
             lastBytes = ms.bytes;
             lastRate  = now;
             qInfo("StreamSink: %llu in, %llu encoded (+%llu), %llu key, %llu repeated, %llu skipped, %llu dropped, "
-                  "audio %llu (+%llu silent), %llu pkts, %.0f kbps, %d in flight, mux errors %llu",
+                  "audio %llu (+%llu silent), %llu pkts, %.0f kbps, %d in flight, mux errors %llu, reconnects %llu",
                   static_cast<unsigned long long>(m_framesIn.load()),
                   static_cast<unsigned long long>(es.encoded),
                   static_cast<unsigned long long>(es.encoded - encodedAtLastLog),
@@ -280,7 +286,8 @@ void StreamSink::pacedThread()
                   static_cast<unsigned long long>(m_audioFrames.load()),
                   static_cast<unsigned long long>(m_audioSilent.load()),
                   static_cast<unsigned long long>(ms.packets), m_kbps.load(), m_inFlight.load(),
-                  static_cast<unsigned long long>(ms.errors));
+                  static_cast<unsigned long long>(ms.errors),
+                  static_cast<unsigned long long>(m_reconnects.load()));
             encodedAtLastLog = es.encoded;
         }
     }
@@ -353,6 +360,35 @@ void StreamSink::audioThread()
 
 // ---- the muxer ---------------------------------------------------------------------
 
+bool StreamSink::sleepUnlessStopping(int ms)
+{
+    for (int t = 0; t < ms; t += 50) {
+        if (!m_running.load(std::memory_order_acquire) || m_stopping.load(std::memory_order_acquire)) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    return true;
+}
+
+bool StreamSink::connectWithBackoff(const char *why)
+{
+    int attempt = 0;
+    int delayMs = 1000;
+    for (;;) {
+        if (!m_running.load(std::memory_order_acquire) || m_stopping.load(std::memory_order_acquire)) return false;
+        ++attempt;
+        setState(attempt == 1 ? std::string(why) + " to " + m_cfg.url
+                              : std::string(why) + " (attempt " + std::to_string(attempt) + ")");
+        MuxConfig mc = m_muxCfg;
+        { std::lock_guard<std::mutex> lk(m_extraMutex); mc.videoExtradata = m_videoExtradata; }
+        std::string err;
+        if (m_muxer.open(mc, &err)) return true;
+        if (!m_running.load(std::memory_order_acquire)) return false;
+        setState(std::string(why) + " failed: " + err + " — retrying in " + std::to_string(delayMs / 1000) + " s");
+        if (!sleepUnlessStopping(delayMs)) return false;
+        delayMs = std::min(delayMs * 2, 10000);
+    }
+}
+
 void StreamSink::muxThread()
 {
     for (;;) {
@@ -365,8 +401,39 @@ void StreamSink::muxThread()
             m_aus.pop_front();
         }
         if (!m_muxer.isOpen()) continue;
-        if (au.audio) m_muxer.writeAudio(au.data.data(), au.data.size(), au.pts, au.dur);
-        else          m_muxer.writeVideo(au.data.data(), au.data.size(), au.pts, au.dur, au.keyframe);
+        if (!au.audio && au.keyframe) {
+            // The newest parameter sets: an FLV reconnect writes its header from them.
+            std::vector<uint8_t> ps;
+            if (StreamMuxer::parameterSets(au.data.data(), au.data.size(), &ps)) {
+                std::lock_guard<std::mutex> lk(m_extraMutex);
+                m_videoExtradata = std::move(ps);
+            }
+        }
+        if (m_waitKey.load(std::memory_order_acquire)) {
+            // After a reconnect the receiver starts at a keyframe.
+            if (au.audio || !au.keyframe) continue;
+            m_waitKey.store(false, std::memory_order_release);
+        }
+        const bool ok = au.audio
+            ? m_muxer.writeAudio(au.data.data(), au.data.size(), au.pts, au.dur)
+            : m_muxer.writeVideo(au.data.data(), au.data.size(), au.pts, au.dur, au.keyframe);
+        if (ok || !m_running.load(std::memory_order_acquire)) continue;
+
+        // A write failed: the connection is gone. Reconnect with backoff;
+        // units arriving meanwhile queue (bounded) and are dropped until
+        // the keyframe the paced thread is asked for.
+        qWarning("StreamSink: send failed (%s) — reconnecting", m_muxer.lastError().c_str());
+        m_muxer.close();
+        { std::lock_guard<std::mutex> lk(m_auMutex); m_aus.clear(); }
+        setState("reconnecting (" + std::to_string(m_reconnects.load() + 1) + ")");
+        if (!sleepUnlessStopping(1000)) break;
+        if (!connectWithBackoff("reconnecting")) break;
+        m_reconnects.fetch_add(1, std::memory_order_relaxed);
+        m_waitKey.store(true, std::memory_order_release);
+        m_forceKey.store(true, std::memory_order_release);
+        { std::lock_guard<std::mutex> lk(m_auMutex); m_aus.clear(); }
+        setState("streaming");
+        qInfo("StreamSink: reconnected (%llu)", static_cast<unsigned long long>(m_reconnects.load()));
     }
     m_muxer.close();
 }
@@ -386,6 +453,7 @@ StreamSink::Status StreamSink::status() const
     const auto ms = m_muxer.stats();
     s.packets = ms.packets;  s.bytes = ms.bytes;  s.muxErrors = ms.errors;
     s.fps = m_fps.load();  s.kbps = m_kbps.load();
+    s.reconnects = m_reconnects.load();
     return s;
 }
 

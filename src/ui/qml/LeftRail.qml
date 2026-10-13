@@ -2067,8 +2067,11 @@ Rectangle {
                                                     ? "  ·  " + streamBlock.st.error
                                                     : (streamBlock.available ? "" : "  ·  " + qsTr("no hardware encoder"))))
                                         help: qsTr("Send the viewport and the mixed audio to a "
-                                                 + "streaming server (Louper, or any SRT listener) "
-                                                 + "as H.264 + AAC over SRT, encoded on the GPU. "
+                                                 + "streaming server (Louper, or any SRT or RTMP "
+                                                 + "server) as H.264 + AAC, encoded on the GPU. "
+                                                 + "srt://host:port with the key as the stream id, "
+                                                 + "or rtmp://host/app with the key as the stream "
+                                                 + "name. A dropped connection reconnects on its own. "
                                                  + "The picture is the same Rec.709 SDR picture "
                                                  + "the output bus serves; the frame rate is fixed "
                                                  + "for the session (a paused viewport repeats its "
@@ -2282,7 +2285,8 @@ Rectangle {
                                           ? (streamBlock.st.encoder + "  ·  " + streamBlock.st.encoded + " encoded, "
                                              + streamBlock.st.repeated + " repeated, " + streamBlock.st.skipped + " skipped"
                                              + (streamBlock.st.dropped > 0 ? ", " + streamBlock.st.dropped + " dropped" : "")
-                                             + (streamBlock.st.muxErrors > 0 ? ", " + streamBlock.st.muxErrors + " send errors" : ""))
+                                             + (streamBlock.st.muxErrors > 0 ? ", " + streamBlock.st.muxErrors + " send errors" : "")
+                                             + (streamBlock.st.reconnects > 0 ? ", " + streamBlock.st.reconnects + " reconnects" : ""))
                                           : ""
                                     color: Theme.textMuted
                                     font.family: Theme.fontFamily

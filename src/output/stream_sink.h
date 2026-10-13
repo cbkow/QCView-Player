@@ -80,7 +80,8 @@ public:
     void pushAudio(const float *stereo, uint32_t frames, bool muted);
 
     struct Status {
-        std::string state;             // "waiting for the first frame", "connecting", "streaming", "error: ..."
+        std::string state;             // "waiting for the first frame", "connecting", "streaming", "reconnecting (n)", "error: ..."
+        uint64_t reconnects = 0;       // sessions re-established after the network dropped
         std::string encoder;
         uint64_t framesIn = 0;         // surfaces submitted by the renderer
         uint64_t framesRepeated = 0;   // clock ticks with no new picture
@@ -100,11 +101,21 @@ private:
     void muxThread();
     void setState(const std::string &s);
     void enqueue(EncodedUnit &&u);
+    // Connect (again) with backoff until it works or the session stops:
+    // 1, 2, 4, 8, 10, 10 ... seconds between attempts. False = stopped.
+    bool connectWithBackoff(const char *why);
+    bool sleepUnlessStopping(int ms);
 
     std::unique_ptr<VideoEncoder> m_encoder;
     AacEncoder  m_aac;
     StreamMuxer m_muxer;
     StreamConfig m_cfg;
+    MuxConfig   m_muxCfg;              // what the muxer connects with, for reconnects
+    std::atomic<bool>     m_forceKey{false};   // the paced thread keys the next frame (after a reconnect)
+    std::atomic<bool>     m_waitKey{false};    // the mux thread drops units until a keyframe
+    std::atomic<uint64_t> m_reconnects{0};
+    std::mutex            m_extraMutex;
+    std::vector<uint8_t>  m_videoExtradata;    // SPS+PPS from the last keyframe (FLV reconnects)
 
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_stopping{false};

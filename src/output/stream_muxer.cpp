@@ -28,7 +28,56 @@ std::string avErr(int rc)
 
 bool startsWith(const std::string &s, const char *p) { return s.rfind(p, 0) == 0; }
 
+// Offsets of the Annex-B units in [p, p+n): (unit start after its start code, unit length).
+void annexBUnits(const uint8_t *p, size_t n, std::vector<std::pair<size_t, size_t>> *units)
+{
+    units->clear();
+    auto findStart = [&](size_t from, size_t *sc) -> size_t {
+        for (size_t k = from; k + 3 <= n; ++k) {
+            if (p[k] == 0 && p[k + 1] == 0) {
+                if (p[k + 2] == 1) { *sc = 3; return k; }
+                if (k + 4 <= n && p[k + 2] == 0 && p[k + 3] == 1) { *sc = 4; return k; }
+            }
+        }
+        return n;
+    };
+    size_t sc = 0;
+    size_t s = findStart(0, &sc);
+    while (s < n) {
+        const size_t unit = s + sc;
+        size_t sc2 = 0;
+        const size_t next = findStart(unit, &sc2);
+        if (unit < n && next > unit) units->emplace_back(unit, next - unit);
+        s = next; sc = sc2;
+    }
+}
+
 } // namespace
+
+bool StreamMuxer::isRtmp(const std::string &url)
+{
+    return startsWith(url, "rtmp://") || startsWith(url, "rtmps://");
+}
+
+bool StreamMuxer::parameterSets(const uint8_t *data, size_t size, std::vector<uint8_t> *out)
+{
+    std::vector<std::pair<size_t, size_t>> units;
+    annexBUnits(data, size, &units);
+    static const uint8_t kStart[4] = {0, 0, 0, 1};
+    std::vector<uint8_t> sps, pps;
+    for (const auto &[off, n] : units) {
+        const int t = data[off] & 0x1f;
+        if (t == 7)      sps.assign(data + off, data + off + n);
+        else if (t == 8) pps.assign(data + off, data + off + n);
+    }
+    if (sps.empty() || pps.empty()) return false;
+    out->clear();
+    out->insert(out->end(), kStart, kStart + 4);
+    out->insert(out->end(), sps.begin(), sps.end());
+    out->insert(out->end(), kStart, kStart + 4);
+    out->insert(out->end(), pps.begin(), pps.end());
+    return true;
+}
 
 StreamMuxer::StreamMuxer() = default;
 StreamMuxer::~StreamMuxer() { close(); }
@@ -51,10 +100,11 @@ bool StreamMuxer::open(const MuxConfig &cfg, std::string *error)
     };
 
     const bool srt = startsWith(cfg.url, "srt://");
-    if (!srt) return fail("only srt:// is wired up in this build (rtmp comes with A3): " + cfg.url);
+    m_flv = isRtmp(cfg.url);
+    if (!srt && !m_flv) return fail("the URL must start with srt://, rtmp:// or rtmps://: " + cfg.url);
 
-    int rc = avformat_alloc_output_context2(&m_ctx, nullptr, "mpegts", cfg.url.c_str());
-    if (rc < 0 || !m_ctx) return fail("mpegts muxer: " + avErr(rc));
+    int rc = avformat_alloc_output_context2(&m_ctx, nullptr, m_flv ? "flv" : "mpegts", cfg.url.c_str());
+    if (rc < 0 || !m_ctx) return fail(std::string(m_flv ? "flv" : "mpegts") + " muxer: " + avErr(rc));
     m_ctx->interrupt_callback.callback = &StreamMuxer::interruptCb;
     m_ctx->interrupt_callback.opaque   = this;
 
@@ -73,8 +123,15 @@ bool StreamMuxer::open(const MuxConfig &cfg, std::string *error)
     par->color_trc       = AVCOL_TRC_BT709;
     par->color_space     = AVCOL_SPC_BT709;
     par->color_range     = AVCOL_RANGE_MPEG;
-    // Annex-B with in-band parameter sets: no extradata; mpegtsenc adds
-    // the AUD when the access unit has none.
+    // TS: Annex-B with in-band parameter sets, no extradata (mpegtsenc adds
+    // the AUD). FLV: the SPS/PPS go into the header as avcC — given now, or
+    // taken from the first keyframe in writeVideo.
+    if (m_flv && !cfg.videoExtradata.empty()) {
+        par->extradata = static_cast<uint8_t *>(av_mallocz(cfg.videoExtradata.size() + AV_INPUT_BUFFER_PADDING_SIZE));
+        if (!par->extradata) return fail("could not allocate the video extradata");
+        std::memcpy(par->extradata, cfg.videoExtradata.data(), cfg.videoExtradata.size());
+        par->extradata_size = static_cast<int>(cfg.videoExtradata.size());
+    }
 
     if (!cfg.audioExtradata.empty()) {
         m_audio = avformat_new_stream(m_ctx, nullptr);
@@ -98,15 +155,19 @@ bool StreamMuxer::open(const MuxConfig &cfg, std::string *error)
     // Protocol options. libavformat's srt protocol reads these as
     // AVOptions on the URLContext; the URL's own query keeps working too.
     AVDictionary *popts = nullptr;
-    av_dict_set(&popts, "mode", "caller", 0);
-    av_dict_set_int(&popts, "latency", static_cast<int64_t>(cfg.srtLatencyMs) * 1000, 0);
-    av_dict_set_int(&popts, "connect_timeout", cfg.connectTimeoutMs, 0);
-    av_dict_set_int(&popts, "pkt_size", 1316, 0);
-    av_dict_set(&popts, "transtype", "live", 0);
-    if (!cfg.streamId.empty())   av_dict_set(&popts, "streamid", cfg.streamId.c_str(), 0);
-    if (!cfg.passphrase.empty()) {
-        av_dict_set(&popts, "passphrase", cfg.passphrase.c_str(), 0);
-        av_dict_set_int(&popts, "pbkeylen", cfg.pbKeyLen, 0);
+    if (m_flv) {
+        av_dict_set(&popts, "rtmp_live", "live", 0);
+    } else {
+        av_dict_set(&popts, "mode", "caller", 0);
+        av_dict_set_int(&popts, "latency", static_cast<int64_t>(cfg.srtLatencyMs) * 1000, 0);
+        av_dict_set_int(&popts, "connect_timeout", cfg.connectTimeoutMs, 0);
+        av_dict_set_int(&popts, "pkt_size", 1316, 0);
+        av_dict_set(&popts, "transtype", "live", 0);
+        if (!cfg.streamId.empty())   av_dict_set(&popts, "streamid", cfg.streamId.c_str(), 0);
+        if (!cfg.passphrase.empty()) {
+            av_dict_set(&popts, "passphrase", cfg.passphrase.c_str(), 0);
+            av_dict_set_int(&popts, "pbkeylen", cfg.pbKeyLen, 0);
+        }
     }
     rc = avio_open2(&m_ctx->pb, cfg.url.c_str(), AVIO_FLAG_WRITE, &m_ctx->interrupt_callback, &popts);
     if (popts) {
@@ -115,22 +176,62 @@ bool StreamMuxer::open(const MuxConfig &cfg, std::string *error)
         av_dict_free(&popts);
     }
     if (rc < 0) return fail("connect " + cfg.url + ": " + avErr(rc));
+    m_connected = true;
 
-    // Muxer options: a live stream, no PAT/PMT period games.
+    if (m_flv && par->extradata_size == 0) {
+        qInfo("StreamMuxer: connected to %s; the FLV header waits for the first keyframe", cfg.url.c_str());
+        return true;
+    }
+    if (!writeHeader(error)) return false;
+    if (m_flv) qInfo("StreamMuxer: streaming %ux%u H.264%s in FLV to %s",
+                     cfg.width, cfg.height, m_audio ? " + AAC" : "", cfg.url.c_str());
+    else       qInfo("StreamMuxer: streaming %ux%u H.264%s in MPEG-TS to %s (SRT latency %d ms)",
+                     cfg.width, cfg.height, m_audio ? " + AAC" : "", cfg.url.c_str(), cfg.srtLatencyMs);
+    return true;
+}
+
+bool StreamMuxer::writeHeader(std::string *error)
+{
+    // Muxer options: a live stream, no PAT/PMT period games (TS), no
+    // duration / file size placeholders (FLV).
     AVDictionary *mopts = nullptr;
-    av_dict_set(&mopts, "mpegts_flags", "+resend_headers+initial_discontinuity", 0);
-    rc = avformat_write_header(m_ctx, &mopts);
+    if (m_flv) av_dict_set(&mopts, "flvflags", "no_duration_filesize", 0);
+    else       av_dict_set(&mopts, "mpegts_flags", "+resend_headers+initial_discontinuity", 0);
+    const int rc = avformat_write_header(m_ctx, &mopts);
     if (mopts) av_dict_free(&mopts);
-    if (rc < 0) return fail("write_header: " + avErr(rc));
+    if (rc < 0) {
+        m_lastError = "write_header: " + avErr(rc);
+        if (error) *error = m_lastError;
+        qWarning("StreamMuxer: %s", m_lastError.c_str());
+        return false;
+    }
     m_headerWritten = true;
-    qInfo("StreamMuxer: streaming %ux%u H.264%s in MPEG-TS to %s (SRT latency %d ms)",
-          cfg.width, cfg.height, m_audio ? " + AAC" : "", cfg.url.c_str(), cfg.srtLatencyMs);
     return true;
 }
 
 bool StreamMuxer::writeVideo(const uint8_t *data, size_t size, int64_t pts90k, int64_t dur90k, bool keyframe)
 {
     if (!isOpen() || !data || size == 0) return false;
+    if (!m_headerWritten) {
+        // FLV without parameter sets up front: the first keyframe brings them.
+        if (!keyframe) return true;
+        std::vector<uint8_t> ps;
+        if (!parameterSets(data, size, &ps)) {
+            m_errors.fetch_add(1, std::memory_order_relaxed);
+            m_lastError = "the keyframe carries no SPS/PPS for the FLV header";
+            if (m_errors.load() <= 3) qWarning("StreamMuxer: %s", m_lastError.c_str());
+            return false;
+        }
+        AVCodecParameters *par = m_video->codecpar;
+        av_freep(&par->extradata);
+        par->extradata = static_cast<uint8_t *>(av_mallocz(ps.size() + AV_INPUT_BUFFER_PADDING_SIZE));
+        if (!par->extradata) return false;
+        std::memcpy(par->extradata, ps.data(), ps.size());
+        par->extradata_size = static_cast<int>(ps.size());
+        std::string err;
+        if (!writeHeader(&err)) { m_errors.fetch_add(1, std::memory_order_relaxed); return false; }
+        qInfo("StreamMuxer: FLV header written from the first keyframe (%zu bytes of SPS/PPS)", ps.size());
+    }
     AVPacket *pkt = av_packet_alloc();
     if (!pkt) return false;
     if (av_new_packet(pkt, static_cast<int>(size)) < 0) { av_packet_free(&pkt); return false; }
@@ -157,6 +258,7 @@ bool StreamMuxer::writeVideo(const uint8_t *data, size_t size, int64_t pts90k, i
 bool StreamMuxer::writeAudio(const uint8_t *data, size_t size, int64_t ptsSamples, int64_t durSamples)
 {
     if (!isOpen() || !m_audio || !data || size == 0) return false;
+    if (!m_headerWritten) return true;   // FLV: nothing before the video header
     AVPacket *pkt = av_packet_alloc();
     if (!pkt) return false;
     if (av_new_packet(pkt, static_cast<int>(size)) < 0) { av_packet_free(&pkt); return false; }
@@ -191,6 +293,7 @@ void StreamMuxer::close()
     m_video = nullptr;
     m_audio = nullptr;
     m_headerWritten = false;
+    m_connected = false;
 }
 
 } // namespace qcv::output

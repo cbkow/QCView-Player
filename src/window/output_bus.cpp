@@ -1,4 +1,5 @@
 #include "output_bus.h"
+#include "output/stream_muxer.h"
 
 #include "render/iplayer_renderer.h"
 
@@ -220,12 +221,18 @@ output::StreamConfig OutputBus::streamConfigFromSettings() const
     const QString fpsMode = v("fpsMode").toString();
     if (fpsMode != QLatin1String("auto")) fpsToRational(fpsMode.toDouble(), &cfg.fpsNum, &cfg.fpsDen);
     // The key: for SRT it is the stream id, unless the URL already carries
-    // one. (RTMP, A3: appended to the path.)
+    // one; for RTMP it is the last path element (rtmp://host/app/<key>).
     const QString key = v("key").toString().trimmed();
     if (!key.isEmpty()) {
-        const QUrl u(QString::fromStdString(cfg.url));
-        const QUrlQuery q(u.query());
-        if (!q.hasQueryItem(QStringLiteral("streamid"))) cfg.streamId = key.toStdString();
+        if (output::StreamMuxer::isRtmp(cfg.url)) {
+            std::string url = cfg.url;
+            while (!url.empty() && url.back() == '/') url.pop_back();
+            cfg.url = url + "/" + key.toStdString();
+        } else {
+            const QUrl u(QString::fromStdString(cfg.url));
+            const QUrlQuery q(u.query());
+            if (!q.hasQueryItem(QStringLiteral("streamid"))) cfg.streamId = key.toStdString();
+        }
     }
     return cfg;
 }
@@ -351,6 +358,7 @@ QVariantMap OutputBus::stream() const
         m.insert(QStringLiteral("dropped"),     static_cast<qulonglong>(st.framesDropped));
         m.insert(QStringLiteral("audioSilent"), static_cast<qulonglong>(st.audioSilent));
         m.insert(QStringLiteral("muxErrors"),   static_cast<qulonglong>(st.muxErrors));
+        m.insert(QStringLiteral("reconnects"),  static_cast<qulonglong>(st.reconnects));
     } else {
         m.insert(QStringLiteral("state"), m_streamError.isEmpty() ? QStringLiteral("off") : m_streamError);
         m.insert(QStringLiteral("encoder"), QString());
