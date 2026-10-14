@@ -33,4 +33,4 @@ Two settings apply to the audio a QCBridge feed carries: **A/V sync (Live)**, an
 
 ## Output
 
-Outputs — the NDI® sink and the stream to a review service — have moved out of Settings into their own **Output** section in the Left Rail. See [Output](/output/).
+Outputs — the NDI® sink, the AJA SDI / HDMI sink and the stream to a review service — have moved out of Settings into their own **Output** section in the Left Rail. See [Output](/output/).

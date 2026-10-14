@@ -6,15 +6,15 @@ nav_order: 12
 
 # Output
 
-The **Output** section in the Left Rail sends what the viewport shows, with the mixed audio via SRT or NDI.
+The **Output** section in the Left Rail sends what the viewport shows, with the mixed audio: as an NDI® source, out of an AJA device's SDI and HDMI, or as a stream over SRT or RTMP.
 
-Nothing is sent unless an output is switched on. Starting an output does not change playback.
+Each output is a card: its name, one word of state and **Start** / **Stop** in the header, a summary line while the card is closed, and the controls behind the chevron. Nothing is sent until Start. Starting an output does not change playback.
 
 ## What goes out
 
 - **The picture** is the viewport's composite at the output's raster, letterboxed when the aspect differs. OCIO or minColor transforms, dual-view layouts and the difference view are applied as on screen.
-- **Mute the feed** silences the audio on every output without touching your own monitoring.
-- **Include guides** and **Include annotations** add the safety guides and the note strokes as layers. A note's frozen frame in Review is sent as the viewport shows it.
+- **Mute feed** (the chip at the top) silences the audio on every output without touching your own monitoring.
+- **Guides** and **Notes** (the other two chips) add the safety guides and the note strokes as layers. A note's frozen frame in Review is sent as the viewport shows it.
 - **Live feeds** go out at the feed's own rate (a 23.976 Premiere sequence stays 23.976).
 - **Raster** (per output, for sinks that leave it to QCView such as the AJA sink): **Auto** sends UHD (3840×2160) for anything above 1080p and 1080p otherwise, switching when the source changes; **1080p** and **UHD** fix it. The picture is letterboxed into the raster either way.
 - **Transfer** (per output, for sinks that carry it such as SDI or HDMI): SDR Rec.709, PQ Rec.2100 or HLG Rec.2100. This is what the wire is told and signals; the picture itself goes out as the viewport shows it, so the display is chosen once, in the colour panel (OCIO or minColor), and a Premiere or After Effects feed that is already PQ or HLG passes straight through. PQ adds the mastering metadata the monitor reads: primaries (Rec.2020 or P3-D65), peak, MaxCLL and MaxFALL in nits.
@@ -29,7 +29,7 @@ Install [QCBridgeA](https://github.com/cbkow/QCBridgeA/releases) with AJA's own 
 
 ## Stream (SRT or RTMP)
 
-The **Stream** block sends the viewport and audio to a streaming server. QCView encodes with the platform's hardware encoder (VideoToolbox on macOS, Media Foundation on Windows) and muxes in-process, so there is no OBS or capture card in between.
+The **Stream** card sends the viewport and audio to a streaming server. The URL and key stay in view; the encoder settings open with the chevron. QCView encodes with the platform's hardware encoder (VideoToolbox on macOS, Media Foundation on Windows) and muxes in-process, so there is no OBS or capture card in between.
 
 | Setting | What it does |
 |---|---|

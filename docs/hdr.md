@@ -58,6 +58,10 @@ Some HDR exports carry no transfer tag, and a live source never carries a file's
 
 - **Files, stills and sequences** — set the **Transfer** pill in the Inspector (Color card for video, Image Sequence card for sequences and stills): `PQ 2020`, `PQ P3`, `HLG`, or `Linear` for a scene-linear feed. Auto tells you what the tags resolve to before you override them.
 - **Streams** — the same choice is a chip on the live strip, next to the Color panel button.
+
+## HDR out of an output
+
+An output that carries a transfer (the AJA sink's SDI and HDMI) has its own **Transfer** setting in the [Output](/output/) section: SDR Rec.709, PQ Rec.2100 or HLG Rec.2100. It is what the wire is told and signals, with the mastering metadata for PQ; the picture itself goes out as the viewport shows it. So for an HDR monitor on the card, pick the matching Rec.2100 display in the colour panel (OCIO or minColor) and set the output's transfer to the same thing, or pass a Premiere or After Effects PQ feed straight through with the viewport on a PQ display.
 - **With OCIO on**, the clip's Input still decides how the picture and the scopes read the source; the Transfer pill then feeds the scope's mismatch note when the two disagree.
 
 ---

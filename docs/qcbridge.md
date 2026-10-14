@@ -16,5 +16,5 @@ The QCBridge add-ons stream live output from other software to QCview.
 
 Both are separate downloads from QCView, and both are actively in development.
 
-Going the other way — out of QCView — is the [Output](/output/) section: the viewport as an NDI® source through the [QCBridgeN](https://github.com/cbkow/QCBridgeN) sink, or as an H.264 stream to a review service such as Louper. A live feed from either add-on can be sent on that way, with QCView's colour transform, guides and notes applied.
+Going the other way — out of QCView — is the [Output](/output/) section: the viewport as an NDI® source through the [QCBridgeN](https://github.com/cbkow/QCBridgeN) sink, out of an AJA device's SDI and HDMI through the [QCBridgeA](https://github.com/cbkow/QCBridgeA) sink, or as an H.264 stream to a review service such as Louper. A live feed from either add-on can be sent on that way, with QCView's colour transform, guides and notes applied.
 

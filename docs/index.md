@@ -40,7 +40,7 @@ nav_order: 1
 ### Live Feeds and Output
 - Live sources: After Effects and Premiere Pro through [QCBridgeAE](/qcbridge/adobe/) (full-float picture, Premiere's audio), Blender through [QCBridge](/qcbridge/blender/), and SRT streams
 - Notes on a live feed: freeze the frame, draw, review it again later; notes live in the project with capture time and host timecode, and open in minNotes
-- Output: the corrected viewport with mixed audio as an NDI® source (QCBridgeN) or as an H.264 + AAC stream over SRT or RTMP to Louper or any server, encoded by the GPU, with automatic reconnect
+- Output: the corrected viewport with mixed audio as an NDI® source (QCBridgeN), out of an AJA device's SDI and HDMI as 10-bit RGB at 1080p or UHD, SDR, PQ or HLG (QCBridgeA), or as an H.264 + AAC stream over SRT or RTMP to Louper or any server, encoded by the GPU, with automatic reconnect
 
 ### Review Tools
 - Annotations + notes with brush, line smoothing, screenshot illustrations, and Markdown / HTML / PDF / DOCX export
