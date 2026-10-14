@@ -2078,10 +2078,11 @@ Rectangle {
                                         // choice to QCView: the source's class (UHD above
                                         // 1080p), or fixed. The picture is letterboxed into it.
                                         FlatComboBox {
+                                            visible: outRow.modelData.rasterSettable
                                             Layout.preferredWidth: 96
                                             font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeSmall
-                                            model: [qsTr("Auto raster"), qsTr("1080p"), qsTr("UHD")]
+                                            model: [qsTr("Auto"), qsTr("1080p"), qsTr("UHD")]
                                             currentIndex: Math.max(0, Math.min(2, outRow.modelData.raster || 0))
                                             onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "raster", currentIndex)
                                         }
@@ -2101,7 +2102,7 @@ Rectangle {
                                         }
                                         Text {
                                             Layout.fillWidth: true
-                                            text: qsTr("Mastering, nits: peak · MaxCLL · MaxFALL")
+                                            text: qsTr("Nits: peak · MaxCLL · MaxFALL")
                                             color: Theme.textMuted
                                             font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeTiny

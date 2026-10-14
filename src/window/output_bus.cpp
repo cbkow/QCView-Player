@@ -142,6 +142,7 @@ void OutputBus::loadManifest(const QString &path)
         }
     }
     o->exec     = j.value(QStringLiteral("exec")).toString();
+    o->rasterSettable = j.value(QStringLiteral("raster")).toString() == QLatin1String("auto");
     o->protocol = j.value(QStringLiteral("protocol")).toInt(1);
     for (const auto &a : j.value(QStringLiteral("args")).toArray()) o->args << a.toString();
     o->installed = !o->exec.isEmpty() && QFileInfo::exists(o->exec);
@@ -806,6 +807,9 @@ QVariantList OutputBus::outputs() const
         m.insert(QStringLiteral("present"),   o->present);
         m.insert(QStringLiteral("accepted"),  o->accepted);
         m.insert(QStringLiteral("raster"),    o->raster);
+        // The raster dropdown is for sinks that leave the raster to QCView
+        // (the manifest says so, or the live request did).
+        m.insert(QStringLiteral("rasterSettable"), o->rasterSettable || (o->accepted && o->req.width == 0 && o->req.height == 0));
         m.insert(QStringLiteral("transfer"),  o->transfer);
         m.insert(QStringLiteral("primaries"), o->primaries);
         m.insert(QStringLiteral("peakNits"),  o->peakNits);

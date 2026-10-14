@@ -116,6 +116,7 @@ private:
         // shown muted beside it. Both come from the manifest, or are
         // read out of a "Product (Label …)" name when it has none.
         QString     id, name, label, product, exec;
+        bool        rasterSettable = false;   // manifest "raster": "auto" — the sink asks for 0x0
         QStringList args;
         int         protocol = 1;
         bool        installed = false;   // exec exists
