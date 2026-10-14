@@ -70,6 +70,10 @@ Button {
     // clip tabs: "A" / "B" in the side's colour, then the clip name).
     property string prefix: ""
     property color  prefixColor: Theme.textBright
+    // Centre the icon/label in a button wider than its content (a
+    // fixed-width Start/Stop cell); the default keeps the content at
+    // the left padding, as a toolstrip button reads.
+    property bool   centerContent: false
 
     QtObject {
         id: pal
@@ -145,9 +149,14 @@ Button {
                    + (root.prefix.length > 0 ? prefixLabel.implicitWidth + rowContent.spacing : 0)
                    + (buttonLabel.visible ? buttonLabel.implicitWidth : 0)
 
-    contentItem: Row {
+    contentItem: Item {
+        implicitWidth:  rowContent.implicitWidth
+        implicitHeight: rowContent.implicitHeight
+        Row {
         id: rowContent
         spacing: 6
+        height: parent.height
+        anchors.horizontalCenter: root.centerContent ? parent.horizontalCenter : undefined
 
         Icon {
             id: buttonIcon
@@ -182,6 +191,7 @@ Button {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeBase
             anchors.verticalCenter: parent.verticalCenter
+        }
         }
     }
 

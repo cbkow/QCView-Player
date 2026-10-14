@@ -107,8 +107,11 @@ signals:
 
 private:
     struct Output {
-        // manifest
-        QString     id, name, exec;
+        // manifest. `label` is the short wire name the row leads with
+        // ("AJA", "NDI"); `product` the sink's own name ("QCBridgeA"),
+        // shown muted beside it. Both come from the manifest, or are
+        // read out of a "Product (Label …)" name when it has none.
+        QString     id, name, label, product, exec;
         QStringList args;
         int         protocol = 1;
         bool        installed = false;   // exec exists

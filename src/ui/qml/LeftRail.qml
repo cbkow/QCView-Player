@@ -2014,7 +2014,13 @@ Rectangle {
                                     // raster, format, transfer and the sink's own line go
                                     // on the detail line below, where they can wrap.
                                     RowLabel {
-                                        text: modelData.name
+                                        // "AJA  QCBridgeA  ·  live": the wire leads, the
+                                        // sink's product name sits muted beside it.
+                                        textFormat: Text.StyledText
+                                        text: modelData.label
+                                              + (modelData.product.length > 0
+                                                 ? "  <font color='" + Theme.textMuted + "'>" + modelData.product + "</font>"
+                                                 : "")
                                               + (modelData.enabled
                                                  ? "  ·  " + (modelData.present
                                                               ? (modelData.accepted ? qsTr("live") : qsTr("refused"))
@@ -2029,7 +2035,8 @@ Rectangle {
                                         Layout.preferredWidth: 56
                                         Layout.preferredHeight: 20
                                         font.pixelSize: Theme.fontSizeSmall
-                                        variant: modelData.enabled ? "danger" : "primary"
+                                        centerContent: true
+                                        variant: modelData.enabled ? "danger" : "subtle"
                                         text: modelData.enabled ? qsTr("Stop") : qsTr("Start")
                                         onClicked: WindowManager.outputs.setEnabled(modelData.id, !modelData.enabled)
                                     }
@@ -2197,7 +2204,8 @@ Rectangle {
                                         Layout.preferredHeight: 20
                                         font.pixelSize: Theme.fontSizeSmall
                                         enabled: streamBlock.available
-                                        variant: streamBlock.running ? "danger" : "primary"
+                                        centerContent: true
+                                        variant: streamBlock.running ? "danger" : "subtle"
                                         text: streamBlock.running ? qsTr("Stop") : qsTr("Start")
                                         onClicked: streamBlock.running ? WindowManager.outputs.stopStream()
                                                                        : WindowManager.outputs.startStream()

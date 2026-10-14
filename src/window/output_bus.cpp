@@ -123,6 +123,24 @@ void OutputBus::loadManifest(const QString &path)
     auto o = std::make_unique<Output>();
     o->id       = id;
     o->name     = j.value(QStringLiteral("name")).toString(id);
+    o->label    = j.value(QStringLiteral("label")).toString();
+    o->product  = j.value(QStringLiteral("product")).toString();
+    {
+        // Older manifests (QCBridgeN 0.0.2, "QCBridgeN (NDI)") carry only
+        // the name: the product is what precedes the parenthesis, the label
+        // the first word inside it ("QCBridgeA (AJA SDI/HDMI)" -> "AJA").
+        const int open = o->name.indexOf(QLatin1Char('('));
+        if (o->product.isEmpty())
+            o->product = (open > 0 ? o->name.left(open) : QString()).trimmed();
+        if (o->label.isEmpty()) {
+            if (open >= 0) {
+                const int close = o->name.indexOf(QLatin1Char(')'), open);
+                const QString inner = o->name.mid(open + 1, close > open ? close - open - 1 : -1).trimmed();
+                o->label = inner.section(QLatin1Char(' '), 0, 0);
+            }
+            if (o->label.isEmpty()) o->label = o->name;
+        }
+    }
     o->exec     = j.value(QStringLiteral("exec")).toString();
     o->protocol = j.value(QStringLiteral("protocol")).toInt(1);
     for (const auto &a : j.value(QStringLiteral("args")).toArray()) o->args << a.toString();
@@ -749,6 +767,8 @@ QVariantList OutputBus::outputs() const
         QVariantMap m;
         m.insert(QStringLiteral("id"),        o->id);
         m.insert(QStringLiteral("name"),      o->name);
+        m.insert(QStringLiteral("label"),     o->label);
+        m.insert(QStringLiteral("product"),   o->product);
         m.insert(QStringLiteral("installed"), o->installed);
         m.insert(QStringLiteral("enabled"),   o->enabled);
         m.insert(QStringLiteral("present"),   o->present);
