@@ -52,6 +52,15 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.7
+
+- **AJA SDI / HDMI output** — with [QCBridgeA](https://github.com/cbkow/QCBridgeA/releases) installed, the Output section drives an AJA device (tested on a T-TAP Pro): the viewport and the mixed audio go out over SDI and HDMI as 10-bit RGB, at 1080p, 720p or UHD, at the source's frame rate. See [Output](/output/).
+- **Transfer per output** — each output that carries it has a transfer: SDR Rec.709, PQ Rec.2100 or HLG Rec.2100. It is what the wire is told and signals; the picture goes out as the viewport shows it, so the display is chosen once in the colour panel (OCIO or minColor) and a PQ or HLG feed from Premiere Pro or After Effects passes straight through. PQ adds the mastering metadata a monitor reads: Rec.2020 or P3-D65 primaries, peak, MaxCLL and MaxFALL. Changing the transfer re-tags the running output without a stop and start.
+- **Raster per output** — for a sink that leaves it to QCView: Auto sends UHD (3840×2160) for anything above 1080p and 1080p otherwise, switching when the source changes; 1080p and UHD fix it.
+- **Output section** — one card per output and for the stream: the name, one word of state and Start / Stop in the header, a summary line while the card is closed, the controls behind a chevron. The feed mute and the guides and notes layers are a row of chips at the top.
+- **Windows** — File ▸ Exit (Ctrl+Q); macOS keeps Quit in the application menu.
+- **Fixes** — two QML binding loops in the Inspector (the card title and the chip-row label) no longer log on every launch.
+
 What's new in 2.5.6
 
 - **Stream output** — the Output section can send the viewport and the mixed audio to a review service such as Louper, or to any SRT listener or RTMP server, as H.264 + AAC encoded inside QCView by the hardware encoder (VideoToolbox on macOS, Media Foundation on Windows), with no OBS in between. URL and stream key, video bitrate, resolution, frame rate, Baseline or Main profile, audio bitrate and SRT latency, live counters while it runs, and a session that reconnects on its own if the connection drops. See [Output](/output/).
