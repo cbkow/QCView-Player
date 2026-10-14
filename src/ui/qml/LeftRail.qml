@@ -2018,8 +2018,9 @@ Rectangle {
                                                  + "switch goes on and stops it when it goes off.")
                                     }
                                     FlatButton {
-                                        Layout.preferredWidth: 110
-                                        Layout.preferredHeight: 22
+                                        Layout.preferredWidth: 56
+                                        Layout.preferredHeight: 20
+                                        font.pixelSize: Theme.fontSizeSmall
                                         variant: modelData.enabled ? "danger" : "primary"
                                         text: modelData.enabled ? qsTr("Stop") : qsTr("Start")
                                         onClicked: WindowManager.outputs.setEnabled(modelData.id, !modelData.enabled)
@@ -2150,8 +2151,9 @@ Rectangle {
                                                  + "last frame).")
                                     }
                                     FlatButton {
-                                        Layout.preferredWidth: 110
-                                        Layout.preferredHeight: 22
+                                        Layout.preferredWidth: 56
+                                        Layout.preferredHeight: 20
+                                        font.pixelSize: Theme.fontSizeSmall
                                         enabled: streamBlock.available
                                         variant: streamBlock.running ? "danger" : "primary"
                                         text: streamBlock.running ? qsTr("Stop") : qsTr("Start")
