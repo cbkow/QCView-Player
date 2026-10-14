@@ -2026,11 +2026,12 @@ Rectangle {
                                     }
                                     Item { Layout.preferredWidth: 22 }
                                     }
-                                    // The output's transfer and, for PQ, its mastering
-                                    // metadata (ST 2086 / CTA-861). PQ and HLG render the
-                                    // live chain through a Rec.2100 display of the OCIO
-                                    // config; the view is picked here. HLG carries no
-                                    // static metadata.
+                                    // The output's transfer: what the wire is told and
+                                    // signals. The picture goes out as the viewport shows
+                                    // it — the display is OCIO's or minColor's, set in the
+                                    // colour panel — so a PQ or HLG feed from Premiere or
+                                    // After Effects passes straight through. PQ carries
+                                    // mastering metadata (ST 2086 / CTA-861); HLG none.
                                     RowLayout {
                                         Layout.fillWidth: true
                                         spacing: Theme.spacing
@@ -2044,21 +2045,6 @@ Rectangle {
                                             currentIndex: Math.max(0, Math.min(2, (outRow.modelData.transfer || 1) - 1))
                                             onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "transfer", currentIndex + 1)
                                         }
-                                        // "(as displayed)" sends the picture as the viewport
-                                        // shows it, tagged with the transfer — a PQ or HLG feed
-                                        // from Premiere or After Effects passes straight through.
-                                        // A view re-renders the live chain through the config's
-                                        // Rec.2100 display for that transfer.
-                                        FlatComboBox {
-                                            visible: parent.transfer > 1
-                                            Layout.fillWidth: true
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            model: [qsTr("(as displayed)")].concat(outRow.modelData.hdrViews)
-                                            currentIndex: Math.max(0, outRow.modelData.hdrViews.indexOf(outRow.modelData.hdrView) + 1)
-                                            onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "hdrView",
-                                                                                                currentIndex === 0 ? "" : textAt(currentIndex))
-                                        }
                                         FlatComboBox {
                                             visible: parent.transfer === 2
                                             Layout.preferredWidth: 96
@@ -2068,41 +2054,44 @@ Rectangle {
                                             currentIndex: Math.max(0, Math.min(1, (outRow.modelData.primaries || 1) - 1))
                                             onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "primaries", currentIndex + 1)
                                         }
+                                        Item { Layout.fillWidth: true }
+                                    }
+                                    Text {
+                                        visible: outRow.modelData.installed && (outRow.modelData.transfer || 1) === 2
+                                        text: qsTr("Mastering metadata, nits: peak · MaxCLL · MaxFALL")
+                                        color: Theme.textMuted
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeTiny
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.spacing
+                                        visible: outRow.modelData.installed && (outRow.modelData.transfer || 1) === 2
                                         FlatSpinBox {
-                                            visible: parent.transfer === 2
                                             from: 100; to: 10000; stepSize: 100
                                             value: Math.round(outRow.modelData.peakNits || 1000)
                                             onValueModified: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "peakNits", value)
-                                            Layout.preferredWidth: 84
+                                            Layout.preferredWidth: 76
                                             font.family: Theme.monoFamily
                                             font.pixelSize: Theme.fontSizeMono
                                         }
                                         FlatSpinBox {
-                                            visible: parent.transfer === 2
                                             from: 0; to: 10000; stepSize: 100
                                             value: outRow.modelData.maxCll || 0
                                             onValueModified: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "maxCll", value)
-                                            Layout.preferredWidth: 84
+                                            Layout.preferredWidth: 76
                                             font.family: Theme.monoFamily
                                             font.pixelSize: Theme.fontSizeMono
                                         }
                                         FlatSpinBox {
-                                            visible: parent.transfer === 2
                                             from: 0; to: 10000; stepSize: 50
                                             value: outRow.modelData.maxFall || 0
                                             onValueModified: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "maxFall", value)
-                                            Layout.preferredWidth: 84
+                                            Layout.preferredWidth: 76
                                             font.family: Theme.monoFamily
                                             font.pixelSize: Theme.fontSizeMono
                                         }
-                                        Text {
-                                            visible: parent.transfer === 2
-                                            text: qsTr("peak · MaxCLL · MaxFALL nits")
-                                            color: Theme.textMuted
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeTiny
-                                        }
-                                        Item { Layout.fillWidth: parent.transfer === 1 }
+                                        Item { Layout.fillWidth: true }
                                     }
                                 }
                             }

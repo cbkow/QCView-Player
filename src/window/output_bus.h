@@ -38,7 +38,6 @@
 namespace qcv {
 
 class IPlayerRenderer;
-class OCIOConfigManager;
 
 class OutputBus : public QObject
 {
@@ -63,8 +62,6 @@ public:
     // WindowManager gives the bus a way to reach the live renderer (it
     // changes with the player window) and the source frame rate.
     void setRendererAccessor(std::function<IPlayerRenderer *()> fn) { m_renderer = std::move(fn); }
-    // The OCIO manager, for the HDR outputs' display and view (PLAN step 2).
-    void setOcioAccessor(std::function<OCIOConfigManager *()> fn) { m_ocio = std::move(fn); }
     void setFpsAccessor(std::function<double()> fn) { m_fps = std::move(fn); }
     // Call once the renderer exists: restores the outputs enabled last
     // time and pushes the targets.
@@ -83,9 +80,10 @@ public:
 
     Q_INVOKABLE void setEnabled(const QString &id, bool on);
     // Per-output settings: "transfer" (1 SDR Rec.709, 2 PQ Rec.2100, 3 HLG
-    // Rec.2100), "hdrView" (a view of the transfer's Rec.2100 display),
-    // "primaries" (1 Rec.2020, 2 P3-D65), "peakNits", "minNits", "maxCll",
-    // "maxFall". Persisted; a running output is re-answered at once.
+    // Rec.2100 — what the wire is told; the picture goes out as displayed),
+    // and PQ's mastering metadata "primaries" (1 Rec.2020, 2 P3-D65),
+    // "peakNits", "minNits", "maxCll", "maxFall". Persisted; a running
+    // output is re-answered at once.
     Q_INVOKABLE void setOutputSetting(const QString &id, const QString &key, const QVariant &value);
     Q_INVOKABLE bool isEnabled(const QString &id) const;
     Q_INVOKABLE void rescan();
@@ -132,11 +130,9 @@ private:
         int         audioSlot = -1;
         // the output's transfer and HDR metadata (settings, see setOutputSetting)
         int         transfer  = 1;        // qcbae::OutputTransfer
-        QString     hdrView;              // on the transfer's Rec.2100 display; empty = the display's first view
         int         primaries = 1;        // qcbae::OutputPrimaries
         double      peakNits  = 1000.0, minNits = 0.005;
         int         maxCll    = 1000, maxFall = 400;
-        QString     hdrDisplayUsed, hdrViewUsed;   // what the last answer resolved to
     };
 
     void scanManifests();
@@ -166,8 +162,6 @@ private:
     bool    m_streamAvailable = false;
     QString m_streamError;
     std::function<IPlayerRenderer *()> m_renderer;
-    std::function<OCIOConfigManager *()> m_ocio;
-    QString hdrDisplayFor(int transfer) const;      // the config's Rec.2100 display for PQ or HLG, or empty
     void    writeHdrInfo(Output &o, uint32_t transfer);
     std::function<double()>            m_fps;
     QTimer m_poll;

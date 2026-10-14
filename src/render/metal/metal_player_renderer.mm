@@ -601,7 +601,6 @@ kernel void bgra_to_nv12(texture2d<float, access::read>  src [[texture(0)]],
         id<MTLTexture> out        = nil;   // W x H in the wire format; blit source
         MetalCompositor         compositor;     // baked at the wire format
         MetalAnnotationRenderer annotations;    // guides + strokes into `out`
-        MetalOcioRenderer       ocio, ocioB;    // the output's own chain for PQ / HLG (its display and view)
         // The ring's slots wrapped once each as no-copy buffers, keyed by
         // the slot's pixel pointer (page-aligned, capacity page-rounded).
         std::unordered_map<const void *, id<MTLBuffer>> slotBuffers;
@@ -3021,41 +3020,27 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
         }
 
         // ---- 2. OCIO: the SDR equivalent of the live view — or, for a PQ / HLG
-        //         output, the live chain through the output's own Rec.2100
-        //         display and view (no display LUT: that is the monitor's) ----
+        //         output, the live chain as the viewport shows it (pass-through;
+        //         the transfer is what the wire is told, OutputBus::answer) ----
         void *corrected = (__bridge void *)res.canvas16f;
         if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
-            // HDR outputs: with a view named, the live chain through the output's
-            // Rec.2100 display (a per-output capture-style renderer, built inline);
-            // without one, the live chain as the viewport shows it — pass-through.
-            const bool hdrOut = spec.transfer != qcbae::OutputTransfer::SdrRec709;
-            const bool hdr    = hdrOut && !spec.hdrDisplay.empty();
-            const bool live   = hdrOut && spec.hdrDisplay.empty();
-            auto forHdr = [&](const OcioChainSpec &s) {
-                OcioChainSpec h = s;
-                h.display = QString::fromStdString(spec.hdrDisplay);
-                h.view    = QString::fromStdString(spec.hdrView);
-                h.displayLutPath.clear();  h.sdrDisplay.clear();  h.sdrView.clear();
-                return h;
-            };
-            const OcioChainSpec &liveA = in.dual ? in.chains->a : in.chains->single;
-            const OcioChainSpec  hdrA  = hdr ? forHdr(liveA) : OcioChainSpec{};
-            const OcioChainSpec &specA = hdr ? hdrA : liveA;
-            MetalOcioRenderer &ocioA = hdr ? res.ocio : live ? m_impl->ocio : m_impl->outputOcio;
-            if (hdr && !ocioA.isInitialized()) { ocioA.setSdrCapture(true); ocioA.initialize(); }
+            // An HDR output takes the live chain, not the SDR capture
+            // equivalent an SDR output takes: the PQ or HLG picture on screen
+            // (OCIO's Rec.2100 display or minColor's PQ / HLG display, either
+            // engine) goes out as is. With OCIO off the raw composite does.
+            const bool live = spec.transfer != qcbae::OutputTransfer::SdrRec709;
+            const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
+            MetalOcioRenderer &ocioA = live ? m_impl->ocio : m_impl->outputOcio;
             ocioA.setStage(specA.stage(gain));
             ocioA.setViewer(aids);
             ocioA.rebuild(specA);
-            if (hdr && !ocioA.hasPipeline()) { requestUpdate(); continue; }   // hold until the output's chain exists
             if (ocioA.hasPipeline()) {
                 void *o = ocioA.apply(cmdBuffer, (__bridge void *)res.canvas16f, W, H);
                 if (o) corrected = o;
             }
             if (in.dual && in.perSide && res.canvasB16f) {
-                const OcioChainSpec  hdrB  = hdr ? forHdr(in.chains->b) : OcioChainSpec{};
-                const OcioChainSpec &specB = hdr ? hdrB : in.chains->b;
-                MetalOcioRenderer &ocioB = hdr ? res.ocioB : live ? m_impl->ocioB : m_impl->outputOcioB;
-                if (hdr && !ocioB.isInitialized()) { ocioB.setSdrCapture(true); ocioB.initialize(); }
+                const OcioChainSpec &specB = in.chains->b;
+                MetalOcioRenderer &ocioB = live ? m_impl->ocioB : m_impl->outputOcioB;
                 ocioB.setStage(specB.stage(gain));
                 ocioB.setViewer(aids);
                 ocioB.rebuild(specB);

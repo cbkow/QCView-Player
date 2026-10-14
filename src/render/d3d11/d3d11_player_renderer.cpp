@@ -540,7 +540,6 @@ void main(uint3 id : SV_DispatchThreadID)
         ComPtr<ID3D11ShaderResourceView> outSrv;    // read by the NV12 passes (sink targets)
         D3D11AnnotationRenderer        annotations;   // guides + strokes into `out`
         int                            annEncode = -2;   // the stroke encode the annotations were built for
-        D3D11OcioRenderer              ocio, ocioB;      // the output's own chain for PQ / HLG (its display and view)
         // Sink targets (the stream): the Y and CbCr render-target views of
         // each NV12 surface the sink has handed out, by texture.
         struct Nv12Views { ComPtr<ID3D11RenderTargetView> y, uv; };
@@ -3445,37 +3444,18 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
         }
 
         // ---- 2. OCIO: the SDR equivalent of the live view — or, for a PQ / HLG
-        //         output, the live chain through the output's own Rec.2100
-        //         display and view (no display LUT: that is the monitor's) ----
+        //         output, the live chain as the viewport shows it (pass-through;
+        //         the transfer is what the wire is told, OutputBus::answer) ----
         ID3D11ShaderResourceView *corrected = res.canvas.srv.Get();
         if (in.chains && in.chains->engaged && !m_viewBypass.load(std::memory_order_acquire)) {
-            // HDR outputs: with a view named, the live chain through the output's
-            // Rec.2100 display (an inline-built per-output renderer, so the first
-            // published frame is already converted); without one, the live chain
-            // as the viewport shows it — pass-through, not the SDR capture
-            // equivalent an SDR output takes.
-            const bool hdrOut = spec.transfer != qcbae::OutputTransfer::SdrRec709;
-            const bool hdr    = hdrOut && !spec.hdrDisplay.empty();
-            const bool live   = hdrOut && spec.hdrDisplay.empty();
-            auto forHdr = [&](const OcioChainSpec &s) {
-                OcioChainSpec h = s;
-                h.display = QString::fromStdString(spec.hdrDisplay);
-                h.view    = QString::fromStdString(spec.hdrView);
-                h.displayLutPath.clear();  h.sdrDisplay.clear();  h.sdrView.clear();
-                return h;
-            };
-            const OcioChainSpec &liveA = in.dual ? in.chains->a : in.chains->single;
-            const OcioChainSpec  hdrA  = hdr ? forHdr(liveA) : OcioChainSpec{};
-            const OcioChainSpec &specA = hdr ? hdrA : liveA;
+            // An HDR output takes the live chain, not the SDR capture
+            // equivalent an SDR output takes: the PQ or HLG picture on screen
+            // (OCIO's Rec.2100 display or minColor's PQ / HLG display, either
+            // engine) goes out as is. With OCIO off the raw composite does.
+            const bool live = spec.transfer != qcbae::OutputTransfer::SdrRec709;
+            const OcioChainSpec &specA = in.dual ? in.chains->a : in.chains->single;
             D3D11OcioRenderer *capA = nullptr;
-            if (hdr) {
-                if (!res.ocio.isInitialized()) { res.ocio.setSdrCapture(true); res.ocio.initialize(); }   // sdrDisplay is cleared, so no capture override applies
-                if (res.ocio.isInitialized() && rebuildOcio(res.ocio, specA)) capA = &res.ocio;
-                // The chain compiles on a worker; until it lands nothing is
-                // published (a raw picture tagged PQ would stand until the next
-                // change), and the loop is asked round again.
-                if (!capA || !res.ocio.hasPipeline()) { requestUpdate(); continue; }
-            } else if (live) {
+            if (live) {
                 if (m_impl->ocio.isInitialized() && rebuildOcio(m_impl->ocio, specA)) capA = &m_impl->ocio;
             } else if (specA.needsSdrCapture()) {
                 if (m_impl->outputOcio.isInitialized() && rebuildOcio(m_impl->outputOcio, specA)) capA = &m_impl->outputOcio;
@@ -3486,13 +3466,9 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
                 capA->apply(ctx, res.canvas.srv.Get(), res.ocioOut.rtv.Get(), W, H);
                 corrected = res.ocioOut.srv.Get();
                 if (in.dual && in.perSide && res.canvasB.srv) {
-                    const OcioChainSpec  hdrB  = hdr ? forHdr(in.chains->b) : OcioChainSpec{};
-                    const OcioChainSpec &specB = hdr ? hdrB : in.chains->b;
+                    const OcioChainSpec &specB = in.chains->b;
                     D3D11OcioRenderer *capB = nullptr;
-                    if (hdr) {
-                        if (!res.ocioB.isInitialized()) { res.ocioB.setSdrCapture(true); res.ocioB.initialize(); }
-                        if (res.ocioB.isInitialized() && rebuildOcio(res.ocioB, specB)) capB = &res.ocioB;
-                    } else if (live) {
+                    if (live) {
                         if (m_impl->ocioB.isInitialized() && rebuildOcio(m_impl->ocioB, specB)) capB = &m_impl->ocioB;
                     } else if (specB.needsSdrCapture()) {
                         if (m_impl->outputOcioB.isInitialized() && rebuildOcio(m_impl->outputOcioB, specB)) capB = &m_impl->outputOcioB;

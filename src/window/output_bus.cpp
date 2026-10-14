@@ -132,7 +132,6 @@ void OutputBus::loadManifest(const QString &path)
         QSettings s;
         const QString k = QStringLiteral("output/") + id + QLatin1Char('/');
         o->transfer  = std::clamp(s.value(k + QStringLiteral("transfer"), 1).toInt(), 1, 3);
-        o->hdrView   = s.value(k + QStringLiteral("hdrView")).toString();
         o->primaries = std::clamp(s.value(k + QStringLiteral("primaries"), 1).toInt(), 1, 2);
         o->peakNits  = s.value(k + QStringLiteral("peakNits"), 1000.0).toDouble();
         o->minNits   = s.value(k + QStringLiteral("minNits"), 0.005).toDouble();
@@ -624,26 +623,14 @@ void OutputBus::answer(Output &o)
     };
     const auto fmt = static_cast<qcbae::OutputPixelFormat>(r.pixel_format);
     // The transfer: the sink's wish, or (Unspecified) this output's setting.
-    // PQ and HLG render through a Rec.2100 display of the OCIO config.
+    // It is what the wire is told and signals; the picture goes out as the
+    // viewport shows it (OCIO's or minColor's display is set in the colour
+    // panel, and a Premiere or After Effects feed that is already PQ or HLG
+    // passes straight through). PQ adds the mastering metadata below.
     const uint32_t transfer = r.transfer != 0 ? r.transfer : static_cast<uint32_t>(o.transfer);
     const bool hdr = transfer != static_cast<uint32_t>(qcbae::OutputTransfer::SdrRec709);
-    // The transfer is what the wire is told and signals. By default the
-    // picture goes out as displayed (the live chain's output, or the raw
-    // composite with OCIO off — a Premiere or After Effects feed that is
-    // already PQ or HLG passes straight through). Only when the output
-    // names a view on the config's Rec.2100 display is the live chain
-    // re-rendered through it (an SDR grade shown on an HDR monitor).
-    QString hdrDisplay, hdrView, hdrWhy;
+    QString hdrWhy;
     if (transfer > static_cast<uint32_t>(qcbae::OutputTransfer::HlgRec2020)) hdrWhy = QStringLiteral("unknown transfer");
-    if (hdr && hdrWhy.isEmpty() && !o.hdrView.isEmpty()) {
-        OCIOConfigManager *ocio = m_ocio ? m_ocio() : nullptr;
-        const QString d = hdrDisplayFor(static_cast<int>(transfer));
-        if (ocio && ocio->engine() == 0 && !d.isEmpty() && ocio->viewsForDisplay(d).contains(o.hdrView)) {
-            hdrDisplay = d;
-            hdrView    = o.hdrView;
-        }
-        // else: the view is gone (another config) — pass through, say so in the row
-    }
     if (r.protocol_version != qcbae::kOutputDescVersion) {
         refuse(qcbae::OutputRefusal::VersionMismatch, "this QCView speaks output protocol 1");
     } else if (r.width == 0 || r.height == 0
@@ -663,9 +650,6 @@ void OutputBus::answer(Output &o)
         spec.height   = r.height;
         spec.format   = fmt;
         spec.transfer = static_cast<qcbae::OutputTransfer>(transfer);
-        spec.hdrDisplay = hdrDisplay.toStdString();
-        spec.hdrView    = hdrView.toStdString();
-        o.hdrDisplayUsed = hdrDisplay;  o.hdrViewUsed = hdrView;
         spec.fit      = qcbae::OutputFit::Letterbox;
         spec.content  = r.content == 0 ? qcbae::OutputContent::Composite
                                        : static_cast<qcbae::OutputContent>(r.content);
@@ -683,7 +667,6 @@ void OutputBus::answer(Output &o)
         const char *tfName  = transfer == 2 ? "PQ Rec.2100" : transfer == 3 ? "HLG Rec.2100" : "SDR Rec.709";
         std::snprintf(reply.message, sizeof reply.message, "%ux%u %s %s from QCView", spec.width, spec.height, fmtName, tfName);
         o.shape = QStringLiteral("%1x%2 %3 %4").arg(spec.width).arg(spec.height).arg(QLatin1String(fmtName), QLatin1String(tfName));
-        if (hdr) o.shape += hdrView.isEmpty() ? QStringLiteral(" · as displayed") : QStringLiteral(" · %1").arg(hdrView);
     }
     o.accepted = reply.accepted != 0;
     o.ring->write_reply(reply, o.reqGen);
@@ -691,25 +674,8 @@ void OutputBus::answer(Output &o)
     qInfo("OutputBus: %s: request %llu (%ux%u fmt %u transfer %u content %u layers 0x%x) -> %s \"%s\"%s",
           qPrintable(o.id), static_cast<unsigned long long>(o.reqGen), r.width, r.height, r.pixel_format,
           r.transfer, r.content, r.layers, o.accepted ? "accepted" : "refused", reply.message,
-          hdr ? qPrintable(hdrView.isEmpty() ? QStringLiteral(" [as displayed]")
-                                             : QStringLiteral(" [%1 / %2]").arg(hdrDisplay, hdrView)) : "");
+          hdr ? " [as displayed]" : "");
     if (!o.accepted) o.shape = QString::fromUtf8(reply.message);
-}
-
-QString OutputBus::hdrDisplayFor(int transfer) const
-{
-    OCIOConfigManager *ocio = m_ocio ? m_ocio() : nullptr;
-    if (!ocio) return {};
-    const QStringList displays = ocio->displays();
-    // The config's Rec.2100 displays: "Rec.2100-PQ - Display" (ACES studio),
-    // "Rec.2100-PQ" (Blender), then any PQ / HLG display that is not a P3
-    // container (a P3 container cannot be signalled on SDI or by the AJA SDK).
-    const char *tag = transfer == 3 ? "HLG" : "PQ";
-    for (const QString &d : displays)
-        if (d.contains(QStringLiteral("2100-") + QLatin1String(tag), Qt::CaseInsensitive)) return d;
-    for (const QString &d : displays)
-        if (d.contains(QLatin1String(tag), Qt::CaseInsensitive) && !d.contains(QLatin1String("P3"), Qt::CaseInsensitive)) return d;
-    return {};
 }
 
 void OutputBus::writeHdrInfo(Output &o, uint32_t transfer)
@@ -732,7 +698,6 @@ void OutputBus::setOutputSetting(const QString &id, const QString &key, const QV
     Output *o = find(id);
     if (!o) return;
     if      (key == QLatin1String("transfer"))  o->transfer  = std::clamp(value.toInt(), 1, 3);
-    else if (key == QLatin1String("hdrView"))   o->hdrView   = value.toString();
     else if (key == QLatin1String("primaries")) o->primaries = std::clamp(value.toInt(), 1, 2);
     else if (key == QLatin1String("peakNits"))  o->peakNits  = std::max(1.0, value.toDouble());
     else if (key == QLatin1String("minNits"))   o->minNits   = std::max(0.0, value.toDouble());
@@ -789,13 +754,6 @@ QVariantList OutputBus::outputs() const
         m.insert(QStringLiteral("present"),   o->present);
         m.insert(QStringLiteral("accepted"),  o->accepted);
         m.insert(QStringLiteral("transfer"),  o->transfer);
-        m.insert(QStringLiteral("hdrView"),   o->hdrView);
-        {
-            const QString d = hdrDisplayFor(o->transfer);
-            m.insert(QStringLiteral("hdrDisplay"), d);
-            OCIOConfigManager *ocio = m_ocio ? m_ocio() : nullptr;
-            m.insert(QStringLiteral("hdrViews"), (ocio && !d.isEmpty()) ? ocio->viewsForDisplay(d) : QStringList{});
-        }
         m.insert(QStringLiteral("primaries"), o->primaries);
         m.insert(QStringLiteral("peakNits"),  o->peakNits);
         m.insert(QStringLiteral("minNits"),   o->minNits);

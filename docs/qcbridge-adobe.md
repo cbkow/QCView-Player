@@ -36,7 +36,7 @@ Updating is the same step with a newer installer.
 
 ![QCView player window](images/qcbridge_006.png)
 
-1. Tick **Enable Mercury Transmit**, then tick **QCBridgeAE → QCView**.
+1. Tick **Enable Mercury Transmit**, then tick **QCBridgeAE to QCView**.
 2. **Untick "Disable video output when in the background"**. With it ticked (the default), After Effects stops sending the moment you click into QCView — QCView shows *PAUSED* and names this setting.
 
 **In Premiere Pro:** *Settings → Playback* — the same two ticks, and the same background setting to untick.

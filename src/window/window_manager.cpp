@@ -129,7 +129,6 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     // because the player window (and so the renderer) comes later.
     m_audio->setOutputTap(&OutputBus::audioTap, m_outputBus);
     m_outputBus->setRendererAccessor([this] { return fetchActiveRenderer(m_playerWindow.data()); });
-    m_outputBus->setOcioAccessor([this]() -> OCIOConfigManager * { return m_ocio; });
     m_outputBus->setFpsAccessor([this]() -> double {
         if (m_dualController) return m_dualController->fps();
         // A live source has no frame index; it knows its own rate (or 0).
