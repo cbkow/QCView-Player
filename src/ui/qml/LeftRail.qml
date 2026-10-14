@@ -69,6 +69,9 @@ Rectangle {
         if (typeof settingsSection !== "undefined") {
             settingsSection.expanded = (name === "settings");
         }
+        if (typeof outputSection !== "undefined") {
+            outputSection.expanded = (name === "output");
+        }
         // Defer one tick so the just-expanded Section has finished
         // laying out before we measure its position; then scroll
         // the target into view inside bodyScroll's Flickable.
@@ -83,6 +86,9 @@ Rectangle {
             else if (name === "settings"
                      && typeof settingsSection !== "undefined")
                 target = settingsSection;
+            else if (name === "output"
+                     && typeof outputSection !== "undefined")
+                target = outputSection;
             if (!target) return;
             var flick = bodyScroll.contentItem;
             if (!flick) return;
@@ -2004,13 +2010,15 @@ Rectangle {
                                     RowLayout {
                                     Layout.fillWidth: true
                                     spacing: Theme.spacing
+                                    // The row says the name and one word of state; the
+                                    // raster, format, transfer and the sink's own line go
+                                    // on the detail line below, where they can wrap.
                                     RowLabel {
                                         text: modelData.name
                                               + (modelData.enabled
-                                                 ? (modelData.present
-                                                    ? "  ·  " + (modelData.shape.length > 0 ? modelData.shape : qsTr("attached"))
-                                                      + (modelData.status.length > 0 ? "  ·  " + modelData.status : "")
-                                                    : "  ·  " + qsTr("waiting for the sink") + " (" + modelData.plugin + ")")
+                                                 ? "  ·  " + (modelData.present
+                                                              ? (modelData.accepted ? qsTr("live") : qsTr("refused"))
+                                                              : qsTr("starting"))
                                                  : (modelData.installed ? "" : "  ·  " + qsTr("not installed")))
                                         help: qsTr("Publish the viewport and the mixed audio to "
                                                  + "this output. The sink runs as its own "
@@ -2026,6 +2034,19 @@ Rectangle {
                                         onClicked: WindowManager.outputs.setEnabled(modelData.id, !modelData.enabled)
                                     }
                                     Item { Layout.preferredWidth: 22 }
+                                    }
+                                    Text {
+                                        visible: outRow.modelData.enabled
+                                        Layout.fillWidth: true
+                                        Layout.rightMargin: 22 + Theme.spacing
+                                        text: outRow.modelData.present
+                                              ? (outRow.modelData.shape.length > 0 ? outRow.modelData.shape : qsTr("attached"))
+                                                + (outRow.modelData.status.length > 0 ? "  ·  " + outRow.modelData.status : "")
+                                              : qsTr("waiting for the sink")
+                                        color: Theme.textMuted
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeTiny
+                                        wrapMode: Text.WordWrap
                                     }
                                     // The output's transfer: what the wire is told and
                                     // signals. The picture goes out as the viewport shows
@@ -2124,6 +2145,31 @@ Rectangle {
                                 readonly property var kProfiles: ["baseline", "main"]
                                 readonly property var kAudioKbps: [0, 128, 160, 192, 256, 320]
                                 function setting(k, v) { WindowManager.outputs.setStreamSetting(k, v) }
+                                // One word for the row; the sink's full state text goes on
+                                // the detail line (it can be a sentence while reconnecting).
+                                function stateWord(st) {
+                                    if (!st) return ""
+                                    if (st.indexOf("streaming") === 0)    return qsTr("streaming")
+                                    if (st.indexOf("reconnecting") === 0) return qsTr("reconnecting")
+                                    if (st.indexOf("connecting") === 0)   return qsTr("connecting")
+                                    if (st.indexOf("error") === 0)        return qsTr("failed")
+                                    return qsTr("starting")
+                                }
+                                readonly property string detail: {
+                                    if (running) {
+                                        if (st.state === "streaming") {
+                                            var d = Math.round(st.kbps) + " kbps  ·  " + st.fps + " fps  ·  "
+                                                  + st.encoded + " " + qsTr("encoded") + ", " + st.repeated + " " + qsTr("repeated")
+                                            if (st.skipped > 0)    d += ", " + st.skipped + " " + qsTr("skipped")
+                                            if (st.dropped > 0)    d += ", " + st.dropped + " " + qsTr("dropped")
+                                            if (st.muxErrors > 0)  d += ", " + st.muxErrors + " " + qsTr("send errors")
+                                            if (st.reconnects > 0) d += ", " + st.reconnects + " " + qsTr("reconnects")
+                                            return d
+                                        }
+                                        return st.state
+                                    }
+                                    return (st && st.error) ? st.error : ""
+                                }
 
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2131,13 +2177,9 @@ Rectangle {
                                     RowLabel {
                                         text: qsTr("Stream")
                                               + (streamBlock.running
-                                                 ? "  ·  " + streamBlock.st.state
-                                                   + (streamBlock.st.state === "streaming"
-                                                      ? "  ·  " + Math.round(streamBlock.st.kbps) + " kbps"
-                                                        + "  ·  " + streamBlock.st.fps + " fps"
-                                                      : "")
+                                                 ? "  ·  " + streamBlock.stateWord(streamBlock.st.state)
                                                  : (streamBlock.st && streamBlock.st.error && streamBlock.st.error.length > 0
-                                                    ? "  ·  " + streamBlock.st.error
+                                                    ? "  ·  " + qsTr("failed")
                                                     : (streamBlock.available ? "" : "  ·  " + qsTr("no hardware encoder"))))
                                         help: qsTr("Send the viewport and the mixed audio to a "
                                                  + "streaming server (Louper, or any SRT or RTMP "
@@ -2161,6 +2203,16 @@ Rectangle {
                                                                        : WindowManager.outputs.startStream()
                                     }
                                     Item { Layout.preferredWidth: 22 }
+                                }
+                                Text {
+                                    visible: streamBlock.detail.length > 0
+                                    Layout.fillWidth: true
+                                    Layout.rightMargin: 22 + Theme.spacing
+                                    text: streamBlock.detail
+                                    color: Theme.textMuted
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeTiny
+                                    wrapMode: Text.WordWrap
                                 }
                                 FlatTextField {
                                     Layout.fillWidth: true
@@ -2350,22 +2402,6 @@ Rectangle {
                                         dirty: streamBlock.st && streamBlock.st.srtLatencyMs !== 120
                                         onClicked: streamBlock.setting("srtLatencyMs", 120)
                                     }
-                                }
-                                Text {
-                                    visible: streamBlock.running
-                                    Layout.fillWidth: true
-                                    Layout.rightMargin: 22 + Theme.spacing
-                                    text: streamBlock.running
-                                          ? (streamBlock.st.encoder + "  ·  " + streamBlock.st.encoded + " encoded, "
-                                             + streamBlock.st.repeated + " repeated, " + streamBlock.st.skipped + " skipped"
-                                             + (streamBlock.st.dropped > 0 ? ", " + streamBlock.st.dropped + " dropped" : "")
-                                             + (streamBlock.st.muxErrors > 0 ? ", " + streamBlock.st.muxErrors + " send errors" : "")
-                                             + (streamBlock.st.reconnects > 0 ? ", " + streamBlock.st.reconnects + " reconnects" : ""))
-                                          : ""
-                                    color: Theme.textMuted
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeTiny
-                                    wrapMode: Text.WordWrap
                                 }
                             }
 
