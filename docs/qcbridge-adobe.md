@@ -78,4 +78,4 @@ After Effects sends picture only.
 - **The transport keys leave the feed alone.** Play/pause, frame step, shuttle and seek have no meaning for a feed, so they are ignored; `M` mutes it. On a live item, `Space` freezes the feed for a note and brings it back — see [Notes on live feeds](/annotations/#notes-on-live-feeds).
 - **Notes** on a feed capture the frame you are looking at and live in the QCView project. For Premiere Pro each note records the sequence timecode it came from.
 - **Dual view** takes a feed on either side. It keeps playing, with its audio in the mix, while the file side is paused, stepped or shuttled. See [Dual View](/dual-view/#live-sides).
-- **Sending it on.** The [Output](/output/) section publishes the viewport — the feed with QCView's colour transform, guides and notes — as an NDI® source or as an H.264 stream to a review service.
+- **Sending it on.** The [Output](/output/) section publishes the viewport — the feed with QCView's colour transform, guides and notes — as an NDI® source, out of an AJA device's SDI and HDMI (a PQ or HLG feed passes straight through), or as an H.264 stream to a review service.
