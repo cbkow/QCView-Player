@@ -37,8 +37,10 @@ Rectangle {
         anchors.leftMargin: Theme.paddingTight
         anchors.rightMargin: Theme.paddingTight
         anchors.topMargin: Theme.padding
+        // No explicit height: an elided Text re-lays out against the
+        // height it is given, and binding that to implicitHeight looped.
+        // The body anchors to parent.top when there is no title anyway.
         visible: root.title.length > 0
-        height: visible ? implicitHeight : 0
         text: root.title
         color: Theme.textMuted
         font.family: Theme.fontFamily

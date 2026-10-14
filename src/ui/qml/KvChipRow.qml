@@ -26,8 +26,10 @@ RowLayout {
         Layout.preferredWidth: Theme.labelColWidth
         Layout.alignment: Qt.AlignTop
         // Optically center the 10-px label against the first
-        // Theme.chipHeight chip row even when the Flow wraps.
-        topPadding: Math.max(0, (Theme.chipHeight - implicitHeight) / 2)
+        // Theme.chipHeight chip row even when the Flow wraps. From the
+        // content height, not implicitHeight: that includes the padding
+        // being set here and looped.
+        topPadding: Math.max(0, (Theme.chipHeight - contentHeight) / 2)
         elide: Text.ElideRight
     }
     Flow {
