@@ -138,6 +138,10 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         }
         return m_videoDecoder ? m_videoDecoder->fps() : 0.0;
     });
+    m_outputBus->setSourceSizeAccessor([this]() -> QSize {
+        if (m_liveDecoder && m_liveDecoder->width() > 0) return QSize(m_liveDecoder->width(), m_liveDecoder->height());
+        return m_videoDecoder ? QSize(m_videoDecoder->width(), m_videoDecoder->height()) : QSize();
+    });
 
     // Vectorscope: resolves its tier / geometry from the OCIO chain and
     // the active item, and talks to whichever renderer is wired.

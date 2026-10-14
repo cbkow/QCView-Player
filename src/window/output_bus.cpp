@@ -149,6 +149,7 @@ void OutputBus::loadManifest(const QString &path)
     {
         QSettings s;
         const QString k = QStringLiteral("output/") + id + QLatin1Char('/');
+        o->raster    = std::clamp(s.value(k + QStringLiteral("raster"), 0).toInt(), 0, 2);
         o->transfer  = std::clamp(s.value(k + QStringLiteral("transfer"), 1).toInt(), 1, 3);
         o->primaries = std::clamp(s.value(k + QStringLiteral("primaries"), 1).toInt(), 1, 2);
         o->peakNits  = s.value(k + QStringLiteral("peakNits"), 1000.0).toDouble();
@@ -599,6 +600,17 @@ void OutputBus::poll()
         if (!o.enabled || !o.ring || !o.target) continue;
         o.target->setSourceFps(fpsNum, fpsDen);
         if (o.ring->read_request(&o.req, &o.reqGen)) { answer(o); changed = true; }
+        else if (o.accepted && o.req.width == 0 && o.req.height == 0) {
+            // The sink left the raster to us: follow the source's class.
+            const QSize want = rasterFor(o);
+            uint64_t gen = 0;
+            const output::OutputSpec cur = o.target->spec(&gen);
+            if (uint32_t(want.width()) != cur.width || uint32_t(want.height()) != cur.height) {
+                qInfo("OutputBus: %s: raster %ux%u -> %dx%d (the source changed)", qPrintable(o.id),
+                      cur.width, cur.height, want.width(), want.height());
+                answer(o); changed = true;
+            }
+        }
         const bool present = o.ring->consumer_present(now);
         if (present != o.present) {
             o.present = present;
@@ -649,10 +661,15 @@ void OutputBus::answer(Output &o)
     const bool hdr = transfer != static_cast<uint32_t>(qcbae::OutputTransfer::SdrRec709);
     QString hdrWhy;
     if (transfer > static_cast<uint32_t>(qcbae::OutputTransfer::HlgRec2020)) hdrWhy = QStringLiteral("unknown transfer");
+    // The raster: the sink's wish, or (0x0) this output's setting — 1080p, UHD,
+    // or the source's class (UHD for anything above 1080p). A sink that asks
+    // for 0x0 is re-answered from poll() when the source changes class.
+    const bool autoRaster = r.width == 0 && r.height == 0;
+    const QSize raster = autoRaster ? rasterFor(o) : QSize(int(r.width), int(r.height));
     if (r.protocol_version != qcbae::kOutputDescVersion) {
         refuse(qcbae::OutputRefusal::VersionMismatch, "this QCView speaks output protocol 1");
-    } else if (r.width == 0 || r.height == 0
-               || r.width > qcbae::kOutputMaxWidth || r.height > qcbae::kOutputMaxHeight) {
+    } else if (raster.width() <= 0 || raster.height() <= 0
+               || raster.width() > int(qcbae::kOutputMaxWidth) || raster.height() > int(qcbae::kOutputMaxHeight)) {
         refuse(qcbae::OutputRefusal::TooLarge, "above the 3840x2160 canvas cap");
     } else if (fmt != qcbae::OutputPixelFormat::BGRA8 && fmt != qcbae::OutputPixelFormat::RGB10) {
         refuse(qcbae::OutputRefusal::UnsupportedFormat, "BGRA8 or RGB10; RGBA16F comes with the HDR transfers");
@@ -664,8 +681,8 @@ void OutputBus::answer(Output &o)
         refuse(qcbae::OutputRefusal::UnsupportedContent, "content must be composite, A or B");
     } else {
         output::OutputSpec spec;
-        spec.width    = r.width;
-        spec.height   = r.height;
+        spec.width    = uint32_t(raster.width());
+        spec.height   = uint32_t(raster.height());
         spec.format   = fmt;
         spec.transfer = static_cast<qcbae::OutputTransfer>(transfer);
         spec.fit      = qcbae::OutputFit::Letterbox;
@@ -688,12 +705,26 @@ void OutputBus::answer(Output &o)
     }
     o.accepted = reply.accepted != 0;
     o.ring->write_reply(reply, o.reqGen);
-    if (o.accepted) writeHdrInfo(o, transfer);
+    if (o.accepted) {
+        writeHdrInfo(o, transfer);
+        // The spec generation is part of the output pass's change stamp, so
+        // the next draw re-publishes in the new shape; ask for that draw now
+        // (on Windows nothing redraws while the picture is paused).
+        if (IPlayerRenderer *rend = m_renderer ? m_renderer() : nullptr) rend->requestUpdate();
+    }
     qInfo("OutputBus: %s: request %llu (%ux%u fmt %u transfer %u content %u layers 0x%x) -> %s \"%s\"%s",
           qPrintable(o.id), static_cast<unsigned long long>(o.reqGen), r.width, r.height, r.pixel_format,
           r.transfer, r.content, r.layers, o.accepted ? "accepted" : "refused", reply.message,
           hdr ? " [as displayed]" : "");
     if (!o.accepted) o.shape = QString::fromUtf8(reply.message);
+}
+
+QSize OutputBus::rasterFor(const Output &o) const
+{
+    if (o.raster == 1) return QSize(1920, 1080);
+    if (o.raster == 2) return QSize(3840, 2160);
+    const QSize src = m_sourceSize ? m_sourceSize() : QSize();
+    return (src.width() > 1920 || src.height() > 1080) ? QSize(3840, 2160) : QSize(1920, 1080);
 }
 
 void OutputBus::writeHdrInfo(Output &o, uint32_t transfer)
@@ -715,7 +746,8 @@ void OutputBus::setOutputSetting(const QString &id, const QString &key, const QV
 {
     Output *o = find(id);
     if (!o) return;
-    if      (key == QLatin1String("transfer"))  o->transfer  = std::clamp(value.toInt(), 1, 3);
+    if      (key == QLatin1String("raster"))    o->raster    = std::clamp(value.toInt(), 0, 2);
+    else if (key == QLatin1String("transfer"))  o->transfer  = std::clamp(value.toInt(), 1, 3);
     else if (key == QLatin1String("primaries")) o->primaries = std::clamp(value.toInt(), 1, 2);
     else if (key == QLatin1String("peakNits"))  o->peakNits  = std::max(1.0, value.toDouble());
     else if (key == QLatin1String("minNits"))   o->minNits   = std::max(0.0, value.toDouble());
@@ -773,6 +805,7 @@ QVariantList OutputBus::outputs() const
         m.insert(QStringLiteral("enabled"),   o->enabled);
         m.insert(QStringLiteral("present"),   o->present);
         m.insert(QStringLiteral("accepted"),  o->accepted);
+        m.insert(QStringLiteral("raster"),    o->raster);
         m.insert(QStringLiteral("transfer"),  o->transfer);
         m.insert(QStringLiteral("primaries"), o->primaries);
         m.insert(QStringLiteral("peakNits"),  o->peakNits);

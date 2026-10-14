@@ -31,6 +31,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <QSize>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -63,6 +64,9 @@ public:
     // changes with the player window) and the source frame rate.
     void setRendererAccessor(std::function<IPlayerRenderer *()> fn) { m_renderer = std::move(fn); }
     void setFpsAccessor(std::function<double()> fn) { m_fps = std::move(fn); }
+    // The active source's pixel size (0x0 = none): an output whose raster
+    // setting follows the source goes UHD for anything above 1080p.
+    void setSourceSizeAccessor(std::function<QSize()> fn) { m_sourceSize = std::move(fn); }
     // Call once the renderer exists: restores the outputs enabled last
     // time and pushes the targets.
     void rendererReady();
@@ -131,7 +135,8 @@ private:
         bool        present = false;
         QString     shape, status, plugin;
         int         audioSlot = -1;
-        // the output's transfer and HDR metadata (settings, see setOutputSetting)
+        // the output's raster, transfer and HDR metadata (settings, see setOutputSetting)
+        int         raster    = 0;        // 0 follow the source (UHD above 1080p), 1 1080p, 2 UHD
         int         transfer  = 1;        // qcbae::OutputTransfer
         int         primaries = 1;        // qcbae::OutputPrimaries
         double      peakNits  = 1000.0, minNits = 0.005;
@@ -147,6 +152,8 @@ private:
     void onProcessFinished(Output *o, int code, QProcess::ExitStatus st);
     void poll();
     void answer(Output &o);
+    // The raster a 0x0 request gets: the setting, or the source's class.
+    QSize rasterFor(const Output &o) const;
     void pushTargets();
     void restoreEnabled();
     void tap(const float *stereo, uint32_t frames, bool muted);
@@ -167,6 +174,7 @@ private:
     std::function<IPlayerRenderer *()> m_renderer;
     void    writeHdrInfo(Output &o, uint32_t transfer);
     std::function<double()>            m_fps;
+    std::function<QSize()>             m_sourceSize;
     QTimer m_poll;
     bool   m_rendererReady = false;
 

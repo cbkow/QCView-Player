@@ -183,8 +183,8 @@ enum OutputFrameFlags : uint32_t {
 // except where a default is stated.
 struct OutputRequest {
     uint32_t protocol_version;   // kOutputDescVersion of the sink's copy
-    uint32_t width;              // raster, <= kOutputMaxWidth
-    uint32_t height;
+    uint32_t width;              // raster, <= kOutputMaxWidth; 0/0 = the producer's raster setting
+    uint32_t height;             //   (added 2026-10-14; an older producer refuses 0/0 as TooLarge)
     uint32_t pixel_format;       // OutputPixelFormat
     uint32_t transfer;           // OutputTransfer
     uint32_t fit;                // OutputFit; 0 = Letterbox

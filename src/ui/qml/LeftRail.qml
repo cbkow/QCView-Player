@@ -2074,8 +2074,24 @@ Rectangle {
                                             currentIndex: Math.max(0, Math.min(2, (outRow.modelData.transfer || 1) - 1))
                                             onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "transfer", currentIndex + 1)
                                         }
+                                        // The raster the sink is given when it leaves the
+                                        // choice to QCView: the source's class (UHD above
+                                        // 1080p), or fixed. The picture is letterboxed into it.
                                         FlatComboBox {
-                                            visible: parent.transfer === 2
+                                            Layout.preferredWidth: 96
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            model: [qsTr("Auto raster"), qsTr("1080p"), qsTr("UHD")]
+                                            currentIndex: Math.max(0, Math.min(2, outRow.modelData.raster || 0))
+                                            onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "raster", currentIndex)
+                                        }
+                                        Item { Layout.fillWidth: true }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.spacing
+                                        visible: outRow.modelData.installed && (outRow.modelData.transfer || 1) === 2
+                                        FlatComboBox {
                                             Layout.preferredWidth: 96
                                             font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeSmall
@@ -2083,14 +2099,14 @@ Rectangle {
                                             currentIndex: Math.max(0, Math.min(1, (outRow.modelData.primaries || 1) - 1))
                                             onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "primaries", currentIndex + 1)
                                         }
-                                        Item { Layout.fillWidth: true }
-                                    }
-                                    Text {
-                                        visible: outRow.modelData.installed && (outRow.modelData.transfer || 1) === 2
-                                        text: qsTr("Mastering metadata, nits: peak · MaxCLL · MaxFALL")
-                                        color: Theme.textMuted
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeTiny
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: qsTr("Mastering, nits: peak · MaxCLL · MaxFALL")
+                                            color: Theme.textMuted
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeTiny
+                                            elide: Text.ElideRight
+                                        }
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
