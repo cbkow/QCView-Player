@@ -16,6 +16,7 @@ Nothing is sent unless an output is switched on. Starting an output does not cha
 - **Mute the feed** silences the audio on every output without touching your own monitoring.
 - **Include guides** and **Include annotations** add the safety guides and the note strokes as layers. A note's frozen frame in Review is sent as the viewport shows it.
 - **Live feeds** go out at the feed's own rate (a 23.976 Premiere sequence stays 23.976).
+- **Transfer** (per output, for sinks that carry it such as SDI or HDMI): SDR Rec.709, PQ Rec.2100 or HLG Rec.2100. This is what the wire is told and signals; the picture itself goes out as the viewport shows it, so the display is chosen once, in the colour panel (OCIO or minColor), and a Premiere or After Effects feed that is already PQ or HLG passes straight through. PQ adds the mastering metadata the monitor reads: primaries (Rec.2020 or P3-D65), peak, MaxCLL and MaxFALL in nits.
 
 ## NDI (QCBridgeN)
 
