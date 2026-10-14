@@ -39,6 +39,8 @@ Each installs the application and registers it with QCView, which lists it in th
 3. Choose the **raster**: **Auto** sends UHD for anything above 1080p and 1080p otherwise, switching when the source changes; **1080p** and **UHD** fix it.
 4. Press **Start**. The row reads *starting*, then *live*, and its line names the device, the format and the connectors, for example "T-TAP Pro UHDp25 10-bit PQ 2020, SDI + HDMI RGB".
 
+![The AJA card live on a T-TAP Pro: UHD at 25p, PQ Rec.2100 with Rec.2020 mastering metadata, SDI and HDMI RGB](images/qcbridge_018.png)
+
 The transfer and the raster can be changed while it runs; the card reconfigures in place, a brief interruption and no stop and start. If another application holds the device, the row says which one.
 
 ---

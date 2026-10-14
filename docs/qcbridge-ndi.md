@@ -37,6 +37,8 @@ Each installs the application and registers it with QCView, which lists it in th
 1. In QCView, open the **Output** section in the left rail and press **Start** on the **NDI** row. QCView starts QCBridgeN; the row reads *starting*, then *live*, and its line shows how many receivers are connected.
 2. On the receiver, pick the source **QCView** under this machine's name.
 
+![The NDI card live: the raster, format and transfer, and the source's name and receiver count on its line](images/qcbridge_016.png)
+
 QCBridgeN also sits in the menu bar (macOS) or the tray (Windows), lit while frames flow. Its **Settings…** has the source name, the raster (1080p by default, up to 3840×2160), the picture — the whole viewport, or side A or side B of a dual view — and which layers it asks for. The feed mute and the layers QCView allows are the chips at the top of QCView's Output section.
 
 ---

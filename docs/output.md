@@ -10,6 +10,10 @@ The **Output** section in the Left Rail sends what the viewport shows, with the 
 
 Each output is a card: its name, one word of state and **Start** / **Stop** in the header, a summary line while the card is closed, and the controls behind the chevron. Nothing is sent until Start. Starting an output does not change playback.
 
+![The Output section: the NDI card live, the AJA and Stream cards closed](images/qcbridge_016.png)
+
+![The same cards opened: the NDI and AJA transfers, the stream's server, key and encoder settings](images/qcbridge_017.png)
+
 ## What goes out
 
 - **The picture** is the viewport's composite at the output's raster, letterboxed when the aspect differs. OCIO or minColor transforms, dual-view layouts and the difference view are applied as on screen.
