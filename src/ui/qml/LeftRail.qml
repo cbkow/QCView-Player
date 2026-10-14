@@ -59,6 +59,10 @@ Rectangle {
     // "Safety" / "BG" buttons here. Sections were moved off the
     // right rail in Stage C polish so the right rail can be
     // Inspector-only.
+    // The Output section's cards open their controls with a chevron; this
+    // is their starting state (the dev window grab opens them all).
+    property bool outputCardsExpanded: false
+
     function revealSection(name) {
         if (typeof safetyGuidesSection !== "undefined") {
             safetyGuidesSection.expanded = (name === "safety");
@@ -1994,304 +1998,412 @@ Rectangle {
                         spacing: Theme.spacingLoose
 
                         // The output bus (QCBridgeN): what QCView shows and
-                        // plays, out to an installed sink (NDI first) as a
-                        // separate process. Nothing is sent until an output
-                        // is switched on here.
-                        ColumnLayout {
+                        // plays, out to an installed sink as a separate
+                        // process, and the in-process stream. Each output is a
+                        // card: a header (name, one word of state, Start/Stop),
+                        // a summary line while closed, the controls when the
+                        // chevron opens it. Nothing is sent until Start.
+
+                        // What every output gets: the three switches as chips.
+                        RowLayout {
                             Layout.fillWidth: true
-                            spacing: 2
-                            Repeater {
-                                model: WindowManager.outputs ? WindowManager.outputs.outputs : []
-                                delegate: ColumnLayout {
-                                    id: outRow
-                                    required property var modelData
+                            spacing: Theme.spacing
+                            FlatButton {
+                                Layout.preferredHeight: 20
+                                checkable: true
+                                cornerRadius: 0
+                                uncheckedFill: Theme.surfaceHover
+                                text: qsTr("Mute feed")
+                                tooltipText: qsTr("Silence the audio sent to outputs while you "
+                                                + "keep listening. The master mute (M) silences both.")
+                                checked: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
+                                onToggled: WindowManager.outputs.feedMuted = checked
+                            }
+                            FlatButton {
+                                Layout.preferredHeight: 20
+                                checkable: true
+                                cornerRadius: 0
+                                uncheckedFill: Theme.surfaceHover
+                                text: qsTr("Guides")
+                                tooltipText: qsTr("Draw the safety guides into the outputs that ask for them.")
+                                checked: WindowManager.outputs ? WindowManager.outputs.includeGuides : true
+                                onToggled: WindowManager.outputs.includeGuides = checked
+                            }
+                            FlatButton {
+                                Layout.preferredHeight: 20
+                                checkable: true
+                                cornerRadius: 0
+                                uncheckedFill: Theme.surfaceHover
+                                text: qsTr("Notes")
+                                tooltipText: qsTr("Draw note strokes into the outputs that ask for them.")
+                                checked: WindowManager.outputs ? WindowManager.outputs.includeAnnotations : true
+                                onToggled: WindowManager.outputs.includeAnnotations = checked
+                            }
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        // A card's header: the chevron, the label and the
+                        // Start/Stop cell. Clicking the chevron or the label
+                        // opens the controls; the 22 px tail keeps Start/Stop
+                        // over the revert column the stream's fields use.
+                        component CardHeader: Item {
+                            id: cardHeader
+                            property bool   expanded: false
+                            property string label: ""
+                            property string help: ""
+                            property bool   running: false
+                            property bool   canStart: true
+                            signal clicked()
+                            signal toggleRequested()
+                            Layout.fillWidth: true
+                            implicitHeight: 20
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.rightMargin: 56 + 22 + 2 * Theme.spacing
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: cardHeader.toggleRequested()
+                            }
+                            RowLayout {
+                                anchors.fill: parent
+                                spacing: Theme.spacing
+                                Item {
+                                    Layout.preferredWidth: 12
+                                    Layout.preferredHeight: 20
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: cardHeader.expanded ? "caret-down" : "caret-right"
+                                        size: Theme.iconSizeSmall
+                                        color: Theme.textSecondary
+                                    }
+                                }
+                                RowLabel {
+                                    textFormat: Text.StyledText
+                                    text: cardHeader.label
+                                    help: cardHeader.help
+                                }
+                                FlatButton {
+                                    Layout.preferredWidth: 56
+                                    Layout.preferredHeight: 20
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    centerContent: true
+                                    enabled: cardHeader.running || cardHeader.canStart
+                                    // On a card plane buttons take the plane's corners:
+                                    // a raised Start, a rounded danger Stop.
+                                    variant: cardHeader.running ? "danger" : "raised"
+                                    cornerRadius: Theme.radiusBase
+                                    text: cardHeader.running ? qsTr("Stop") : qsTr("Start")
+                                    onClicked: cardHeader.clicked()
+                                }
+                                Item { Layout.preferredWidth: 22 }
+                            }
+                        }
+                        // The muted line under a header: the summary while
+                        // closed, the live detail while open.
+                        component CardLine: Text {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 12 + Theme.spacing
+                            Layout.rightMargin: 22 + Theme.spacing
+                            visible: text.length > 0
+                            color: Theme.textMuted
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeTiny
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Repeater {
+                            model: WindowManager.outputs ? WindowManager.outputs.outputs : []
+                            delegate: InspectorCard {
+                                id: outCard
+                                required property var modelData
+                                property bool expanded: root.outputCardsExpanded
+                                readonly property int transfer: modelData.transfer || 1
+                                readonly property string transferName:
+                                    transfer === 2 ? qsTr("PQ Rec.2100") : transfer === 3 ? qsTr("HLG Rec.2100") : qsTr("SDR Rec.709")
+                                readonly property string rasterName:
+                                    modelData.raster === 1 ? qsTr("1080p") : modelData.raster === 2 ? qsTr("UHD") : qsTr("Auto")
+                                // Closed: the settings in one line, or the sink's
+                                // own line while live. Open: the sink's line only;
+                                // the controls say the rest.
+                                readonly property string liveDetail: !modelData.enabled ? ""
+                                    : modelData.present
+                                      ? (modelData.shape.length > 0 ? modelData.shape : qsTr("attached"))
+                                        + (modelData.status.length > 0 ? "  ·  " + modelData.status : "")
+                                      : qsTr("waiting for the sink")
+                                readonly property string settingsSummary:
+                                    (modelData.rasterSettable ? rasterName + "  ·  " : "") + transferName
+                                    + (transfer === 2
+                                       ? "  ·  " + (modelData.primaries === 2 ? qsTr("P3-D65") : qsTr("Rec.2020"))
+                                         + "  ·  " + Math.round(modelData.peakNits || 1000) + " / " + (modelData.maxCll || 0)
+                                         + " / " + (modelData.maxFall || 0) + " " + qsTr("nits")
+                                       : "")
+                                Layout.fillWidth: true
+                                bodySpacing: Theme.spacing
+                                CardHeader {
+                                    expanded: outCard.expanded
+                                    onToggleRequested: outCard.expanded = !outCard.expanded
+                                    running: outCard.modelData.enabled
+                                    canStart: outCard.modelData.installed
+                                    // "AJA  QCBridgeA  ·  live": the wire leads, the
+                                    // sink's product name sits muted beside it.
+                                    label: outCard.modelData.label
+                                           + (outCard.modelData.product.length > 0
+                                              ? "  <font color='" + Theme.textMuted + "'>" + outCard.modelData.product + "</font>"
+                                              : "")
+                                           + (outCard.modelData.enabled
+                                              ? "  ·  " + (outCard.modelData.present
+                                                           ? (outCard.modelData.accepted ? qsTr("live") : qsTr("refused"))
+                                                           : qsTr("starting"))
+                                              : (outCard.modelData.installed ? "" : "  ·  " + qsTr("not installed")))
+                                    help: qsTr("Publish the viewport and the mixed audio to "
+                                             + "this output. The sink runs as its own "
+                                             + "application; QCView starts it with Start "
+                                             + "and stops it with Stop.")
+                                    onClicked: WindowManager.outputs.setEnabled(outCard.modelData.id, !outCard.modelData.enabled)
+                                }
+                                CardLine {
+                                    text: outCard.expanded ? outCard.liveDetail
+                                        : (outCard.modelData.enabled ? outCard.liveDetail : outCard.settingsSummary)
+                                }
+                                // The output's transfer: what the wire is told and
+                                // signals. The picture goes out as the viewport shows
+                                // it — the display is OCIO's or minColor's, set in the
+                                // colour panel — so a PQ or HLG feed from Premiere or
+                                // After Effects passes straight through. PQ carries
+                                // mastering metadata (ST 2086 / CTA-861); HLG none.
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: 2
-                                    RowLayout {
-                                    Layout.fillWidth: true
+                                    Layout.leftMargin: 12 + Theme.spacing
                                     spacing: Theme.spacing
-                                    // The row says the name and one word of state; the
-                                    // raster, format, transfer and the sink's own line go
-                                    // on the detail line below, where they can wrap.
-                                    RowLabel {
-                                        // "AJA  QCBridgeA  ·  live": the wire leads, the
-                                        // sink's product name sits muted beside it.
-                                        textFormat: Text.StyledText
-                                        text: modelData.label
-                                              + (modelData.product.length > 0
-                                                 ? "  <font color='" + Theme.textMuted + "'>" + modelData.product + "</font>"
-                                                 : "")
-                                              + (modelData.enabled
-                                                 ? "  ·  " + (modelData.present
-                                                              ? (modelData.accepted ? qsTr("live") : qsTr("refused"))
-                                                              : qsTr("starting"))
-                                                 : (modelData.installed ? "" : "  ·  " + qsTr("not installed")))
-                                        help: qsTr("Publish the viewport and the mixed audio to "
-                                                 + "this output. The sink runs as its own "
-                                                 + "application; QCView starts it when the "
-                                                 + "switch goes on and stops it when it goes off.")
-                                    }
-                                    FlatButton {
-                                        Layout.preferredWidth: 56
-                                        Layout.preferredHeight: 20
+                                    visible: outCard.expanded && outCard.modelData.installed
+                                    FlatComboBox {
+                                        Layout.preferredWidth: 130
+                                        font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSmall
-                                        centerContent: true
-                                        variant: modelData.enabled ? "danger" : "subtle"
-                                        text: modelData.enabled ? qsTr("Stop") : qsTr("Start")
-                                        onClicked: WindowManager.outputs.setEnabled(modelData.id, !modelData.enabled)
+                                        model: [qsTr("SDR Rec.709"), qsTr("PQ Rec.2100"), qsTr("HLG Rec.2100")]
+                                        currentIndex: Math.max(0, Math.min(2, outCard.transfer - 1))
+                                        onActivated: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "transfer", currentIndex + 1)
                                     }
-                                    Item { Layout.preferredWidth: 22 }
+                                    // The raster the sink is given when it leaves the
+                                    // choice to QCView: the source's class (UHD above
+                                    // 1080p), or fixed. The picture is letterboxed into it.
+                                    FlatComboBox {
+                                        visible: outCard.modelData.rasterSettable
+                                        Layout.preferredWidth: 96
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        model: [qsTr("Auto"), qsTr("1080p"), qsTr("UHD")]
+                                        currentIndex: Math.max(0, Math.min(2, outCard.modelData.raster || 0))
+                                        onActivated: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "raster", currentIndex)
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: 12 + Theme.spacing
+                                    spacing: Theme.spacing
+                                    visible: outCard.expanded && outCard.modelData.installed && outCard.transfer === 2
+                                    FlatComboBox {
+                                        Layout.preferredWidth: 96
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        model: [qsTr("Rec.2020"), qsTr("P3-D65")]
+                                        currentIndex: Math.max(0, Math.min(1, (outCard.modelData.primaries || 1) - 1))
+                                        onActivated: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "primaries", currentIndex + 1)
                                     }
                                     Text {
-                                        visible: outRow.modelData.enabled
                                         Layout.fillWidth: true
-                                        Layout.rightMargin: 22 + Theme.spacing
-                                        text: outRow.modelData.present
-                                              ? (outRow.modelData.shape.length > 0 ? outRow.modelData.shape : qsTr("attached"))
-                                                + (outRow.modelData.status.length > 0 ? "  ·  " + outRow.modelData.status : "")
-                                              : qsTr("waiting for the sink")
+                                        text: qsTr("peak · MaxCLL · MaxFALL nits")
                                         color: Theme.textMuted
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeTiny
-                                        wrapMode: Text.WordWrap
+                                        elide: Text.ElideRight
                                     }
-                                    // The output's transfer: what the wire is told and
-                                    // signals. The picture goes out as the viewport shows
-                                    // it — the display is OCIO's or minColor's, set in the
-                                    // colour panel — so a PQ or HLG feed from Premiere or
-                                    // After Effects passes straight through. PQ carries
-                                    // mastering metadata (ST 2086 / CTA-861); HLG none.
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacing
-                                        visible: outRow.modelData.installed
-                                        readonly property int transfer: outRow.modelData.transfer || 1
-                                        FlatComboBox {
-                                            Layout.preferredWidth: 130
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            model: [qsTr("SDR Rec.709"), qsTr("PQ Rec.2100"), qsTr("HLG Rec.2100")]
-                                            currentIndex: Math.max(0, Math.min(2, (outRow.modelData.transfer || 1) - 1))
-                                            onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "transfer", currentIndex + 1)
-                                        }
-                                        // The raster the sink is given when it leaves the
-                                        // choice to QCView: the source's class (UHD above
-                                        // 1080p), or fixed. The picture is letterboxed into it.
-                                        FlatComboBox {
-                                            visible: outRow.modelData.rasterSettable
-                                            Layout.preferredWidth: 96
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            model: [qsTr("Auto"), qsTr("1080p"), qsTr("UHD")]
-                                            currentIndex: Math.max(0, Math.min(2, outRow.modelData.raster || 0))
-                                            onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "raster", currentIndex)
-                                        }
-                                        Item { Layout.fillWidth: true }
-                                    }
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacing
-                                        visible: outRow.modelData.installed && (outRow.modelData.transfer || 1) === 2
-                                        FlatComboBox {
-                                            Layout.preferredWidth: 96
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            model: [qsTr("Rec.2020"), qsTr("P3-D65")]
-                                            currentIndex: Math.max(0, Math.min(1, (outRow.modelData.primaries || 1) - 1))
-                                            onActivated: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "primaries", currentIndex + 1)
-                                        }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: qsTr("Nits: peak · MaxCLL · MaxFALL")
-                                            color: Theme.textMuted
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeTiny
-                                            elide: Text.ElideRight
-                                        }
-                                    }
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacing
-                                        visible: outRow.modelData.installed && (outRow.modelData.transfer || 1) === 2
-                                        FlatSpinBox {
-                                            from: 100; to: 10000; stepSize: 100
-                                            value: Math.round(outRow.modelData.peakNits || 1000)
-                                            onValueModified: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "peakNits", value)
-                                            Layout.preferredWidth: 76
-                                            font.family: Theme.monoFamily
-                                            font.pixelSize: Theme.fontSizeMono
-                                        }
-                                        FlatSpinBox {
-                                            from: 0; to: 10000; stepSize: 100
-                                            value: outRow.modelData.maxCll || 0
-                                            onValueModified: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "maxCll", value)
-                                            Layout.preferredWidth: 76
-                                            font.family: Theme.monoFamily
-                                            font.pixelSize: Theme.fontSizeMono
-                                        }
-                                        FlatSpinBox {
-                                            from: 0; to: 10000; stepSize: 50
-                                            value: outRow.modelData.maxFall || 0
-                                            onValueModified: WindowManager.outputs.setOutputSetting(outRow.modelData.id, "maxFall", value)
-                                            Layout.preferredWidth: 76
-                                            font.family: Theme.monoFamily
-                                            font.pixelSize: Theme.fontSizeMono
-                                        }
-                                        Item { Layout.fillWidth: true }
-                                    }
-                                }
-                            }
-                            Text {
-                                visible: !WindowManager.outputs || WindowManager.outputs.outputs.length === 0
-                                Layout.fillWidth: true
-                                text: qsTr("No outputs installed. An output registers itself "
-                                         + "in Application Support/QCView/Outputs.")
-                                color: Theme.textMuted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeTiny
-                                wrapMode: Text.WordWrap
-                            }
-                            // The stream output (plan A1): the viewport and the
-                            // mixed audio, H.264 + AAC in MPEG-TS over SRT, encoded
-                            // in-process by the platform's hardware encoder. A
-                            // session starts and stops here; the settings persist.
-                            ColumnLayout {
-                                id: streamBlock
-                                Layout.fillWidth: true
-                                Layout.topMargin: Theme.spacing
-                                spacing: 2
-                                property var st: WindowManager.outputs ? WindowManager.outputs.stream : ({})
-                                property bool running: st && st.running === true
-                                property bool available: st && st.available === true
-                                property bool showKey: false
-                                readonly property var kResolutions: ["1080p", "720p", "540p", "2160p"]
-                                readonly property var kFpsModes: ["auto", "24", "25", "30"]
-                                readonly property var kProfiles: ["baseline", "main"]
-                                readonly property var kAudioKbps: [0, 128, 160, 192, 256, 320]
-                                function setting(k, v) { WindowManager.outputs.setStreamSetting(k, v) }
-                                // One word for the row; the sink's full state text goes on
-                                // the detail line (it can be a sentence while reconnecting).
-                                function stateWord(st) {
-                                    if (!st) return ""
-                                    if (st.indexOf("streaming") === 0)    return qsTr("streaming")
-                                    if (st.indexOf("reconnecting") === 0) return qsTr("reconnecting")
-                                    if (st.indexOf("connecting") === 0)   return qsTr("connecting")
-                                    if (st.indexOf("error") === 0)        return qsTr("failed")
-                                    return qsTr("starting")
-                                }
-                                readonly property string detail: {
-                                    if (running) {
-                                        if (st.state === "streaming") {
-                                            var d = Math.round(st.kbps) + " kbps  ·  " + st.fps + " fps  ·  "
-                                                  + st.encoded + " " + qsTr("encoded") + ", " + st.repeated + " " + qsTr("repeated")
-                                            if (st.skipped > 0)    d += ", " + st.skipped + " " + qsTr("skipped")
-                                            if (st.dropped > 0)    d += ", " + st.dropped + " " + qsTr("dropped")
-                                            if (st.muxErrors > 0)  d += ", " + st.muxErrors + " " + qsTr("send errors")
-                                            if (st.reconnects > 0) d += ", " + st.reconnects + " " + qsTr("reconnects")
-                                            return d
-                                        }
-                                        return st.state
-                                    }
-                                    return (st && st.error) ? st.error : ""
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacing
-                                    RowLabel {
-                                        text: qsTr("Stream")
-                                              + (streamBlock.running
-                                                 ? "  ·  " + streamBlock.stateWord(streamBlock.st.state)
-                                                 : (streamBlock.st && streamBlock.st.error && streamBlock.st.error.length > 0
-                                                    ? "  ·  " + qsTr("failed")
-                                                    : (streamBlock.available ? "" : "  ·  " + qsTr("no hardware encoder"))))
-                                        help: qsTr("Send the viewport and the mixed audio to a "
-                                                 + "streaming server (Louper, or any SRT or RTMP "
-                                                 + "server) as H.264 + AAC, encoded on the GPU. "
-                                                 + "srt://host:port with the key as the stream id, "
-                                                 + "or rtmp://host/app with the key as the stream "
-                                                 + "name. A dropped connection reconnects on its own. "
-                                                 + "The picture is the same Rec.709 SDR picture "
-                                                 + "the output bus serves; the frame rate is fixed "
-                                                 + "for the session (a paused viewport repeats its "
-                                                 + "last frame).")
-                                    }
-                                    FlatButton {
-                                        Layout.preferredWidth: 56
-                                        Layout.preferredHeight: 20
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        enabled: streamBlock.available
-                                        centerContent: true
-                                        variant: streamBlock.running ? "danger" : "subtle"
-                                        text: streamBlock.running ? qsTr("Stop") : qsTr("Start")
-                                        onClicked: streamBlock.running ? WindowManager.outputs.stopStream()
-                                                                       : WindowManager.outputs.startStream()
-                                    }
-                                    Item { Layout.preferredWidth: 22 }
-                                }
-                                Text {
-                                    visible: streamBlock.detail.length > 0
-                                    Layout.fillWidth: true
-                                    Layout.rightMargin: 22 + Theme.spacing
-                                    text: streamBlock.detail
-                                    color: Theme.textMuted
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeTiny
-                                    wrapMode: Text.WordWrap
-                                }
-                                FlatTextField {
-                                    Layout.fillWidth: true
-                                    Layout.rightMargin: 22 + Theme.spacing
-                                    enabled: !streamBlock.running
-                                    placeholderText: qsTr("srt://host:port")
-                                    text: streamBlock.st ? (streamBlock.st.url || "") : ""
-                                    font.family: Theme.monoFamily
-                                    font.pixelSize: Theme.fontSizeMono
-                                    onEditingFinished: streamBlock.setting("url", text)
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
+                                    Layout.leftMargin: 12 + Theme.spacing
                                     spacing: Theme.spacing
-                                    FlatTextField {
-                                        Layout.fillWidth: true
-                                        enabled: !streamBlock.running
-                                        placeholderText: qsTr("Stream key (SRT stream id)")
-                                        echoMode: streamBlock.showKey ? TextInput.Normal : TextInput.Password
-                                        text: streamBlock.st ? (streamBlock.st.key || "") : ""
+                                    visible: outCard.expanded && outCard.modelData.installed && outCard.transfer === 2
+                                    FlatSpinBox {
+                                        from: 100; to: 10000; stepSize: 100
+                                        value: Math.round(outCard.modelData.peakNits || 1000)
+                                        onValueModified: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "peakNits", value)
+                                        Layout.preferredWidth: 76
                                         font.family: Theme.monoFamily
                                         font.pixelSize: Theme.fontSizeMono
-                                        onEditingFinished: streamBlock.setting("key", text)
                                     }
-                                    // The show/hide eye takes the revert column's
-                                    // 22 px slot, drawn like RevertBtn so it lines up
-                                    // with the arrows below it.
-                                    Item {
-                                        Layout.preferredWidth: 22
-                                        Layout.preferredHeight: 22
-                                        Icon {
-                                            anchors.centerIn: parent
-                                            name: streamBlock.showKey ? "eye-slash" : "eye"
-                                            size: Theme.iconSizeSmall
-                                            color: eyeMa.containsMouse ? Theme.accent : Theme.textMuted
-                                        }
-                                        MouseArea {
-                                            id: eyeMa
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            hoverEnabled: true
-                                            onClicked: streamBlock.showKey = !streamBlock.showKey
-                                            FlatToolTip {
-                                                visible: eyeMa.containsMouse
-                                                text: streamBlock.showKey ? qsTr("Hide the key") : qsTr("Show the key")
-                                            }
+                                    FlatSpinBox {
+                                        from: 0; to: 10000; stepSize: 100
+                                        value: outCard.modelData.maxCll || 0
+                                        onValueModified: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "maxCll", value)
+                                        Layout.preferredWidth: 76
+                                        font.family: Theme.monoFamily
+                                        font.pixelSize: Theme.fontSizeMono
+                                    }
+                                    FlatSpinBox {
+                                        from: 0; to: 10000; stepSize: 50
+                                        value: outCard.modelData.maxFall || 0
+                                        onValueModified: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "maxFall", value)
+                                        Layout.preferredWidth: 76
+                                        font.family: Theme.monoFamily
+                                        font.pixelSize: Theme.fontSizeMono
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                            }
+                        }
+                        Text {
+                            visible: !WindowManager.outputs || WindowManager.outputs.outputs.length === 0
+                            Layout.fillWidth: true
+                            text: qsTr("No outputs installed. An output registers itself "
+                                     + "in Application Support/QCView/Outputs.")
+                            color: Theme.textMuted
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeTiny
+                            wrapMode: Text.WordWrap
+                        }
+
+                        // The stream output (plan A1): the viewport and the
+                        // mixed audio, H.264 + AAC over SRT or RTMP, encoded
+                        // in-process by the platform's hardware encoder. The
+                        // server and key stay in view; the encoder settings
+                        // open with the chevron. A session starts and stops
+                        // here; the settings persist.
+                        InspectorCard {
+                            id: streamBlock
+                            Layout.fillWidth: true
+                            bodySpacing: Theme.spacing
+                            property bool expanded: root.outputCardsExpanded
+                            property var st: WindowManager.outputs ? WindowManager.outputs.stream : ({})
+                            property bool running: st && st.running === true
+                            property bool available: st && st.available === true
+                            property bool showKey: false
+                            readonly property var kResolutions: ["1080p", "720p", "540p", "2160p"]
+                            readonly property var kFpsModes: ["auto", "24", "25", "30"]
+                            readonly property var kProfiles: ["baseline", "main"]
+                            readonly property var kAudioKbps: [0, 128, 160, 192, 256, 320]
+                            function setting(k, v) { WindowManager.outputs.setStreamSetting(k, v) }
+                            // One word for the header; the full state text goes on
+                            // the line under it (a sentence while reconnecting).
+                            function stateWord(st) {
+                                if (!st) return ""
+                                if (st.indexOf("streaming") === 0)    return qsTr("streaming")
+                                if (st.indexOf("reconnecting") === 0) return qsTr("reconnecting")
+                                if (st.indexOf("connecting") === 0)   return qsTr("connecting")
+                                if (st.indexOf("error") === 0)        return qsTr("failed")
+                                return qsTr("starting")
+                            }
+                            readonly property string detail: {
+                                if (running) {
+                                    if (st.state === "streaming") {
+                                        var d = Math.round(st.kbps) + " kbps  ·  " + st.fps + " fps  ·  "
+                                              + st.encoded + " " + qsTr("encoded") + ", " + st.repeated + " " + qsTr("repeated")
+                                        if (st.skipped > 0)    d += ", " + st.skipped + " " + qsTr("skipped")
+                                        if (st.dropped > 0)    d += ", " + st.dropped + " " + qsTr("dropped")
+                                        if (st.muxErrors > 0)  d += ", " + st.muxErrors + " " + qsTr("send errors")
+                                        if (st.reconnects > 0) d += ", " + st.reconnects + " " + qsTr("reconnects")
+                                        return d
+                                    }
+                                    return st.state
+                                }
+                                return (st && st.error) ? st.error : ""
+                            }
+                            // The encoder settings in one line while closed.
+                            readonly property string settingsSummary: !st ? "" :
+                                (st.bitrateKbps || 6000) + " kbps  ·  " + (st.resolution || "1080p")
+                                + "  ·  " + (st.fpsMode === "auto" || !st.fpsMode ? qsTr("Auto fps") : st.fpsMode + " fps")
+                                + "  ·  " + (st.profile === "main" ? qsTr("Main") : qsTr("Baseline"))
+                                + "  ·  " + (Number(st.audioKbps) === 0 ? qsTr("no audio") : qsTr("AAC") + " " + (st.audioKbps || 160))
+                                + "  ·  " + qsTr("SRT") + " " + (st.srtLatencyMs || 120) + " ms"
+
+                            CardHeader {
+                                expanded: streamBlock.expanded
+                                onToggleRequested: streamBlock.expanded = !streamBlock.expanded
+                                running: streamBlock.running
+                                canStart: streamBlock.available
+                                label: qsTr("Stream")
+                                       + (streamBlock.running
+                                          ? "  ·  " + streamBlock.stateWord(streamBlock.st.state)
+                                          : (streamBlock.st && streamBlock.st.error && streamBlock.st.error.length > 0
+                                             ? "  ·  " + qsTr("failed")
+                                             : (streamBlock.available ? "" : "  ·  " + qsTr("no hardware encoder"))))
+                                help: qsTr("Send the viewport and the mixed audio to a "
+                                         + "streaming server (Louper, or any SRT or RTMP "
+                                         + "server) as H.264 + AAC, encoded on the GPU. "
+                                         + "srt://host:port with the key as the stream id, "
+                                         + "or rtmp://host/app with the key as the stream "
+                                         + "name. A dropped connection reconnects on its own. "
+                                         + "The picture is the same Rec.709 SDR picture "
+                                         + "the output bus serves; the frame rate is fixed "
+                                         + "for the session (a paused viewport repeats its "
+                                         + "last frame).")
+                                onClicked: streamBlock.running ? WindowManager.outputs.stopStream()
+                                                               : WindowManager.outputs.startStream()
+                            }
+                            CardLine {
+                                text: streamBlock.detail.length > 0 ? streamBlock.detail
+                                    : (streamBlock.expanded ? "" : streamBlock.settingsSummary)
+                            }
+                            FlatTextField {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 12 + Theme.spacing
+                                Layout.rightMargin: 22 + Theme.spacing
+                                enabled: !streamBlock.running
+                                placeholderText: qsTr("srt://host:port")
+                                text: streamBlock.st ? (streamBlock.st.url || "") : ""
+                                font.family: Theme.monoFamily
+                                font.pixelSize: Theme.fontSizeMono
+                                onEditingFinished: streamBlock.setting("url", text)
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 12 + Theme.spacing
+                                spacing: Theme.spacing
+                                FlatTextField {
+                                    Layout.fillWidth: true
+                                    enabled: !streamBlock.running
+                                    placeholderText: qsTr("Stream key (SRT stream id)")
+                                    echoMode: streamBlock.showKey ? TextInput.Normal : TextInput.Password
+                                    text: streamBlock.st ? (streamBlock.st.key || "") : ""
+                                    font.family: Theme.monoFamily
+                                    font.pixelSize: Theme.fontSizeMono
+                                    onEditingFinished: streamBlock.setting("key", text)
+                                }
+                                // The show/hide eye takes the revert column's
+                                // 22 px slot, drawn like RevertBtn so it lines up
+                                // with the arrows below it.
+                                Item {
+                                    Layout.preferredWidth: 22
+                                    Layout.preferredHeight: 22
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: streamBlock.showKey ? "eye-slash" : "eye"
+                                        size: Theme.iconSizeSmall
+                                        color: eyeMa.containsMouse ? Theme.accent : Theme.textMuted
+                                    }
+                                    MouseArea {
+                                        id: eyeMa
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        hoverEnabled: true
+                                        onClicked: streamBlock.showKey = !streamBlock.showKey
+                                        FlatToolTip {
+                                            visible: eyeMa.containsMouse
+                                            text: streamBlock.showKey ? qsTr("Hide the key") : qsTr("Show the key")
                                         }
                                     }
                                 }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 12 + Theme.spacing
+                                spacing: Theme.spacing
+                                visible: streamBlock.expanded
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: Theme.spacing
                                     RowLabel {
-                                        text: qsTr("Video bitrate (kbps)")
+                                        text: qsTr("Bitrate (kbps)")
                                         help: qsTr("Constant-rate target. Louper suggests 2500–8000 "
                                                  + "at 1080p.")
                                     }
@@ -2427,59 +2539,6 @@ Rectangle {
                                         dirty: streamBlock.st && streamBlock.st.srtLatencyMs !== 120
                                         onClicked: streamBlock.setting("srtLatencyMs", 120)
                                     }
-                                }
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacing
-                                RowLabel {
-                                    text: qsTr("Mute the feed")
-                                    help: qsTr("Silence the audio sent to outputs while you "
-                                             + "keep listening. The master mute (M) silences "
-                                             + "both.")
-                                }
-                                SlotSwitch {
-                                    checked: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
-                                    onToggled: WindowManager.outputs.feedMuted = checked
-                                }
-                                RevertBtn {
-                                    dirty: WindowManager.outputs ? WindowManager.outputs.feedMuted : false
-                                    onClicked: WindowManager.outputs.feedMuted = false
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacing
-                                RowLabel {
-                                    text: qsTr("Include safety guides")
-                                    help: qsTr("Draw the safety guides into the output when "
-                                             + "the sink asks for them.")
-                                }
-                                SlotSwitch {
-                                    checked: WindowManager.outputs ? WindowManager.outputs.includeGuides : true
-                                    onToggled: WindowManager.outputs.includeGuides = checked
-                                }
-                                RevertBtn {
-                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeGuides : false
-                                    onClicked: WindowManager.outputs.includeGuides = true
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacing
-                                RowLabel {
-                                    text: qsTr("Include annotations")
-                                    help: qsTr("Draw note strokes into the output when the "
-                                             + "sink asks for them.")
-                                }
-                                SlotSwitch {
-                                    checked: WindowManager.outputs ? WindowManager.outputs.includeAnnotations : true
-                                    onToggled: WindowManager.outputs.includeAnnotations = checked
-                                }
-                                RevertBtn {
-                                    dirty: WindowManager.outputs ? !WindowManager.outputs.includeAnnotations : false
-                                    onClicked: WindowManager.outputs.includeAnnotations = true
                                 }
                             }
                         }
