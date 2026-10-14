@@ -568,6 +568,22 @@ ApplicationWindow {
                          && WindowManager.project.activeItemId.length > 0
                 onTriggered: WindowManager.copyProjectLinkToClipboard()
             }
+            // Windows has no application menu: File ▸ Exit is where a
+            // user looks for it (macOS gets Quit from the app menu Qt
+            // builds, so the item is hidden there, as Check for Updates
+            // is on Windows). MenuItem, not Action: only MenuItem has
+            // `visible`; height 0 when hidden so it leaves no gap.
+            ThemedMenuSeparator { visible: Qt.platform.os !== "osx"; height: visible ? implicitHeight : 0 }
+            MenuItem {
+                text: qsTr("E&xit")
+                visible: Qt.platform.os !== "osx"
+                height: visible ? implicitHeight : 0
+                action: Action {
+                    shortcut: "Ctrl+Q"
+                    enabled: Qt.platform.os !== "osx"
+                    onTriggered: Qt.quit()
+                }
+            }
         }
         ThemedMenu {
             id: viewMenu
