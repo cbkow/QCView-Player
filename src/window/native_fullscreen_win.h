@@ -33,10 +33,12 @@ bool enterBorderlessFullscreenWin(QWindow *window);
 bool exitBorderlessFullscreenWin(QWindow *window);
 bool isBorderlessFullscreenWin(QWindow *window);
 
-// Compact Mode's window: drop the caption and system buttons at the
-// current rect, keeping WS_THICKFRAME so edge resize and snapping
-// still work, or put the chrome back. Refused (false) while the window
-// is in borderless fullscreen; a no-op (true) when already as asked.
+// Compact Mode's window: Qt's expanded client area at the current
+// frame (ExpandedClientAreaHint + NoTitleBarBackgroundHint, no caption
+// buttons) — no title bar, no painted top border, the DWM shadow and
+// corners, edge resize and snap through the invisible borders — or the
+// framed flags back. Refused (false) while the window is in borderless
+// fullscreen; a no-op (true) when already as asked.
 bool setCompactBorderlessWin(QWindow *window, bool on);
 
 } // namespace qcv

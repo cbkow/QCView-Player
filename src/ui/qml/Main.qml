@@ -75,6 +75,15 @@ ApplicationWindow {
     // visually quiet.
     title: "QCView"
     color: "#101010"
+    // ApplicationWindow's default top padding is max(menu bar height,
+    // the window's safe-area top): that is what seats the content under
+    // the in-window menu bar. Compact Mode on Windows is Qt's expanded
+    // client area, which reports the title-bar height (31 px) as the
+    // safe area, and the default would hold that as an empty band above
+    // the viewport. The menu bar's height alone is the same value in
+    // every other state (the safe area is 0 on a framed window and on
+    // macOS) and 0 in Compact, where the bar is hidden.
+    topPadding: appMenuBar.visible ? appMenuBar.height : 0
 
     // Fusion's ScrollBar reads palette.mid (thumb at rest) and
     // palette.dark (thumb pressed). Default Fusion palette is too
