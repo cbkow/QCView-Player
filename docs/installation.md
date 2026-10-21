@@ -52,6 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.8
+
+- **Windows** — Compact Mode's window is now drawn by Qt's expanded client area: the thin painted border that sat above the picture is gone, the window keeps the Windows 11 rounded corners and shadow, and the edges still resize and snap.
+
 What's new in 2.5.7
 
 - **AJA SDI / HDMI output** — with [QCBridgeA](https://github.com/cbkow/QCBridgeA/releases) installed, the Output section drives an AJA device (tested on a T-TAP Pro): the viewport and the mixed audio go out over SDI and HDMI as 10-bit RGB, at 1080p, 720p or UHD, at the source's frame rate. See [Output](/output/).
