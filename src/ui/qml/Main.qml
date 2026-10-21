@@ -93,6 +93,25 @@ ApplicationWindow {
     palette.mid:  Theme.textMuted      // #666 — thumb at rest
     palette.dark: Theme.textPrimary    // #ddd — thumb pressed
     palette.base: Theme.bgAlt          // #181818 — track bg
+    // The rest of the palette is pinned to the Theme too (2026-10-21):
+    // every Fusion control that is not given explicit colours reads
+    // the OS palette, and the OS palette follows the system colour
+    // scheme. On Windows in LIGHT mode the in-window MenuBar kept its
+    // Theme background while its labels went black (Fusion's
+    // MenuBarItem draws text in palette.text), and the hover highlight
+    // was the OS accent. The popups (ThemedMenu) already carried this
+    // same set; the children of this window inherit it.
+    palette.window:          Theme.surface
+    palette.windowText:      Theme.textPrimary
+    palette.text:            Theme.textPrimary
+    palette.button:          Theme.surface
+    palette.buttonText:      Theme.textPrimary
+    palette.placeholderText: Theme.textMuted
+    palette.highlight:       Theme.accentMuted
+    palette.highlightedText: Theme.textBright
+    palette.disabled.text:       Theme.textMuted
+    palette.disabled.windowText: Theme.textMuted
+    palette.disabled.buttonText: Theme.textMuted
 
     // ---- File menu dialogs --------------------------------------
     // All Project / Open Media flows route through this. Centralized

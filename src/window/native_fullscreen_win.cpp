@@ -5,9 +5,12 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <QAbstractNativeEventFilter>
 #include <QCoreApplication>
 #include <QEvent>
 #include <QHash>
+#include <QOperatingSystemVersion>
+#include <QSet>
 #include <QWindow>
 #include <QtLogging>
 
@@ -67,18 +70,83 @@ const Qt::WindowFlags kCompactFlags = Qt::Window | Qt::CustomizeWindowHint
     | Qt::WindowSystemMenuHint | Qt::ExpandedClientAreaHint
     | Qt::NoTitleBarBackgroundHint;
 
+// Windows 10: the whole window rect is client (2026-10-21, 2.5.8 field
+// report). Qt's WM_NCCALCSIZE for the expanded client area keeps the
+// resize-border band (SM_CXSIZEFRAME + SM_CXPADDEDBORDER, 8 px at 96
+// dpi) on the left, right and bottom as NON-client. Windows 11 draws
+// that band invisible; Windows 10's DWM paints it in the frame colour
+// (white in light mode, the accent when "show accent colour on title
+// bars and window borders" is on), so Compact Mode showed a white
+// border on three sides and none on top. Here, on Windows 10 only, an
+// application-level native event filter answers WM_NCCALCSIZE for the
+// Compact window first (QWindowsContext::windowsProc runs the filters
+// before its own handler) and leaves rgrc[0] untouched: client = window
+// rect, nothing left for DWM to paint. Edge resize keeps working — Qt's
+// WM_NCHITTEST for the hint measures the band from the client geometry,
+// which now reaches the window edge — and the thick frame still gives
+// snap and the shadow. Maximized, Windows pushes the frame past the
+// monitor edge, so the band is cut on all four sides, as Qt does.
+// QCV_COMPACT_FULLCLIENT=1 forces the path on Windows 11 (mechanics can
+// be exercised there), =0 keeps Qt's margins on Windows 10.
+bool compactFullClient()
+{
+    static const bool v = [] {
+        if (qEnvironmentVariableIsSet("QCV_COMPACT_FULLCLIENT"))
+            return qEnvironmentVariableIntValue("QCV_COMPACT_FULLCLIENT") != 0;
+        return QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11;
+    }();
+    return v;
+}
+
+class CompactFullClientFilter : public QAbstractNativeEventFilter {
+public:
+    QSet<HWND> hwnds;
+    bool nativeEventFilter(const QByteArray &, void *message, qintptr *result) override
+    {
+        auto *msg = static_cast<MSG *>(message);
+        if (msg->message != WM_NCCALCSIZE || !msg->wParam) return false;
+        if (!hwnds.contains(msg->hwnd)) return false;
+        if (IsZoomed(msg->hwnd)) {
+            const UINT dpi = GetDpiForWindow(msg->hwnd);
+            const int border = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi)
+                             + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+            auto *ncp = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam);
+            ncp->rgrc[0].left   += border;
+            ncp->rgrc[0].top    += border;
+            ncp->rgrc[0].right  -= border;
+            ncp->rgrc[0].bottom -= border;
+        }
+        *result = 0;
+        return true;
+    }
+};
+
+CompactFullClientFilter &fullClientFilter()
+{
+    static CompactFullClientFilter *f = [] {
+        auto *p = new CompactFullClientFilter;
+        QCoreApplication::instance()->installNativeEventFilter(p);
+        return p;
+    }();
+    return *f;
+}
+
 bool applyCompactFlags(QWindow *window, HWND hwnd, bool on)
 {
     auto &map = compactSavedFlags();
     if (on) {
         if (map.contains(hwnd)) return true;
         map.insert(hwnd, window->flags());
+        // Registered BEFORE setFlags: the SWP_FRAMECHANGED inside it is
+        // what sends the WM_NCCALCSIZE the filter must answer.
+        if (compactFullClient()) fullClientFilter().hwnds.insert(hwnd);
         window->setFlags(kCompactFlags);
     } else {
         auto it = map.find(hwnd);
         if (it == map.end()) return true;
         const Qt::WindowFlags saved = it.value();
         map.erase(it);
+        if (compactFullClient()) fullClientFilter().hwnds.remove(hwnd);
         window->setFlags(saved);
     }
     // The hint changes QWindow::safeAreaMargins() (0 <-> the title-bar
@@ -88,8 +156,9 @@ bool applyCompactFlags(QWindow *window, HWND hwnd, bool on)
     // taller for a frame after leaving Compact. Tell the Quick window now.
     QEvent safeAreaChange(QEvent::SafeAreaMarginsChange);
     QCoreApplication::sendEvent(window, &safeAreaChange);
-    qInfo("setCompactBorderlessWin: %p %s (flags 0x%x)", hwnd,
-          on ? "expanded client area" : "restored", unsigned(window->flags()));
+    qInfo("setCompactBorderlessWin: %p %s (flags 0x%x, full client %d)", hwnd,
+          on ? "expanded client area" : "restored", unsigned(window->flags()),
+          int(on && compactFullClient()));
     return true;
 }
 } // namespace
