@@ -4,6 +4,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <dwmapi.h>
 
 #include <QAbstractNativeEventFilter>
 #include <QCoreApplication>
@@ -88,12 +89,15 @@ const Qt::WindowFlags kCompactFlags = Qt::Window | Qt::CustomizeWindowHint
 // monitor edge, so the band is cut on all four sides, as Qt does.
 // QCV_COMPACT_FULLCLIENT=1 forces the path on Windows 11 (mechanics can
 // be exercised there), =0 keeps Qt's margins on Windows 10.
+// Every Windows version since the Windows 11 light-mode measurement
+// below (the band shows there too: 2 px of it lie inside the visible
+// bounds). QCV_COMPACT_FULLCLIENT=0 goes back to Qt's margins.
 bool compactFullClient()
 {
     static const bool v = [] {
         if (qEnvironmentVariableIsSet("QCV_COMPACT_FULLCLIENT"))
             return qEnvironmentVariableIntValue("QCV_COMPACT_FULLCLIENT") != 0;
-        return QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11;
+        return true;
     }();
     return v;
 }
@@ -131,6 +135,45 @@ CompactFullClientFilter &fullClientFilter()
     return *f;
 }
 
+// Windows 11 draws a 1 px border line around every top-level window,
+// dark when the OS colour scheme is dark (Qt asks for that through
+// DWMWA_USE_IMMERSIVE_DARK_MODE) and light otherwise, which is a pale
+// outline around the Compact window on a light-mode desktop (chris,
+// 2026-10-21). DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE removes it while
+// Compact holds; DWMWA_COLOR_DEFAULT gives the system line back. The
+// attribute exists from Windows 11 (build 22000) and fails harmlessly
+// on Windows 10, whose frame is handled by the full-client path.
+// Measured on Windows 11 in light mode (2026-10-21), with Qt's margins:
+// the left, right and bottom showed 2 px of the non-client resize band
+// inside the visible bounds, painted by DWM in the frame colour (white
+// in light mode, near-black in dark mode, hence unseen before); with
+// the border line removed one of those pixels stayed white even after
+// DWMWA_CAPTION_COLOR painted the frame dark. Only the full-client path
+// is clean (content to the window edge). Windows 11 rounds the corners
+// of a frameless-looking window only when asked, so the corner
+// preference goes with it; the border line is removed; everything is
+// put back to the system defaults on exit. The attributes are Windows
+// 11 (22000+) and fail harmlessly on Windows 10.
+void setCompactBorderLine(HWND hwnd, bool on)
+{
+    // Literal values: the SDK names (DWMWA_BORDER_COLOR enumerator,
+    // DWMWA_COLOR_NONE / _DEFAULT macros) are only in 10.0.22000+ headers.
+    constexpr DWORD kCornerPrefAttr   = 33;   // DWMWA_WINDOW_CORNER_PREFERENCE
+    constexpr DWORD kBorderColorAttr  = 34;   // DWMWA_BORDER_COLOR
+    constexpr DWORD kCaptionColorAttr = 35;   // DWMWA_CAPTION_COLOR
+    constexpr COLORREF kColorDefault = 0xFFFFFFFF;
+    constexpr COLORREF kColorNone    = 0xFFFFFFFE;
+    constexpr COLORREF kWindowBg     = RGB(0x10, 0x10, 0x10);   // Main.qml color
+    constexpr DWORD kCornerDefault = 0;       // DWMWCP_DEFAULT
+    constexpr DWORD kCornerRound   = 2;       // DWMWCP_ROUND
+    const COLORREF border  = on ? kColorNone  : kColorDefault;
+    const COLORREF caption = on ? kWindowBg   : kColorDefault;
+    const DWORD    corner  = on ? kCornerRound : kCornerDefault;
+    DwmSetWindowAttribute(hwnd, kBorderColorAttr,  &border,  sizeof(border));
+    DwmSetWindowAttribute(hwnd, kCaptionColorAttr, &caption, sizeof(caption));
+    DwmSetWindowAttribute(hwnd, kCornerPrefAttr,   &corner,  sizeof(corner));
+}
+
 bool applyCompactFlags(QWindow *window, HWND hwnd, bool on)
 {
     auto &map = compactSavedFlags();
@@ -141,6 +184,7 @@ bool applyCompactFlags(QWindow *window, HWND hwnd, bool on)
         // what sends the WM_NCCALCSIZE the filter must answer.
         if (compactFullClient()) fullClientFilter().hwnds.insert(hwnd);
         window->setFlags(kCompactFlags);
+        setCompactBorderLine(hwnd, true);
     } else {
         auto it = map.find(hwnd);
         if (it == map.end()) return true;
@@ -148,6 +192,7 @@ bool applyCompactFlags(QWindow *window, HWND hwnd, bool on)
         map.erase(it);
         if (compactFullClient()) fullClientFilter().hwnds.remove(hwnd);
         window->setFlags(saved);
+        setCompactBorderLine(hwnd, false);
     }
     // The hint changes QWindow::safeAreaMargins() (0 <-> the title-bar
     // height) but the Windows plugin posts no SafeAreaMarginsChange, so

@@ -414,6 +414,11 @@ ApplicationWindow {
         readonly property bool inWindow: Qt.platform.os !== "osx"
         height: root.chromeless && inWindow ? 0 : implicitHeight
         visible: !(root.chromeless && inWindow)
+        // The open item's highlight is a grey, not the accent (chris,
+        // 2026-10-21): Fusion's MenuBarItem fills palette.highlight
+        // behind the pressed / open title.
+        palette.highlight:       Theme.affordanceHover
+        palette.highlightedText: Theme.textBright
         // Windows renders this QML menu bar in-window (macOS uses
         // the native top-of-screen bar, which ignores this).
         // surfaceRecess tone (user-tuned) + a bottom hairline: the

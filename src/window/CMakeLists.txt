@@ -56,6 +56,8 @@ endif()
 # resizes to screen.geometry() instead.
 if(WIN32)
     target_sources(qcv_window PRIVATE native_fullscreen_win.cpp)
+    # DwmSetWindowAttribute (Compact Mode's border line).
+    target_link_libraries(qcv_window PRIVATE dwmapi)
 endif()
 
 target_include_directories(qcv_window
