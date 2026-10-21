@@ -49,7 +49,7 @@ Menu {
     palette.text:             Theme.textPrimary
     palette.button:           Theme.surface
     palette.buttonText:       Theme.textPrimary
-    palette.highlight:        Theme.accentMuted
+    palette.highlight:        Theme.affordanceHover   // grey, like the bar (chris, 2026-10-21)
     palette.highlightedText:  Theme.textBright
     palette.mid:              Theme.border
     palette.midlight:         Theme.surfaceHover
