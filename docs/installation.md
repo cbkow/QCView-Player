@@ -52,6 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.5.9
+
+- **Windows** — the menu bar's labels are readable when Windows runs in light mode (they were black on the dark bar). Compact Mode on Windows 10 no longer shows a white border on the sides and bottom of the window.
+
 What's new in 2.5.8
 
 - **Windows** — Compact Mode's window is now drawn by Qt's expanded client area: the thin painted border that sat above the picture is gone, the window keeps the Windows 11 rounded corners and shadow, and the edges still resize and snap.
