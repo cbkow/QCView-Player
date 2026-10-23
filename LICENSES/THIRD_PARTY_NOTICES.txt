@@ -280,16 +280,16 @@ TEXT / LOCALE (vcpkg transitive) [Windows]
 FONTS
 ================================================================================
 
-30. Inter
-    Copyright (c) The Inter Project Authors.
+30. Geist (sans)
+    Copyright (c) 2024 The Geist Project Authors.
     License: SIL Open Font License 1.1
-    Website: https://rsms.me/inter/
+    Website: https://vercel.com/font
     Files: OFL-1.1.txt
 
-31. JetBrains Mono
-    Copyright (c) JetBrains s.r.o.
+31. Geist Mono
+    Copyright (c) 2024 The Geist Project Authors.
     License: SIL Open Font License 1.1
-    Website: https://www.jetbrains.com/lp/mono/
+    Website: https://vercel.com/font
     Files: OFL-1.1.txt
 
 32. Phosphor Icons (icon font / SVG set)

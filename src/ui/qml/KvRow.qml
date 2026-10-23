@@ -3,9 +3,8 @@
 // One rule for every tag/value pair: fixed label column
 // (Theme.labelColWidth) so values align vertically across sections
 // and panels; label in tiny sans secondary; value in mono one step
-// below the sans size (Theme.fontSizeMono — JetBrainsMono's tall
-// x-height otherwise overpowers the labels); fixed row height for a
-// consistent vertical rhythm.
+// below the sans size (Theme.fontSizeMono — see the note there); fixed
+// row height for a consistent vertical rhythm.
 
 import QtQuick
 import QtQuick.Layouts

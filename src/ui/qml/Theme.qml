@@ -10,7 +10,7 @@ import QtQuick
 //   color: Theme.bg
 //
 // Visual language: the family's flat look (one cobalt-blue accent,
-// minimal elevation, Phosphor icons, Inter sans + JetBrainsMono) with
+// minimal elevation, Phosphor icons, Geist sans + Geist Mono) with
 // the humanist pass minNotes took first (2026-10-21; tried here
 // 2026-10-23): three corner radii applied by surface class, a short
 // hover / pressed colour ramp, popups that fade in.
@@ -114,9 +114,10 @@ QtObject {
                                          : "Phosphor"
 
     readonly property int fontSizeTiny:   10
-    // Mono data values render one step below their paired sans size —
-    // JetBrainsMono's x-height reads ~1 px larger than Inter at equal
-    // pixel size, so 10 px mono balances 10-11 px sans labels.
+    // Mono data values render one step below their paired sans size.
+    // (Set under Inter + JetBrainsMono, whose x-heights differed; Geist
+    // Sans and Geist Mono share identical vertical metrics, so this step
+    // is now a density choice rather than an optical correction.)
     readonly property int fontSizeMono:   10
     readonly property int fontSizeSmall:  11
     readonly property int fontSizeBase:   12

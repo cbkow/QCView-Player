@@ -3,7 +3,7 @@ import QtQuick.Controls.Basic
 import Qcv
 
 // Universal flat tooltip — opaque dark grey background, softly rounded
-// corners, single-line subtle border, Inter at fontSizeSmall.
+// corners, single-line subtle border, sans at fontSizeSmall.
 //
 // Use as a child of a hover target:
 //

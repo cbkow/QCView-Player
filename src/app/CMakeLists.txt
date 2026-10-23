@@ -262,7 +262,7 @@ foreach(asset_file IN LISTS QCV_OCIO_ASSETS)
 endforeach()
 target_sources(qcview PRIVATE ${QCV_OCIO_ASSETS})
 
-# Polish — bundle Inter / JetBrainsMono / Phosphor fonts the same
+# Polish — bundle Geist / Geist Mono / Phosphor fonts the same
 # way as the OCIO + safety assets. main.cpp loads them via
 # QFontDatabase::addApplicationFont at startup.
 file(GLOB QCV_FONT_ASSETS LIST_DIRECTORIES FALSE

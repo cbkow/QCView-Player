@@ -605,7 +605,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    // Polish — bundled fonts. Inter (sans), JetBrainsMono, and
+    // Polish — bundled fonts. Geist (sans), Geist Mono, and
     // Phosphor (icon font). Theme.qml binds to WindowManager's
     // family accessors so it picks up whatever
     // QFontDatabase::addApplicationFont registered.
@@ -629,10 +629,11 @@ int main(int argc, char *argv[])
         fontDir = QCoreApplication::applicationDirPath()
                 + QStringLiteral("/assets/fonts/");
     }
-    const QString interName = loadFamily(fontDir + "Inter_18pt-Regular.ttf");
-    loadFamily(fontDir + "Inter_18pt-Bold.ttf");
-    loadFamily(fontDir + "Inter_18pt-Italic.ttf");
-    const QString monoName     = loadFamily(fontDir + "JetBrainsMono-Regular.ttf");
+    const QString interName = loadFamily(fontDir + "Geist-Regular.ttf");
+    loadFamily(fontDir + "Geist-Bold.ttf");
+    loadFamily(fontDir + "Geist-Italic.ttf");
+    const QString monoName     = loadFamily(fontDir + "GeistMono-Regular.ttf");
+    loadFamily(fontDir + "GeistMono-Bold.ttf");
     const QString phosphorName = loadFamily(fontDir + "Phosphor.ttf");
     if (!interName.isEmpty()) {
         QGuiApplication::setFont(QFont(interName, 10));
