@@ -52,6 +52,14 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.6.0
+
+- **Languages** — QCView speaks Chinese (Simplified), Japanese, Korean, German, French, Spanish, Portuguese (Brazil), Italian and Polish. Pick one in Settings ▸ Interface ▸ Language; it applies at once. These first catalogs are machine translated and reviewed, not yet read by native speakers, so they say so in the picker; corrections are welcome through the [translations folder](https://github.com/cbkow/QCView-Player/tree/main/translations).
+- **Always on Top** — a pin on the transport row and in the Compact strip, or View ▸ Always on Top (⌥⌘T / Ctrl+Alt+T), keeps the window above others and is remembered.
+- **Look** — softly rounded controls, cards and popups, buttons that ramp on hover and answer a press, popups that fade in. Text fields are proper wells with a border that lights on focus; the Open Stream dialog's fields no longer clip their text.
+- **Remembered** — volume and mute persist across launches, as the language does.
+- Menus draw their own rows on both platforms, so Windows in light mode shows them correctly.
+
 What's new in 2.5.9
 
 - **Windows** — the menu bar's labels are readable when Windows runs in light mode (they were black on the dark bar). Compact Mode on Windows 10 no longer shows a white border on the sides and bottom of the window.
