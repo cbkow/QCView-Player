@@ -663,7 +663,7 @@ Pane {
                         void (WindowManager.exposure + WindowManager.viewerGamma
                               + WindowManager.channelView);
                         return WindowManager.viewerAdjusted
-                               ? WindowManager.viewerAidsTag() + qsTr(" — click to reset")
+                               ? qsTr("%1 — click to reset").arg(WindowManager.viewerAidsTag())
                                : "";
                     }
                 }

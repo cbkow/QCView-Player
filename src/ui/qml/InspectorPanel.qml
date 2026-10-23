@@ -598,7 +598,7 @@ Rectangle {
                 value: vRate > 0 ? root.formatBitrate(vRate)
                                  : root.formatBitrate(cRate)
                 note: vRate > 0
-                    ? (cRate > 0 ? qsTr("file avg ") + root.formatBitrate(cRate) : "")
+                    ? (cRate > 0 ? qsTr("file avg %1").arg(root.formatBitrate(cRate)) : "")
                     : qsTr("file avg")
             }
             KvRow {
@@ -612,15 +612,15 @@ Rectangle {
             KvRow {
                 label: qsTr("Bit depth")
                 value: content.vmeta
-                    ? content.vmeta.bitDepth + qsTr(" bit") +
-                      (content.vmeta.hasAlpha ? qsTr(" + alpha") : "")
+                    ? (content.vmeta.hasAlpha ? qsTr("%1 bit + alpha") : qsTr("%1 bit"))
+                          .arg(content.vmeta.bitDepth)
                     : ""
             }
             KvRow {
                 visible: content.vmeta && content.vmeta.isHdrContent === true
                 label: qsTr("HDR")
                 value: content.vmeta && content.vmeta.isHdrContent
-                    ? qsTr("Yes — ") + content.vmeta.colorTransfer
+                    ? qsTr("Yes — %1").arg(content.vmeta.colorTransfer)
                     : ""
                 valueColor: Theme.warn
                 monoValue: false
@@ -703,7 +703,7 @@ Rectangle {
             readonly property int effRot: rotOverride >= 0 ? rotOverride : detRot
             readonly property bool rotSwapsDims: effRot === 90 || effRot === 270
             readonly property string rotAutoLabel:
-                detRot > 0 ? qsTr("Auto (") + detRot + "°)" : qsTr("Auto")
+                detRot > 0 ? qsTr("Auto (%1°)").arg(detRot) : qsTr("Auto")
 
             // Mode pill row — Square / Detected (R:R) / Custom.
             KvChipRow {
@@ -724,8 +724,8 @@ Rectangle {
                         active: modelData.key === parSection.parMode
                         interactive: parSection.parPickable && !chipDisabled
                         label: modelData.key === 1 && parSection.isAnamorphic
-                            ? qsTr("Detected ") + parSection.detSarNum
-                              + ":" + parSection.detSarDen
+                            ? qsTr("Detected %1:%2").arg(parSection.detSarNum)
+                                                     .arg(parSection.detSarDen)
                             : modelData.label
                         onClicked: {
                             if (!parSection.parTargetItemId
@@ -753,8 +753,8 @@ Rectangle {
             KvRow {
                 label: qsTr("Detected")
                 value: parSection.isAnamorphic
-                    ? parSection.detSarNum + ":" + parSection.detSarDen
-                      + qsTr(" (non-square)")
+                    ? qsTr("%1:%2 (non-square)").arg(parSection.detSarNum)
+                                                 .arg(parSection.detSarDen)
                     : qsTr("1:1 (square)")
             }
             KvRow {
@@ -968,7 +968,7 @@ Rectangle {
                     const c = content.vmeta.containerRangeTag || "";
                     if (c.length > 0) return "";
                     const e = content.vmeta.colorRange || "";
-                    if (e.length > 0) return qsTr("decoder: ") + e;
+                    if (e.length > 0) return qsTr("decoder: %1").arg(e);
                     return content.vmeta.isRgb === true
                         ? qsTr("Auto assumes full")
                         : qsTr("Auto assumes limited");
@@ -1196,16 +1196,18 @@ Rectangle {
                 label: qsTr("Sample rate")
                 value: audioSection.liveAudio
                     ? (audioSection.liveSrc && audioSection.liveSrc.audioSampleRate > 0
-                        ? audioSection.liveSrc.audioSampleRate + qsTr(" Hz") : "")
+                        ? qsTr("%1 Hz").arg(audioSection.liveSrc.audioSampleRate) : "")
                     : (content.vmeta && content.vmeta.audioSampleRate > 0
-                        ? content.vmeta.audioSampleRate + qsTr(" Hz") : "")
+                        ? qsTr("%1 Hz").arg(content.vmeta.audioSampleRate) : "")
             }
             KvRow {
                 label: qsTr("Channels")
                 value: {
                     const ch = audioSection.audioCh;
                     if (ch <= 0) return "";
-                    return ch + (ch === 2 ? qsTr(" (stereo)") : ch === 1 ? qsTr(" (mono)") : "");
+                    if (ch === 2) return qsTr("%1 (stereo)").arg(ch);
+                    if (ch === 1) return qsTr("%1 (mono)").arg(ch);
+                    return String(ch);
                 }
             }
             KvRow {

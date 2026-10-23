@@ -45,6 +45,7 @@
 #include <thread>
 
 #include "window/window_manager.h"
+#include "i18n.h"
 #include "render/backdrop_image_provider.h"
 #include "render/thumbnail_image_provider.h"
 #include "window/sparkle_updater_macos.h"
@@ -637,6 +638,11 @@ int main(int argc, char *argv[])
         QGuiApplication::setFont(QFont(interName, 10));
     }
 
+    // Interface language: the catalog has to be in place before any
+    // QML loads so qsTr bindings evaluate translated the first time.
+    qcv::I18n i18n;
+    i18n.install();
+
     QQmlApplicationEngine engine;
 
     // Expose WindowManager to QML before loading the module so the UI
@@ -646,6 +652,7 @@ int main(int argc, char *argv[])
     if (!monoName.isEmpty())     windowManager.setMonoFamily(monoName);
     if (!phosphorName.isEmpty()) windowManager.setPhosphorFamily(phosphorName);
     engine.rootContext()->setContextProperty(QStringLiteral("WindowManager"), &windowManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("I18n"), &i18n);
 
     // Frozen modal backdrop (image://qcv/backdrop/<n>). The engine takes
     // ownership of the provider; WindowManager keeps a borrowed pointer

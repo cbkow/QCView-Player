@@ -2133,8 +2133,10 @@ Rectangle {
                                     (modelData.rasterSettable ? rasterName + "  ·  " : "") + transferName
                                     + (transfer === 2
                                        ? "  ·  " + (modelData.primaries === 2 ? qsTr("P3-D65") : qsTr("Rec.2020"))
-                                         + "  ·  " + Math.round(modelData.peakNits || 1000) + " / " + (modelData.maxCll || 0)
-                                         + " / " + (modelData.maxFall || 0) + " " + qsTr("nits")
+                                         + "  ·  " + qsTr("%1 / %2 / %3 nits")
+                                                      .arg(Math.round(modelData.peakNits || 1000))
+                                                      .arg(modelData.maxCll || 0)
+                                                      .arg(modelData.maxFall || 0)
                                        : "")
                                 Layout.fillWidth: true
                                 bodySpacing: Theme.spacing
@@ -2296,12 +2298,14 @@ Rectangle {
                             readonly property string detail: {
                                 if (running) {
                                     if (st.state === "streaming") {
-                                        var d = Math.round(st.kbps) + " kbps  ·  " + st.fps + " fps  ·  "
-                                              + st.encoded + " " + qsTr("encoded") + ", " + st.repeated + " " + qsTr("repeated")
-                                        if (st.skipped > 0)    d += ", " + st.skipped + " " + qsTr("skipped")
-                                        if (st.dropped > 0)    d += ", " + st.dropped + " " + qsTr("dropped")
-                                        if (st.muxErrors > 0)  d += ", " + st.muxErrors + " " + qsTr("send errors")
-                                        if (st.reconnects > 0) d += ", " + st.reconnects + " " + qsTr("reconnects")
+                                        var d = qsTr("%1 kbps").arg(Math.round(st.kbps)) + "  ·  "
+                                              + qsTr("%1 fps").arg(st.fps) + "  ·  "
+                                              + qsTr("%n encoded", "", st.encoded) + ", "
+                                              + qsTr("%n repeated", "", st.repeated)
+                                        if (st.skipped > 0)    d += ", " + qsTr("%n skipped", "", st.skipped)
+                                        if (st.dropped > 0)    d += ", " + qsTr("%n dropped", "", st.dropped)
+                                        if (st.muxErrors > 0)  d += ", " + qsTr("%n send error(s)", "", st.muxErrors)
+                                        if (st.reconnects > 0) d += ", " + qsTr("%n reconnect(s)", "", st.reconnects)
                                         return d
                                     }
                                     return st.state
@@ -2310,11 +2314,11 @@ Rectangle {
                             }
                             // The encoder settings in one line while closed.
                             readonly property string settingsSummary: !st ? "" :
-                                (st.bitrateKbps || 6000) + " kbps  ·  " + (st.resolution || "1080p")
-                                + "  ·  " + (st.fpsMode === "auto" || !st.fpsMode ? qsTr("Auto fps") : st.fpsMode + " fps")
+                                qsTr("%1 kbps").arg(st.bitrateKbps || 6000) + "  ·  " + (st.resolution || "1080p")
+                                + "  ·  " + (st.fpsMode === "auto" || !st.fpsMode ? qsTr("Auto fps") : qsTr("%1 fps").arg(st.fpsMode))
                                 + "  ·  " + (st.profile === "main" ? qsTr("Main") : qsTr("Baseline"))
-                                + "  ·  " + (Number(st.audioKbps) === 0 ? qsTr("no audio") : qsTr("AAC") + " " + (st.audioKbps || 160))
-                                + "  ·  " + qsTr("SRT") + " " + (st.srtLatencyMs || 120) + " ms"
+                                + "  ·  " + (Number(st.audioKbps) === 0 ? qsTr("no audio") : qsTr("AAC %1").arg(st.audioKbps || 160))
+                                + "  ·  " + qsTr("SRT %1 ms").arg(st.srtLatencyMs || 120)
 
                             CardHeader {
                                 expanded: streamBlock.expanded
@@ -2959,6 +2963,46 @@ Rectangle {
                         }
 
                         GroupHeader { label: qsTr("Interface") }
+
+                        // Interface language. The catalogs are compiled
+                        // into the app (translations/); "" follows the
+                        // system. Next launch: menus and the strings C++
+                        // hands to QML do not re-evaluate.
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                RowLabel {
+                                    text: qsTr("Language")
+                                    help: qsTr("Language of the interface. System "
+                                             + "default follows the OS setting. "
+                                             + "Applies on next launch.")
+                                }
+                                FlatComboBox {
+                                    id: languagePicker
+                                    Layout.preferredWidth: 150
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    readonly property var codes: [""].concat(I18n.availableLanguages)
+                                    model: codes.map(function (c) { return I18n.displayName(c) })
+                                    currentIndex: Math.max(0, codes.indexOf(I18n.language))
+                                    onActivated: I18n.language = codes[currentIndex]
+                                }
+                                RevertBtn {
+                                    dirty: I18n.language !== ""
+                                    onClicked: I18n.language = ""
+                                }
+                            }
+                            Text {
+                                visible: I18n.restartRequired
+                                text: qsTr("Restart QCView to apply.")
+                                color: Theme.textMuted
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSmall
+                            }
+                        }
 
                         // Always open in minimal mode — overrides the
                         // remembered rail/panel layout on next launch.

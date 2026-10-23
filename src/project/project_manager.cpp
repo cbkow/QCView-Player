@@ -138,14 +138,13 @@ void ProjectManager::markDirty()
 bool ProjectManager::saveProject(const QString &path)
 {
     if (path.isEmpty()) {
-        emit projectError(QStringLiteral(
-            "Save failed: no path provided."));
+        emit projectError(tr("Save failed: no path provided."));
         return false;
     }
     QString err;
     if (!ProjectIo::save(*this, path, &err)) {
         emit projectError(err.isEmpty()
-            ? QStringLiteral("Save failed.")
+            ? tr("Save failed.")
             : err);
         return false;
     }
@@ -162,14 +161,13 @@ bool ProjectManager::saveProject(const QString &path)
 bool ProjectManager::openProject(const QString &path)
 {
     if (path.isEmpty()) {
-        emit projectError(QStringLiteral(
-            "Open failed: no path provided."));
+        emit projectError(tr("Open failed: no path provided."));
         return false;
     }
     QString err;
     if (!ProjectIo::load(*this, path, &err)) {
         emit projectError(err.isEmpty()
-            ? QStringLiteral("Open failed.")
+            ? tr("Open failed.")
             : err);
         return false;
     }

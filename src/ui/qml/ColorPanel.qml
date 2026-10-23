@@ -309,7 +309,7 @@ Pane {
                         const name = WindowManager.presets.activePresetName;
                         if (!name) return qsTr("(no preset)");
                         return WindowManager.presets.modified
-                               ? name + qsTr(" — modified")
+                               ? qsTr("%1 — modified").arg(name)
                                : name;
                     }
                     color: WindowManager.presets
@@ -1063,8 +1063,8 @@ Pane {
                 Text {
                     // The switch is the one On / Off for both engines; the
                     // label names the engine it would run.
-                    text: (root.minColorMode ? qsTr("minColor") : qsTr("OCIO"))
-                          + (engageSwitch.checked ? qsTr(" On") : qsTr(" Off"))
+                    text: (engageSwitch.checked ? qsTr("%1 On") : qsTr("%1 Off"))
+                          .arg(root.minColorMode ? qsTr("minColor") : qsTr("OCIO"))
                     color: engageSwitch.checked ? Theme.success : Theme.textPrimary
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall

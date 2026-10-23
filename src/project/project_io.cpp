@@ -16,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QCoreApplication>
 #include <QSaveFile>
 #include <QString>
 #include <QStringList>
@@ -28,6 +29,10 @@ extern "C" {
 namespace qcv::ProjectIo {
 
 namespace {
+
+// tr() for the free functions here; the errors reach the user through
+// ProjectManager::projectError.
+struct Tr { Q_DECLARE_TR_FUNCTIONS(ProjectIo) };
 
 constexpr const char *kProjectDirToken = "${PROJECT_DIR}";
 
@@ -533,7 +538,7 @@ QJsonObject binToJson(const ProjectBin &b)
 bool save(ProjectManager &pm, const QString &filePath, QString *errorOut)
 {
     if (filePath.isEmpty()) {
-        if (errorOut) *errorOut = QStringLiteral("Save: empty path.");
+        if (errorOut) *errorOut = Tr::tr("Save: empty path.");
         return false;
     }
 
@@ -578,14 +583,14 @@ bool save(ProjectManager &pm, const QString &filePath, QString *errorOut)
     QSaveFile f(filePath);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         if (errorOut) {
-            *errorOut = QStringLiteral("Save: cannot open '%1' for write: %2")
+            *errorOut = Tr::tr("Save: cannot open '%1' for write: %2")
                             .arg(filePath, f.errorString());
         }
         return false;
     }
     if (f.write(bytes) != bytes.size()) {
         if (errorOut) {
-            *errorOut = QStringLiteral("Save: write to '%1' truncated: %2")
+            *errorOut = Tr::tr("Save: write to '%1' truncated: %2")
                             .arg(filePath, f.errorString());
         }
         f.cancelWriting();
@@ -593,7 +598,7 @@ bool save(ProjectManager &pm, const QString &filePath, QString *errorOut)
     }
     if (!f.commit()) {
         if (errorOut) {
-            *errorOut = QStringLiteral("Save: commit to '%1' failed: %2")
+            *errorOut = Tr::tr("Save: commit to '%1' failed: %2")
                             .arg(filePath, f.errorString());
         }
         return false;
@@ -617,7 +622,7 @@ bool load(ProjectManager &pm, const QString &filePath, QString *errorOut)
 
     QFile f(filePath);
     if (!f.open(QIODevice::ReadOnly)) {
-        return fail(QStringLiteral("Open: cannot read '%1': %2")
+        return fail(Tr::tr("Open: cannot read '%1': %2")
                        .arg(filePath, f.errorString()));
     }
     const QByteArray bytes = f.readAll();
@@ -626,7 +631,7 @@ bool load(ProjectManager &pm, const QString &filePath, QString *errorOut)
     QJsonParseError pe;
     const QJsonDocument doc = QJsonDocument::fromJson(bytes, &pe);
     if (doc.isNull() || !doc.isObject()) {
-        return fail(QStringLiteral("Open: parse error in '%1': %2")
+        return fail(Tr::tr("Open: parse error in '%1': %2")
                        .arg(filePath, pe.errorString()));
     }
     const QJsonObject root = doc.object();

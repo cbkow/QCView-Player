@@ -3,6 +3,7 @@
 #include "ffmpeg_metadata_extractor.h"
 #include "decode/stream_extent.h"
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QtLogging>
 
@@ -293,11 +294,11 @@ QString containerFormatName(AVFormatContext *ctx, const QString &filePath)
     if (name == QLatin1String("ivf"))    return QStringLiteral("IVF");
     if (name == QLatin1String("yuv4mpegpipe")) return QStringLiteral("Y4M");
     if (name.startsWith(QLatin1String("image2")))
-        return QStringLiteral("Image sequence");
+        return QCoreApplication::translate("FFmpegMetadataExtractor", "Image sequence");
 
     if (ctx->iformat && ctx->iformat->long_name)
         return QString::fromUtf8(ctx->iformat->long_name);
-    return name.isEmpty() ? QStringLiteral("Unknown") : name;
+    return name.isEmpty() ? QCoreApplication::translate("FFmpegMetadataExtractor", "Unknown") : name;
 }
 
 // MXF operational pattern from the header partition's OP UL, which

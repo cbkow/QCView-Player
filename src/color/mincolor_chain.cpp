@@ -1,5 +1,7 @@
 #include "mincolor_chain.h"
 
+#include <QCoreApplication>
+
 #include <algorithm>
 #include <cmath>
 
@@ -292,7 +294,7 @@ QStringList lookNames()
 QStringList tonescaleNames()
 {
     QStringList out;
-    out << QStringLiteral("Use look");
+    out << QCoreApplication::translate("MinColor", "Use look");
     for (int i = 0; i < drt::kTonescaleCount; ++i) out << QString::fromUtf8(drt::kTonescales[i].name);
     return out;
 }
@@ -300,7 +302,7 @@ QStringList tonescaleNames()
 QStringList creativeWhiteNames()
 {
     QStringList out;
-    out << QStringLiteral("Use look");
+    out << QCoreApplication::translate("MinColor", "Use look");
     for (int i = 0; i < drt::kCwpCount; ++i) out << QString::fromUtf8(drt::kCwpNames[i]);
     return out;
 }

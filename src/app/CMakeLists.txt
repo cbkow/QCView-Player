@@ -7,6 +7,8 @@
 qt_add_executable(qcview
     MANUAL_FINALIZATION
     main.cpp
+    i18n.h
+    i18n.cpp
 )
 
 # Phase 2.4: full UI skeleton + slot-machine Color panel.
@@ -314,6 +316,10 @@ foreach(asset_file IN LISTS QCV_EXIFTOOL_ASSETS)
     )
 endforeach()
 target_sources(qcview PRIVATE ${QCV_EXIFTOOL_ASSETS})
+# lupdate (translations) walks the target's sources; the bundled assets
+# are data, and exiftool's Perl trips its C++ parser.
+set_property(TARGET qcview PROPERTY QT_EXCLUDE_SOURCES_FROM_TRANSLATION
+    "${CMAKE_SOURCE_DIR}/assets/*")
 
 # Phase F.2.1 (Windows asset staging):
 # On macOS the MACOSX_PACKAGE_LOCATION property routes each asset file
@@ -415,6 +421,29 @@ if(WIN32)
             )
         endforeach()
     endif()
+endif()
+
+# Translations: lupdate scans these targets' sources (the QML module's
+# files included) into translations/qcview_<lang>.ts for each language
+# in QCV_TRANSLATED_LANGUAGES (top-level CMakeLists.txt), plus a plurals
+# only qcview_en.ts that gives English its %n forms. lrelease compiles
+# them at build time and the .qm files land in the executable's
+# resources under :/i18n, where src/app/i18n.cpp loads them. Qt's own
+# catalogs (qtbase, qtdeclarative) are merged into each .qm so stock
+# dialogs follow the language without shipping Qt's translations dir.
+# No Linguist tools (an unusual Qt install): the app builds English only.
+if(TARGET Qt6::lupdate AND TARGET Qt6::lrelease)
+    qt_add_translations(qcview
+        SOURCE_TARGETS
+            qcview qcv_window qcv_render qcv_output qcv_dual qcv_annotations
+            qcv_timeline qcv_project qcv_audio qcv_color qcv_decode
+        TS_FILE_DIR "${CMAKE_SOURCE_DIR}/translations"
+        TS_FILE_BASE qcview
+        MERGE_QT_TRANSLATIONS
+        LUPDATE_OPTIONS -locations relative
+    )
+else()
+    message(WARNING "Qt LinguistTools not found: qcview builds without translations")
 endif()
 
 # Pairs with MANUAL_FINALIZATION on qt_add_executable above. Must come

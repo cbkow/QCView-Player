@@ -131,9 +131,10 @@ ColumnLayout {
                     text: (modelData.side.length > 0
                            ? "<b><font color='" + (modelData.side === "A" ? "#4dd9ff" : "#ff9e40")
                              + "'>" + modelData.side + "</font></b>  " : "")
-                          + qsTr("Frame") + " <b>" + modelData.frame + "</b>  ·  "
-                          + qsTr("Max") + " <b>" + modelData.clip + "</b>"
-                          + (root.scope.waveformHdr ? " " + qsTr("nits") : "")
+                          + (root.scope.waveformHdr
+                             ? qsTr("Frame <b>%1</b>  ·  Max <b>%2</b> nits")
+                             : qsTr("Frame <b>%1</b>  ·  Max <b>%2</b>"))
+                            .arg(modelData.frame).arg(modelData.clip)
                     color: Theme.textPrimary
                     font.family: Theme.monoFamily
                     font.pixelSize: Theme.fontSizeMono

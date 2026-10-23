@@ -105,7 +105,7 @@ QString HostBridgeSource::codecName() const
 
 QString HostBridgeSource::waitingText() const
 {
-    return QStringLiteral("Waiting for %1 (QCBridge Transmit device not publishing)")
+    return tr("Waiting for %1 (QCBridge Transmit device not publishing)")
         .arg(m_hostApp);
 }
 

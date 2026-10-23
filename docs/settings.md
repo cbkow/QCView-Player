@@ -27,6 +27,10 @@ On by default. Click and drag anywhere on the viewport to move the whole window,
 
 Toggle the timeline hover thumbnail preview on or off (low-RAM systems or focus-mode users may prefer it off).
 
+## Language
+
+Settings ▸ Interface ▸ Language picks the interface language. **System default** follows the operating system; the list shows the languages QCView ships. The change applies on the next launch. Translations are community-maintained; the [translations folder](https://github.com/cbkow/QCView-Player/tree/main/translations) explains how to help.
+
 ## Live audio
 
 Two settings apply to the audio a QCBridge feed carries: **A/V sync (Live)**, an offset per host application that delays the audio (or, when negative, holds the picture) so the two meet on your system, and the **live audio buffer**, the depth the feed's jitter buffer fills to before it plays. Raise the buffer if a busy host chops the sound; lower it for a tighter feel.

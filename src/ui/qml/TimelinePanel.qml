@@ -475,7 +475,7 @@ Pane {
                 orig.sourceIn + (newStartTime - orig.startTime);
             ctl.previewTrimHead(editState.trackId, editState.clipId,
                                   newStartTime, actualSourceIn);
-            badge = qsTr("head ") + tcLabel(actualSourceIn);
+            badge = qsTr("head %1").arg(tcLabel(actualSourceIn));
             // Show the new in-edge frame in the viewport (transient;
             // playhead unmoved).
             WindowManager.previewEditScrubFrame(
@@ -488,7 +488,7 @@ Pane {
                          orig.sourceOut + deltaSec);
             ctl.previewTrimTail(editState.trackId, editState.clipId,
                                   newSourceOut);
-            badge = qsTr("tail ") + tcLabel(newSourceOut);
+            badge = qsTr("tail %1").arg(tcLabel(newSourceOut));
             // Show the new out-edge frame in the viewport (transient;
             // playhead unmoved).
             WindowManager.previewEditScrubFrame(
@@ -498,7 +498,7 @@ Pane {
             const newStartTime = Math.max(0, orig.startTime + deltaSec);
             ctl.previewSlide(editState.trackId, editState.clipId,
                               newStartTime);
-            badge = qsTr("start ") + tcLabel(newStartTime);
+            badge = qsTr("start %1").arg(tcLabel(newStartTime));
             // Slide keeps sourceIn but moves the clip in time, so the
             // content under the (fixed) playhead changes. Show it when
             // the playhead is over the clip's new span; else -1 (hold).
@@ -521,7 +521,7 @@ Pane {
             }
             ctl.previewSlip(editState.trackId, editState.clipId,
                              dIn, dOut);
-            badge = qsTr("slip ") + tcLabel(dIn);
+            badge = qsTr("slip %1").arg(tcLabel(dIn));
             // Slip keeps startTime/duration; show the content now under
             // the playhead (translated through the new sourceIn). Only
             // when the playhead is over the clip — else -1 (no update).
@@ -601,8 +601,7 @@ Pane {
                                   ? targetSlot
                                   : targetSlot + 1;
             editState.targetSlot = preRemoveSlot;
-            badge = qsTr("→ slot ") + (targetSlot + 1) + "/"
-                    + newOrder.length;
+            badge = qsTr("→ slot %1/%2").arg(targetSlot + 1).arg(newOrder.length);
         }
         editState.badgeText = badge;
         editState.cursorX   = trackX;

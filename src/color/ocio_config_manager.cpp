@@ -483,10 +483,10 @@ bool OCIOConfigManager::sdrCaptureDisplayView(QString *display, QString *view) c
 QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
 {
     if (outPath.isEmpty()) {
-        return QStringLiteral("Output path is empty");
+        return tr("Output path is empty");
     }
     if (cubeSize < 2) {
-        return QStringLiteral("Cube size must be ≥ 2 (got %1)").arg(cubeSize);
+        return tr("Cube size must be ≥ 2 (got %1)").arg(cubeSize);
     }
     // minColor: the focused clip's whole chain through the CPU twin —
     // Input (the LUT's input domain is that encoding's 0..1 codes) →
@@ -498,7 +498,7 @@ QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
                                        outPath, cubeSize);
     }
     if (!m_impl->config) {
-        return QStringLiteral("No OCIO config loaded");
+        return tr("No OCIO config loaded");
     }
 
     QString err;
@@ -537,7 +537,7 @@ QString OCIOConfigManager::exportLut(const QString &outPath, int cubeSize)
     OCIO::GroupTransformRcPtr group =
         OcioChainBuilder::buildGroupTransform(spec, m_impl->config, &err);
     if (!group) {
-        return err.isEmpty() ? QStringLiteral("Chain build failed") : err;
+        return err.isEmpty() ? tr("Chain build failed") : err;
     }
 
     try {

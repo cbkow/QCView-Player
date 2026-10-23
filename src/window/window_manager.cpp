@@ -4323,9 +4323,8 @@ void WindowManager::startLiveStream(const MediaItem &item)
 #else
     // FFmpeg would retry qcbae:// for ever; say what is actually wrong.
     if (hostBridge) {
-        setViewportNotice(QStringLiteral(
-            "After Effects / Premiere live view is not available on this "
-            "platform yet"));
+        setViewportNotice(tr("After Effects / Premiere live view is not available on this "
+                             "platform yet"));
         return;
     }
     m_liveDecoder = std::make_unique<LiveStreamDecoder>();
@@ -4342,7 +4341,7 @@ void WindowManager::startLiveStream(const MediaItem &item)
 
     if (!m_liveDecoder->open(item.path)) {
         m_liveDecoder.reset();
-        setViewportNotice(QStringLiteral("Could not open stream\n%1")
+        setViewportNotice(tr("Could not open stream\n%1")
                               .arg(item.path));
         return;
     }

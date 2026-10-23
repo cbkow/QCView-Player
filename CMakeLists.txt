@@ -149,9 +149,26 @@ find_package(Qt6 6.11 REQUIRED COMPONENTS
     # macdeployqt ship Qt's multimedia plugin and, with it, a SECOND
     # FFmpeg (libavcodec.61, libswresample.5 …) beside our 9.x — ~40 MB
     # of DMG and a set of dylibs nothing loads.
+    OPTIONAL_COMPONENTS
+    LinguistTools           # lupdate/lrelease for translations/ (see src/app)
 )
 
-qt_standard_project_setup(REQUIRES 6.11)
+# ---------------------------------------------------------------------
+# Translations
+# ---------------------------------------------------------------------
+# Source strings are English (qsTr in QML, tr() in C++). Each language
+# listed here gets translations/qcview_<lang>.ts; `cmake --build build
+# --target update_translations` (re)extracts the strings into them and
+# the normal build compiles them into the app (resource :/i18n). To add
+# a language: append its code, run update_translations, commit the .ts.
+# translations/README.md has the contributor workflow (CSV round trip).
+set(QCV_TRANSLATED_LANGUAGES
+)
+
+qt_standard_project_setup(REQUIRES 6.11
+    I18N_SOURCE_LANGUAGE en
+    I18N_TRANSLATED_LANGUAGES ${QCV_TRANSLATED_LANGUAGES}
+)
 
 # ---------------------------------------------------------------------
 # CMake helper modules
