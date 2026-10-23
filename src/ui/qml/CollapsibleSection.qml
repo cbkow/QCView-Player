@@ -1,7 +1,7 @@
 // CollapsibleSection — accordion-style section for the rails.
 //
 // Aesthetics pass 2: renders as a raised card plane (Theme.card,
-// radiusBase) on the rail well, matching the InspectorCards and the
+// Theme.radius) on the rail well, matching the InspectorCards and the
 // left rail's Media/Dual Views/Playlists cards. Header is the shared
 // card voice — Phosphor caret in the fixed Theme.gutterWidth slot
 // (so carets align across stacked sections) + tiny-caps muted title.
@@ -33,7 +33,7 @@ Pane {
 
     background: Rectangle {
         color: Theme.card
-        radius: Theme.radiusBase
+        radius: Theme.radius
     }
 
     ColumnLayout {
@@ -44,9 +44,10 @@ Pane {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.headerHeight
-            radius: Theme.radiusBase
+            radius: Theme.radius
             color: headerMouseArea.containsMouse
-                   ? Theme.surfaceHover : "transparent"
+                   ? Theme.surfaceHover : Theme.hoverIdle
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
 
             RowLayout {
                 anchors.fill: parent

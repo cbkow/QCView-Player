@@ -64,19 +64,22 @@ def locations(root):
     last_file, running = None, {}
     for ctx in root.iter("context"):
         for msg in ctx.iter("message"):
-            loc = msg.find("location")
-            if loc is None:
-                out[msg] = ""
-                continue
-            fn = loc.get("filename") or last_file
-            line = loc.get("line") or ""
-            if line.startswith(("+", "-")):
-                running[fn] = running.get(fn, 0) + int(line)
-                line = str(running[fn])
-            elif line:
-                running[fn] = int(line)
-            last_file = fn
-            out[msg] = "%s:%s" % (Path(fn or "").as_posix().lstrip("./"), line)
+            # A message used in several places carries several locations;
+            # every one of them advances the running offset, the first is
+            # the one reported.
+            first = None
+            for loc in msg.findall("location"):
+                fn = loc.get("filename") or last_file
+                line = loc.get("line") or ""
+                if line.startswith(("+", "-")):
+                    running[fn] = running.get(fn, 0) + int(line)
+                    line = str(running[fn])
+                elif line:
+                    running[fn] = int(line)
+                last_file = fn
+                if first is None:
+                    first = "%s:%s" % (Path(fn or "").as_posix().lstrip("./"), line)
+            out[msg] = first or ""
     return out
 
 
@@ -127,6 +130,12 @@ def cmd_import(args):
             index[key] = msg
 
     applied, skipped, errors, stale = 0, 0, 0, 0
+    def keep_flag(row):
+        # A row whose status says "machine" (or an import run with
+        # --keep-unfinished) fills the text but keeps type="unfinished":
+        # the string shows in the app and still asks for a human review.
+        return args.keep_unfinished or row.get("status", "").strip().lower() == "machine"
+
     with open(args.csv, newline="", encoding="utf-8-sig") as fh:
         r = csv.DictReader(fh)
         missing = [c for c in ("context", "source", "form", "translation") if c not in r.fieldnames]
@@ -175,13 +184,14 @@ def cmd_import(args):
                 if forms[i].text != new:
                     forms[i].text = new
                     applied += 1
-                if all(text(f) for f in forms) and tr.get("type") == "unfinished":
+                if all(text(f) for f in forms) and tr.get("type") == "unfinished" \
+                        and not keep_flag(row):
                     del tr.attrib["type"]
             else:
                 if tr.text != new:
                     tr.text = new
                     applied += 1
-                if tr.get("type") == "unfinished":
+                if tr.get("type") == "unfinished" and not keep_flag(row):
                     del tr.attrib["type"]
 
     print("%d translations applied, %d rows skipped, %d placeholder errors, %d stale rows"
@@ -216,6 +226,8 @@ def main():
     i.add_argument("ts"); i.add_argument("csv")
     i.add_argument("--dry-run", action="store_true")
     i.add_argument("--force", action="store_true", help="accept placeholder mismatches")
+    i.add_argument("--keep-unfinished", action="store_true",
+                   help="fill the text but keep every row flagged for review (a machine pass)")
     i.set_defaults(fn=cmd_import)
     s = sub.add_parser("stats", help="count translated / unfinished strings")
     s.add_argument("ts")

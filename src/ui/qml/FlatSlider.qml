@@ -4,7 +4,7 @@ import Qcv
 
 // Flat slim slider matching ufb's style: 2-px-tall track in
 // borderStrong, accent-coloured fill from origin to handle,
-// 10×10 squared handle in accent (accentHover while pressed).
+// 10×10 softly rounded handle (textPrimary while pressed).
 //
 // Use:
 //   FlatSlider { from: 0.0; to: 1.0; value: 0.5; onMoved: ... }
@@ -32,6 +32,7 @@ Slider {
            + root.visualPosition * (root.availableWidth - width)
         y: root.topPadding + root.availableHeight / 2 - height / 2
         width: 10; height: 10
+        radius: Theme.radiusSmall
         color: !root.enabled
                  ? Theme.textMuted
                  : (root.pressed ? Theme.textPrimary : Theme.textBright)

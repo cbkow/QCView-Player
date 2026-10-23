@@ -102,12 +102,19 @@ Rectangle {
             opacity: 1.0
         }
         Text {
+            //: Badge: the feed is frozen for review; %1 is the frame or time
             text: WindowManager.liveReview ? qsTr("REVIEW · %1").arg(WindowManager.reviewLabel)
+                //: Live feed state badge, upper case
                 : root.isLive ? qsTr("LIVE")
+                //: Live feed state badge, upper case
                 : root.isPaused ? qsTr("PAUSED")
+                //: Live feed state badge, upper case
                 : (root.isShm && (root.isReconnecting || root.isConnecting)) ? qsTr("WAITING")
+                //: Live feed state badge, upper case
                 : root.isReconnecting ? qsTr("RECONNECTING")
+                //: Live feed state badge, upper case
                 : root.isConnecting ? qsTr("CONNECTING")
+                //: Live feed state badge, upper case
                 : qsTr("OFFLINE")
             color: root.isLive ? Theme.textBright : Theme.textPrimary
             font.family: Theme.fontFamily
@@ -151,6 +158,7 @@ Rectangle {
             text: root.live
                   ? root.live.width + "×" + root.live.height
                     + "  ·  " + root.live.codecName
+                    //: Transport of a bridge feed
                     + (root.isShm ? "  ·  " + qsTr("shared memory") : "")
                     + "  ·  " + root.live.pixelFormatName
                   : ""
@@ -166,6 +174,7 @@ Rectangle {
         // black or bright pixels.
         Text {
             visible: !!root.live && root.live.nonFinite && root.hasFrame
+            //: Warning: the frame contains non-finite pixel values
             text: qsTr("inf/NaN in frame")
             color: "#e5484d"
             font.family: Theme.fontFamily
@@ -188,9 +197,11 @@ Rectangle {
         Text {
             visible: !!root.live && root.live.reconnectCount > 0
             // Shared memory: the host app quit and came back, not a drop.
-            text: (root.isShm ? qsTr("%1 restart%2") : qsTr("%1 drop%2"))
-                  .arg(root.live ? root.live.reconnectCount : 0)
-                  .arg(root.live && root.live.reconnectCount === 1 ? "" : "s")
+            readonly property int n: root.live ? root.live.reconnectCount : 0
+            //: Count of times the host application went away and came back
+            text: root.isShm ? qsTr("%n restart(s)", "", n)
+            //: Count of stream drops followed by a reconnect
+                             : qsTr("%n drop(s)", "", n)
             color: "#e6a23c"
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
@@ -227,6 +238,7 @@ Rectangle {
             readonly property int value:
                 item && item.transferOverride !== undefined ? item.transferOverride : 0
             readonly property var names: [
+                //: Transfer override choice: follow the feed's tags
                 qsTr("Auto"), qsTr("SDR 709"), qsTr("PQ 2020"),
                 qsTr("PQ P3"), qsTr("HLG"), qsTr("Linear")]
             readonly property string autoLabel: {
@@ -249,7 +261,7 @@ Rectangle {
                 id: transferMenu
                 Repeater {
                     model: 6
-                    MenuItem {
+                    ThemedMenuItem {
                         required property int index
                         text: transferChip.names[index]
                         checkable: true

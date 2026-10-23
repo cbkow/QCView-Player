@@ -51,6 +51,7 @@ public:
     // Native name of a language for pickers ("Deutsch"); "" gives the
     // "System default" label.
     Q_INVOKABLE QString displayName(const QString &code) const;
+    Q_INVOKABLE bool reviewed(const QString &code) const;
 
 signals:
     void languageChanged();

@@ -120,7 +120,19 @@ QString I18n::displayName(const QString &code) const
     name[0] = name[0].toUpper();
     if (code.contains(QLatin1Char('_')) && !loc.nativeTerritoryName().isEmpty())
         name += QStringLiteral(" (%1)").arg(loc.nativeTerritoryName());
+    if (!reviewed(code))
+        //: Suffix after a language name whose catalog is machine translated and not yet checked by a person
+        name += QStringLiteral(" · ") + tr("machine translation");
     return name;
+}
+
+// Languages a person has reviewed. Everything else shipped from the
+// machine pass (translations/README.md) and says so in the picker.
+// Add a code here when its CSV comes back corrected.
+bool I18n::reviewed(const QString &code) const
+{
+    static const QStringList kReviewed = { QStringLiteral("en") };
+    return kReviewed.contains(code);
 }
 
 } // namespace qcv

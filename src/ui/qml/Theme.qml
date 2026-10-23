@@ -9,10 +9,11 @@ import QtQuick
 //   ...
 //   color: Theme.bg
 //
-// Visual language mirrors the sister app (MinRender): squared
-// corners, single cobalt-blue accent, minimal elevation, instant
-// hover color swaps (no animations), Phosphor icons, Inter sans +
-// JetBrainsMono.
+// Visual language: the family's flat look (one cobalt-blue accent,
+// minimal elevation, Phosphor icons, Inter sans + JetBrainsMono) with
+// the humanist pass minNotes took first (2026-10-21; tried here
+// 2026-10-23): three corner radii applied by surface class, a short
+// hover / pressed colour ramp, popups that fade in.
 QtObject {
     // --- Surfaces ---
     readonly property color bg:           "#161616"
@@ -40,7 +41,7 @@ QtObject {
     // Raised content card — inspector sections render as planes on
     // the rail's darker well (aesthetics pass 1, Resolve lean). One
     // deliberate step above `bg` so the separation survives dim
-    // monitors; pairs with radiusBase corners for the product look.
+    // monitors; pairs with Theme.radius corners for the product look.
     readonly property color card:         "#1e1e1e"
     // Expanded section header fill. Sits between `bg` and
     // `surfaceHover` so an open header groups visually with its
@@ -57,6 +58,10 @@ QtObject {
     // sit a notch above the `toolbar` (#1f1f1f) strip they live in.
     readonly property color affordanceIdle:  "#262626"
     readonly property color affordanceHover: "#323232"
+    // A ramp's idle end is never "transparent": that is black at alpha
+    // 0, so the colour animation would dip dark before it lightens.
+    // This is surfaceHover at alpha 0 — the ramp only fades in.
+    readonly property color hoverIdle: Qt.rgba(0x25 / 255, 0x25 / 255, 0x25 / 255, 0)
 
     // --- Text ---
     readonly property color textPrimary:   "#dddddd"
@@ -159,11 +164,14 @@ QtObject {
     // --- Borders / radii ---
     readonly property int borderWidth:  1
     readonly property int dividerWidth: 1
-    // Squared corners by default. radiusSmall/Base/Large stay
-    // available for chips/badges that want rounding.
-    readonly property int radius:       0
-    readonly property int radiusSmall:  2
-    readonly property int radiusBase:   3
-    readonly property int radiusLarge:  6
-    readonly property int radiusPill:  10
+    // Three radii, by surface class (the humanist pass). Hairlines,
+    // drop lines, timeline clips and track fills stay square.
+    readonly property int radiusSmall:  3    // buttons, segments, chips, pills, wells, fields, menu rows, handles, tooltips
+    readonly property int radius:       6    // popups, menus, dialogs, toasts, cards and their headers
+    readonly property int radiusLarge: 10    // the viewport notice card; a switch's pill track
+
+    // --- Motion ---
+    readonly property int hoverMs:  100      // the hover / pressed colour ramp
+    readonly property int popupMs:   80      // a popup's fade-in. No exit fade: it keeps a modal
+                                             // popup alive for its length and eats the next click.
 }

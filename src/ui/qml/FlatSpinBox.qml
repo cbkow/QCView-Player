@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls.Basic
 import Qcv
 
-// Flat squared SpinBox — matches the toolstrip vocabulary.
-// Squared corners, Theme.border at rest, Theme.accent on focus.
+// Flat SpinBox — FlatTextField's well with caret arrows.
+// Softly rounded, Theme.border at rest, Theme.accent on focus.
 // Up / down arrows use Phosphor carets, hover to accent.
 SpinBox {
     id: root
@@ -11,20 +11,19 @@ SpinBox {
     implicitHeight: 22
     font.family: Theme.monoFamily
     font.pixelSize: Theme.fontSizeSmall
+    // No vertical padding (see FlatTextField): the value centres in
+    // the field instead of being clipped by the style's 6-px padding.
+    topPadding: 0
+    bottomPadding: 0
 
-    // Borderless recessed-slot styling matching FlatTextField.
+    // The field well, as FlatTextField draws it.
     background: Rectangle {
-        color: root.activeFocus
-               ? Theme.surface
-               : (root.hovered ? Theme.bgAlt : Theme.bg)
-        radius: 0
-        Rectangle {
-            anchors.left:   parent.left
-            anchors.right:  parent.right
-            anchors.bottom: parent.bottom
-            height: 1
-            color: root.activeFocus ? Theme.accent : "transparent"
-        }
+        color: Theme.surfaceRecess
+        radius: Theme.radiusSmall
+        border.width: 1
+        border.color: root.activeFocus ? Theme.accent
+                    : root.hovered ? Theme.borderStrong : Theme.border
+        Behavior on border.color { ColorAnimation { duration: Theme.hoverMs } }
     }
 
     contentItem: TextInput {

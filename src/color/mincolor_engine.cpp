@@ -183,7 +183,9 @@ QString MinColorEngine::clipBadge(const QString &clipId) const
                                                                   : QString::number(t);
         parts << (plain ? g : g + QLatin1Char(' ') + tn);
     }
+    //: Badge name in the viewport's chain summary
     if (it->knee && it->knee->enabled) parts << tr("Knee");
+    //: Badge name in the viewport's chain summary
     return parts.isEmpty() ? tr("Clip chain") : parts.join(QStringLiteral(" + "));
 }
 
@@ -196,6 +198,7 @@ QString MinColorEngine::clipBadgeTooltip(const QString &clipId) const
         lines << tr("Input: %1 · %2%3")
                      .arg(mincolor::inputGamutNames().value(it->input->gamut),
                           mincolor::inputTransferNames().value(it->input->transfer),
+                          //: Suffix appended to the Input line
                           it->input->limited ? tr(" · limited range") : QString());
     }
     if (it->knee) {

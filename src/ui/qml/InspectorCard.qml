@@ -1,6 +1,6 @@
 // InspectorCard — tonal section container for the inspector rail
 // (aesthetics pass 1). Each metadata group renders as a raised plane
-// (Theme.card, radiusBase corners) on the rail's darker well instead
+// (Theme.card, Theme.radius corners) on the rail's darker well instead
 // of a divider-separated run on one flat sheet — sections read as
 // places, not stripes.
 //
@@ -22,7 +22,7 @@ Rectangle {
 
     Layout.fillWidth: true
     color: Theme.card
-    radius: Theme.radiusBase
+    radius: Theme.radius
     implicitHeight: body.y + body.implicitHeight + Theme.padding
 
     Text {

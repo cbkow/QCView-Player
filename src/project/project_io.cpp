@@ -538,6 +538,7 @@ QJsonObject binToJson(const ProjectBin &b)
 bool save(ProjectManager &pm, const QString &filePath, QString *errorOut)
 {
     if (filePath.isEmpty()) {
+        //: The prefix names the operation
         if (errorOut) *errorOut = Tr::tr("Save: empty path.");
         return false;
     }
@@ -622,6 +623,7 @@ bool load(ProjectManager &pm, const QString &filePath, QString *errorOut)
 
     QFile f(filePath);
     if (!f.open(QIODevice::ReadOnly)) {
+        //: The prefix names the operation
         return fail(Tr::tr("Open: cannot read '%1': %2")
                        .arg(filePath, f.errorString()));
     }

@@ -380,6 +380,7 @@ void ScopeController::resolve()
             }
             r.tagged = true;
             r.set = true;
+            //: Why the scopes assume this colourspace: the user set it
             r.why = tr("set");
             r.assumed = canonicalName(cfgX, r.assumed);
             return r;
@@ -387,9 +388,11 @@ void ScopeController::resolve()
         if (r.still) {
             if (r.exr) {
                 r.assumed = firstKnown(cfgX, scope_names::kExrLinear);
+                //: Why the scopes assume this colourspace: the EXR default (linear)
                 r.why = tr("EXR default");
             } else {
                 r.assumed = firstKnown(cfgX, scope_names::kStill);
+                //: Why the scopes assume this colourspace: it is a still image
                 r.why = tr("still");
             }
         } else if (type == 0 || type == 6) {           // Video, LiveStream
@@ -405,6 +408,7 @@ void ScopeController::resolve()
             } else {
                 r.assumed = firstKnown(cfgX, scope_names::kSdrVideo);
             }
+            //: Why the scopes assume this colourspace: the file's colour tags
             r.why = r.tagged ? tr("tags") : tr("untagged");
         }
         // Aliases (e.g. Blender's "Rec.1886" answers to "Rec.1886 Rec.709 -

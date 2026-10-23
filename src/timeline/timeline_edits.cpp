@@ -68,6 +68,7 @@ TrimClipHeadEdit::TrimClipHeadEdit(TimelineController *ctl,
                                      QUndoCommand *parent)
     : ClipReplaceEdit(ctl, trackId, clipId,
                        /* newState = */ Clip{}, /* placeholder */
+                       //: Undo action name: trim the clip's start
                        QObject::tr("Trim head"),
                        parent)
 {
@@ -92,6 +93,7 @@ TrimClipTailEdit::TrimClipTailEdit(TimelineController *ctl,
                                      QUndoCommand *parent)
     : ClipReplaceEdit(ctl, trackId, clipId,
                        Clip{},
+                       //: Undo action name: trim the clip's end
                        QObject::tr("Trim tail"),
                        parent)
 {
@@ -111,6 +113,7 @@ SlideClipEdit::SlideClipEdit(TimelineController *ctl,
                                QUndoCommand *parent)
     : ClipReplaceEdit(ctl, trackId, clipId,
                        Clip{},
+                       //: Undo action name: move the clip without changing its content
                        QObject::tr("Slide clip"),
                        parent)
 {
@@ -131,6 +134,7 @@ SlipClipEdit::SlipClipEdit(TimelineController *ctl,
                               QUndoCommand *parent)
     : ClipReplaceEdit(ctl, trackId, clipId,
                        Clip{},
+                       //: Undo action name: shift the clip's content without moving it
                        QObject::tr("Slip clip"),
                        parent)
 {
@@ -150,6 +154,7 @@ SplitClipEdit::SplitClipEdit(TimelineController *ctl,
                                 const QString &clipId,
                                 double atSec,
                                 QUndoCommand *parent)
+    //: Undo action name
     : QUndoCommand(QObject::tr("Cut clip"), parent)
     , m_ctl(ctl)
     , m_trackId(trackId)
@@ -211,6 +216,7 @@ DeleteClipEdit::DeleteClipEdit(TimelineController *ctl,
                                   const QString &trackId,
                                   const QString &clipId,
                                   QUndoCommand *parent)
+    //: Undo action name
     : QUndoCommand(QObject::tr("Delete clip"), parent)
     , m_ctl(ctl)
     , m_trackId(trackId)
@@ -250,6 +256,7 @@ InsertClipEdit::InsertClipEdit(TimelineController *ctl,
                                   int            atIndex,
                                   const Clip    &newClip,
                                   QUndoCommand *parent)
+    //: Undo action name
     : QUndoCommand(QObject::tr("Add clip"), parent)
     , m_ctl(ctl)
     , m_trackId(trackId)
@@ -279,6 +286,7 @@ MoveClipEdit::MoveClipEdit(TimelineController *ctl,
                             int            fromIndex,
                             int            toIndex,
                             QUndoCommand *parent)
+    //: Undo action name
     : QUndoCommand(QObject::tr("Reorder clip"), parent)
     , m_ctl(ctl)
     , m_trackId(trackId)

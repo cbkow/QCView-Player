@@ -120,7 +120,7 @@ Pane {
             color: cf.activeFocus
                    ? Theme.surface
                    : (cf.hovered ? Theme.bgAlt : Theme.bg)
-            radius: 0
+            radius: Theme.radiusSmall
             Rectangle {
                 anchors.left:   parent.left
                 anchors.right:  parent.right
@@ -150,7 +150,7 @@ Pane {
                 id: svSquare
                 Layout.preferredWidth: 152
                 Layout.preferredHeight: 152
-                radius: 2
+                radius: Theme.radiusSmall
                 border.color: "#3a3a3a"
                 border.width: 1
                 color: "transparent"
@@ -210,7 +210,7 @@ Pane {
                 id: hueBar
                 Layout.preferredWidth: root.wideFields ? 28 : 14
                 Layout.preferredHeight: 152
-                radius: 0
+                radius: Theme.radiusSmall
                 border.color: Theme.border
                 border.width: 1
                 gradient: Gradient {
@@ -256,6 +256,7 @@ Pane {
                 spacing: 2
 
                 Text {
+                    //: Colour as a hexadecimal code
                     text: qsTr("Hex")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
@@ -285,7 +286,7 @@ Pane {
                         color: hexFieldWide.activeFocus
                                ? Theme.surface
                                : (hexFieldWide.hovered ? Theme.bgAlt : Theme.bg)
-                        radius: 0
+                        radius: Theme.radiusSmall
                         Rectangle {
                             anchors.left:   parent.left
                             anchors.right:  parent.right
@@ -296,6 +297,7 @@ Pane {
                     }
                 }
                 Text {
+                    //: Red channel field, one letter
                     text: qsTr("R")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
@@ -315,6 +317,7 @@ Pane {
                     }
                 }
                 Text {
+                    //: Green channel field, one letter
                     text: qsTr("G")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
@@ -334,6 +337,7 @@ Pane {
                     }
                 }
                 Text {
+                    //: Blue channel field, one letter
                     text: qsTr("B")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
@@ -364,6 +368,7 @@ Pane {
             Layout.fillWidth: true
             spacing: Theme.spacing
             Text {
+                //: Colour as a hexadecimal code
                 text: qsTr("Hex")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
@@ -394,7 +399,7 @@ Pane {
                     color: hexField.activeFocus
                            ? Theme.surface
                            : (hexField.hovered ? Theme.bgAlt : Theme.bg)
-                    radius: 0
+                    radius: Theme.radiusSmall
                     Rectangle {
                         anchors.left:   parent.left
                         anchors.right:  parent.right
@@ -414,18 +419,21 @@ Pane {
             columnSpacing: Theme.spacing
             rowSpacing: 2
             Text {
+                //: Red channel field, one letter
                 text: qsTr("R")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeTiny
             }
             Text {
+                //: Green channel field, one letter
                 text: qsTr("G")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeTiny
             }
             Text {
+                //: Blue channel field, one letter
                 text: qsTr("B")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily

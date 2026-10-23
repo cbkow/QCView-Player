@@ -37,6 +37,7 @@ ColumnLayout {
         // whatever its own settings say (macOS EDR, Windows SDR slider).
         Text {
             Layout.alignment: Qt.AlignTop
+            //: Scale mode: nits on a reference display
             text: !root.scope ? "" : (root.scope.waveformHdr ? qsTr("nits · reference") : qsTr("% Y′"))
             color: Theme.textMuted
             font.family: Theme.monoFamily
@@ -148,7 +149,9 @@ ColumnLayout {
             }
         }
         FlatChip {
+            //: Button: reset the running maximum
             label: qsTr("Reset")
+            //: Tooltip on Reset: restart the running maximum
             tooltip: qsTr("Start Max over")
             onClicked: root.scope.resetClipPeaks()
         }
@@ -162,8 +165,10 @@ ColumnLayout {
         // Input); % and nits force it. Shared with the vectorscope.
         Repeater {
             model: [
+                //: Scale choice
                 { key: 0, label: qsTr("Auto"), tip: qsTr("Scale from the interpretation") },
                 { key: 1, label: "%",          tip: qsTr("Force the SDR percent scale (the signal's own Y′)") },
+                //: Scale choice button
                 { key: 2, label: qsTr("nits"), tip: qsTr("Force the nits scale (SDR white at 100)") },
             ]
             FlatChip {

@@ -25,11 +25,12 @@ Rectangle {
 
     implicitWidth: Math.max(minWidth, chipLabel.implicitWidth + 14)
     implicitHeight: Theme.chipHeight
-    radius: Theme.radiusBase
+    radius: Theme.radiusSmall
     color: active
            ? Theme.accent
            : (chipMa.containsMouse && interactive
-              ? Theme.surfaceHover : "transparent")
+              ? Theme.surfaceHover : Theme.hoverIdle)
+    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
     opacity: interactive ? 1.0 : 0.55
 
     Text {

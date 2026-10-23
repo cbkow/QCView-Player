@@ -176,6 +176,7 @@ Pane {
         FlatButton {
             iconName: "rewind"
             enabled: root.hasMedia
+            //: Tooltip: hold the button
             tooltipText: qsTr("Rewind (hold)")
             onPressedChanged: {
                 if (pressed) WindowManager.startFastSeek(-1);
@@ -205,6 +206,7 @@ Pane {
         FlatButton {
             iconName: "fast-forward"
             enabled: root.hasMedia
+            //: Tooltip: hold the button
             tooltipText: qsTr("Fast-forward (hold)")
             onPressedChanged: {
                 if (pressed) WindowManager.startFastSeek(1);
@@ -382,11 +384,13 @@ Pane {
         // ---- Section reveals (left rail) -------------------------
         FlatButton {
             iconName: "rectangle-dashed"
+            //: Tooltip
             tooltipText: qsTr("Safety guides")
             onClicked: root.showLeftRailSection("safety")
         }
         FlatButton {
             iconName: "checkerboard"
+            //: Tooltip
             tooltipText: qsTr("Background")
             onClicked: root.showLeftRailSection("background")
         }

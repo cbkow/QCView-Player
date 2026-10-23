@@ -43,19 +43,28 @@ Pane {
     readonly property var vB: WindowManager.videoDecoderB
 
     function modeLabel() {
+        //: Status bar mode badge, upper case, keep short
         if (isDual)     return qsTr("DUAL");
+        //: Status bar mode badge, upper case, keep short
         if (isPlaylist) return qsTr("PLAYLIST");
+        //: Status bar mode badge, upper case, keep short
         if (WindowManager.imageSeqActive) return qsTr("IMAGE SEQ");
+        //: Status bar mode badge, upper case, keep short
         return qsTr("SINGLE");
     }
 
     function stateLabel(d) {
         if (!d) return "";
         switch (d.state) {
+            //: Decoder state
             case 0: return qsTr("idle");
+            //: Decoder state
             case 1: return qsTr("opening…");
+            //: Decoder state
             case 2: return qsTr("decoding");
+            //: Decoder state: end of file
             case 3: return qsTr("EOF");
+            //: Decoder state
             case 4: return qsTr("ERROR");
         }
         return "";
@@ -175,11 +184,14 @@ Pane {
                 if (root.isDual) {
                     // Per-side label from DualPlaybackController:
                     // "A: vulkan  |  B: software" etc.
+                    //: Hardware decoder in use
                     return qsTr("HW: %1").arg(
                         WindowManager.dualController.hwAccel);
                 }
                 return (root.v && root.v.hwAccel)
+                    //: Hardware decoder in use
                     ? qsTr("HW: %1").arg(root.v.hwAccel)
+                    //: No hardware decoder
                     : qsTr("HW: software");
             }
             color: {
@@ -213,6 +225,7 @@ Pane {
                      && root.v.sourceTimecode.length > 0
             text: root.v
                   ? (root.v.isDropFrame
+                        //: Timecode, drop frame
                         ? qsTr("TC: %1 DF") : qsTr("TC: %1"))
                         .arg(root.v.sourceTimecode)
                   : ""
@@ -224,6 +237,7 @@ Pane {
         Text {
             visible: root.v && root.v.decodeErrorCount > 0
             text: root.v
+                  //: Decoder error count
                   ? qsTr("%1 errors").arg(root.v.decodeErrorCount)
                   : ""
             color: Theme.error

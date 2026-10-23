@@ -213,7 +213,9 @@ Pane {
                     Text {
                         Layout.alignment: Qt.AlignVCenter
                         text: reviewPill.inReview
+                              //: Badge: the feed is frozen for review; %1 is the frame or time
                               ? qsTr("REVIEW · %1").arg(WindowManager.reviewLabel)
+                              //: Badge: the feed is live
                               : qsTr("LIVE")
                         color: Theme.textBright
                         font.family: Theme.fontFamily
@@ -225,7 +227,10 @@ Pane {
                     Text {
                         Layout.alignment: Qt.AlignVCenter
                         visible: pillMa.containsMouse
-                        text: reviewPill.inReview ? qsTr("back to live") : qsTr("freeze")
+                        //: Hover hint on the review pill: a click returns to the live feed
+                        text: reviewPill.inReview ? qsTr("back to live")
+                              //: Hover hint on the review pill: a click holds the current frame
+                              : qsTr("freeze")
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeTiny
@@ -276,6 +281,7 @@ Pane {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.fillWidth: true
                         text: addTile.needSave ? qsTr("Save the project to keep notes for this stream")
+                                               //: The add-note tile's label
                                                : qsTr("Add note here")
                         color: addMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
                         font.family: Theme.fontFamily
@@ -286,9 +292,13 @@ Pane {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.fillWidth: true
+                        //: Add-note tile when the project must be saved first
                         text: addTile.needSave ? qsTr("Save…")
+                              //: Caption under Add note: the note captures the frozen frame
                               : (addTile.isStream ? (WindowManager.liveReview ? qsTr("on the frozen frame")
+                                                                              //: Caption under Add note: adding a note freezes the live feed
                                                                               : qsTr("freezes the feed"))
+                                                  //: Caption under Add note
                                                   : qsTr("captures current frame"))
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
@@ -576,7 +586,7 @@ Pane {
                         id: card
                         width: root.kCardWidth
                         height: root.kThumbHeight + 96
-                        radius: Theme.radiusSmall
+                        radius: Theme.radius
                         // Addressed cards sit slightly recessed; hover
                         // lifts the fill (no border swap) so the card
                         // feels of a piece with the LUT-tile language.
@@ -722,6 +732,7 @@ Pane {
                                 Text {
                                     anchors.centerIn: parent
                                     visible: !card._live.imagePath
+                                    //: No thumbnail
                                     text: qsTr("(no thumb)")
                                     color: Theme.textMuted
                                     font.family: Theme.fontFamily
@@ -753,6 +764,7 @@ Pane {
                                     Text {
                                         id: viewerBadgeText
                                         anchors.centerIn: parent
+                                        //: Badge: the note was captured with viewer aids active
                                         text: qsTr("VIEWER")
                                         color: Theme.warning
                                         font.family: Theme.monoFamily
@@ -780,6 +792,7 @@ Pane {
                                     Text {
                                         id: ocioBadgeText
                                         anchors.centerIn: parent
+                                        //: Badge: the note was captured through OCIO
                                         text: qsTr("OCIO")
                                         color: Theme.textSecondary
                                         font.family: Theme.monoFamily
@@ -853,6 +866,7 @@ Pane {
                                     }
                                     FlatToolTip {
                                         visible: addressedCB.hovered
+                                        //: Button: mark this note as dealt with
                                         text: qsTr("Mark addressed")
                                     }
                                 }
@@ -892,6 +906,7 @@ Pane {
                                 clip: true
                                 TextArea {
                                     id: noteText
+                                    //: Placeholder of the note text field
                                     placeholderText: qsTr("Note…")
                                     text: card._live.text
                                     color: Theme.textPrimary
@@ -912,7 +927,7 @@ Pane {
                                         color: noteText.activeFocus
                                                ? Theme.surface
                                                : (noteText.hovered ? Theme.bgAlt : Theme.bg)
-                                        radius: 0
+                                        radius: Theme.radiusSmall
                                         Rectangle {
                                             anchors.left:   parent.left
                                             anchors.right:  parent.right
@@ -972,13 +987,14 @@ Pane {
                     // Match FlatButton default-checked vocabulary —
                     // full Theme.accent fill so the active tool
                     // reads at-a-glance, hover state brightens to
-                    // accentHover. Squared like FlatButton.
+                    // accentHover. Rounded and ramped like FlatButton.
                     color: toolBtn.checked
                            ? (toolBtn.hovered ? Theme.accentHover
                                               : Theme.accent)
                            : (toolBtn.hovered ? Theme.surfaceHover
-                                              : "transparent")
-                    radius: Theme.radius
+                                              : Theme.hoverIdle)
+                    radius: Theme.radiusSmall
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 }
                 onClicked: root.applyTool(toolId)
                 FlatToolTip {
@@ -1003,10 +1019,15 @@ Pane {
                 // still exists internally: applyTool's toggle-off
                 // path and the panel-close reset both use it).
                 ToolBtn { Layout.alignment: Qt.AlignHCenter; toolId: 7; iconName: "cursor"; tooltipText: qsTr("Select (drag to move, corners to scale, Del to remove; click again to exit)") }
+                //: Drawing tool
                 ToolBtn { Layout.alignment: Qt.AlignHCenter; toolId: 1; iconName: "pencil-simple"; tooltipText: qsTr("Freehand") }
+                //: Drawing tool
                 ToolBtn { Layout.alignment: Qt.AlignHCenter; toolId: 2; iconName: "rectangle"; tooltipText: qsTr("Rectangle") }
+                //: Drawing tool
                 ToolBtn { Layout.alignment: Qt.AlignHCenter; toolId: 3; iconName: "circle"; tooltipText: qsTr("Oval") }
+                //: Drawing tool
                 ToolBtn { Layout.alignment: Qt.AlignHCenter; toolId: 4; iconName: "arrow-right"; tooltipText: qsTr("Arrow") }
+                //: Drawing tool
                 ToolBtn { Layout.alignment: Qt.AlignHCenter; toolId: 5; iconName: "line-segment"; tooltipText: qsTr("Line") }
                 ToolBtn { Layout.alignment: Qt.AlignHCenter; toolId: 6; iconName: "eraser"; tooltipText: qsTr("Erase stroke (click strokes to remove)") }
                 Item { Layout.fillHeight: true }
@@ -1050,6 +1071,7 @@ Pane {
                     Layout.topMargin: 0
                     spacing: Theme.spacing
                     Text {
+                        //: Stroke width label
                         text: qsTr("Width:")
                         color: Theme.textSecondary
                         font.family: Theme.fontFamily

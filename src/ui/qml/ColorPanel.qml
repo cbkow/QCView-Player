@@ -246,6 +246,7 @@ Pane {
             spacing: Theme.spacingLoose
 
             Text {
+                //: Panel title
                 text: qsTr("Color")
                 color: Theme.textPrimary
                 font.family: Theme.fontFamily
@@ -380,6 +381,7 @@ Pane {
                     if (WindowManager.presets.deleteCurrent()) {
                         WindowManager.toastAction(
                             qsTr("Preset deleted: %1").arg(name), 1,
+                            //: Button in the toast after deleting a preset
                             qsTr("Undo"), "undo-preset-delete");
                     }
                 }
@@ -428,6 +430,7 @@ Pane {
                     spacing: Theme.spacing
                     Text {
                         id: setupLabel
+                        //: Tab: the Color panel's setup column (presets and config)
                         text: qsTr("Setup")
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
@@ -442,6 +445,7 @@ Pane {
                         variant: "raised"
                         checkedFill: Theme.selection
                         id: presetsTab
+                        //: Tab
                         text: qsTr("Presets")
                         tooltipText: qsTr("A preset sets both groups: its clip half on the selected clip, its view half on the View")
                         onClicked: presetColumn.setupTab = 0
@@ -494,6 +498,7 @@ Pane {
                     id: presetFilterField
                     visible: presetColumn.setupTab === 0
                     Layout.fillWidth: true
+                    //: Placeholder of a filter field over a list
                     placeholderText: qsTr("Filter…")
                     onTextChanged: presetColumn.filterText = text
                     // Borderless recessed slot — recess tone at rest
@@ -610,9 +615,11 @@ Pane {
                             // Badge text — soft grey, right-aligned.
                             readonly property string badgeText: {
                                 if (entryKind === 1 || entryKind === 5)
+                                    //: Preset list badge: the preset's target
                                     return qsTr("SDR");
                                 if (entryKind === 2 || entryKind === 3
                                     || entryKind === 4)
+                                    //: Preset list badge: the preset's target
                                     return qsTr("HDR");
                                 return "";
                             }
@@ -750,6 +757,7 @@ Pane {
 
                     Text {
                         id: clipLabel
+                        //: Column header: the per-clip half of the colour chain (Input, Look, LUTs)
                         text: qsTr("Clip")
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
@@ -842,6 +850,7 @@ Pane {
 
                     ReelColumn {
                         visible: !root.minColorMode
+                        //: OCIO input: the clip's source colourspace
                         title: qsTr("Input")
                         model: WindowManager.ocio ? WindowManager.ocio.colorspaces : []
                         currentText: WindowManager.ocio
@@ -852,27 +861,33 @@ Pane {
                     }
                     ReelColumn {
                         visible: !root.minColorMode
+                        //: OCIO look: a creative transform from the config
                         title: qsTr("Look")
                         expandable: true
                         expanded: lutTileSettings.lookExpanded
                         onExpandedChanged: lutTileSettings.lookExpanded = expanded
                         collapsedIconName: "magic-wand"
                         model: WindowManager.ocio
+                               //: Picker entry: nothing selected
                                ? [qsTr("(none)")].concat(WindowManager.ocio.looks)
+                               //: Picker entry: nothing selected
                                : [qsTr("(none)")]
                         currentText: WindowManager.ocio
                                      && WindowManager.ocio.activeLook.length > 0
                                      ? WindowManager.ocio.activeLook
+                                     //: Picker entry: nothing selected
                                      : qsTr("(none)")
                         pinSlot: "look"
                         pinned: !!WindowManager.ocio && WindowManager.ocio.lookPinned
                         onSelected: (entry) => WindowManager.ocio.activeLook =
+                            //: Picker entry: nothing selected
                             (entry === qsTr("(none)") ? "" : entry)
                     }
 
                     // Scene LUT — picker tile, full column height
                     LutTileColumn {
                         visible: !root.minColorMode
+                        //: A LUT applied in scene-linear space, before the view
                         title: qsTr("Scene LUT")
                         iconName: "cube"
                         path: WindowManager.ocio
@@ -918,6 +933,7 @@ Pane {
                     Layout.preferredHeight: Theme.toolStripHeight
                     spacing: Theme.spacing
                     Text {
+                        //: OCIO view: the display-side transform
                         text: qsTr("View")
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
@@ -927,6 +943,7 @@ Pane {
                         font.letterSpacing: 0.8
                     }
                     Text {
+                        //: Caption: the clip chain applies to both sides of the dual view
                         text: clipGroup.dual ? qsTr("both sides") : qsTr("everything")
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
@@ -949,19 +966,24 @@ Pane {
                     ReelColumn {
                         visible: root.minColorMode
                         readonly property bool agxOn: !!root.minColor && root.minColor.agxEnabled
+                        //: minColor's tone-mapping stage (OpenDRT)
                         title: agxOn ? qsTr("Rendering · AgX") : qsTr("Rendering")
                         // Un-tone-mapped first, then the OpenDRT looks. AgX and
                         // OpenDRT are both picture formations: with AgX on the
                         // looks go away and the rendering is the encode only.
                         model: !root.minColor ? []
+                               //: Rendering choice: no tone mapping applied
                                : agxOn ? [qsTr("Un-tone-mapped")]
+                               //: Rendering choice: no tone mapping applied
                                : [qsTr("Un-tone-mapped")].concat(root.minColor.lookNames)
                         currentText: root.minColor
                                      ? (root.minColor.openDrt && !agxOn
                                         ? root.minColor.lookNames[root.minColor.look]
+                                        //: Rendering choice: no tone mapping applied
                                         : qsTr("Un-tone-mapped"))
                                      : ""
                         onSelected: (entry) => {
+                            //: Rendering choice: no tone mapping applied
                             if (entry === qsTr("Un-tone-mapped")) {
                                 root.minColor.openDrt = false;
                                 return;
@@ -972,6 +994,7 @@ Pane {
                     }
                     ReelColumn {
                         visible: root.minColorMode
+                        //: OCIO display: the target display
                         title: qsTr("Display")
                         model: root.minColor ? root.minColor.displayNames : []
                         currentText: root.minColor
@@ -984,6 +1007,7 @@ Pane {
 
                     ReelColumn {
                         visible: !root.minColorMode
+                        //: Column header: the output (display) half of the chain
                         title: qsTr("Output")
                         model: WindowManager.ocio ? WindowManager.ocio.displays : []
                         currentText: WindowManager.ocio
@@ -992,6 +1016,7 @@ Pane {
                     }
                     ReelColumn {
                         visible: !root.minColorMode
+                        //: OCIO view: the display-side transform
                         title: qsTr("View")
                         // Recompute when display changes — bind to activeDisplay
                         // so the view list refreshes after Output selection.
@@ -1063,6 +1088,7 @@ Pane {
                 Text {
                     // The switch is the one On / Off for both engines; the
                     // label names the engine it would run.
+                    //: %1 is the engine name (OCIO or minColor)
                     text: (engageSwitch.checked ? qsTr("%1 On") : qsTr("%1 Off"))
                           .arg(root.minColorMode ? qsTr("minColor") : qsTr("OCIO"))
                     color: engageSwitch.checked ? Theme.success : Theme.textPrimary
@@ -1086,6 +1112,7 @@ Pane {
                 opacity: enabled ? 1.0 : 0.45
 
                 Text {
+                    //: Viewer aid slider, in stops
                     text: qsTr("Exposure")
                     color: Theme.textSecondary
                     font.family: Theme.fontFamily
@@ -1129,6 +1156,7 @@ Pane {
                 Item { Layout.preferredWidth: Theme.spacing }
 
                 Text {
+                    //: Viewer aid slider
                     text: qsTr("Gamma")
                     color: Theme.textSecondary
                     font.family: Theme.fontFamily
@@ -1174,8 +1202,9 @@ Pane {
                         label: modelData
                         active: WindowManager && WindowManager.channelView === index
                         minWidth: index === 0 ? 30 : 20
-                        tooltip: [qsTr("All channels"), qsTr("Red"), qsTr("Green"),
-                                  qsTr("Blue"), qsTr("Alpha matte"),
+                        tooltip: [qsTr("All channels"), qsTr("Red"), qsTr("Green"), qsTr("Blue"),
+                                  //: Channel view: the alpha channel shown as a matte
+                                  qsTr("Alpha matte"),
                                   qsTr("Luma (output primaries)")][index]
                         onClicked: WindowManager.channelView = index
                     }
@@ -1196,6 +1225,7 @@ Pane {
             // chip in the menu bar. The dropdown items map to
             // WindowManager.HdrMode enum values.
             Text {
+                //: OCIO display: the target display
                 text: qsTr("Display")
                 color: Theme.textSecondary
                 font.family: Theme.fontFamily
@@ -1425,6 +1455,7 @@ Pane {
                 onClicked: reel.expanded = false
                 FlatToolTip {
                     visible: reelCollapseMa.containsMouse
+                    //: Button: fold this section
                     text: qsTr("Collapse")
                 }
             }
@@ -1435,6 +1466,7 @@ Pane {
             id: reelFilterField
             Layout.fillWidth: true
             visible: reel.showFilter && (!reel.expandable || reel.expanded)
+            //: Placeholder of a filter field over a list
             placeholderText: qsTr("Filter…")
             onTextChanged: reel.filterText = text
             // Recessed fill matching the column's list well below;
@@ -1648,6 +1680,7 @@ Pane {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 visible: knee.expanded
+                //: Section title: the highlight compression stage
                 text: qsTr("Highlight Knee")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
@@ -1681,6 +1714,7 @@ Pane {
                 cursorShape: Qt.PointingHandCursor
                 hoverEnabled: true
                 onClicked: knee.expanded = false
+                //: Button: fold this section
                 FlatToolTip { visible: kneeCollapseMa.containsMouse; text: qsTr("Collapse") }
             }
         }
@@ -1713,6 +1747,7 @@ Pane {
                             onToggled: knee.ocio.kneeEnabled = checked
                         }
                         Text {
+                            //: Toggle state
                             text: knee.on ? qsTr("On") : qsTr("Off")
                             color: knee.on ? Theme.warning : Theme.textSecondary
                             font.family: Theme.fontFamily
@@ -1736,6 +1771,7 @@ Pane {
 
                     // Source peak
                     Text {
+                        //: Highlight Knee: the brightest level the source carries, in nits
                         text: qsTr("Source peak")
                         color: Theme.textSecondary
                         font.family: Theme.fontFamily
@@ -1754,6 +1790,7 @@ Pane {
                             onValueModified: knee.ocio.kneeSourceNits = value
                         }
                         Text {
+                            //: Unit suffix
                             text: qsTr("nits")
                             color: Theme.textMuted
                             font.family: Theme.fontFamily
@@ -1786,6 +1823,7 @@ Pane {
 
                     // Target peak
                     Text {
+                        //: Highlight Knee: the brightest level the display shows, in nits
                         text: qsTr("Target peak")
                         color: Theme.textSecondary
                         font.family: Theme.fontFamily
@@ -1813,6 +1851,7 @@ Pane {
                             onValueModified: knee.ocio.kneeTargetNits = value
                         }
                         Text {
+                            //: Unit suffix
                             text: qsTr("nits")
                             color: Theme.textMuted
                             font.family: Theme.fontFamily
@@ -1822,6 +1861,7 @@ Pane {
 
                     // Knee start
                     Text {
+                        //: Highlight Knee: the nits level where highlight compression begins
                         text: qsTr("Knee start")
                         color: Theme.textSecondary
                         font.family: Theme.fontFamily
@@ -1921,6 +1961,7 @@ Pane {
                     Text {
                         anchors.centerIn: parent
                         rotation: -90
+                        //: Section title: the highlight compression stage
                         text: qsTr("Highlight Knee")
                         color: knee.on ? Theme.textPrimary : Theme.textSecondary
                         font.family: Theme.fontFamily
@@ -1996,6 +2037,7 @@ Pane {
                 cursorShape: Qt.PointingHandCursor
                 hoverEnabled: true
                 onClicked: agx.expanded = false
+                //: Button: fold this section
                 FlatToolTip { visible: agxCollapseMa.containsMouse; text: qsTr("Collapse") }
             }
         }
@@ -2027,6 +2069,7 @@ Pane {
                             onToggled: agx.mc.agxEnabled = checked
                         }
                         Text {
+                            //: Toggle state
                             text: agx.on ? qsTr("On") : qsTr("Off")
                             color: agx.on ? Theme.warning : Theme.textSecondary
                             font.family: Theme.fontFamily
@@ -2085,6 +2128,7 @@ Pane {
                             onValueModified: agx.mc.agxPeak = value
                         }
                         Text {
+                            //: Unit suffix
                             text: qsTr("nits")
                             color: Theme.textMuted
                             font.family: Theme.monoFamily
@@ -2098,9 +2142,13 @@ Pane {
                             { label: qsTr("White (EV over grey)"), key: "agxWhiteEv",    from: 1.0,  to: 20.0, step: 0.1,  reset: 6.5 },
                             { label: qsTr("Black (EV under grey)"), key: "agxBlackEv",  from: -20.0, to: -1.0, step: 0.1, reset: -10.0 },
                             { label: qsTr("Contrast"),              key: "agxContrast", from: 0.5,  to: 5.0,  step: 0.05, reset: 2.4 },
+                            //: AgX curve control: the dark end of the tone curve
                             { label: qsTr("Toe power"),             key: "agxToe",      from: 0.5,  to: 5.0,  step: 0.05, reset: 1.5 },
+                            //: AgX curve control: the bright end of the tone curve
                             { label: qsTr("Shoulder power"),        key: "agxShoulder", from: 0.5,  to: 5.0,  step: 0.05, reset: 1.5 },
+                            //: AgX control: how much of the original hue is kept in bright areas
                             { label: qsTr("Hue restore"),           key: "agxHueRestore", from: 0.0, to: 1.0, step: 0.05, reset: 0.6 },
+                            //: AgX control: saturation kept above SDR white
                             { label: qsTr("HDR purity"),            key: "agxHdrPurity",  from: 0.0, to: 1.0, step: 0.05, reset: 0.5 },
                         ]
                         ColumnLayout {
@@ -2279,6 +2327,7 @@ Pane {
                 onClicked: tile.expanded = false
                 FlatToolTip {
                     visible: collapseMa.containsMouse
+                    //: Button: fold this section
                     text: qsTr("Collapse")
                 }
             }
@@ -2333,7 +2382,9 @@ Pane {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.fillWidth: true
                     text: tile.path
+                          //: Button on a filled LUT slot
                           ? qsTr("Replace LUT")
+                          //: Button on an empty LUT slot
                           : qsTr("+ Add LUT")
                     color: tileMa.containsMouse
                            ? Theme.textBright : Theme.textPrimary
@@ -2361,6 +2412,7 @@ Pane {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.padding
                     Layout.rightMargin: Theme.padding
+                    //: Field: the id of the first correction inside a CDL file
                     placeholderText: qsTr("Correction ID (first)")
                     text: tile.cccId
                     onEditingFinished: tile.cccIdEdited(text)
@@ -2369,6 +2421,7 @@ Pane {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.fillWidth: true
                     visible: tile.path.length === 0
+                    //: Tooltip on an empty LUT slot
                     text: qsTr("click to choose")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
@@ -2407,6 +2460,7 @@ Pane {
                     onClicked: tile.clearRequested()
                     FlatToolTip {
                         visible: clearMa.containsMouse
+                        //: Button
                         text: qsTr("Clear LUT")
                     }
                 }

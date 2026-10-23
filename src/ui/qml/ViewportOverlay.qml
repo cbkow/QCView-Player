@@ -72,8 +72,11 @@ Pane {
         const proj = WindowManager.project;
         if (!proj) return qsTr("Untitled Dual View");
         const aName = proj.activeItem
+                      //: Picker entry: nothing selected
                       ? (proj.activeItem.name || qsTr("(none)"))
+                      //: Picker entry: nothing selected
                       : qsTr("(none)");
+        //: Picker entry: nothing selected
         const bName = proj.bSourceName || qsTr("(none)");
         return aName + " vs " + bName;
     }
@@ -185,9 +188,11 @@ Pane {
                     color: root.liveDotColor(live)
                     ToolTip.visible: aChipMa.containsMouse && !!live
                     ToolTip.text: live && live.statusDetail !== ""
+                                  //: Chip label for a live source
                                   ? live.statusDetail : qsTr("Live source")
                 }
                 Text {
+                    //: Source letter, do not translate
                     text: qsTr("A")
                     color: root.sideAColor
                     font.family: Theme.fontFamily
@@ -207,6 +212,7 @@ Pane {
                             return sourceFilenameOf(
                                 WindowManager.videoDecoder.sourcePath);
                         }
+                        //: Placeholder in the empty A chip
                         return qsTr("(drop a file…)");
                     }
                     color: aChip.aLoaded ? Theme.textPrimary : Theme.textMuted
@@ -427,9 +433,11 @@ Pane {
                     color: root.liveDotColor(live)
                     ToolTip.visible: bChipMa.containsMouse && !!live
                     ToolTip.text: live && live.statusDetail !== ""
+                                  //: Chip label for a live source
                                   ? live.statusDetail : qsTr("Live source")
                 }
                 Text {
+                    //: Source letter, do not translate
                     text: qsTr("B")
                     color: root.sideBColor
                     font.family: Theme.fontFamily
@@ -597,13 +605,14 @@ Pane {
                      && ocio.kneeEnabled && ocio.kneeAvailable
             Layout.preferredHeight: Theme.chipHeight
             Layout.preferredWidth: kneeLabel.implicitWidth + 14
-            radius: Theme.radiusBase
+            radius: Theme.radiusSmall
             color: "transparent"
             border.width: 1
             border.color: Theme.warning
             Text {
                 id: kneeLabel
                 anchors.centerIn: parent
+                //: Pill: Highlight Knee is on
                 text: qsTr("KNEE")
                 color: Theme.warning
                 font.family: Theme.monoFamily
@@ -637,13 +646,14 @@ Pane {
                      && WindowManager.ocio.engaged && WindowManager.viewerAdjusted
             Layout.preferredHeight: Theme.chipHeight
             Layout.preferredWidth: viewerLabel.implicitWidth + 14
-            radius: Theme.radiusBase
+            radius: Theme.radiusSmall
             color: viewerPillMa.containsMouse ? Theme.surfaceHover : "transparent"
             border.width: 1
             border.color: Theme.warning
             Text {
                 id: viewerLabel
                 anchors.centerIn: parent
+                //: Pill: viewer aids are active
                 text: qsTr("VIEWER")
                 color: Theme.warning
                 font.family: Theme.monoFamily
@@ -677,8 +687,8 @@ Pane {
         FlatButton {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
-            cornerRadius: 0
             iconName: "rectangle"
+            //: Dual view mode
             tooltipText: qsTr("Single view")
             checkable: true
             checked: WindowManager.compositorMode === 0
@@ -687,8 +697,8 @@ Pane {
         FlatButton {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
-            cornerRadius: 0
             iconName: "square-split-horizontal"
+            //: Dual view mode
             tooltipText: qsTr("Side-by-side")
             checkable: true
             checked: WindowManager.compositorMode === 1
@@ -697,8 +707,8 @@ Pane {
         FlatButton {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
-            cornerRadius: 0
             iconName: "arrows-out-line-horizontal"
+            //: Dual view mode
             tooltipText: qsTr("Split wipe")
             checkable: true
             checked: WindowManager.compositorMode === 2
@@ -707,8 +717,8 @@ Pane {
         FlatButton {
             visible: !root.saveMode && !root.dualUnavailable
             variant: "raised"
-            cornerRadius: 0
             iconName: "intersect-square"
+            //: Dual view mode
             tooltipText: qsTr("Difference")
             checkable: true
             checked: WindowManager.compositorMode === 3
@@ -732,7 +742,6 @@ Pane {
             // is reserved for dual-view state (the active mode
             // toggle). Update is an action, not a state.
             variant: "raised"
-            cornerRadius: 0
             onClicked: root.commitUpdate()
         }
 
@@ -748,7 +757,6 @@ Pane {
                      && WindowManager.compositorMode !== 0
                      && WindowManager.dualController
             variant: "raised"
-            cornerRadius: 0
             iconName: root.isSavedDualView ? "file-plus" : "floppy-disk"
             tooltipText: root.isSavedDualView ? qsTr("Save as a new dual view")
                                               : qsTr("Save dual view")
@@ -823,6 +831,7 @@ Pane {
         // ---- Inline Save Dual View form (visible only in saveMode)
         Text {
             visible: root.saveMode
+            //: Field label when saving a dual view
             text: qsTr("Name")
             color: Theme.textSecondary
             font.family: Theme.fontFamily
@@ -876,6 +885,7 @@ Pane {
             anchors.fill: parent
             color: leftOpenMa.containsMouse ? Theme.affordanceHover
                                             : Theme.affordanceIdle
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         Rectangle {
             anchors.right:  parent.right
@@ -913,6 +923,7 @@ Pane {
             anchors.fill: parent
             color: rightOpenMa.containsMouse ? Theme.affordanceHover
                                              : Theme.affordanceIdle
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         Rectangle {
             anchors.left:   parent.left

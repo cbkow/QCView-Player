@@ -27,8 +27,24 @@ Rules that keep the import working:
   the English changed since they were translated.
 
 Context strings such as `LeftRail` or `InspectorPanel` name the part of
-the UI the string lives in; `location` is the source file and line if
-you want to look.
+the UI the string lives in; `developer_comment` explains a terse string
+("Output state", "Trim badge: …"); `location` is the source file and
+line if you want to look. `GLOSSARY.md` beside this file lists the terms
+QCView uses, the names that stay in English, and the form of address
+chosen for each language.
+
+## Machine first, people second
+
+Every language shipped first as a machine pass: each string translated
+with the glossary and comments at hand, imported with its `status` left
+`unfinished`, and the language marked "machine translation" in the
+Language picker. That label comes off a language when a person has read
+its sheet through — add the code to `kReviewed` in `src/app/i18n.cpp`.
+
+So a correction is never a blank to fill, it is a line to improve. When
+you send a sheet back, set `status` to `done` on the rows you checked
+(or leave it; a row with text and status `machine` keeps asking for
+review).
 
 ## Maintainer workflow
 
@@ -44,11 +60,14 @@ scripts/i18n_csv.py stats  translations/qcview_de.ts
 
 Import refuses a row whose placeholders differ from the English (the
 usual translator slip) and never clears an existing translation with an
-empty cell. Commit the `.ts`; the `.qm` files are build products.
+empty cell. `import --keep-unfinished` (or `status` = `machine` on a
+row) fills the text but keeps the review flag; that is how the machine
+pass went in. Commit the `.ts`; the `.qm` files are build products.
 
 **Adding a language:** append its code to `QCV_TRANSLATED_LANGUAGES` in
 the top-level `CMakeLists.txt`, configure, run `update_translations`,
-commit the new `.ts`. Codes are Qt locale names: `de`, `fr`, `ja`,
+commit the new `.ts`. Shipping now: zh_CN, ja, ko, de, fr, es, pt_BR,
+it, pl. Codes are Qt locale names: `de`, `fr`, `ja`,
 `pt_BR`, `zh_CN`. Before it ships, also list the language in
 `packaging/macos/Info.plist.in` (`CFBundleLocalizations`) and
 `installer/msix/AppxManifest.xml.in` (`<Resource Language=…>`).
@@ -56,6 +75,11 @@ commit the new `.ts`. Codes are Qt locale names: `de`, `fr`, `ja`,
 `qcview_en.ts` is special: it holds only the English plural forms
 (`%n frame` / `%n frames`), which the source strings cannot express.
 Fill those in when a new `%n` string appears.
+
+**Writing a translatable string:** one sentence per `qsTr()`, with
+placeholders rather than glued fragments (`qsTr("%1 fps").arg(x)`, never
+`x + " fps"`); counts go through `qsTr("%n frame(s)", "", n)`; a terse
+label gets a `//:` comment on the line above so the sheet explains it.
 
 ## Testing a catalog
 

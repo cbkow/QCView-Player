@@ -95,6 +95,7 @@ Pane {
                 Text {
                     Layout.fillWidth: true
                     visible: !root.collapsed
+                    //: Panel title
                     text: qsTr("Inspector")
                     color: Theme.textPrimary
                     font.family: Theme.fontFamily
@@ -119,9 +120,9 @@ Pane {
                     // click feedback. See Theme.affordanceIdle/Hover.
                     Rectangle {
                         anchors.fill: parent
-                        color: railToggleMa.containsMouse
-                               ? Theme.affordanceHover
+                        color: railToggleMa.containsMouse ? Theme.affordanceHover
                                : Theme.affordanceIdle
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     Icon {
                         anchors.centerIn: parent
@@ -166,6 +167,7 @@ Pane {
             id: scopeSection
             Layout.fillWidth: true
             visible: !root.collapsed
+            //: Section title
             title: qsTr("Vectorscope")
             expanded: scopeSettings.scopeExpanded
             onExpandedChanged: scopeSettings.scopeExpanded = expanded
@@ -179,6 +181,7 @@ Pane {
             id: waveformSection
             Layout.fillWidth: true
             visible: !root.collapsed
+            //: Section title
             title: qsTr("Waveform")
             expanded: scopeSettings.waveformExpanded
             onExpandedChanged: scopeSettings.waveformExpanded = expanded
@@ -272,7 +275,7 @@ Pane {
                                       || imageSeqPanel.visible ? 0 : Theme.paddingTight
                     Layout.bottomMargin: Theme.paddingTight
                     color: Theme.card
-                    radius: Theme.radiusBase
+                    radius: Theme.radius
                     clip: true
                     objectName: "shortcutsCard"
                     property bool expanded: false
@@ -287,9 +290,10 @@ Pane {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         height: Theme.headerHeight
-                        radius: Theme.radiusBase
+                        radius: Theme.radius
                         color: shortcutsHeaderMa.containsMouse
-                               ? Theme.surfaceHover : "transparent"
+                               ? Theme.surfaceHover : Theme.hoverIdle
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
 
                         MouseArea {
                             id: shortcutsHeaderMa

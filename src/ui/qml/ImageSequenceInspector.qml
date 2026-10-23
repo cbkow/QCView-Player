@@ -18,7 +18,7 @@ import Qcv
 Rectangle {
     id: root
     color: Theme.card
-    radius: Theme.radiusBase
+    radius: Theme.radius
     border.width: 0
     // Inspector exposes a public collapse flag — LeftRail (or any
     // future host) can wire a user toggle to it. Default open so a
@@ -181,6 +181,7 @@ Rectangle {
         // mismatch note.
         KvChipRow {
             id: transferRow
+            //: Transfer function (PQ, HLG, sRGB)
             label: qsTr("Transfer")
 
             // The map is re-read when the caller's `item` binding
@@ -203,6 +204,7 @@ Rectangle {
 
             Repeater {
                 model: [
+                    //: Choice: decided from the file
                     { key: 0, useDetected: true,  label: qsTr("Auto") },
                     { key: 1, useDetected: false, label: qsTr("SDR 709") },
                     { key: 2, useDetected: false, label: qsTr("PQ 2020") },
@@ -232,6 +234,7 @@ Rectangle {
             spacing: Theme.spacingTight
 
             KvRow {
+                //: Frame number range
                 label: qsTr("Range")
                 value: seq ? qsTr("%1 – %2 (%3 frames)")
                                .arg(seq.startFrame)
@@ -240,6 +243,7 @@ Rectangle {
                            : ""
             }
             KvRow {
+                //: The file name pattern of the sequence
                 label: qsTr("Pattern")
                 value: seq ? seq.pattern : ""
                 valueElide: Text.ElideMiddle
@@ -256,6 +260,7 @@ Rectangle {
             // so it doesn't leave a hole in the layout.
             KvRow {
                 visible: seq && seq.compression && seq.compression.length > 0
+                //: EXR compression
                 label: qsTr("Compression")
                 value: seq && seq.compression ? seq.compression : ""
             }
@@ -368,6 +373,7 @@ Rectangle {
             visible: content.isEXR
         }
         Text {
+            //: EXR layer
             text: qsTr("Layer")
             color: Theme.textSecondary
             font.family: Theme.fontFamily

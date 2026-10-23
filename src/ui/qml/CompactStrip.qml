@@ -102,6 +102,7 @@ Rectangle {
             anchors.fill: parent
             text: {
                 const _refresh = root.position;
+                //: Badge: a live source is playing
                 if (WindowManager.liveActive) return qsTr("LIVE");
                 if (!root.timer || root.duration <= 0) return "";
                 if (root.isPlaylistMode) return root.fmtSec(root.position) + " / " + root.fmtSec(root.duration);
@@ -115,6 +116,7 @@ Rectangle {
                         Math.max(0, WindowManager.videoDecoder.currentFrame));
                 }
                 const fc = WindowManager.frameCountUnified();
+                //: Current frame / total frames
                 return fc > 0 ? qsTr("%1 / %2").arg(WindowManager.currentFrameUnified()).arg(fc - 1)
                               : root.fmtSec(root.position);
             }

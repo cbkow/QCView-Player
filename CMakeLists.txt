@@ -163,6 +163,7 @@ find_package(Qt6 6.11 REQUIRED COMPONENTS
 # a language: append its code, run update_translations, commit the .ts.
 # translations/README.md has the contributor workflow (CSV round trip).
 set(QCV_TRANSLATED_LANGUAGES
+    zh_CN ja ko de fr es pt_BR it pl
 )
 
 qt_standard_project_setup(REQUIRES 6.11

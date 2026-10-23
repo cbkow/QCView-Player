@@ -475,6 +475,7 @@ Pane {
                 orig.sourceIn + (newStartTime - orig.startTime);
             ctl.previewTrimHead(editState.trackId, editState.clipId,
                                   newStartTime, actualSourceIn);
+            //: Trim badge: the clip's head was trimmed by %1 frames
             badge = qsTr("head %1").arg(tcLabel(actualSourceIn));
             // Show the new in-edge frame in the viewport (transient;
             // playhead unmoved).
@@ -488,6 +489,7 @@ Pane {
                          orig.sourceOut + deltaSec);
             ctl.previewTrimTail(editState.trackId, editState.clipId,
                                   newSourceOut);
+            //: Trim badge: the clip's tail was trimmed by %1 frames
             badge = qsTr("tail %1").arg(tcLabel(newSourceOut));
             // Show the new out-edge frame in the viewport (transient;
             // playhead unmoved).
@@ -498,6 +500,7 @@ Pane {
             const newStartTime = Math.max(0, orig.startTime + deltaSec);
             ctl.previewSlide(editState.trackId, editState.clipId,
                               newStartTime);
+            //: Badge: the clip's start moved by %1 frames
             badge = qsTr("start %1").arg(tcLabel(newStartTime));
             // Slide keeps sourceIn but moves the clip in time, so the
             // content under the (fixed) playhead changes. Show it when
@@ -521,6 +524,7 @@ Pane {
             }
             ctl.previewSlip(editState.trackId, editState.clipId,
                              dIn, dOut);
+            //: Badge: the clip's content slipped by %1 frames
             badge = qsTr("slip %1").arg(tcLabel(dIn));
             // Slip keeps startTime/duration; show the content now under
             // the playhead (translated through the new sourceIn). Only
@@ -601,6 +605,7 @@ Pane {
                                   ? targetSlot
                                   : targetSlot + 1;
             editState.targetSlot = preRemoveSlot;
+            //: Drag badge: the clip will move to playlist position %1 of %2
             badge = qsTr("→ slot %1/%2").arg(targetSlot + 1).arg(newOrder.length);
         }
         editState.badgeText = badge;
@@ -710,6 +715,7 @@ Pane {
                 visible: toggleMa.containsMouse
                 text: editToggle.editing
                       ? qsTr("Edit mode ON — click to disable")
+                      //: Tooltip on the track's edit toggle
                       : qsTr("Edit this track")
             }
         }
@@ -1501,6 +1507,7 @@ Pane {
                 y: root.reorderTrackId === "B" ? (kRowHA + 4) : 4
                 Text {
                     anchors.centerIn: parent
+                    //: Swap glyph, do not translate
                     text: qsTr("⇄")
                     color: "#ffffff"
                     font.pixelSize: 14
@@ -2898,7 +2905,7 @@ Pane {
                 color: Theme.surface
                 border.color: "#ffc864"
                 border.width: 1
-                radius: Theme.radiusBase
+                radius: Theme.radiusSmall
                 z: 15
                 Text {
                     id: badgeText

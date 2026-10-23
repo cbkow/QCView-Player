@@ -29,7 +29,7 @@ Toggle the timeline hover thumbnail preview on or off (low-RAM systems or focus-
 
 ## Language
 
-Settings ▸ Interface ▸ Language picks the interface language. **System default** follows the operating system; the list shows the languages QCView ships. The change applies on the next launch. Translations are community-maintained; the [translations folder](https://github.com/cbkow/QCView-Player/tree/main/translations) explains how to help.
+Settings ▸ Interface ▸ Language picks the interface language. **System default** follows the operating system; the list shows the languages QCView ships. The change applies on the next launch. Languages marked *machine translation* were produced by a machine pass and not yet read through by a person, so expect the odd awkward term; corrections are welcome, and the [translations folder](https://github.com/cbkow/QCView-Player/tree/main/translations) explains how to send them.
 
 ## Live audio
 

@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Controls.Basic
 import Qcv
 
-// Flat squared switch — track + sliding square handle.
+// Flat switch — a pill track + sliding round handle (the humanist pass;
+// the track takes Theme.radiusLarge, which at this height is a pill).
 //   off → track Theme.surface, handle Theme.textMuted
 //   on  → track Theme.accentMuted, handle Theme.accent
 // Set `attention: true` to flip the OFF state to an accent-blue
@@ -28,7 +29,7 @@ Switch {
         implicitHeight: 18
         x: root.leftPadding
         y: parent.height / 2 - height / 2
-        radius: 0
+        radius: Theme.radiusLarge
         // Track shifts a notch brighter when on; the handle
         // colour is the strong differentiator (bright vs muted).
         // attention mode paints OFF with accent so the toggle
@@ -48,7 +49,7 @@ Switch {
             y: 2
             width: parent.height - 4
             height: parent.height - 4
-            radius: 0
+            radius: Theme.radiusLarge
             color: root.checked
                    ? Theme.textBright
                    : (root.attention ? Theme.textBright : Theme.textMuted)

@@ -646,11 +646,13 @@ bool VideoDecoder::initFFmpeg(const QString &path)
     qInfo("VideoDecoder: initFFmpeg begin '%s'", qPrintable(trimmedName));
 
     if (int err = avformat_open_input(&m_fmt, pathUtf8.constData(), nullptr, nullptr); err < 0) {
+        //: FFmpeg function name, keep as written
         setError(tr("avformat_open_input failed: %1").arg(avErrToString(err)));
         return false;
     }
     qInfo("VideoDecoder: avformat_open_input done '%s'", qPrintable(trimmedName));
     if (int err = avformat_find_stream_info(m_fmt, nullptr); err < 0) {
+        //: FFmpeg function name, keep as written
         setError(tr("avformat_find_stream_info failed: %1").arg(avErrToString(err)));
         return false;
     }
@@ -677,6 +679,7 @@ bool VideoDecoder::initFFmpeg(const QString &path)
 
     m_cctx = avcodec_alloc_context3(codec);
     if (!m_cctx) {
+        //: FFmpeg function name, keep as written
         setError(tr("avcodec_alloc_context3 failed"));
         return false;
     }
@@ -950,6 +953,7 @@ bool VideoDecoder::initFFmpeg(const QString &path)
         m_cctx->thread_count = 1;
     }
     if (int err = avcodec_open2(m_cctx, codec, nullptr); err < 0) {
+        //: FFmpeg function name, keep as written
         setError(tr("avcodec_open2 failed: %1").arg(avErrToString(err)));
         return false;
     }
@@ -1083,6 +1087,7 @@ bool VideoDecoder::initSwsContext(AVFrame *frame)
     m_sws = qcv::swsCreateThreaded();
     m_swsDstFormat = dstFmt;
     if (!m_sws) {
+        //: FFmpeg library name, keep as written
         setError(tr("swscale context init failed"));
         return false;
     }
@@ -1542,12 +1547,14 @@ void VideoDecoder::decodeLoop()
                 avcodec_send_packet(m_cctx, nullptr);   // drain
                 eofPacketsSent = true;
             } else if (rc < 0) {
+                //: FFmpeg function name, keep as written
                 setError(tr("av_read_frame error: %1").arg(avErrToString(rc)));
                 break;
             } else {
                 if (pkt->stream_index == m_videoStreamIdx) {
                     if (int sendErr = avcodec_send_packet(m_cctx, pkt); sendErr < 0 &&
                         sendErr != AVERROR(EAGAIN)) {
+                        //: FFmpeg function name, keep as written
                         recordDecodeError(tr("send_packet: %1").arg(avErrToString(sendErr)));
                     }
                 }
@@ -1565,6 +1572,7 @@ void VideoDecoder::decodeLoop()
                 break;
             }
             if (recvErr < 0) {
+                //: FFmpeg function name, keep as written
                 setError(tr("avcodec_receive_frame: %1").arg(avErrToString(recvErr)));
                 goto finished;
             }
@@ -1606,6 +1614,7 @@ void VideoDecoder::decodeLoop()
                         publishCpuFrame(swFrame);
                         av_frame_unref(swFrame);
                     } else {
+                        //: FFmpeg function name, keep as written
                         recordDecodeError(tr("hwframe_transfer_data fallback failed"));
                     }
                 }
@@ -1628,6 +1637,7 @@ void VideoDecoder::decodeLoop()
             else if (frame->format == AV_PIX_FMT_D3D11 ||
                      frame->format == AV_PIX_FMT_VAAPI) {
                 if (int xferErr = av_hwframe_transfer_data(swFrame, frame, 0); xferErr < 0) {
+                    //: FFmpeg function name, keep as written
                     recordDecodeError(tr("hwframe_transfer_data: %1").arg(avErrToString(xferErr)));
                     av_frame_unref(frame);
                     continue;
@@ -1671,6 +1681,7 @@ void VideoDecoder::performSeek(int targetFrame, AVPacket *pkt,
     // that cannot seek (animated WebP); see decode/seek_compat.h.
     if (qcv::seekStream(&m_fmt, m_videoStreamIdx, targetPts,
                         AVSEEK_FLAG_BACKWARD) < 0) {
+        //: FFmpeg function name, keep as written
         recordDecodeError(tr("av_seek_frame failed for frame %1").arg(targetFrame));
         return;
     }
@@ -1698,6 +1709,7 @@ void VideoDecoder::performSeek(int targetFrame, AVPacket *pkt,
                 avcodec_send_packet(m_cctx, nullptr);
                 eof = true;
             } else if (rc < 0) {
+                //: FFmpeg function name, keep as written
                 recordDecodeError(tr("read_frame after seek: %1").arg(avErrToString(rc)));
                 return;
             } else {

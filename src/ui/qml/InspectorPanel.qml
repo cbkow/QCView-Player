@@ -105,14 +105,19 @@ Rectangle {
 
     function typeLabel(t) {
         switch (t) {
+        //: Section title
         case 0: return qsTr("Video");
+        //: Section title
         case 1: return qsTr("Audio");
+        //: Media kind: a single still image
         case 2: return qsTr("Image");
         case 3: return qsTr("Image Sequence");
         case 4: return qsTr("Playlist");
         case 5: return qsTr("Dual View");
+        //: Media kind: a live stream or bridge feed
         case 6: return qsTr("Live");
         }
+        //: Media kind: generic
         return qsTr("Media");
     }
 
@@ -215,7 +220,7 @@ Rectangle {
                         readonly property bool isActive:
                             root.inspectedSide === modelData.side
                         width: 22; height: 18
-                        radius: Theme.radius
+                        radius: Theme.radiusSmall
                         color: isActive
                                ? modelData.color
                                : (sideMa.containsMouse ? Theme.surfaceHover
@@ -271,6 +276,7 @@ Rectangle {
         // ---- File section ----
         InspectorCard {
             id: fileCard
+            //: Section title
             title: qsTr("File")
 
             // Path hidden for media types that don't reference an
@@ -416,8 +422,11 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.spacing
                 spacing: 2
+                //: Section title
                 KvRow { label: qsTr("Colour");    value: bridgeFacts.f.colour || "";    monoValue: false }
+                //: Section: video levels, full or limited
                 KvRow { label: qsTr("Range");     value: bridgeFacts.f.range || "";     monoValue: false }
+                //: Row: whether the file has an alpha channel
                 KvRow { label: qsTr("Alpha");     value: bridgeFacts.f.alpha || "";     monoValue: false }
                 Text {
                     Layout.fillWidth: true
@@ -463,6 +472,7 @@ Rectangle {
                 visible: content.vmeta !== undefined
                          && content.vmeta !== null
                          && (content.vmeta.containerFormat || "").length > 0
+                //: File container format (QuickTime, MXF)
                 label: qsTr("Container")
                 value: {
                     if (!content.vmeta) return "";
@@ -512,6 +522,7 @@ Rectangle {
                     Layout.preferredHeight: 24
                     iconName: "folder-simple"
                     iconSize: Theme.iconSizeSmall
+                    //: Button: show the file in Finder / Explorer
                     text: qsTr("Reveal")
                     onClicked: {
                         if (root.displayedItem && root.displayedItem.path) {
@@ -549,6 +560,7 @@ Rectangle {
 
         // ---- VIDEO ----
         InspectorCard {
+            //: Section title
             title: qsTr("Video")
             visible: content.videoLoaded
                      && content.vmeta
@@ -581,6 +593,7 @@ Rectangle {
                 visible: content.vmeta !== undefined
                          && content.vmeta !== null
                          && (content.vmeta.codecProfile || "").length > 0
+                //: Codec profile (e.g. ProRes 422 HQ)
                 label: qsTr("Profile")
                 value: content.vmeta ? content.vmeta.codecProfile : ""
             }
@@ -607,6 +620,7 @@ Rectangle {
                 // RGB-family sources get a marker — the Range pill's
                 // Auto fallback differs for them (full, not limited).
                 note: content.vmeta && content.vmeta.isRgb === true
+                    //: Pixel format summary: the file is RGB, not YUV
                     ? qsTr("RGB") : ""
             }
             KvRow {
@@ -636,6 +650,7 @@ Rectangle {
         // pickable rules; setPixelAspect persists + pushes live.
         InspectorCard {
             id: parSection
+            //: Section title: dimensions, aspect, rotation
             title: qsTr("Geometry")
             bodySpacing: 4
             visible: content.videoLoaded && content.vmeta
@@ -703,6 +718,7 @@ Rectangle {
             readonly property int effRot: rotOverride >= 0 ? rotOverride : detRot
             readonly property bool rotSwapsDims: effRot === 90 || effRot === 270
             readonly property string rotAutoLabel:
+                //: Choice: decided from the file
                 detRot > 0 ? qsTr("Auto (%1°)").arg(detRot) : qsTr("Auto")
 
             // Mode pill row — Square / Detected (R:R) / Custom.
@@ -710,8 +726,11 @@ Rectangle {
                 label: qsTr("Aspect")
                 Repeater {
                     model: [
+                        //: Pixel aspect choice: square pixels
                         { key: 0, label: qsTr("Square") },
+                        //: Pixel aspect choice: the aspect found in the file
                         { key: 1, label: qsTr("Detected") },
+                        //: Pixel aspect choice: a value typed by the user
                         { key: 2, label: qsTr("Custom") },
                     ]
                     FlatChip {
@@ -751,6 +770,7 @@ Rectangle {
 
             // Read-out — detected SAR + resulting display aspect / dims.
             KvRow {
+                //: Pixel aspect choice: the aspect found in the file
                 label: qsTr("Detected")
                 value: parSection.isAnamorphic
                     ? qsTr("%1:%2 (non-square)").arg(parSection.detSarNum)
@@ -758,6 +778,7 @@ Rectangle {
                     : qsTr("1:1 (square)")
             }
             KvRow {
+                //: Row: display aspect
                 label: qsTr("Display")
                 value: {
                     if (!(parSection.curDar > 0)) return "";
@@ -782,6 +803,7 @@ Rectangle {
                 Layout.topMargin: 4
                 Repeater {
                     model: [
+                        //: Choice: decided from the file
                         { key: -1,  useDetected: true,  label: qsTr("Auto") },
                         { key: 0,   useDetected: false, label: "0°" },
                         { key: 90,  useDetected: false, label: "90°" },
@@ -896,6 +918,7 @@ Rectangle {
 
         // ---- COLOR ----
         InspectorCard {
+            //: Section title
             title: qsTr("Color")
             // Always present for video — it hosts the Range pill and
             // the tagged/untagged readout, which matter most precisely
@@ -915,11 +938,13 @@ Rectangle {
             }
             KvRow {
                 visible: content.vmeta && content.vmeta.colorPrimaries.length > 0
+                //: Colour primaries
                 label: qsTr("Primaries")
                 value: content.vmeta ? content.vmeta.colorPrimaries : ""
             }
             KvRow {
                 visible: content.vmeta && content.vmeta.colorTransfer.length > 0
+                //: Transfer function (PQ, HLG, sRGB)
                 label: qsTr("Transfer")
                 value: content.vmeta ? content.vmeta.colorTransfer : ""
             }
@@ -961,6 +986,7 @@ Rectangle {
                 value: {
                     if (!content.vmeta) return "";
                     const c = content.vmeta.containerRangeTag || "";
+                    //: The file carries no range tag
                     return c.length > 0 ? c : qsTr("untagged");
                 }
                 note: {
@@ -984,6 +1010,7 @@ Rectangle {
             // flag with no visible effect until the user loads it).
             KvChipRow {
                 id: rangeRow
+                //: Section: video levels, full or limited
                 label: qsTr("Range")
                 Layout.topMargin: 4
                 visible: root.itemType === 0  // Video only
@@ -1027,6 +1054,7 @@ Rectangle {
                 // as stored). Same rule in VideoDecoder (CPU path),
                 // the VideoToolbox bridge and the Windows compositor.
                 readonly property string detectedLabel: {
+                    //: Choice: decided from the file
                     if (!content.vmeta) return qsTr("Auto");
                     const c = content.vmeta.containerRangeTag || "";
                     const r = content.vmeta.colorRange || "";
@@ -1045,8 +1073,11 @@ Rectangle {
 
                 Repeater {
                     model: [
+                        //: Choice: decided from the file
                         { key: 0, useDetected: true,  label: qsTr("Auto") },
+                        //: Video levels
                         { key: 1, useDetected: false, label: qsTr("Full") },
+                        //: Video levels
                         { key: 2, useDetected: false, label: qsTr("Limited") },
                     ]
 
@@ -1088,6 +1119,7 @@ Rectangle {
             // scope's mismatch note. Same target-item resolution as Range.
             KvChipRow {
                 id: transferRow
+                //: Transfer function (PQ, HLG, sRGB)
                 label: qsTr("Transfer")
                 Layout.topMargin: 4
                 visible: root.itemType === 0
@@ -1103,6 +1135,7 @@ Rectangle {
                 // Auto's resolved value from the tags, so the reviewer sees
                 // what Auto means for this file before overriding it.
                 readonly property string detectedLabel: {
+                    //: Choice: decided from the file
                     if (!content.vmeta) return qsTr("Auto");
                     const t = (content.vmeta.colorTransfer || "").toLowerCase();
                     const p = (content.vmeta.colorPrimaries || "").toLowerCase();
@@ -1118,6 +1151,7 @@ Rectangle {
 
                 Repeater {
                     model: [
+                        //: Choice: decided from the file
                         { key: 0, useDetected: true,  label: qsTr("Auto") },
                         { key: 1, useDetected: false, label: qsTr("SDR 709") },
                         { key: 2, useDetected: false, label: qsTr("PQ 2020") },
@@ -1153,6 +1187,7 @@ Rectangle {
         // to choose.
         InspectorCard {
             id: audioSection
+            //: Section title
             title: qsTr("Audio")
             // A live (QCBridgeAE) item shows what its audio segment reports
             // instead of file metadata: Premiere pushes a copy of what it
@@ -1181,12 +1216,17 @@ Rectangle {
             }
             KvRow {
                 visible: audioSection.liveAudio
+                //: Row: the bridge's current state
                 label: qsTr("State")
                 value: {
                     switch (audioSection.liveAudioState) {
+                    //: Bridge state: the Transmit device is disabled in the host application
                     case 1: return qsTr("Off in the host");
+                    //: Bridge state: nothing is being sent
                     case 2: return qsTr("Idle");
+                    //: Bridge state: the host is sending frames
                     case 3: return qsTr("Pushing");
+                    //: Bridge state: the host is scrubbing
                     case 4: return qsTr("Scrubbing");
                     default: return qsTr("No audio");
                     }
@@ -1213,6 +1253,7 @@ Rectangle {
             KvRow {
                 visible: audioSection.fileAudio && content.vmeta && content.vmeta.audioChannelLayoutName
                          && content.vmeta.audioChannelLayoutName.length > 0
+                //: Audio channel layout (stereo, 5.1)
                 label: qsTr("Layout")
                 value: content.vmeta ? content.vmeta.audioChannelLayoutName : ""
             }
@@ -1228,6 +1269,7 @@ Rectangle {
                 visible: audioSection.liveAudio
                 Text {
                     Layout.fillWidth: true
+                    //: Toggle: play the bridge's audio in QCView
                     text: qsTr("Listen in QCView")
                     color: Theme.textMuted
                     font.family: Theme.fontFamily
@@ -1253,6 +1295,7 @@ Rectangle {
             // into the card (binding loop).
             KvRow {
                 visible: audioSection.liveAudio && audioSection.liveAudioState === 1
+                //: Row label for the bridge's audio
                 label: qsTr("Audio Stream")
                 value: qsTr("off: tick it in Premiere ▸ Preferences ▸ Playback")
             }
@@ -1304,6 +1347,7 @@ Rectangle {
                     ? (routingTargetItem.audioRoutingMode || 0) : 0
 
             KvChipRow {
+                //: Audio downmix choice
                 label: qsTr("Mix")
                 Layout.topMargin: Theme.spacing
                 visible: audioSection.routingPicker
@@ -1442,6 +1486,7 @@ Rectangle {
 
         InspectorCard {
             id: timecodeSection
+            //: Section title
             title: qsTr("Timecode")
             visible: content.hasAnyTcLine
 
@@ -1466,17 +1511,20 @@ Rectangle {
                     ? WindowManager.videoDecoder.startTimecode : ""
 
             function tcButtonModel() {
+                //: Timecode origin: counting from the start of the file
                 const out = [{ key: "", label: qsTr("From start") }];
                 if (content.vmeta && content.vmeta.hasEmbeddedTimecode
                     && content.vmeta.embeddedTimecode) {
                     out.push({
                         key:   content.vmeta.embeddedTimecode,
+                        //: Timecode origin: the timecode track in the file
                         label: qsTr("Embedded"),
                     });
                 }
                 if (content.ameta && content.ameta.qtStartTimecode) {
                     out.push({
                         key:   content.ameta.qtStartTimecode,
+                        //: Timecode origin: the QuickTime start timecode
                         label: qsTr("QT Start"),
                     });
                 }
@@ -1500,6 +1548,7 @@ Rectangle {
             }
 
             KvChipRow {
+                //: Row: where the timecode comes from
                 label: qsTr("Origin")
                 // tcPickable / tcButtonModel / activeTc live on
                 // timecodeSection (the card above). The earlier
@@ -1532,6 +1581,7 @@ Rectangle {
             // quicker (no exiftool fork).
             KvRow {
                 visible: content.vmeta && content.vmeta.hasEmbeddedTimecode
+                //: Row: which metadata the timecode was read from
                 label: qsTr("Source")
                 value: content.vmeta ? content.vmeta.embeddedTimecode : ""
                 note: content.vmeta && content.vmeta.startFrame !== undefined
@@ -1542,6 +1592,7 @@ Rectangle {
             // Adobe-extended QuickTime variants (when present).
             Repeater {
                 model: [
+                    //: Timecode origin: the QuickTime start timecode
                     { label: qsTr("QT Start"),     getter: function() {
                         return content.ameta ? content.ameta.qtStartTimecode : "" } },
                     { label: qsTr("QT TimeCode"),  getter: function() {
@@ -1560,8 +1611,10 @@ Rectangle {
             // Creation dates for context.
             Repeater {
                 model: [
+                    //: Row: file creation date
                     { label: qsTr("Created"),       getter: function() {
                         return content.ameta ? content.ameta.qtCreationDate : "" } },
+                    //: Row: the media's own creation date from its metadata
                     { label: qsTr("Media Created"), getter: function() {
                         return content.ameta ? content.ameta.qtMediaCreateDate : "" } },
                 ]
@@ -1581,6 +1634,7 @@ Rectangle {
         // (After Effects / Premiere); Copy puts the path on the
         // clipboard.
         InspectorCard {
+            //: Section title: project files that reference this media
             title: qsTr("Linked Projects")
             bodySpacing: 4
             visible: content.ameta && content.ameta.hasAnyProject
@@ -1623,6 +1677,7 @@ Rectangle {
                             Layout.preferredHeight: 24
                             iconName: "arrow-square-out"
                             iconSize: Theme.iconSizeSmall
+                            //: Button: open the linked project in its application
                             text: qsTr("Open")
                             onClicked: {
                                 const p = modelData.pathFn()
@@ -1634,6 +1689,7 @@ Rectangle {
                             Layout.preferredHeight: 24
                             iconName: "copy"
                             iconSize: Theme.iconSizeSmall
+                            //: Button: copy the project path
                             text: qsTr("Copy")
                             onClicked: WindowManager.copyTextToClipboard(
                                 WindowManager.toNativeSeparators(modelData.pathFn()))
@@ -1643,6 +1699,7 @@ Rectangle {
                             Layout.preferredHeight: 24
                             iconName: "folder-simple"
                             iconSize: Theme.iconSizeSmall
+                            //: Button: show the file in Finder / Explorer
                             text: qsTr("Reveal")
                             onClicked: WindowManager.revealInFileManager(modelData.pathFn())
                         }

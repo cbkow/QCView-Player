@@ -219,6 +219,7 @@ ColumnLayout {
         }
         Item { Layout.preferredWidth: Theme.spacing }
         FlatChip {
+            //: Toggle: colour the trace by hue
             label: qsTr("Color")
             active: root.scope && root.scope.colorize
             interactive: root.scope && root.scope.tier > 0

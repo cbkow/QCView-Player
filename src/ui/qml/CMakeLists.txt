@@ -46,6 +46,7 @@ set(QCVIEW_QML_FILES
     ToolStrip.qml
     ThemedMenu.qml
     ThemedMenuSeparator.qml
+    ThemedMenuItem.qml
     ModalHost.qml
     Toast.qml
     LiveStrip.qml
@@ -116,6 +117,7 @@ qt_add_qml_module(qcview
         ${CMAKE_CURRENT_SOURCE_DIR}/ToolStrip.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ThemedMenu.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ThemedMenuSeparator.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ThemedMenuItem.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ModalHost.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/Toast.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/LiveStrip.qml

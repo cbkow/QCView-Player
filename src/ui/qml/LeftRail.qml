@@ -276,12 +276,19 @@ Rectangle {
     // label we render above each group.
     function sectionLabel(sectionValue) {
         switch (parseInt(sectionValue)) {
+        //: Media bin heading
         case 0: return qsTr("Videos");
+        //: Media bin heading
         case 1: return qsTr("Audio");
+        //: Media bin heading
         case 2: return qsTr("Images");
+        //: Media bin heading
         case 3: return qsTr("Image Sequences");
+        //: Media bin heading
         case 4: return qsTr("Playlists");
+        //: Media bin heading
         case 5: return qsTr("Dual Views");
+        //: Media bin heading
         case 6: return qsTr("Live");
         }
         return "";
@@ -635,7 +642,7 @@ Rectangle {
                         color: Theme.bg
                         border.color: Theme.accent
                         border.width: 1
-                        radius: 0
+                        radius: Theme.radiusSmall
                     }
                     onVisibleChanged: {
                         if (visible) {
@@ -840,7 +847,7 @@ Rectangle {
     }
     ThemedMenu {
         id: rowContextMenu
-        MenuItem {
+        ThemedMenuItem {
             text: qsTr("Create Playlist from Selection")
             enabled: root.ctxCanCreatePlaylist
             onTriggered: root.createPlaylistFromSelection()
@@ -855,6 +862,7 @@ Rectangle {
         // the first match; ↓ moves into the list.
         ThemedMenu {
             id: inputSubMenu
+            //: Context menu: set the OCIO input colourspace of the selected clips
             title: qsTr("Input")
             enabled: root.ctxChainIds.length > 0 && !!WindowManager.ocio
             width: 300   // camera colourspace names run long
@@ -879,8 +887,10 @@ Rectangle {
                     const out = [];
                     const hit = (n) => f.length === 0 || n.toLowerCase().indexOf(f) >= 0;
                     for (let i = 0; i < used.length; ++i)
+                        //: Picker group header: inputs already used in the project
                         if (hit(used[i])) out.push({ name: used[i], section: qsTr("In this project") });
                     for (let i = 0; i < all.length; ++i)
+                        //: Picker group header: every input in the config
                         if (hit(all[i])) out.push({ name: all[i], section: qsTr("All") });
                     return out;
                 }
@@ -991,8 +1001,10 @@ Rectangle {
                                         elide: Text.ElideRight
                                     }
                                     Text {
+                                        //: Picker group header: inputs already used in the project
                                         visible: inputRow.modelData.section === qsTr("In this project")
                                                  && inputRow.modelData.name === inputPicker.defaultInput
+                                        //: Picker entry: use the config's default input
                                         text: qsTr("default")
                                         color: Theme.textMuted
                                         font.family: Theme.fontFamily
@@ -1012,7 +1024,7 @@ Rectangle {
                 }
             }
         }
-        MenuItem {
+        ThemedMenuItem {
             text: root.ctxSourceClipName.length > 0
                   ? qsTr("Use Clip Chain of “%1”").arg(root.ctxSourceClipName)
                   : qsTr("Use Clip Chain of the Clip on Screen")
@@ -1021,7 +1033,7 @@ Rectangle {
                           && root.ctxChainIds[0] === root.ctxSourceClipId)
             onTriggered: WindowManager.ocio.copyClipChain(root.ctxSourceClipId, root.ctxChainIds)
         }
-        MenuItem {
+        ThemedMenuItem {
             text: qsTr("Reset Clip Chain")
             enabled: {
                 if (!WindowManager.ocio) return false;
@@ -1032,7 +1044,7 @@ Rectangle {
             onTriggered: WindowManager.ocio.resetClipChains(root.ctxChainIds)
         }
         MenuSeparator {}
-        MenuItem {
+        ThemedMenuItem {
             text: qsTr("Delete")
             enabled: root.selectedItemIds.length > 0
             onTriggered: root.deleteSelectedItems()
@@ -1110,9 +1122,9 @@ Rectangle {
                     // click feedback. See Theme.affordanceIdle/Hover.
                     Rectangle {
                         anchors.fill: parent
-                        color: railToggleMa.containsMouse
-                               ? Theme.affordanceHover
+                        color: railToggleMa.containsMouse ? Theme.affordanceHover
                                : Theme.affordanceIdle
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     Icon {
                         anchors.centerIn: parent
@@ -1134,7 +1146,9 @@ Rectangle {
                         // viewport.
                         FlatToolTip {
                             visible: railToggleMa.containsMouse
+                            //: Tooltip on the rail's edge button
                             text: root.collapsed ? qsTr("Expand panel")
+                                                 //: Tooltip on the rail's edge button
                                                  : qsTr("Collapse panel")
                         }
                     }
@@ -1155,6 +1169,7 @@ Rectangle {
                 Text {
                     Layout.fillWidth: true
                     visible: !root.collapsed
+                    //: Rail title
                     text: qsTr("Project")
                     color: Theme.textPrimary
                     font.family: Theme.fontFamily
@@ -1165,6 +1180,7 @@ Rectangle {
                 Text {
                     visible: !root.collapsed
                     text: WindowManager.project
+                          //: Count of items, in parentheses
                           ? qsTr("(%1)").arg(
                               WindowManager.project.flatItems.length)
                           : ""
@@ -1240,7 +1256,7 @@ Rectangle {
                     Layout.rightMargin: Theme.paddingTight
                     Layout.topMargin: Theme.paddingTight
                     color: Theme.card
-                    radius: Theme.radiusBase
+                    radius: Theme.radius
                     clip: true
                     // Track the ANIMATED list height (not the
                     // binExpanded flag) so the card grows/shrinks
@@ -1257,9 +1273,10 @@ Rectangle {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         height: Theme.headerHeight
-                        radius: Theme.radiusBase
+                        radius: Theme.radius
                         color: binHeaderMa.containsMouse
-                               ? Theme.surfaceHover : "transparent"
+                               ? Theme.surfaceHover : Theme.hoverIdle
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
 
                         MouseArea {
                             id: binHeaderMa
@@ -1289,6 +1306,7 @@ Rectangle {
                             // right rail.
                             Text {
                                 Layout.fillWidth: true
+                                //: Section title: the project's media bins
                                 text: qsTr("Media")
                                 color: Theme.textMuted
                                 font.family: Theme.fontFamily
@@ -1475,7 +1493,7 @@ Rectangle {
             Layout.rightMargin: Theme.paddingTight
             Layout.topMargin: Theme.paddingTight
             color: Theme.card
-            radius: Theme.radiusBase
+            radius: Theme.radius
             clip: true
             // Track the ANIMATED well height (see mediaCard) so the
             // card grows/shrinks with the collapse ease.
@@ -1489,9 +1507,10 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 height: Theme.headerHeight
-                radius: Theme.radiusBase
+                radius: Theme.radius
                 color: dualViewsHeadMa.containsMouse
-                       ? Theme.surfaceHover : "transparent"
+                       ? Theme.surfaceHover : Theme.hoverIdle
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
 
                 MouseArea {
                     id: dualViewsHeadMa
@@ -1518,6 +1537,7 @@ Rectangle {
                     }
                     Text {
                         Layout.fillWidth: true
+                        //: Media bin heading
                         text: qsTr("Dual Views")
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
@@ -1582,7 +1602,7 @@ Rectangle {
             Layout.rightMargin: Theme.paddingTight
             Layout.topMargin: Theme.paddingTight
             color: Theme.card
-            radius: Theme.radiusBase
+            radius: Theme.radius
             clip: true
             // Track the ANIMATED well height (see mediaCard) so the
             // card grows/shrinks with the collapse ease. With no
@@ -1599,9 +1619,10 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 height: Theme.headerHeight
-                radius: Theme.radiusBase
+                radius: Theme.radius
                 color: playlistsHeadMa.containsMouse
-                       ? Theme.surfaceHover : "transparent"
+                       ? Theme.surfaceHover : Theme.hoverIdle
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
 
                 MouseArea {
                     id: playlistsHeadMa
@@ -1628,6 +1649,7 @@ Rectangle {
                     }
                     Text {
                         Layout.fillWidth: true
+                        //: Media bin heading
                         text: qsTr("Playlists")
                         color: Theme.textMuted
                         font.family: Theme.fontFamily
@@ -1667,6 +1689,7 @@ Rectangle {
                             onClicked: root.createEmptyPlaylistAndRename()
                             FlatToolTip {
                                 visible: playlistsPlusMa.containsMouse
+                                //: Default name of a new playlist
                                 text: qsTr("New playlist")
                             }
                         }
@@ -1716,6 +1739,7 @@ Rectangle {
                     id: safetyGuidesSection
                     objectName: "safetyGuidesSection"
                     Layout.fillWidth: true
+                    //: Section title
                     title: qsTr("Safety Guides")
                     expanded: false
 
@@ -1757,6 +1781,7 @@ Rectangle {
                             Layout.fillWidth: true
                             Layout.topMargin: Theme.padding
                             spacing: Theme.spacingLoose
+                            //: Row: which safety guide to show
                             SafetyLabel { text: qsTr("Guide") }
                             FlatComboBox {
                                 id: safetyPicker
@@ -1778,6 +1803,7 @@ Rectangle {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: Theme.spacingLoose
+                            //: Row: guide opacity
                             SafetyLabel { text: qsTr("Opacity") }
                             FlatSlider {
                                 id: safetyOpacitySlider
@@ -1795,6 +1821,7 @@ Rectangle {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: Theme.spacingLoose
+                            //: Row: guide line width
                             SafetyLabel { text: qsTr("Width") }
                             FlatSlider {
                                 id: safetyWidthSlider
@@ -1817,6 +1844,7 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: Theme.spacingLoose
                             SafetyLabel {
+                                //: Row: guide line colour
                                 text: qsTr("Color")
                                 Layout.alignment: Qt.AlignTop
                                 topPadding: 2
@@ -1860,6 +1888,7 @@ Rectangle {
                     id: backgroundSection
                     objectName: "backgroundSection"
                     Layout.fillWidth: true
+                    //: Section title
                     title: qsTr("Background")
                     expanded: false
 
@@ -1876,27 +1905,31 @@ Rectangle {
                                 //  checker:true → 4×4 mini checker
                                 //  using the shader's actual tile
                                 //  colors for honest preview.
+                                //: Background choice
                                 { id: 0, label: qsTr("Black"),       checker: false,
                                   c1: "#000000", c2: "#000000" },
+                                //: Background choice
                                 { id: 1, label: qsTr("Dark Gray"),   checker: false,
                                   // #1f1f1f = Theme.toolbar, the fill
                                   // INSIDE the media for bgMode 1
                                   // (outside falls to #161616); keep
                                   // matched with both compositors.
                                   c1: "#1f1f1f", c2: "#1f1f1f" },
+                                //: Background choice: a dark checkerboard
                                 { id: 2, label: qsTr("Dark Check"),  checker: true,
                                   // Tile greys shared by both
                                   // compositors (metal_compositor.mm
                                   // bg_fs / d3d11_compositor.cpp
                                   // backgroundColor).
                                   c1: "#2e2e2e", c2: "#1f1f1f" },
+                                //: Background choice: a light checkerboard
                                 { id: 3, label: qsTr("Light Check"), checker: true,
                                   c1: "#cccccc", c2: "#b3b3b3" },
                             ]
                             delegate: Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 44
-                                radius: 0
+                                radius: Theme.radiusSmall
                                 readonly property int  v: modelData.id
                                 readonly property bool isCurrent:
                                     WindowManager.backgroundMode === v
@@ -1989,6 +2022,7 @@ Rectangle {
                     id: outputSection
                     objectName: "outputSection"
                     Layout.fillWidth: true
+                    //: Section: installed outputs (NDI, AJA, streaming)
                     title: qsTr("Output")
                     expanded: false
 
@@ -2011,8 +2045,8 @@ Rectangle {
                             FlatButton {
                                 Layout.preferredHeight: 20
                                 checkable: true
-                                cornerRadius: 0
                                 uncheckedFill: Theme.surfaceHover
+                                //: Chip: silence the audio sent to outputs
                                 text: qsTr("Mute feed")
                                 tooltipText: qsTr("Silence the audio sent to outputs while you "
                                                 + "keep listening. The master mute (M) silences both.")
@@ -2022,8 +2056,8 @@ Rectangle {
                             FlatButton {
                                 Layout.preferredHeight: 20
                                 checkable: true
-                                cornerRadius: 0
                                 uncheckedFill: Theme.surfaceHover
+                                //: Chip: send the safety guides to outputs
                                 text: qsTr("Guides")
                                 tooltipText: qsTr("Draw the safety guides into the outputs that ask for them.")
                                 checked: WindowManager.outputs ? WindowManager.outputs.includeGuides : true
@@ -2032,8 +2066,8 @@ Rectangle {
                             FlatButton {
                                 Layout.preferredHeight: 20
                                 checkable: true
-                                cornerRadius: 0
                                 uncheckedFill: Theme.surfaceHover
+                                //: Chip: send note strokes to outputs
                                 text: qsTr("Notes")
                                 tooltipText: qsTr("Draw note strokes into the outputs that ask for them.")
                                 checked: WindowManager.outputs ? WindowManager.outputs.includeAnnotations : true
@@ -2087,10 +2121,8 @@ Rectangle {
                                     font.pixelSize: Theme.fontSizeSmall
                                     centerContent: true
                                     enabled: cardHeader.running || cardHeader.canStart
-                                    // On a card plane buttons take the plane's corners:
-                                    // a raised Start, a rounded danger Stop.
                                     variant: cardHeader.running ? "danger" : "raised"
-                                    cornerRadius: Theme.radiusBase
+                                    //: Button on an output card
                                     text: cardHeader.running ? qsTr("Stop") : qsTr("Start")
                                     onClicked: cardHeader.clicked()
                                 }
@@ -2118,16 +2150,20 @@ Rectangle {
                                 property bool expanded: root.outputCardsExpanded
                                 readonly property int transfer: modelData.transfer || 1
                                 readonly property string transferName:
+                                    //: Output transfer choice
                                     transfer === 2 ? qsTr("PQ Rec.2100") : transfer === 3 ? qsTr("HLG Rec.2100") : qsTr("SDR Rec.709")
                                 readonly property string rasterName:
+                                    //: Output resolution choice
                                     modelData.raster === 1 ? qsTr("1080p") : modelData.raster === 2 ? qsTr("UHD") : qsTr("Auto")
                                 // Closed: the settings in one line, or the sink's
                                 // own line while live. Open: the sink's line only;
                                 // the controls say the rest.
                                 readonly property string liveDetail: !modelData.enabled ? ""
                                     : modelData.present
+                                      //: Output state: the sink is receiving
                                       ? (modelData.shape.length > 0 ? modelData.shape : qsTr("attached"))
                                         + (modelData.status.length > 0 ? "  ·  " + modelData.status : "")
+                                      //: Output state
                                       : qsTr("waiting for the sink")
                                 readonly property string settingsSummary:
                                     (modelData.rasterSettable ? rasterName + "  ·  " : "") + transferName
@@ -2153,8 +2189,13 @@ Rectangle {
                                               : "")
                                            + (outCard.modelData.enabled
                                               ? "  ·  " + (outCard.modelData.present
-                                                           ? (outCard.modelData.accepted ? qsTr("live") : qsTr("refused"))
+                                                           //: Output state
+                                                           ? (outCard.modelData.accepted ? qsTr("live")
+                                                              //: Output state: the sink refused the connection
+                                                              : qsTr("refused"))
+                                                           //: Output state
                                                            : qsTr("starting"))
+                                              //: Output state
                                               : (outCard.modelData.installed ? "" : "  ·  " + qsTr("not installed")))
                                     help: qsTr("Publish the viewport and the mixed audio to "
                                              + "this output. The sink runs as its own "
@@ -2181,6 +2222,7 @@ Rectangle {
                                         Layout.preferredWidth: 130
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSmall
+                                        //: Output transfer choice
                                         model: [qsTr("SDR Rec.709"), qsTr("PQ Rec.2100"), qsTr("HLG Rec.2100")]
                                         currentIndex: Math.max(0, Math.min(2, outCard.transfer - 1))
                                         onActivated: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "transfer", currentIndex + 1)
@@ -2193,6 +2235,7 @@ Rectangle {
                                         Layout.preferredWidth: 96
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSmall
+                                        //: Output resolution choice
                                         model: [qsTr("Auto"), qsTr("1080p"), qsTr("UHD")]
                                         currentIndex: Math.max(0, Math.min(2, outCard.modelData.raster || 0))
                                         onActivated: WindowManager.outputs.setOutputSetting(outCard.modelData.id, "raster", currentIndex)
@@ -2214,6 +2257,7 @@ Rectangle {
                                     }
                                     Text {
                                         Layout.fillWidth: true
+                                        //: Caption under three number fields
                                         text: qsTr("peak · MaxCLL · MaxFALL nits")
                                         color: Theme.textMuted
                                         font.family: Theme.fontFamily
@@ -2289,10 +2333,15 @@ Rectangle {
                             // the line under it (a sentence while reconnecting).
                             function stateWord(st) {
                                 if (!st) return ""
+                                //: Output state
                                 if (st.indexOf("streaming") === 0)    return qsTr("streaming")
+                                //: Output state
                                 if (st.indexOf("reconnecting") === 0) return qsTr("reconnecting")
+                                //: Output state
                                 if (st.indexOf("connecting") === 0)   return qsTr("connecting")
+                                //: Output state
                                 if (st.indexOf("error") === 0)        return qsTr("failed")
+                                //: Output state
                                 return qsTr("starting")
                             }
                             readonly property string detail: {
@@ -2315,8 +2364,11 @@ Rectangle {
                             // The encoder settings in one line while closed.
                             readonly property string settingsSummary: !st ? "" :
                                 qsTr("%1 kbps").arg(st.bitrateKbps || 6000) + "  ·  " + (st.resolution || "1080p")
+                                //: Frame rate choice: follow the source
                                 + "  ·  " + (st.fpsMode === "auto" || !st.fpsMode ? qsTr("Auto fps") : qsTr("%1 fps").arg(st.fpsMode))
+                                //: H.264 profile name, keep in English
                                 + "  ·  " + (st.profile === "main" ? qsTr("Main") : qsTr("Baseline"))
+                                //: Summary: the stream sends video only
                                 + "  ·  " + (Number(st.audioKbps) === 0 ? qsTr("no audio") : qsTr("AAC %1").arg(st.audioKbps || 160))
                                 + "  ·  " + qsTr("SRT %1 ms").arg(st.srtLatencyMs || 120)
 
@@ -2325,11 +2377,14 @@ Rectangle {
                                 onToggleRequested: streamBlock.expanded = !streamBlock.expanded
                                 running: streamBlock.running
                                 canStart: streamBlock.available
+                                //: Card title: the SRT / RTMP streaming output
                                 label: qsTr("Stream")
                                        + (streamBlock.running
                                           ? "  ·  " + streamBlock.stateWord(streamBlock.st.state)
                                           : (streamBlock.st && streamBlock.st.error && streamBlock.st.error.length > 0
+                                             //: Output state
                                              ? "  ·  " + qsTr("failed")
+                                             //: Output state: this machine cannot encode
                                              : (streamBlock.available ? "" : "  ·  " + qsTr("no hardware encoder"))))
                                 help: qsTr("Send the viewport and the mixed audio to a "
                                          + "streaming server (Louper, or any SRT or RTMP "
@@ -2561,6 +2616,7 @@ Rectangle {
                     id: settingsSection
                     objectName: "settingsSection"
                     Layout.fillWidth: true
+                    //: Section title
                     title: qsTr("Settings")
                     expanded: false
 
@@ -2738,16 +2794,28 @@ Rectangle {
                         color: Theme.textPrimary
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
+                        // A label the rail is too narrow for wraps to a
+                        // second line (German, French) before it elides;
+                        // the row has no fixed height, so it grows.
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
                         elide: Text.ElideRight
                         MouseArea {
                             id: rowLabelMa
                             anchors.fill: parent
                             hoverEnabled: true
                             acceptedButtons: Qt.NoButton
+                            // A label the rail is too narrow for (long
+                            // languages) elides; its tooltip then opens
+                            // with the full label above the help.
                             FlatToolTip {
                                 visible: rowLabelMa.containsMouse
-                                         && rowLabelRoot.help.length > 0
-                                text: rowLabelRoot.help
+                                         && (rowLabelRoot.help.length > 0 || rowLabelRoot.truncated)
+                                text: rowLabelRoot.truncated
+                                      ? (rowLabelRoot.help.length > 0
+                                         ? rowLabelRoot.text + "\n" + rowLabelRoot.help
+                                         : rowLabelRoot.text)
+                                      : rowLabelRoot.help
                             }
                         }
                     }
@@ -2757,6 +2825,7 @@ Rectangle {
                         width: parent ? parent.width - 2 * Theme.paddingTight : 0
                         spacing: Theme.spacingLoose
 
+                        //: Settings group header
                         GroupHeader { label: qsTr("Performance") }
 
                         // Image-seq decode threads.
@@ -2767,6 +2836,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacing
                                 RowLabel {
+                                    //: Image-seq = image sequence
                                     text: qsTr("Image-seq decode threads")
                                     help: qsTr("Applies on next sequence load.")
                                 }
@@ -2796,6 +2866,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacing
                                 RowLabel {
+                                    //: Image-seq = image sequence
                                     text: qsTr("Image-seq cache window")
                                     help: qsTr("Frames cached ahead of the playhead. "
                                              + "Lower = less RAM.")
@@ -2842,10 +2913,12 @@ Rectangle {
                                     font.pixelSize: Theme.fontSizeMono
                                     textFromValue: function(value) {
                                         return value === 0
+                                            //: Choice: follow the source
                                             ? qsTr("Auto")
                                             : value.toString();
                                     }
                                     valueFromText: function(text) {
+                                        //: Choice: follow the source
                                         if (text === qsTr("Auto") || text === "0") return 0;
                                         const n = parseInt(text);
                                         return isNaN(n) ? 0 : n;
@@ -2962,6 +3035,7 @@ Rectangle {
                             }
                         }
 
+                        //: Settings group header
                         GroupHeader { label: qsTr("Interface") }
 
                         // Interface language. The catalogs are compiled
@@ -2997,6 +3071,7 @@ Rectangle {
                             }
                             Text {
                                 visible: I18n.restartRequired
+                                //: Caption under the language picker
                                 text: qsTr("Restart QCView to apply.")
                                 color: Theme.textMuted
                                 font.family: Theme.fontFamily
@@ -3149,6 +3224,7 @@ Rectangle {
 
                         // Software updates (macOS / Sparkle only).
                         GroupHeader {
+                            //: Settings group header
                             label: qsTr("Updates")
                             visible: Qt.platform.os === "osx"
                         }
@@ -3181,6 +3257,7 @@ Rectangle {
                             }
                         }
 
+                        //: Media bin heading
                         GroupHeader { label: qsTr("Audio") }
 
                         // A/V sync offset — separate values for
@@ -3198,6 +3275,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacing
                                 RowLabel {
+                                    //: Audio/video offset setting for single-clip playback
                                     text: qsTr("A/V sync (Single)")
                                     help: qsTr("Positive values delay audio to offset "
                                              + "pipeline/display lag. Tune by ear; "
@@ -3232,6 +3310,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacing
                                 RowLabel {
+                                    //: Audio/video offset setting for dual view
                                     text: qsTr("A/V sync (Dual)")
                                     help: qsTr("Positive values delay audio to offset "
                                              + "pipeline/display lag. Dual's latency "
@@ -3329,6 +3408,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacing
                                 RowLabel {
+                                    //: Audio/video offset setting for bridge feeds
                                     text: qsTr("A/V sync (Live)")
                                     help: qsTr("Positive values delay the bridge audio; "
                                              + "negative values hold the picture. Kept "

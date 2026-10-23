@@ -3,8 +3,8 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import Qcv
 
-// Flat squared-corner button matching the sister app's visual
-// vocabulary. Variants:
+// Flat button matching the sister app's visual vocabulary (softly
+// rounded since the humanist pass, 2026-10-23). Variants:
 //   - "default": transparent idle, surfaceHover on hover
 //   - "primary": accent-blue fill
 //   - "danger":  error-red fill (stays red even when disabled)
@@ -12,19 +12,20 @@ import Qcv
 //                on hover) — marks an actionable button without
 //                spending the accent-blue, which some toolstrips
 //                reserve for state (e.g. the dual-view mode row).
-//   - "raised":  affordance-gray fill at rest with radiusBase
-//                corners (aesthetics pass 1) — for buttons sitting
-//                on InspectorCard planes, where a transparent-idle
-//                button reads as loose text instead of a control.
+//   - "raised":  affordance-gray fill at rest (aesthetics pass 1) —
+//                for buttons sitting on InspectorCard planes, where a
+//                transparent-idle button reads as loose text instead
+//                of a control.
 //
 // Use:
 //   FlatButton { text: "Save"; variant: "primary"; onClicked: ... }
 //   FlatButton { iconName: "x"; tooltipText: qsTr("Close") }
 //   FlatButton { iconName: "trash"; text: "Delete"; variant: "danger" }
 //
-// Hover is an instant color swap (no Transition) — that snappy
-// reactivity is what makes the UI feel flat rather than
-// skeuomorphic.
+// Hover ramps the fill over Theme.hoverMs and a press steps one
+// shade past hover (the humanist pass): the button answers the
+// finger, not just the cursor. The idle fill is Theme.hoverIdle,
+// the hover grey at alpha 0, so the ramp only ever fades in.
 //
 // Tooltips: set `tooltipText` and the button shows a styled flat
 // tooltip on hover. Don't use the attached `ToolTip.text/visible`
@@ -42,12 +43,10 @@ Button {
     // width (Layout.maximumWidth / fillWidth). ElideNone keeps the
     // natural width, as before.
     property int    elideMode: Text.ElideNone
-    // Corner rounding. Raised defaults to radiusBase for buttons
-    // sitting on card planes; INLINE toolbar buttons (e.g. the
-    // dual-view bar's mode toggles) override to 0 — inline elements
-    // stay squared per the app's base corner language.
-    property int    cornerRadius: variant === "raised"
-                                  ? Theme.radiusBase : Theme.radius
+    // Corner rounding: the control radius for every variant. A caller
+    // overrides it only for a cell that must butt flush against its
+    // neighbours.
+    property int    cornerRadius: Theme.radiusSmall
 
     // When true, the checked state draws no accent border and no
     // fill — only the text/icon color shifts via checkedColor.
@@ -90,7 +89,7 @@ Button {
             if (root.checked && !root.subtleChecked) return root.checkedFill
             if (!root.checked && root.uncheckedFill.a > 0) return root.uncheckedFill
             if (root.variant === "raised")  return Theme.affordanceIdle
-            return "transparent"
+            return Theme.hoverIdle
         }
         readonly property color bgHover: {
             if (root.variant === "primary") return Theme.accentHover
@@ -100,6 +99,16 @@ Button {
             if (!root.checked && root.uncheckedFill.a > 0) return Qt.lighter(root.uncheckedFill, 1.25)
             if (root.variant === "raised")  return Theme.affordanceHover
             return Theme.surfaceHover
+        }
+        // Pressed: one step past hover.
+        readonly property color bgPressed: {
+            if (root.variant === "primary" || root.variant === "danger")
+                return Qt.darker(bgHover, 1.15)
+            if (root.variant === "subtle")  return Qt.lighter(Theme.borderStrong, 1.2)
+            if (root.checked && !root.subtleChecked) return Qt.lighter(root.checkedFill, 1.2)
+            if (!root.checked && root.uncheckedFill.a > 0) return Qt.lighter(root.uncheckedFill, 1.45)
+            if (root.variant === "raised")  return Qt.lighter(Theme.affordanceHover, 1.2)
+            return Theme.affordanceHover
         }
         readonly property color fg: {
             // Danger keeps its red text even when disabled — a
@@ -137,8 +146,10 @@ Button {
 
     background: Rectangle {
         radius: root.cornerRadius
-        color: root.hovered ? pal.bgHover : pal.bgIdle
+        color: root.down ? pal.bgPressed
+             : root.hovered ? pal.bgHover : pal.bgIdle
         border.width: 0
+        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
     }
 
     // Natural width from the label's unelided text, so an eliding label

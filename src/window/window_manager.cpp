@@ -5976,6 +5976,7 @@ bool WindowManager::deleteMediaItems(const QStringList &ids)
     const QString msg = (removed == 1)
         ? tr("Removed %1").arg(firstName)
         : tr("Removed %1 items").arg(removed);
+    //: Toast button
     toastAction(msg, 1, tr("Undo"),
                 QStringLiteral("undo-media-delete"));
     return true;

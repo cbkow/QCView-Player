@@ -298,6 +298,7 @@ QString containerFormatName(AVFormatContext *ctx, const QString &filePath)
 
     if (ctx->iformat && ctx->iformat->long_name)
         return QString::fromUtf8(ctx->iformat->long_name);
+    //: Media kind
     return name.isEmpty() ? QCoreApplication::translate("FFmpegMetadataExtractor", "Unknown") : name;
 }
 

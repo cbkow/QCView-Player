@@ -35,6 +35,9 @@ Item {
 
     visible: opened
     focus: opened
+    // Fades in over Theme.popupMs like the popups; closes at once.
+    opacity: opened ? 1 : 0
+    Behavior on opacity { NumberAnimation { duration: Theme.popupMs } }
 
     function close() { host.opened = false; }
 
@@ -102,6 +105,7 @@ Item {
                 }
                 FlatButton {
                     iconName: "x"
+                    //: Tooltip on a dialog's close button
                     tooltipText: qsTr("Close")
                     onClicked: host.close()
                 }

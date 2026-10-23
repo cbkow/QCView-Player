@@ -901,14 +901,18 @@ QString OCIOConfigManager::clipBadge(const QString &clipId) const
     if (it->input && !it->input->isEmpty()) {
         parts << m_shortNames.value(*it->input, colourspace_names::shortName(*it->input));
     }
+    //: Badge name in the viewport's chain summary
     if (it->look && !it->look->isEmpty()) parts << tr("Look");
     if (it->sceneLut && !it->sceneLut->path.isEmpty()) {
         const QString ext = QFileInfo(it->sceneLut->path).suffix().toLower();
         parts << ((ext == QLatin1String("cc") || ext == QLatin1String("ccc")
+                   //: Badge name in the viewport's chain summary
                    || ext == QLatin1String("cdl")) ? tr("CDL") : tr("LUT"));
     }
+    //: Badge name in the viewport's chain summary
     if (it->knee && it->knee->enabled) parts << tr("Knee");
     // Only empty slots set (e.g. a preset's "no Look"): still its own chain.
+    //: Badge name in the viewport's chain summary
     return parts.isEmpty() ? tr("Clip chain") : parts.join(QStringLiteral(" + "));
 }
 
@@ -918,10 +922,13 @@ QString OCIOConfigManager::clipBadgeTooltip(const QString &clipId) const
     const auto it = m_pins.constFind(clipId);
     if (clipId.isEmpty() || it == m_pins.constEnd() || it->empty()) return {};
     QStringList lines{tr("Set on this clip:")};
+    //: No input set
     if (it->input) lines << tr("Input: %1").arg(it->input->isEmpty() ? tr("(none)") : *it->input);
+    //: No input set
     if (it->look)  lines << tr("Look: %1").arg(it->look->isEmpty() ? tr("(none)") : *it->look);
     if (it->sceneLut) {
         lines << tr("Scene LUT: %1").arg(it->sceneLut->path.isEmpty()
+                                             //: No input set
                                              ? tr("(none)")
                                              : QFileInfo(it->sceneLut->path).fileName());
     }

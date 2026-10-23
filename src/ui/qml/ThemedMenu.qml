@@ -2,38 +2,22 @@ import QtQuick
 import QtQuick.Controls
 import Qcv
 
-// Project-themed Menu wrapper.
+// Project-themed Menu. Since the humanist pass (2026-10-23) its rows are
+// ThemedMenuItem (declare that type inline too, never a plain MenuItem):
+// the look no longer depends on the Fusion palette (which follows the OS
+// colour scheme on Windows: the 2.5.9 light-mode label bug). Rounded like the other popups, the rows
+// rounded like buttons, the row fill ramping over Theme.hoverMs, the
+// menu fading in over Theme.popupMs.
 //
-// Two jobs:
-//   1. Force popupType: Popup.Window so the popup z-orders above
-//      the player's child HWND on Windows (F.2.1 invariant). All
-//      menu sites in QCView need this; centralising avoids the
-//      previous duplication of the inline assignment + comment.
-//   2. Recolor the popup to our Theme so the parent menu and its
-//      submenus read as the same surface. Fusion's defaults gave
-//      a noticeably different fill in the top-level popup window
-//      vs the MenuBar's in-scene parent.
-//
-// Item-level colors flow via `palette` — Fusion respects palette
-// roles for menu items, so we don't need a custom contentItem or
-// per-item delegate to recolor the rows.
+// popupType stays Popup.Window: the popup must z-order above the player
+// child HWND on Windows (F.2.1). A popup window is created transparent,
+// so the rounded corners show what is behind them.
 Menu {
     id: themedMenu
-
-    // popupType: Popup.Window is REQUIRED so the popup z-orders
-    // above the player's child HWND on Windows (F.2.1 invariant).
-    // Popup.Item renders in-scene, which tucks the menu behind the
-    // player HWND whenever the menu geometrically overlaps the
-    // centerStage area.
-    //
-    // Known issue (deferred 2026-05-14): with Popup.Window, Qt 6.11
-    // menus opened via MenuBar leak click events through to QML
-    // items underneath the popup (e.g. LeftRail rows). modal:true
-    // does NOT prevent this on Window-type popups — the modal
-    // overlay isn't created in the parent scene. Revisit if/when
-    // Qt fixes this, or build a manual scene-overlay that's enabled
-    // while any menu is open.
     popupType: Popup.Window
+    padding: 3
+    overlap: 1
+    enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.popupMs } }
 
     background: Rectangle {
         implicitWidth:  200
@@ -41,8 +25,13 @@ Menu {
         color:        Theme.surface
         border.color: Theme.border
         border.width: 1
+        radius:       Theme.radius
     }
 
+    delegate: ThemedMenuItem { }
+
+    // The palette still reaches anything the delegate does not draw (a
+    // plain MenuItem a caller drops in, a MenuSeparator).
     palette.window:           Theme.surface
     palette.windowText:       Theme.textPrimary
     palette.base:             Theme.surface
@@ -55,8 +44,6 @@ Menu {
     palette.midlight:         Theme.surfaceHover
     palette.dark:             Theme.bg
     palette.shadow:           Theme.bg
-
-    // Disabled-state group — greyed-out menu items.
     palette.disabled.text:       Theme.textMuted
     palette.disabled.windowText: Theme.textMuted
     palette.disabled.buttonText: Theme.textMuted

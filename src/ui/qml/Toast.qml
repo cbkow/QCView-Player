@@ -92,7 +92,7 @@ Popup {
     }
 
     background: Rectangle {
-        radius: Theme.radiusBase
+        radius: Theme.radius
         color: Theme.card
         border.color: Theme.borderStrong
         border.width: 1
@@ -128,7 +128,7 @@ Popup {
                 font.pixelSize: Theme.fontSizeBase
             }
             // Action button (undo toasts). Raised + rounded — it
-            // carries a text label, so it keeps radiusBase per the
+            // carries a text label, so it keeps the control radius per the
             // corner rule (only icon-only inline buttons square off).
             FlatButton {
                 visible: root.actionLabel.length > 0

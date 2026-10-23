@@ -119,12 +119,14 @@ Rectangle {
                               ? WindowManager.timeline.timer : null;
                     const _refresh = t ? t.position : 0;
                     const _src     = WindowManager.imageSeqActive;
+                    //: Status well with no value yet
                     if (!t) return qsTr("Time —");
                     if (root.isPlaylistMode) {
                         return root.fmtSec(t.position) + " / "
                              + root.fmtSec(t.duration);
                     }
                     const fc = WindowManager.frameCountUnified();
+                    //: Status well with no value yet
                     if (fc <= 0) return qsTr("Frame —");
                     // Source-of-truth frame number — the active decoder's
                     // own currentFrame (dual master / video source / image-
@@ -211,6 +213,7 @@ Rectangle {
             visible: WindowManager.hasInOutRange && !root.isPlaylistMode
             spacing: Theme.spacingLoose
             Text {
+                //: Badge: an in/out range is set
                 text: qsTr("RANGE")
                 color: Theme.accent
                 font.family: Theme.fontFamily
@@ -224,6 +227,7 @@ Rectangle {
                     const inP  = WindowManager.inPoint;
                     const outP = WindowManager.outPoint;
                     if (inP < 0 || outP <= inP) return "";
+                    //: Range length in frames, abbreviated
                     return qsTr("%1 fr").arg(outP - inP + 1);
                 }
                 color: Theme.textPrimary
@@ -268,6 +272,7 @@ Rectangle {
                         fps = t ? t.frameRate : 0;
                     }
                     if (inP < 0 || outP <= inP || fps <= 0) return "";
+                    //: Range length in seconds
                     return qsTr("%1 s")
                         .arg(((outP - inP + 1) / fps).toFixed(2));
                 }
@@ -320,11 +325,12 @@ Rectangle {
         width: 210
         padding: Theme.padding
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.popupMs } }
         background: Rectangle {
             color: Theme.surface
             border.width: 1
             border.color: Theme.divider
-            radius: Theme.radiusSmall
+            radius: Theme.radius
         }
 
         function openFor(mode, anchorItem) {
@@ -395,9 +401,12 @@ Rectangle {
             spacing: Theme.spacing
             Text {
                 text: goToPopup.mode === "frame"
+                          //: Popup title
                           ? qsTr("GO TO FRAME")
                       : goToPopup.mode === "timecode"
+                          //: Popup title
                           ? qsTr("GO TO TIMECODE")
+                          //: Popup title
                           : qsTr("GO TO TIME")
                 color: Theme.textSecondary
                 font.family: Theme.fontFamily
@@ -413,9 +422,12 @@ Rectangle {
                 color: goToPopup.entryError
                        ? Theme.warn : Theme.textPrimary
                 placeholderText: goToPopup.mode === "frame"
+                                     //: Field placeholder
                                      ? qsTr("frame number")
                                  : goToPopup.mode === "timecode"
+                                     //: Field placeholder: timecode
                                      ? qsTr("HH:MM:SS:FF")
+                                     //: Field placeholder: time
                                      : qsTr("MM:SS.mmm")
                 onTextEdited: goToPopup.entryError = false
                 onAccepted: goToPopup.commit()

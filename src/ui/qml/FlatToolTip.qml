@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import Qcv
 
-// Universal flat tooltip — opaque dark grey background, squared
+// Universal flat tooltip — opaque dark grey background, softly rounded
 // corners, single-line subtle border, Inter at fontSizeSmall.
 //
 // Use as a child of a hover target:
@@ -37,7 +37,7 @@ ToolTip {
         color:  "#0e0e0e"
         border.color: Theme.border
         border.width: Theme.borderWidth
-        radius: 0
+        radius: Theme.radiusSmall
     }
     contentItem: Text {
         text:  root.text

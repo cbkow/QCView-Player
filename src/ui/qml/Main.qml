@@ -247,6 +247,8 @@ ApplicationWindow {
             FlatButton {
                 Layout.alignment: Qt.AlignRight
                 text: qsTr("OK")
+                variant: "raised"
+                Layout.preferredHeight: Theme.rowHeightTall
                 onClicked: projectErrorDialog.close()
             }
         }
@@ -296,60 +298,61 @@ ApplicationWindow {
 
         ColumnLayout {
             width: parent.width
-            spacing: Theme.spacing
-
-            Text {
-                text: qsTr("Stream URL")
+            spacing: Theme.spacingTight
+            component FieldLabel: Text {
+                property bool first: false
+                Layout.topMargin: first ? 0 : Theme.spacingLoose
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
             }
+            FieldLabel { text: qsTr("Stream URL"); first: true }
             FlatTextField {
                 id: streamUrlField
                 Layout.fillWidth: true
+                Layout.preferredHeight: Theme.rowHeightTall
+                font.pixelSize: Theme.fontSizeBase
                 placeholderText: "srt://host:9998?mode=caller"
                 onAccepted: openStreamModal.connectStream()
             }
-            Text {
-                text: qsTr("Name (optional)")
-                color: Theme.textMuted
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeSmall
-            }
+            FieldLabel { text: qsTr("Name (optional)") }
             FlatTextField {
                 id: streamNameField
                 Layout.fillWidth: true
+                Layout.preferredHeight: Theme.rowHeightTall
+                font.pixelSize: Theme.fontSizeBase
                 placeholderText: qsTr("defaults to host:port")
                 onAccepted: openStreamModal.connectStream()
             }
-            Text {
-                text: qsTr("Passphrase (optional)")
-                color: Theme.textMuted
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeSmall
-            }
+            FieldLabel { text: qsTr("Passphrase (optional)") }
             FlatTextField {
                 id: streamPassField
                 Layout.fillWidth: true
+                Layout.preferredHeight: Theme.rowHeightTall
+                font.pixelSize: Theme.fontSizeBase
                 echoMode: TextInput.Password
                 onAccepted: openStreamModal.connectStream()
             }
         }
         RowLayout {
             width: parent.width
+            spacing: Theme.spacingLoose
             Item { Layout.fillWidth: true }
             FlatButton {
                 text: qsTr("Cancel")
+                variant: "raised"
+                Layout.preferredHeight: Theme.rowHeightTall
                 onClicked: openStreamModal.close()
             }
             FlatButton {
                 text: qsTr("Connect")
+                variant: "primary"
+                Layout.preferredHeight: Theme.rowHeightTall
                 enabled: streamUrlField.text.trim().length > 0
                 onClicked: openStreamModal.connectStream()
             }
         }
     }
-
     // About box — second ModalHost consumer. Opened from the About
     // menu; renders over the dimmed, frozen viewport.
     ModalHost {
@@ -385,18 +388,26 @@ ApplicationWindow {
             width: parent.width
             spacing: 8
             FlatButton {
+                //: Button: open the documentation website
                 text: qsTr("Docs")
+                variant: "raised"
+                Layout.preferredHeight: Theme.rowHeightTall
                 onClicked: Qt.openUrlExternally("https://qcview.app/")
             }
             FlatButton {
                 // Sparkle is macOS-only (see the About menu item).
                 visible: Qt.platform.os === "osx"
                 text: qsTr("Check for Updates…")
+                variant: "raised"
+                Layout.preferredHeight: Theme.rowHeightTall
                 onClicked: WindowManager.checkForUpdates()
             }
             Item { Layout.fillWidth: true }
             FlatButton {
+                //: Button
                 text: qsTr("Close")
+                variant: "raised"
+                Layout.preferredHeight: Theme.rowHeightTall
                 onClicked: aboutModal.close()
             }
         }
@@ -480,7 +491,7 @@ ApplicationWindow {
                 // stale slots with empty text after a reorder.
                 Repeater {
                     model: WindowManager.recentMedia
-                    MenuItem {
+                    ThemedMenuItem {
                         required property string modelData
                         text: {
                             if (!modelData) return "";
@@ -510,14 +521,14 @@ ApplicationWindow {
                 }
                 Repeater {
                     model: WindowManager.recentMedia.length === 0 ? 1 : 0
-                    MenuItem {
+                    ThemedMenuItem {
                         text: qsTr("(none)")
                         enabled: false
                     }
                 }
                 Repeater {
                     model: WindowManager.recentMedia.length > 0 ? 1 : 0
-                    MenuItem {
+                    ThemedMenuItem {
                         text: qsTr("Clear Menu")
                         onTriggered: WindowManager.clearRecentMedia()
                     }
@@ -539,7 +550,7 @@ ApplicationWindow {
                 width: 520                // see recentMediaMenu note above
                 Repeater {
                     model: WindowManager.recentProjects
-                    MenuItem {
+                    ThemedMenuItem {
                         required property string modelData
                         text: {
                             if (!modelData) return "";
@@ -563,14 +574,14 @@ ApplicationWindow {
                 }
                 Repeater {
                     model: WindowManager.recentProjects.length === 0 ? 1 : 0
-                    MenuItem {
+                    ThemedMenuItem {
                         text: qsTr("(none)")
                         enabled: false
                     }
                 }
                 Repeater {
                     model: WindowManager.recentProjects.length > 0 ? 1 : 0
-                    MenuItem {
+                    ThemedMenuItem {
                         text: qsTr("Clear Menu")
                         onTriggered: WindowManager.clearRecentProjects()
                     }
@@ -607,7 +618,7 @@ ApplicationWindow {
             // is on Windows). MenuItem, not Action: only MenuItem has
             // `visible`; height 0 when hidden so it leaves no gap.
             ThemedMenuSeparator { visible: Qt.platform.os !== "osx"; height: visible ? implicitHeight : 0 }
-            MenuItem {
+            ThemedMenuItem {
                 text: qsTr("E&xit")
                 visible: Qt.platform.os !== "osx"
                 height: visible ? implicitHeight : 0
@@ -622,6 +633,7 @@ ApplicationWindow {
             id: viewMenu
             title: qsTr("&View")
             Action {
+                //: View menu: a layout mode
                 text: qsTr("Minimal Mode")
                 shortcut: "Ctrl+0"
                 onTriggered: root.viewMinimal()
@@ -631,6 +643,7 @@ ApplicationWindow {
                 // item whose text starts with "Exit" or "Quit" the
                 // Quit role and merges it into the app menu, so an
                 // "Exit Compact Mode" label took over Cmd+Q (2026-10-07).
+                //: View menu: a layout mode
                 text: qsTr("Compact Mode")
                 shortcut: "Ctrl+Shift+C"
                 checkable: true
@@ -650,6 +663,7 @@ ApplicationWindow {
                 onTriggered: WindowManager.alwaysOnTop = !WindowManager.alwaysOnTop
             }
             Action {
+                //: View menu
                 text: qsTr("Show All Panels")
                 shortcut: "Ctrl+9"
                 onTriggered: root.viewAllPanels()
@@ -681,6 +695,7 @@ ApplicationWindow {
                 // recenters at the first-run default size on the
                 // current screen. Exit fullscreen first so the
                 // reset applies to a normal frame (and persists).
+                //: View menu: reset the window geometry; && is a literal ampersand
                 text: qsTr("Default Size && Position")
                 onTriggered: {
                     if (root.inFullscreen) root.exitFullscreen();
@@ -694,11 +709,13 @@ ApplicationWindow {
             // and we'd rather have a clean text-only menu. Panel
             // visibility is already obvious in the UI itself.
             Action {
+                //: View menu: toggle the left side panel
                 text: qsTr("Left Rail")
                 shortcut: "Ctrl+1"
                 onTriggered: root.leftRailCollapsed = !root.leftRailCollapsed
             }
             Action {
+                //: View menu: toggle the right side panel
                 text: qsTr("Right Rail")
                 shortcut: "Ctrl+2"
                 onTriggered: root.rightRailCollapsed = !root.rightRailCollapsed
@@ -790,13 +807,14 @@ ApplicationWindow {
             // is used because only MenuItem exposes `visible`; ThemedMenu
             // has no custom delegate, so Fusion styles it like the Actions
             // here. height:0 when hidden so it leaves no gap.
-            MenuItem {
+            ThemedMenuItem {
                 text: qsTr("Check for Updates…")
                 visible: Qt.platform.os === "osx"
                 height: visible ? implicitHeight : 0
                 onTriggered: WindowManager.checkForUpdates()
             }
             Action {
+                //: Button: open the documentation website
                 text: qsTr("Docs")
                 onTriggered: Qt.openUrlExternally("https://qcview.app/")
             }
@@ -1502,6 +1520,7 @@ ApplicationWindow {
 
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
+                                //: Title of the separate player window
                                 text: qsTr("Player detached")
                                 font.pixelSize: 16
                                 color: "#888888"
@@ -1707,7 +1726,7 @@ ApplicationWindow {
         visible: WindowManager.viewportNoticeText.length > 0
         width: 760
         height: 240
-        radius: 12
+        radius: Theme.radiusLarge
         color: Qt.rgba(0.071, 0.071, 0.071, 0.92)
         border.color: "#464646"
         border.width: 1
