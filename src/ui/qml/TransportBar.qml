@@ -24,6 +24,7 @@ Pane {
     signal toggleColorPanel()
     signal toggleNotesPanel()
     signal toggleFullscreenRequested()
+    signal toggleCompactRequested()
     signal openVideoRequested()
     // Right-rail / left-rail section reveals — Main.qml expands
     // the named section + force-opens the rail.
@@ -348,7 +349,13 @@ Pane {
             tooltipText: qsTr("Fullscreen (F)")
             onClicked: root.toggleFullscreenRequested()
         }
-
+        // Compact Mode sits with fullscreen: the two ways the window
+        // stops being a workspace.
+        FlatButton {
+            iconName: "arrows-in-simple"
+            tooltipText: qsTr("Compact Mode (Ctrl+Shift+C)")
+            onClicked: root.toggleCompactRequested()
+        }
         // Vertical separator after the fullscreen button.
         Rectangle {
             Layout.preferredWidth: 1
@@ -476,5 +483,21 @@ Pane {
 
         // Push-to-right spacer.
         Item { Layout.fillWidth: true }
+
+        // ---- The pin, flush right -------------------------------------
+        // Always on Top is window state, not a playback control, so it
+        // sits apart from the deck (chris, 2026-10-22). The Compact
+        // strip carries the same pin, so a pin left on in the full UI
+        // shows here.
+        FlatButton {
+            iconName: "push-pin"
+            checkable: true
+            checked: WindowManager.alwaysOnTop
+            Layout.rightMargin: Theme.padding
+            tooltipText: WindowManager.alwaysOnTop
+                ? qsTr("Always on Top — click to unpin (Ctrl+Alt+T)")
+                : qsTr("Always on Top (Ctrl+Alt+T)")
+            onClicked: WindowManager.alwaysOnTop = !WindowManager.alwaysOnTop
+        }
     }
 }

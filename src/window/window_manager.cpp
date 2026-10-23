@@ -304,6 +304,11 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     if (m_timeline) m_timeline->timer()->setLooping(m_loopEnabled);
     if (m_imageSeqCache) m_imageSeqCache->setLooping(m_loopEnabled);
 
+    // Always on Top (the pin) — remembered; applied once the UI window
+    // exists (initialize()).
+    m_alwaysOnTop =
+        settings.value(QStringLiteral("ui/alwaysOnTop"), false).toBool();
+
     // Phase 3.H.6 Stage A — annotation backbone wiring.
     //
     // Stroke completion → AnnotationManager: every time the user
@@ -1515,6 +1520,14 @@ bool WindowManager::initialize()
     connect(m_uiWindow, &QWindow::yChanged,            this, &WindowManager::syncPlayerGeometry);
     connect(m_uiWindow, &QWindow::widthChanged,        this, &WindowManager::syncPlayerGeometry);
     connect(m_uiWindow, &QWindow::heightChanged,       this, &WindowManager::syncPlayerGeometry);
+
+    // Always on Top (the pin): the remembered state goes on the native
+    // window now that it exists. Re-asserted after any state change —
+    // the Qt-native fullscreen fallback resets the level from the
+    // window flags on macOS (windowDidExitFullScreen → setWindowFlags).
+    applyAlwaysOnTop();
+    connect(m_uiWindow, &QWindow::windowStateChanged,
+            this, [this] { applyAlwaysOnTop(); });
 
     return createPlayerWindow();
 }
@@ -6224,6 +6237,9 @@ bool WindowManager::exitBorderlessFullscreen(QWindow *window)
     // fires geometry signals on the next event-loop pass, which the
     // capture should now accept as the live normal frame again.
     if (window == m_uiWindow) m_borderlessFsActive = false;
+    // The helpers restore the pre-fullscreen level (macOS) / drop
+    // WS_EX_TOPMOST (Windows); the pin goes back on top of that.
+    if (window == m_uiWindow) applyAlwaysOnTop();
     return ok;
 }
 
@@ -6242,7 +6258,53 @@ bool WindowManager::setCompactBorderless(QWindow *window, bool on)
     // while compact would restore a taller framed window. Pause the
     // capture; the framed frame comes back on exit.
     if (ok && window == m_uiWindow) m_compactBorderlessActive = on;
+    // Windows: the Compact toggle goes through QWindow::setFlags, and
+    // Qt's style re-apply ends in SetWindowPos(HWND_NOTOPMOST) for any
+    // window without the StaysOnTop flag — the pin would silently go
+    // with every toggle. Re-assert it (a no-op on macOS, where the
+    // styleMask swap leaves the level alone).
+    if (window == m_uiWindow) applyAlwaysOnTop();
     return ok;
+}
+
+// ---- Always on Top (the pin) ---------------------------------------
+// Applied at the OS level (NSWindow.level / SetWindowPos HWND_TOPMOST),
+// never through Qt.WindowStaysOnTopHint: on Windows that flag change
+// re-applies every style with SWP_FRAMECHANGED, which re-measures the
+// expanded client area Compact Mode relies on; on macOS the native
+// Compact / fullscreen helpers already own the styleMask and level.
+// Remembered under ui/alwaysOnTop. Skipped while borderless fullscreen
+// holds the window (the helper owns the level / topmost there and the
+// exit wrapper re-asserts).
+
+bool WindowManager::alwaysOnTop() const
+{
+    return m_alwaysOnTop;
+}
+
+void WindowManager::setAlwaysOnTop(bool on)
+{
+    if (m_alwaysOnTop == on) return;
+    m_alwaysOnTop = on;
+    QSettings s;
+    s.setValue(QStringLiteral("ui/alwaysOnTop"), on);
+    applyAlwaysOnTop();
+    emit alwaysOnTopChanged();
+}
+
+void WindowManager::applyAlwaysOnTop()
+{
+    if (!m_uiWindow || !m_uiWindow->handle()) return;
+    if (m_borderlessFsActive) return;
+    // The Qt-native fullscreen fallback: the OS owns the space; the
+    // pin returns with the window. windowStates() is current inside
+    // windowStateChanged — visibility() is updated only after it.
+    if (m_uiWindow->windowStates().testFlag(Qt::WindowFullScreen)) return;
+#ifdef Q_OS_MACOS
+    qcv::setAlwaysOnTop(m_uiWindow, m_alwaysOnTop);
+#elif defined(Q_OS_WIN)
+    qcv::setAlwaysOnTopWin(m_uiWindow, m_alwaysOnTop);
+#endif
 }
 
 bool WindowManager::isBorderlessFullscreen(QWindow *window) const

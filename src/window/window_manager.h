@@ -120,6 +120,14 @@ class WindowManager : public QObject
                READ alwaysOpenMinimal
                WRITE setAlwaysOpenMinimal
                NOTIFY alwaysOpenMinimalChanged)
+    // Always on Top (the pin): the window above every other app's —
+    // View ▸ Always on Top (Ctrl+Alt+T / ⌥⌘T), the transport row's pin
+    // and the Compact strip's pin are one state. Applied at the OS
+    // level, remembered under ui/alwaysOnTop (see applyAlwaysOnTop).
+    Q_PROPERTY(bool alwaysOnTop
+               READ alwaysOnTop
+               WRITE setAlwaysOnTop
+               NOTIFY alwaysOnTopChanged)
     // Output format for the "save screenshot to Desktop" export —
     // "png" | "jpeg" | "tiff". User-facing export ONLY: note
     // thumbnails and annotation baselines stay PNG (lossless,
@@ -702,6 +710,10 @@ public:
     bool alwaysOpenMinimal() const;
     void setAlwaysOpenMinimal(bool on);
 
+    // Always on Top (see Q_PROPERTY above).
+    bool alwaysOnTop() const;
+    void setAlwaysOnTop(bool on);
+
     // Screenshot export format (see Q_PROPERTY above). Lower-case
     // token: "png" | "jpeg" | "tiff". Read live by screenshotToFile().
     QString screenshotFormat() const;
@@ -1245,6 +1257,7 @@ signals:
     void dragViewportMovesWindowChanged();
     void timelineWaveformsEnabledChanged();
     void alwaysOpenMinimalChanged();
+    void alwaysOnTopChanged();
     void screenshotFormatChanged();
     // User-facing export feedback, surfaced by the StatusStrip.
     // exportStarted fires when an async export (screenshot save) is
@@ -1499,6 +1512,12 @@ private:
     // every caller routes through.
     bool    m_borderlessFsActive      = false;
     bool    m_compactBorderlessActive = false;   // geometry capture paused (content rect ≠ framed rect)
+    // Always on Top (the pin). applyAlwaysOnTop puts m_alwaysOnTop on
+    // the native window; re-run after every chrome transition that
+    // rewrites the level / topmost style (Compact toggles, fullscreen
+    // exit, Qt window-state changes).
+    bool    m_alwaysOnTop             = false;
+    void    applyAlwaysOnTop();
     QTimer *m_windowGeomSaveTimer     = nullptr;
     // ---- UI-over-viewport framework state ----
     bool                   m_modalActive      = false;

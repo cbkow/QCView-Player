@@ -264,6 +264,15 @@ void disableSystemFullscreen(QWindow *qwindow)
     win.collectionBehavior = cb;
 }
 
+void setAlwaysOnTop(QWindow *qwindow, bool on)
+{
+    NSWindow *win = nsWindowFor(qwindow);
+    if (!win) return;
+    const NSInteger level = on ? NSFloatingWindowLevel : NSNormalWindowLevel;
+    if (win.level == level) return;
+    win.level = level;
+}
+
 } // namespace qcv
 
 #endif // Q_OS_MACOS

@@ -4,7 +4,8 @@
 // a native surface and in-scene QML cannot draw above it, and a strip
 // whose height changed on hover would resize that surface). Timecode
 // play / pause and the timecode on the left, a scrub line with the
-// playhead and the in / out marks through the middle, expand (exit) on the right
+// playhead and the in / out marks through the middle, the pin (Always on
+// Top) and expand (exit) on the right
 // (fullscreen stays on F — chris, 2026-10-07). Scrubbing runs
 // the timeline panel's own gesture (scrubBeginAt / scrubMoveTo /
 // scrubEndAt), so dual, playlist, image-sequence and audio sources all
@@ -77,6 +78,7 @@ Rectangle {
             iconSize: Theme.iconSizeToolbar
             Layout.preferredWidth: 22
             Layout.preferredHeight: 22
+            centerContent: true   // 8 px padding + 16 px glyph outgrow the 22 px cell; centre, don't left-align
             enabled: root.loaded
             tooltipText: root.isPlaying ? qsTr("Pause (Space)") : qsTr("Play (Space)")
             onClicked: WindowManager.togglePlayback()
@@ -193,12 +195,31 @@ Rectangle {
             }
         }
 
+        // ---- The pin --------------------------------------------------
+        // Always on Top, the same state as the transport row's pin and
+        // View ▸ Always on Top. Most pinning happens here: notes or a
+        // reference beside another app.
+        FlatButton {
+            iconName: "push-pin"
+            iconSize: Theme.iconSizeToolbar
+            Layout.preferredWidth: 22
+            Layout.preferredHeight: 22
+            centerContent: true   // 8 px padding + 16 px glyph outgrow the 22 px cell; centre, don't left-align
+            checkable: true
+            checked: WindowManager.alwaysOnTop
+            tooltipText: WindowManager.alwaysOnTop
+                ? qsTr("Always on Top — click to unpin (Ctrl+Alt+T)")
+                : qsTr("Always on Top (Ctrl+Alt+T)")
+            onClicked: WindowManager.alwaysOnTop = !WindowManager.alwaysOnTop
+        }
+
         // ---- Expand back to the full UI -----------------------------
         FlatButton {
             iconName: "arrows-out-simple"
             iconSize: Theme.iconSizeToolbar
             Layout.preferredWidth: 22
             Layout.preferredHeight: 22
+            centerContent: true   // 8 px padding + 16 px glyph outgrow the 22 px cell; centre, don't left-align
             tooltipText: qsTr("Exit Compact Mode (Esc)")
             onClicked: root.exitRequested()
         }

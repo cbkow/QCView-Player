@@ -50,6 +50,13 @@ bool setCompactBorderless(QWindow *window, bool on);
 // restore path lands back on.
 void disableSystemFullscreen(QWindow *window);
 
+// Always on Top (the pin): NSFloatingWindowLevel keeps the window over
+// every normal-level window of every app (and under panels / the menu
+// bar); NSNormalWindowLevel is the plain state. In place — the NSWindow
+// is never re-created. Not for a window in borderless fullscreen (that
+// helper owns the level; WindowManager guards).
+void setAlwaysOnTop(QWindow *window, bool on);
+
 } // namespace qcv
 
 #endif // Q_OS_MACOS

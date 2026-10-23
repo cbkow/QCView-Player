@@ -41,6 +41,11 @@ bool isBorderlessFullscreenWin(QWindow *window);
 // fullscreen; a no-op (true) when already as asked.
 bool setCompactBorderlessWin(QWindow *window, bool on);
 
+// Always on Top (the pin): SetWindowPos HWND_TOPMOST / HWND_NOTOPMOST and
+// nothing else — no move, no size, no activation, no SWP_FRAMECHANGED
+// (Compact Mode's expanded client area must not be re-measured).
+void setAlwaysOnTopWin(QWindow *window, bool on);
+
 } // namespace qcv
 
 #endif // Q_OS_WIN

@@ -319,6 +319,17 @@ bool isBorderlessFullscreenWin(QWindow *window)
     return savedStates().contains(hwnd);
 }
 
+void setAlwaysOnTopWin(QWindow *window, bool on)
+{
+    HWND hwnd = hwndOf(window);
+    if (!hwnd) return;
+    const bool topmost = (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+    if (topmost == on) return;
+    SetWindowPos(hwnd, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    qInfo("setAlwaysOnTopWin: %p %s", hwnd, on ? "topmost" : "not topmost");
+}
+
 } // namespace qcv
 
 #endif // Q_OS_WIN

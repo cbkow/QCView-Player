@@ -638,6 +638,18 @@ ApplicationWindow {
                 onTriggered: root.toggleCompact()
             }
             Action {
+                // The pin (2026-10-22): the window above every other
+                // app's — the transport row's and the Compact strip's
+                // pin buttons are the same toggle. Ctrl+Alt+T is clear
+                // of the screenshot keys (T / Ctrl+T need exactly those
+                // modifiers in the C++ filter).
+                text: qsTr("Always on Top")
+                shortcut: "Ctrl+Alt+T"
+                checkable: true
+                checked: WindowManager.alwaysOnTop
+                onTriggered: WindowManager.alwaysOnTop = !WindowManager.alwaysOnTop
+            }
+            Action {
                 text: qsTr("Show All Panels")
                 shortcut: "Ctrl+9"
                 onTriggered: root.viewAllPanels()
@@ -1581,6 +1593,7 @@ ApplicationWindow {
             notesPanelVisible: root.notesPanelVisible
             onToggleNotesPanel: root.notesPanelVisible = !root.notesPanelVisible
             onToggleFullscreenRequested: root.toggleFullscreen()
+            onToggleCompactRequested: root.toggleCompact()
             onOpenVideoRequested: openVideoDialog.open()
             onShowRightRailSection: name => {
                 // Force-open the rail and expand the requested
