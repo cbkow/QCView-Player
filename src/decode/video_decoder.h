@@ -95,6 +95,11 @@ public:
     // published; on inter-frame codecs the keyframe at-or-before
     // is sought first and intermediate frames are decoded silently.
     Q_INVOKABLE void seekToFrame(int frameNo);
+    // Count of seeks the decode thread has performed (the target frame
+    // published). A caller that arms a wait on a seek compares this
+    // before and after, instead of hoping for a frame-changed signal
+    // that never comes when the decoder already sat on the target.
+    unsigned seeksPerformed() const { return m_seeksPerformed.load(std::memory_order_acquire); }
     // Hydrate [first, last] on a network volume after the playhead window
     // (the loop range under review); first < 0 clears. See read_ahead.h.
     void setReadAheadRange(int first, int last);
@@ -362,6 +367,7 @@ private:
     // thread polls + clears. -1 = no pending seek. Cond var wakes the
     // decode thread when it's blocked at EOF or paused.
     std::atomic<int>       m_pendingSeekTarget{-1};
+    std::atomic<unsigned>  m_seeksPerformed{0};
     std::mutex             m_seekCondMutex;
     std::condition_variable m_seekCond;
 

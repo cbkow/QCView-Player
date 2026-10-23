@@ -741,9 +741,31 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
             // landing on the target). Skip intermediate keyframe-
             // rounded frames so the playhead doesn't briefly snap
             // to clip.startTime before settling on the user target.
+            //
+            // The gate releases on any frame AT OR PAST the target
+            // once the decode thread has performed the seek (its
+            // seeksPerformed counter moved past the value taken when
+            // the gate was armed). It used to wait for a frame within
+            // ±1 of the target, and that frame can never arrive: this
+            // slot runs queued on the UI thread and reads the
+            // decoder's live frame counter, so when the first signal
+            // after play() is handled a few frames late (an eight-
+            // channel audio start keeps the UI thread busy) the
+            // counter is already past the window — and when the
+            // decoder was sitting on the target already, republishing
+            // it emits nothing at all. Either way the gate stayed
+            // armed, the playhead froze at the seek position while the
+            // decoder played on, and the audio servo re-seeked to the
+            // frozen time forever (chris, 2026-10-23, Broadcast_Master
+            // in a playlist).
             if (m_playlistSeekTargetFrame >= 0) {
-                if (std::abs(m_videoDecoder->currentFrame()
-                             - m_playlistSeekTargetFrame) > 1) {
+                const int frame = m_videoDecoder->currentFrame();
+                const bool seekDone =
+                    m_videoDecoder->seeksPerformed() != m_playlistSeekSerial;
+                if (!seekDone || frame < m_playlistSeekTargetFrame - 1) {
+                    if (qEnvironmentVariableIntValue("QCV_PLAYLIST_LOG") > 0)
+                        qInfo("playlist mirror: gated — decoder frame %d, target %d, seek done %d",
+                              frame, m_playlistSeekTargetFrame, (int)seekDone);
                     return;
                 }
                 m_playlistSeekTargetFrame = -1;
@@ -5148,6 +5170,10 @@ void WindowManager::applyPlaylistSeek(double pos)
             // (sourceTime - sourceIn) math, briefly snapping the
             // playhead to the new clip's beginning.
             m_playlistSeekTargetFrame = srcFrame;
+            m_playlistSeekSerial = m_videoDecoder->seeksPerformed();
+            if (qEnvironmentVariableIntValue("QCV_PLAYLIST_LOG") > 0)
+                qInfo("playlist seek: pos %.3f s → source %.3f s = frame %d (clip fps %.3f, sourceIn %.3f, decoder at %d, playing %d)",
+                      pos, srcT, srcFrame, clipFps, now->sourceIn, m_videoDecoder->currentFrame(), (int)m_videoDecoder->isPlaying());
             m_videoDecoder->seekToFrame(srcFrame);
         }
         // Reflect the requested timeline position in the timer so

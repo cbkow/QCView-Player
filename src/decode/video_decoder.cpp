@@ -1484,6 +1484,7 @@ void VideoDecoder::decodeLoop()
         if (seekTarget >= 0) {
             m_paceBaselineSet = false;   // discontinuity; reset pacing
             performSeek(seekTarget, pkt, frame, swFrame);
+            m_seeksPerformed.fetch_add(1, std::memory_order_acq_rel);
             eofPacketsSent = false;
             atEof = false;
             setState(Decoding);

@@ -1968,6 +1968,8 @@ private:
     // sourceIn from keyframe-rounded intermediate frames before
     // settling at the user-target source frame.
     int                                   m_playlistSeekTargetFrame = -1;
+    // seeksPerformed() of the decoder when the gate above was armed.
+    unsigned m_playlistSeekSerial = 0;
     // Pair of state for the deferred-resume seek path used by the
     // playlist branch of seekToFrame. The QML release handler used to
     // call WindowManager.videoDecoder.play() immediately after a
