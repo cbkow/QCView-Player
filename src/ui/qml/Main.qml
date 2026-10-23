@@ -478,12 +478,11 @@ ApplicationWindow {
             ThemedMenu {
                 id: recentMediaMenu
                 title: qsTr("Open Recent Media")
-                // Popup.Window doesn't auto-grow to the widest item the
-                // way the in-scene popup does — pin a width that fits
-                // typical media filenames (long render-output names,
-                // dated sequences, etc.) without forcing the user to
-                // hover-to-elide.
-                width: 520
+                // A width that fits typical media filenames (long
+                // render-output names, dated sequences, etc.) without
+                // forcing the user to hover-to-elide; ThemedMenu grows
+                // past it for a longer row.
+                pinnedWidth: 520
                 // Repeater (vs Instantiator + insertItem/removeItem)
                 // — when the list bumps-to-front on click, Repeater
                 // tears down and rebuilds delegates cleanly. Manual
@@ -547,7 +546,7 @@ ApplicationWindow {
             ThemedMenu {
                 id: recentProjectsMenu
                 title: qsTr("Open Recent Project")
-                width: 520                // see recentMediaMenu note above
+                pinnedWidth: 520          // see recentMediaMenu note above
                 Repeater {
                     model: WindowManager.recentProjects
                     ThemedMenuItem {

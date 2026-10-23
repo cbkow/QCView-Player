@@ -865,7 +865,7 @@ Rectangle {
             //: Context menu: set the OCIO input colourspace of the selected clips
             title: qsTr("Input")
             enabled: root.ctxChainIds.length > 0 && !!WindowManager.ocio
-            width: 300   // camera colourspace names run long
+            pinnedWidth: 300   // camera colourspace names run long
             onOpened: {
                 inputFilter.text = "";
                 inputList.currentIndex = -1;

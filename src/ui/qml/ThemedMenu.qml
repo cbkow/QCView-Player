@@ -17,6 +17,19 @@ Menu {
     popupType: Popup.Window
     padding: 3
     overlap: 1
+    // A windowed popup does not grow to its widest row (the in-scene
+    // one does), so the menu measures its rows each time it opens: at
+    // least pinnedWidth (a caller's choice for long file names) or the
+    // 200-px default, wider when a row (German, French) needs it.
+    property real pinnedWidth: 0
+    onAboutToShow: {
+        var w = pinnedWidth > 0 ? pinnedWidth : 200 + leftPadding + rightPadding
+        for (var i = 0; i < count; ++i) {
+            var it = itemAt(i)
+            if (it && it.visible) w = Math.max(w, it.implicitWidth + leftPadding + rightPadding)
+        }
+        width = w
+    }
     enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.popupMs } }
 
     background: Rectangle {
