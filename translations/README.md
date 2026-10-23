@@ -62,7 +62,18 @@ Import refuses a row whose placeholders differ from the English (the
 usual translator slip) and never clears an existing translation with an
 empty cell. `import --keep-unfinished` (or `status` = `machine` on a
 row) fills the text but keeps the review flag; that is how the machine
-pass went in. Commit the `.ts`; the `.qm` files are build products.
+pass went in. After an import, run `update_translations` once more: the
+script's XML writer spaces tags differently from lupdate, and that run
+puts the file back in lupdate's own layout so the diff shows only the
+translations that changed. Commit the `.ts`; the `.qm` files are build
+products. `translations/sheets/` holds an exported sheet per language
+for translators; regenerate them after any import or extraction:
+
+```sh
+for l in en zh_CN ja ko de fr es pt_BR it pl; do
+  scripts/i18n_csv.py export translations/qcview_$l.ts translations/sheets/qcview_$l.csv --all
+done
+```
 
 **Adding a language:** append its code to `QCV_TRANSLATED_LANGUAGES` in
 the top-level `CMakeLists.txt`, configure, run `update_translations`,
@@ -93,4 +104,4 @@ label gets a `//:` comment on the line above so the sheet explains it.
   reads plainly bypasses the catalog; anything clipped needs room.
 
 The language setting itself is Settings ▸ Interface ▸ Language and
-takes effect on the next launch.
+applies at once.

@@ -7,6 +7,11 @@ import Qcv
 // Popup is a flat list with Theme.surfaceHover row hover.
 ComboBox {
     id: root
+    // A dropdown wider than the field, for long entries (the language
+    // picker). It opens right-aligned so the extra width runs leftwards
+    // over the panel, never out over the viewport (whose native surface
+    // would cover an in-scene popup on Windows).
+    property int popupMinWidth: 0
     implicitHeight: 26
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSizeSmall
@@ -47,7 +52,8 @@ ComboBox {
 
     popup: Popup {
         y: root.height
-        width: root.width
+        width: Math.max(root.width, root.popupMinWidth)
+        x: root.width - width
         implicitHeight: contentItem.implicitHeight + topPadding + bottomPadding
         padding: 3
         enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.popupMs } }

@@ -592,7 +592,7 @@ B 的片段——更改仅随此片段保存</translation>
     <message>
         <location line="-143"/>
         <source>Blender&apos;s AgX at the defaults; HDR above 100 nits.</source>
-        <translation type="unfinished">Blender 的 AgX 默认设置；HDR 高于 100 nits。</translation>
+        <translation type="unfinished">Blender 的 AgX，默认参数；100 nits 以上为 HDR。</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -975,7 +975,7 @@ B 的片段——更改仅随此片段保存</translation>
         <location line="+2"/>
         <source>Live</source>
         <extracomment>Media kind: a live stream or bridge feed</extracomment>
-        <translation type="unfinished">实时</translation>
+        <translation type="unfinished">实时源</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -1158,7 +1158,7 @@ B 的片段——更改仅随此片段保存</translation>
         <location line="+42"/>
         <source>Detected</source>
         <extracomment>Pixel aspect choice: the aspect found in the file</extracomment>
-        <translation type="unfinished">检测到</translation>
+        <translation type="unfinished">检测值</translation>
     </message>
     <message>
         <location line="-40"/>
@@ -1476,7 +1476,7 @@ B 的片段——更改仅随此片段保存</translation>
         <location line="+25"/>
         <source>From start</source>
         <extracomment>Timecode origin: counting from the start of the file</extracomment>
-        <translation type="unfinished">从起始计</translation>
+        <translation type="unfinished">从文件开头</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -1635,7 +1635,7 @@ B 的片段——更改仅随此片段保存</translation>
         <location line="-1249"/>
         <source>Live</source>
         <extracomment>Media bin heading</extracomment>
-        <translation type="unfinished">实时</translation>
+        <translation type="unfinished">实时源</translation>
     </message>
     <message>
         <location line="+7"/>
@@ -1720,7 +1720,7 @@ B 的片段——更改仅随此片段保存</translation>
     <message>
         <location line="+1"/>
         <source>Use Clip Chain of the Clip on Screen</source>
-        <translation type="unfinished">使用屏幕上片段的片段链</translation>
+        <translation type="unfinished">使用当前显示片段的片段链</translation>
     </message>
     <message>
         <location line="+7"/>
@@ -1771,7 +1771,7 @@ B 的片段——更改仅随此片段保存</translation>
         <location line="+240"/>
         <source>New playlist</source>
         <extracomment>Default name of a new playlist</extracomment>
-        <translation type="unfinished">新建播放列表</translation>
+        <translation type="unfinished">新播放列表</translation>
     </message>
     <message>
         <location line="+50"/>
@@ -1783,7 +1783,7 @@ B 的片段——更改仅随此片段保存</translation>
         <location line="+42"/>
         <source>Guide</source>
         <extracomment>Row: which safety guide to show</extracomment>
-        <translation type="unfinished">参考框</translation>
+        <translation type="unfinished">安全框</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -1924,7 +1924,7 @@ B 的片段——更改仅随此片段保存</translation>
     <message>
         <location line="-82"/>
         <location line="+82"/>
-        <location line="+673"/>
+        <location line="+679"/>
         <location line="+5"/>
         <source>Auto</source>
         <extracomment>Output resolution choice
@@ -1933,7 +1933,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">自动</translation>
     </message>
     <message>
-        <location line="-753"/>
+        <location line="-759"/>
         <source>attached</source>
         <extracomment>Output state: the sink is receiving</extracomment>
         <translation type="unfinished">已连接</translation>
@@ -2000,7 +2000,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+43"/>
         <source>No outputs installed. An output registers itself in Application Support/QCView/Outputs.</source>
-        <translation type="unfinished">未安装任何输出。输出需在 Application Support/QCView/Outputs 中注册。</translation>
+        <translation type="unfinished">未安装任何输出。输出程序会在 Application Support/QCView/Outputs 中自行注册。</translation>
     </message>
     <message>
         <location line="+33"/>
@@ -2129,7 +2129,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Send the viewport and the mixed audio to a streaming server (Louper, or any SRT or RTMP server) as H.264 + AAC, encoded on the GPU. srt://host:port with the key as the stream id, or rtmp://host/app with the key as the stream name. A dropped connection reconnects on its own. The picture is the same Rec.709 SDR picture the output bus serves; the frame rate is fixed for the session (a paused viewport repeats its last frame).</source>
-        <translation type="unfinished">将视口和混合音频以 H.264 + AAC 的形式发送到流媒体服务器（Louper，或任意 SRT / RTMP 服务器），由 GPU 编码。srt://host:port 以密钥作为 stream id，或 rtmp://host/app 以密钥作为流名称。连接中断后会自动重连。画面与输出总线提供的 Rec.709 SDR 画面相同；帧率在会话期间固定（视口暂停时重复最后一帧）。</translation>
+        <translation type="unfinished">将视口和混合音频以 H.264 + AAC 的形式发送到流媒体服务器（Louper，或任意 SRT / RTMP 服务器），由 GPU 编码。srt://host:port 以推流码作为 stream id，或 rtmp://host/app 以推流码作为流名称。连接中断后会自动重连。画面与输出总线提供的 Rec.709 SDR 画面相同；帧率在会话期间固定（视口暂停时重复最后一帧）。</translation>
     </message>
     <message>
         <location line="+22"/>
@@ -2139,17 +2139,17 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+13"/>
         <source>Stream key (SRT stream id)</source>
-        <translation type="unfinished">流密钥（SRT stream id）</translation>
+        <translation type="unfinished">推流码（SRT stream id）</translation>
     </message>
     <message>
         <location line="+27"/>
         <source>Hide the key</source>
-        <translation type="unfinished">隐藏密钥</translation>
+        <translation type="unfinished">隐藏推流码</translation>
     </message>
     <message>
         <location line="+0"/>
         <source>Show the key</source>
-        <translation type="unfinished">显示密钥</translation>
+        <translation type="unfinished">显示推流码</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -2189,7 +2189,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Baseline is what Louper&apos;s recipe asks for; Main gives better quality per bit where the service accepts it. Never B-frames.</source>
-        <translation type="unfinished">Baseline 是 Louper 方案所要求的；在服务支持的情况下，Main 的每比特画质更好。绝不使用 B 帧。</translation>
+        <translation type="unfinished">Baseline 是 Louper 方案所要求的；在服务支持的情况下，Main 的每比特画质更好。从不使用 B 帧。</translation>
     </message>
     <message>
         <location line="+23"/>
@@ -2202,7 +2202,13 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">来自混合音频的 48 kHz AAC 立体声，位于收听、静音和音量之前。关闭则只发送视频。</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+10"/>
+        <source>Off</source>
+        <extracomment>AAC bitrate choice: no audio in the stream</extracomment>
+        <translation type="unfinished">关</translation>
+    </message>
+    <message>
+        <location line="+14"/>
         <source>SRT latency (ms)</source>
         <translation type="unfinished">SRT 延迟 (ms)</translation>
     </message>
@@ -2228,7 +2234,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">所有偏好设置（最近项目、布局、设置、快捷键）都将被清除，应用随后退出。重新启动以继续。</translation>
     </message>
     <message>
-        <location line="+143"/>
+        <location line="+148"/>
         <source>Performance</source>
         <extracomment>Settings group header</extracomment>
         <translation type="unfinished">性能</translation>
@@ -2253,7 +2259,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Frames cached ahead of the playhead. Lower = less RAM.</source>
-        <translation type="unfinished">播放头之前缓存的帧数。越低占用内存越少。</translation>
+        <translation type="unfinished">沿播放方向预先缓存的帧数。数值越低占用内存越少。</translation>
     </message>
     <message>
         <location line="+30"/>
@@ -2308,17 +2314,20 @@ Choice: follow the source</extracomment>
     </message>
     <message>
         <location line="+1"/>
-        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
-        <translation type="unfinished">界面语言。“系统默认”跟随操作系统设置。下次启动时生效。</translation>
+        <source>Language of the interface. System default follows the OS setting. Applies at once.</source>
+        <translation type="unfinished">界面语言。“系统默认”跟随操作系统设置。立即生效。</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
+        <translation type="obsolete">界面语言。“系统默认”跟随操作系统设置。下次启动时生效。</translation>
+    </message>
+    <message>
         <source>Restart QCView to apply.</source>
         <extracomment>Caption under the language picker</extracomment>
-        <translation type="unfinished">重新启动 QCView 后生效。</translation>
+        <translation type="obsolete">重新启动 QCView 后生效。</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+32"/>
         <source>Always open in minimal mode</source>
         <translation type="unfinished">始终以极简模式打开</translation>
     </message>
@@ -2393,7 +2402,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Positive values delay audio to offset pipeline/display lag. Dual&apos;s latency runs deeper than single. Tune by ear; applies on the next seek or play.</source>
-        <translation type="unfinished">正值延迟音频，以补偿管线/显示延迟。双画面的延迟比单画面更深。凭听感调整；下次定位或播放时生效。</translation>
+        <translation type="unfinished">正值延迟音频，以补偿管线/显示延迟。双画面的延迟比单画面更大。凭听感调整；下次定位或播放时生效。</translation>
     </message>
     <message>
         <location line="+42"/>
@@ -2424,7 +2433,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Positive values delay the bridge audio; negative values hold the picture. Kept per host application. Tune by ear.</source>
-        <translation type="unfinished">正值延迟桥接音频；负值延后画面。按宿主应用分别保存。凭听感调整。</translation>
+        <translation type="unfinished">正值延迟桥接音频；负值延迟画面。按宿主应用分别保存。凭听感调整。</translation>
     </message>
     <message>
         <location line="+31"/>
@@ -2646,7 +2655,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+15"/>
         <source>Open Stream</source>
-        <translation type="unfinished">打开流</translation>
+        <translation type="unfinished">打开网络流</translation>
     </message>
     <message>
         <location line="+45"/>
@@ -2725,7 +2734,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+7"/>
         <source>Open Stream…</source>
-        <translation type="unfinished">打开流…</translation>
+        <translation type="unfinished">打开网络流…</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -2924,7 +2933,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+6"/>
         <source>Click &apos;Reattach&apos; to dock back</source>
-        <translation type="unfinished">点击“重新附加”以停靠回来</translation>
+        <translation type="unfinished">点击“重新附加”以重新停靠</translation>
     </message>
 </context>
 <context>
@@ -2964,7 +2973,7 @@ Choice: follow the source</extracomment>
         <location line="+12"/>
         <source>back to live</source>
         <extracomment>Hover hint on the review pill: a click returns to the live feed</extracomment>
-        <translation type="unfinished">回到实时</translation>
+        <translation type="unfinished">返回实时</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -2993,13 +3002,13 @@ Choice: follow the source</extracomment>
         <location line="+2"/>
         <source>on the frozen frame</source>
         <extracomment>Caption under Add note: the note captures the frozen frame</extracomment>
-        <translation type="unfinished">于冻结帧上</translation>
+        <translation type="unfinished">在冻结帧上</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>freezes the feed</source>
         <extracomment>Caption under Add note: adding a note freezes the live feed</extracomment>
-        <translation type="unfinished">将冻结画面</translation>
+        <translation type="unfinished">会冻结画面</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -3113,7 +3122,7 @@ Choice: follow the source</extracomment>
         <location line="+32"/>
         <source>VIEWER</source>
         <extracomment>Badge: the note was captured with viewer aids active</extracomment>
-        <translation type="unfinished">查看器</translation>
+        <translation type="unfinished">查看辅助</translation>
     </message>
     <message>
         <location line="+28"/>
@@ -3662,22 +3671,22 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+23"/>
         <source>In point not available in playlist mode</source>
-        <translation type="unfinished">播放列表模式下不可设置入点</translation>
+        <translation type="unfinished">播放列表模式下不可标记入点</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Set in point (I)</source>
-        <translation type="unfinished">设置入点 (I)</translation>
+        <translation type="unfinished">标记入点 (I)</translation>
     </message>
     <message>
         <location line="+16"/>
         <source>Out point not available in playlist mode</source>
-        <translation type="unfinished">播放列表模式下不可设置出点</translation>
+        <translation type="unfinished">播放列表模式下不可标记出点</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Set out point (O)</source>
-        <translation type="unfinished">设置出点 (O)</translation>
+        <translation type="unfinished">标记出点 (O)</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -3882,7 +3891,7 @@ Choice: follow the source</extracomment>
         <location line="+28"/>
         <source>VIEWER</source>
         <extracomment>Pill: viewer aids are active</extracomment>
-        <translation type="unfinished">查看器</translation>
+        <translation type="unfinished">查看辅助</translation>
     </message>
     <message>
         <location line="+19"/>
@@ -3921,7 +3930,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+21"/>
         <source>Save as a new dual view</source>
-        <translation type="unfinished">另存为新双画面</translation>
+        <translation type="unfinished">另存为新的双画面</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -4049,7 +4058,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>qcv::I18n</name>
     <message>
-        <location filename="../src/app/i18n.cpp" line="+116"/>
+        <location filename="../src/app/i18n.cpp" line="+137"/>
         <source>System default</source>
         <translation type="unfinished">系统默认</translation>
     </message>
@@ -4121,7 +4130,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+39"/>
         <source>Chain build failed</source>
-        <translation type="unfinished">构建链失败</translation>
+        <translation type="unfinished">链构建失败</translation>
     </message>
     <message>
         <location line="+365"/>
@@ -4451,7 +4460,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>qcv::WindowManager</name>
     <message>
-        <location filename="../src/window/window_manager.cpp" line="+2161"/>
+        <location filename="../src/window/window_manager.cpp" line="+2173"/>
         <source>No clip under the playhead to compare</source>
         <translation type="unfinished">播放头下没有可对比的片段</translation>
     </message>

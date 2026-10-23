@@ -22,6 +22,9 @@
 #include <QString>
 #include <QStringList>
 
+class QQmlEngine;
+class QTranslator;
+
 namespace qcv {
 
 class I18n : public QObject
@@ -31,22 +34,21 @@ class I18n : public QObject
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     // Codes with a bundled catalog, "en" first.
     Q_PROPERTY(QStringList availableLanguages READ availableLanguages CONSTANT)
-    // What install() resolved to for this run.
-    Q_PROPERTY(QString activeLanguage READ activeLanguage CONSTANT)
-    // The setting differs from what this run was installed with.
-    Q_PROPERTY(bool restartRequired READ restartRequired NOTIFY languageChanged)
+    // The catalog in use; follows the setting at once.
+    Q_PROPERTY(QString activeLanguage READ activeLanguage NOTIFY activeLanguageChanged)
 
 public:
     explicit I18n(QObject *parent = nullptr);
 
     // Once, after QGuiApplication exists and before QML loads.
     void install();
+    // The engine whose scene retranslates when the language changes.
+    void attachEngine(QQmlEngine *engine);
 
     QString     language() const;
     void        setLanguage(const QString &code);
     QStringList availableLanguages() const;
     QString     activeLanguage() const;
-    bool        restartRequired() const;
 
     // Native name of a language for pickers ("Deutsch"); "" gives the
     // "System default" label.
@@ -55,11 +57,15 @@ public:
 
 signals:
     void languageChanged();
+    void activeLanguageChanged();
 
 private:
-    QString m_setting;            // the stored choice
-    QString m_installedSetting;   // the choice this run honoured
-    QString m_active;             // the catalog actually loaded
+    void apply(const QString &want);
+
+    QString      m_setting;              // the stored choice
+    QString      m_active;               // the catalog actually loaded
+    QTranslator *m_translator = nullptr; // the installed app catalog
+    QQmlEngine  *m_engine = nullptr;
 };
 
 } // namespace qcv

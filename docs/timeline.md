@@ -72,7 +72,7 @@ You can also drag the edges of the overview-bar zoom indicator to adjust the vis
 
 ## Volume
 
-Adjust the volume slider or click the speaker icon to toggle mute.
+Adjust the volume slider or click the speaker icon to toggle mute. Both are remembered across launches.
 
 | Control | Action | macOS | Windows |
 |---|---|---|---|

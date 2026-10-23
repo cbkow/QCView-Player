@@ -193,7 +193,7 @@
     <message>
         <location line="+2"/>
         <source>The OCIO config — the colourspace, display and view names every column uses</source>
-        <translation type="unfinished">La config OCIO — i nomi di colorspace, display e view usati da ogni colonna</translation>
+        <translation type="unfinished">La config OCIO — i nomi di spazio colore, display e view usati da ogni colonna</translation>
     </message>
     <message>
         <location line="+15"/>
@@ -650,7 +650,7 @@ Clip di B — le modifiche restano su questa clip</translation>
         <location line="+2"/>
         <source>Hue restore</source>
         <extracomment>AgX control: how much of the original hue is kept in bright areas</extracomment>
-        <translation type="unfinished">Ripristino tinta</translation>
+        <translation type="unfinished">Ripristino tonalità</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -684,7 +684,7 @@ Clip di B — le modifiche restano su questa clip</translation>
         <location line="+28"/>
         <source>Correction ID (first)</source>
         <extracomment>Field: the id of the first correction inside a CDL file</extracomment>
-        <translation type="unfinished">ID correzione (prima)</translation>
+        <translation type="unfinished">ID correzione (la prima)</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -767,7 +767,7 @@ Clip di B — le modifiche restano su questa clip</translation>
     <message>
         <location line="+93"/>
         <source>Always on Top — click to unpin (Ctrl+Alt+T)</source>
-        <translation type="unfinished">Sempre in primo piano — clicca per sbloccare (Ctrl+Alt+T)</translation>
+        <translation type="unfinished">Sempre in primo piano — clicca per disattivare (Ctrl+Alt+T)</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -1076,12 +1076,12 @@ Clip di B — le modifiche restano su questa clip</translation>
     <message>
         <location line="+4"/>
         <source>file avg %1</source>
-        <translation type="unfinished">media file %1</translation>
+        <translation type="unfinished">media del file %1</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>file avg</source>
-        <translation type="unfinished">media file</translation>
+        <translation type="unfinished">media del file</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -1097,7 +1097,7 @@ Clip di B — le modifiche restano su questa clip</translation>
     <message>
         <location line="+3"/>
         <source>Bit depth</source>
-        <translation type="unfinished">Profondità bit</translation>
+        <translation type="unfinished">Profondità di bit</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -1145,7 +1145,7 @@ Clip di B — le modifiche restano su questa clip</translation>
     <message>
         <location line="-429"/>
         <source>Aspect</source>
-        <translation type="unfinished">Aspetto</translation>
+        <translation type="unfinished">Proporzioni</translation>
     </message>
     <message>
         <location line="+4"/>
@@ -1195,12 +1195,12 @@ Clip di B — le modifiche restano su questa clip</translation>
     <message>
         <location line="+41"/>
         <source>Pixel aspect</source>
-        <translation type="unfinished">Aspetto pixel</translation>
+        <translation type="unfinished">Proporzioni pixel</translation>
     </message>
     <message>
         <location line="+34"/>
         <source>Display aspect</source>
-        <translation type="unfinished">Aspetto display</translation>
+        <translation type="unfinished">Proporzioni display</translation>
     </message>
     <message>
         <location line="+45"/>
@@ -1534,7 +1534,7 @@ Clip di B — le modifiche restano su questa clip</translation>
         <location line="+3"/>
         <source>Media Created</source>
         <extracomment>Row: the media&apos;s own creation date from its metadata</extracomment>
-        <translation type="unfinished">Media creato</translation>
+        <translation type="unfinished">Creazione media</translation>
     </message>
     <message>
         <location line="+20"/>
@@ -1924,7 +1924,7 @@ Clip di B — le modifiche restano su questa clip</translation>
     <message>
         <location line="-82"/>
         <location line="+82"/>
-        <location line="+673"/>
+        <location line="+679"/>
         <location line="+5"/>
         <source>Auto</source>
         <extracomment>Output resolution choice
@@ -1933,7 +1933,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">Auto</translation>
     </message>
     <message>
-        <location line="-753"/>
+        <location line="-759"/>
         <source>attached</source>
         <extracomment>Output state: the sink is receiving</extracomment>
         <translation type="unfinished">collegato</translation>
@@ -1978,7 +1978,7 @@ Choice: follow the source</extracomment>
         <location line="+148"/>
         <source>starting</source>
         <extracomment>Output state</extracomment>
-        <translation type="unfinished">avvio</translation>
+        <translation type="unfinished">in avvio</translation>
     </message>
     <message>
         <location line="-146"/>
@@ -2208,7 +2208,13 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">AAC stereo a 48 kHz dall&apos;audio mixato, prima di Ascolta, mute e volume. Off invia solo video.</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+10"/>
+        <source>Off</source>
+        <extracomment>AAC bitrate choice: no audio in the stream</extracomment>
+        <translation type="unfinished">Disattivato</translation>
+    </message>
+    <message>
+        <location line="+14"/>
         <source>SRT latency (ms)</source>
         <translation type="unfinished">Latenza SRT (ms)</translation>
     </message>
@@ -2234,7 +2240,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">Tutte le preferenze (recenti, layout, impostazioni, scorciatoie) verranno cancellate e l&apos;app si chiuderà. Riavviala per continuare.</translation>
     </message>
     <message>
-        <location line="+143"/>
+        <location line="+148"/>
         <source>Performance</source>
         <extracomment>Settings group header</extracomment>
         <translation type="unfinished">Prestazioni</translation>
@@ -2243,7 +2249,7 @@ Choice: follow the source</extracomment>
         <location line="+11"/>
         <source>Image-seq decode threads</source>
         <extracomment>Image-seq = image sequence</extracomment>
-        <translation type="unfinished">Thread decodifica seq. immagini</translation>
+        <translation type="unfinished">Thread decodifica sequenze</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2254,7 +2260,7 @@ Choice: follow the source</extracomment>
         <location line="+29"/>
         <source>Image-seq cache window</source>
         <extracomment>Image-seq = image sequence</extracomment>
-        <translation type="unfinished">Finestra cache seq. immagini</translation>
+        <translation type="unfinished">Finestra cache sequenze</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2314,17 +2320,20 @@ Choice: follow the source</extracomment>
     </message>
     <message>
         <location line="+1"/>
-        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
-        <translation type="unfinished">Lingua dell&apos;interfaccia. Predefinita di sistema segue l&apos;impostazione del sistema operativo. Si applica al prossimo avvio.</translation>
+        <source>Language of the interface. System default follows the OS setting. Applies at once.</source>
+        <translation type="unfinished">Lingua dell&apos;interfaccia. “Predefinita di sistema” segue la lingua del sistema operativo. Si applica subito.</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
+        <translation type="obsolete">Lingua dell&apos;interfaccia. Predefinita di sistema segue l&apos;impostazione del sistema operativo. Si applica al prossimo avvio.</translation>
+    </message>
+    <message>
         <source>Restart QCView to apply.</source>
         <extracomment>Caption under the language picker</extracomment>
-        <translation type="unfinished">Riavvia QCView per applicare.</translation>
+        <translation type="obsolete">Riavvia QCView per applicare.</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+32"/>
         <source>Always open in minimal mode</source>
         <translation type="unfinished">Apri sempre in modalità minimale</translation>
     </message>
@@ -2346,7 +2355,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+28"/>
         <source>Timeline audio waveforms</source>
-        <translation type="unfinished">Forme d&apos;onda audio nella timeline</translation>
+        <translation type="unfinished">Forme d&apos;onda sulla timeline</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2440,7 +2449,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>How much bridge audio is queued before it plays. Raise it if live audio stutters; lower it for less delay.</source>
-        <translation type="unfinished">Quanto audio del bridge viene accodato prima della riproduzione. Alzalo se l&apos;audio live scatta; abbassalo per meno ritardo.</translation>
+        <translation type="unfinished">Quanto audio del bridge viene accodato prima della riproduzione. Alzalo se l&apos;audio live va a scatti; abbassalo per meno ritardo.</translation>
     </message>
     <message>
         <location line="+47"/>
@@ -2669,7 +2678,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+6"/>
         <source>defaults to host:port</source>
-        <translation type="unfinished">predefinito host:porta</translation>
+        <translation type="unfinished">se vuoto: host:porta</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -2704,7 +2713,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+7"/>
         <source>Color-accurate review player.</source>
-        <translation type="unfinished">Player di review a colore fedele.</translation>
+        <translation type="unfinished">Player di review con colore accurato.</translation>
     </message>
     <message>
         <location line="+11"/>
@@ -2760,7 +2769,7 @@ Choice: follow the source</extracomment>
         <location line="-46"/>
         <location line="+53"/>
         <source>Clear Menu</source>
-        <translation type="unfinished">Svuota menu</translation>
+        <translation type="unfinished">Cancella menu</translation>
     </message>
     <message>
         <location line="-46"/>
@@ -3133,7 +3142,7 @@ Choice: follow the source</extracomment>
         <location line="+74"/>
         <source>Mark addressed</source>
         <extracomment>Button: mark this note as dealt with</extracomment>
-        <translation type="unfinished">Segna come gestita</translation>
+        <translation type="unfinished">Segna come risolta</translation>
     </message>
     <message>
         <location line="+27"/>
@@ -3254,7 +3263,7 @@ Choice: follow the source</extracomment>
         <location line="+20"/>
         <source>Slide clip</source>
         <extracomment>Undo action name: move the clip without changing its content</extracomment>
-        <translation type="unfinished">Scorri clip</translation>
+        <translation type="unfinished">Slide clip</translation>
     </message>
     <message>
         <location line="+21"/>
@@ -3339,7 +3348,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+4"/>
         <source>Colour the trace by hue</source>
-        <translation type="unfinished">Colora la traccia per tinta</translation>
+        <translation type="unfinished">Colora la traccia per tonalità</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3516,7 +3525,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+231"/>
         <source>Audio files can&apos;t be added to playlists — added to the Audio bin instead</source>
-        <translation type="unfinished">I file audio non possono essere aggiunti alle playlist — aggiunto al bin Audio</translation>
+        <translation type="unfinished">Il file audio non può essere aggiunto alle playlist — aggiunto al bin Audio</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -3767,7 +3776,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+20"/>
         <source>Always on Top — click to unpin (Ctrl+Alt+T)</source>
-        <translation type="unfinished">Sempre in primo piano — clicca per sbloccare (Ctrl+Alt+T)</translation>
+        <translation type="unfinished">Sempre in primo piano — clicca per disattivare (Ctrl+Alt+T)</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -4006,7 +4015,7 @@ Choice: follow the source</extracomment>
         <location line="+2"/>
         <source>Start Max over</source>
         <extracomment>Tooltip on Reset: restart the running maximum</extracomment>
-        <translation type="unfinished">Riparti con il Max</translation>
+        <translation type="unfinished">Azzera il Max e ricomincia</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -4057,7 +4066,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>qcv::I18n</name>
     <message>
-        <location filename="../src/app/i18n.cpp" line="+116"/>
+        <location filename="../src/app/i18n.cpp" line="+137"/>
         <source>System default</source>
         <translation type="unfinished">Predefinita di sistema</translation>
     </message>
@@ -4096,7 +4105,7 @@ Choice: follow the source</extracomment>
         <location line="+4"/>
         <source> · limited range</source>
         <extracomment>Suffix appended to the Input line</extracomment>
-        <translation type="unfinished"> · range limited</translation>
+        <translation type="unfinished"> · limited range</translation>
     </message>
     <message>
         <location line="+4"/>
@@ -4459,7 +4468,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>qcv::WindowManager</name>
     <message>
-        <location filename="../src/window/window_manager.cpp" line="+2161"/>
+        <location filename="../src/window/window_manager.cpp" line="+2173"/>
         <source>No clip under the playhead to compare</source>
         <translation type="unfinished">Nessuna clip sotto l&apos;indicatore di riproduzione da confrontare</translation>
     </message>

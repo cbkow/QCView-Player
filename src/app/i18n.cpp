@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QLocale>
+#include <QQmlEngine>
 #include <QSettings>
 #include <QTranslator>
 #include <QtLogging>
@@ -58,7 +59,6 @@ I18n::I18n(QObject *parent) : QObject(parent) {}
 void I18n::install()
 {
     m_setting = QSettings().value(kSettingsKey).toString();
-    m_installedSetting = m_setting;
 
     if (qEnvironmentVariableIntValue("QCV_PSEUDO_LOC") > 0) {
         QCoreApplication::installTranslator(new PseudoTranslator(qApp));
@@ -69,6 +69,19 @@ void I18n::install()
 
     QString want = qEnvironmentVariable("QCV_LANG");
     if (want.isEmpty()) want = m_setting;
+    apply(want);
+}
+
+void I18n::attachEngine(QQmlEngine *engine) { m_engine = engine; }
+
+// Load the catalog for `want` ("" = the system locale) and make it the
+// installed one. Called at startup and again on every change of the
+// setting: the previous catalog comes out, the new one goes in, and the
+// QML scene re-evaluates every qsTr() binding. C++ strings held in
+// properties (an Inspector badge, a toast already shown) keep their text
+// until they are next recomputed.
+void I18n::apply(const QString &want)
+{
     const QLocale locale = want.isEmpty() ? QLocale::system() : QLocale(want);
 
     auto *tr = new QTranslator(qApp);
@@ -78,13 +91,18 @@ void I18n::install()
         ok = tr->load(locale, kCatalogBase, QStringLiteral("_"), looseDir);
     if (!ok)
         ok = tr->load(locale, kCatalogBase, QStringLiteral("_"), kResourceDir);
-    // No catalog for that locale: English, but still with its plural
-    // forms (qcview_en.qm carries nothing else).
     if (!ok)
         ok = tr->load(QLocale(QStringLiteral("en")), kCatalogBase,
                       QStringLiteral("_"), kResourceDir);
+
+    if (m_translator) {
+        QCoreApplication::removeTranslator(m_translator);
+        delete m_translator;
+        m_translator = nullptr;
+    }
     if (ok) {
         QCoreApplication::installTranslator(tr);
+        m_translator = tr;
         m_active = tr->language().isEmpty() ? locale.name() : tr->language();
     } else {
         delete tr;
@@ -92,7 +110,10 @@ void I18n::install()
     }
     qInfo("i18n: locale %s, setting '%s', catalog %s (%s)",
           qPrintable(locale.name()), qPrintable(m_setting),
-          ok ? qPrintable(tr->filePath()) : "none", qPrintable(m_active));
+          ok ? qPrintable(m_translator->filePath()) : "none", qPrintable(m_active));
+
+    if (m_engine) m_engine->retranslate();
+    emit activeLanguageChanged();
 }
 
 QString I18n::language() const { return m_setting; }
@@ -105,11 +126,11 @@ void I18n::setLanguage(const QString &code)
     if (code.isEmpty()) s.remove(kSettingsKey);
     else                s.setValue(kSettingsKey, code);
     emit languageChanged();
+    if (m_active != QLatin1String("pseudo")) apply(code);
 }
 
 QStringList I18n::availableLanguages() const { return bundledLanguages(); }
 QString     I18n::activeLanguage() const     { return m_active; }
-bool        I18n::restartRequired() const    { return m_setting != m_installedSetting; }
 
 QString I18n::displayName(const QString &code) const
 {

@@ -2566,7 +2566,8 @@ Rectangle {
                                         enabled: !streamBlock.running
                                         font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSmall
-                                        model: ["Off", "128", "160", "192", "256", "320"]
+                                        //: AAC bitrate choice: no audio in the stream
+                                        model: [qsTr("Off"), "128", "160", "192", "256", "320"]
                                         currentIndex: Math.max(0, streamBlock.kAudioKbps.indexOf(
                                             streamBlock.st ? Number(streamBlock.st.audioKbps) : 160))
                                         onActivated: streamBlock.setting("audioKbps", streamBlock.kAudioKbps[currentIndex])
@@ -3052,15 +3053,18 @@ Rectangle {
                                     text: qsTr("Language")
                                     help: qsTr("Language of the interface. System "
                                              + "default follows the OS setting. "
-                                             + "Applies on next launch.")
+                                             + "Applies at once.")
                                 }
                                 FlatComboBox {
                                     id: languagePicker
-                                    Layout.preferredWidth: 150
+                                    Layout.preferredWidth: 190
+                                    popupMinWidth: 268
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                     readonly property var codes: [""].concat(I18n.availableLanguages)
-                                    model: codes.map(function (c) { return I18n.displayName(c) })
+                                    // Re-evaluated when the catalog changes: the names come
+                                    // from C++ tr(), which retranslate() does not reach.
+                                    model: { I18n.activeLanguage; return codes.map(function (c) { return I18n.displayName(c) }) }
                                     currentIndex: Math.max(0, codes.indexOf(I18n.language))
                                     onActivated: I18n.language = codes[currentIndex]
                                 }
@@ -3068,14 +3072,6 @@ Rectangle {
                                     dirty: I18n.language !== ""
                                     onClicked: I18n.language = ""
                                 }
-                            }
-                            Text {
-                                visible: I18n.restartRequired
-                                //: Caption under the language picker
-                                text: qsTr("Restart QCView to apply.")
-                                color: Theme.textMuted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeSmall
                             }
                         }
 

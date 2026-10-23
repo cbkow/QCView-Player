@@ -357,7 +357,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
         <location line="+58"/>
         <source>%1 On</source>
         <extracomment>%1 is the engine name (OCIO or minColor)</extracomment>
-        <translation type="unfinished">%1 an</translation>
+        <translation type="unfinished">%1 ein</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -489,7 +489,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
         <location line="+322"/>
         <source>On</source>
         <extracomment>Toggle state</extracomment>
-        <translation type="unfinished">An</translation>
+        <translation type="unfinished">Ein</translation>
     </message>
     <message>
         <location line="-322"/>
@@ -576,7 +576,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
     <message>
         <location line="+27"/>
         <source>Highlight Knee — on, %1 → %2 nits</source>
-        <translation type="unfinished">Highlight Knee — an, %1 → %2 nits</translation>
+        <translation type="unfinished">Highlight Knee — ein, %1 → %2 nits</translation>
     </message>
     <message>
         <location line="+4"/>
@@ -661,7 +661,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
     <message>
         <location line="+59"/>
         <source>AgX — on, %1 nits</source>
-        <translation type="unfinished">AgX — an, %1 nits</translation>
+        <translation type="unfinished">AgX — ein, %1 nits</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -1000,7 +1000,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
         <location line="+586"/>
         <source>Range</source>
         <extracomment>Section: video levels, full or limited</extracomment>
-        <translation type="unfinished">Wertebereich</translation>
+        <translation type="unfinished">Range</translation>
     </message>
     <message>
         <location line="-584"/>
@@ -1254,7 +1254,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
     <message>
         <location line="+15"/>
         <source>Range tag</source>
-        <translation type="unfinished">Wertebereich-Tag</translation>
+        <translation type="unfinished">Range-Tag</translation>
     </message>
     <message>
         <location line="+5"/>
@@ -1270,46 +1270,46 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
     <message>
         <location line="+2"/>
         <source>Auto assumes full</source>
-        <translation type="unfinished">Auto nimmt Voll an</translation>
+        <translation type="unfinished">Auto nimmt Full an</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Auto assumes limited</source>
-        <translation type="unfinished">Auto nimmt Begrenzt an</translation>
+        <translation type="unfinished">Auto nimmt Limited an</translation>
     </message>
     <message>
         <location line="+65"/>
         <location line="+2"/>
         <source>Auto (Full)</source>
-        <translation type="unfinished">Auto (Voll)</translation>
+        <translation type="unfinished">Auto (Full)</translation>
     </message>
     <message>
         <location line="-1"/>
         <location line="+2"/>
         <source>Auto (Limited)</source>
-        <translation type="unfinished">Auto (Begrenzt)</translation>
+        <translation type="unfinished">Auto (Limited)</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Auto (Full, assumed)</source>
-        <translation type="unfinished">Auto (Voll, angenommen)</translation>
+        <translation type="unfinished">Auto (Full, angenommen)</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Auto (Limited, assumed)</source>
-        <translation type="unfinished">Auto (Begrenzt, angenommen)</translation>
+        <translation type="unfinished">Auto (Limited, angenommen)</translation>
     </message>
     <message>
         <location line="+8"/>
         <source>Full</source>
         <extracomment>Video levels</extracomment>
-        <translation type="unfinished">Voll</translation>
+        <translation type="unfinished">Full</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Limited</source>
         <extracomment>Video levels</extracomment>
-        <translation type="unfinished">Begrenzt</translation>
+        <translation type="unfinished">Limited</translation>
     </message>
     <message>
         <location line="+63"/>
@@ -1476,7 +1476,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
         <location line="+25"/>
         <source>From start</source>
         <extracomment>Timecode origin: counting from the start of the file</extracomment>
-        <translation type="unfinished">Ab Anfang</translation>
+        <translation type="unfinished">Ab Dateianfang</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -1924,7 +1924,7 @@ Clip von B — Änderungen bleiben bei diesem Clip</translation>
     <message>
         <location line="-82"/>
         <location line="+82"/>
-        <location line="+673"/>
+        <location line="+679"/>
         <location line="+5"/>
         <source>Auto</source>
         <extracomment>Output resolution choice
@@ -1933,7 +1933,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">Auto</translation>
     </message>
     <message>
-        <location line="-753"/>
+        <location line="-759"/>
         <source>attached</source>
         <extracomment>Output state: the sink is receiving</extracomment>
         <translation type="unfinished">verbunden</translation>
@@ -2135,7 +2135,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Send the viewport and the mixed audio to a streaming server (Louper, or any SRT or RTMP server) as H.264 + AAC, encoded on the GPU. srt://host:port with the key as the stream id, or rtmp://host/app with the key as the stream name. A dropped connection reconnects on its own. The picture is the same Rec.709 SDR picture the output bus serves; the frame rate is fixed for the session (a paused viewport repeats its last frame).</source>
-        <translation type="unfinished">Viewport und gemischten Ton als H.264 + AAC, auf der GPU kodiert, an einen Streaming-Server senden (Louper oder jeden SRT- oder RTMP-Server). srt://host:port mit dem Key als Stream-ID oder rtmp://host/app mit dem Key als Stream-Name. Eine abgebrochene Verbindung wird von selbst neu aufgebaut. Das Bild ist dasselbe Rec.709-SDR-Bild, das der Ausgabebus liefert; die Bildrate ist für die Sitzung fest (ein pausierter Viewport wiederholt sein letztes Bild).</translation>
+        <translation type="unfinished">Viewport und gemischten Ton als H.264 + AAC, auf der GPU kodiert, an einen Streaming-Server senden (Louper oder jeden SRT- oder RTMP-Server). srt://host:port mit dem Key als Stream-ID oder rtmp://host/app mit dem Key als Stream-Name. Eine abgebrochene Verbindung wird von selbst neu aufgebaut. Das Bild ist dasselbe Rec.709-SDR-Bild, das der Ausgabebus liefert; die Bildrate ist für die Sitzung fest (ein pausierter Viewport wiederholt seinen letzten Frame).</translation>
     </message>
     <message>
         <location line="+22"/>
@@ -2185,7 +2185,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Auto takes the source&apos;s rate when the stream starts (30 when it has none) and keeps it for the session. A 23.976 source into a 30 fps clock repeats six frames a second.</source>
-        <translation type="unfinished">Auto übernimmt beim Start des Streams die Rate der Quelle (30, wenn sie keine hat) und behält sie für die Sitzung. Eine 23,976-Quelle in einem 30-fps-Takt wiederholt sechs Bilder pro Sekunde.</translation>
+        <translation type="unfinished">Auto übernimmt beim Start des Streams die Rate der Quelle (30, wenn sie keine hat) und behält sie für die Sitzung. Eine 23,976-Quelle in einem 30-fps-Takt wiederholt sechs Frames pro Sekunde.</translation>
     </message>
     <message>
         <location line="+24"/>
@@ -2195,7 +2195,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Baseline is what Louper&apos;s recipe asks for; Main gives better quality per bit where the service accepts it. Never B-frames.</source>
-        <translation type="unfinished">Baseline verlangt Loupers Anleitung; Main liefert bessere Qualität pro Bit, wo der Dienst es akzeptiert. Nie B-Frames.</translation>
+        <translation type="unfinished">Loupers Anleitung verlangt Baseline; Main liefert bessere Qualität pro Bit, wo der Dienst es akzeptiert. Nie B-Frames.</translation>
     </message>
     <message>
         <location line="+23"/>
@@ -2208,7 +2208,13 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">AAC-Stereo mit 48 kHz aus dem gemischten Ton, vor Anhören, Stummschaltung und Lautstärke. Aus sendet nur Video.</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+10"/>
+        <source>Off</source>
+        <extracomment>AAC bitrate choice: no audio in the stream</extracomment>
+        <translation type="unfinished">Aus</translation>
+    </message>
+    <message>
+        <location line="+14"/>
         <source>SRT latency (ms)</source>
         <translation type="unfinished">SRT-Latenz (ms)</translation>
     </message>
@@ -2234,7 +2240,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">Alle Einstellungen (zuletzt verwendet, Layout, Optionen, Tastenkürzel) werden gelöscht und die App wird beendet. Zum Fortfahren neu starten.</translation>
     </message>
     <message>
-        <location line="+143"/>
+        <location line="+148"/>
         <source>Performance</source>
         <extracomment>Settings group header</extracomment>
         <translation type="unfinished">Leistung</translation>
@@ -2314,17 +2320,20 @@ Choice: follow the source</extracomment>
     </message>
     <message>
         <location line="+1"/>
-        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
-        <translation type="unfinished">Sprache der Oberfläche. Systemstandard folgt der Einstellung des Betriebssystems. Gilt ab dem nächsten Start.</translation>
+        <source>Language of the interface. System default follows the OS setting. Applies at once.</source>
+        <translation type="unfinished">Sprache der Oberfläche. Systemstandard folgt der Einstellung des Betriebssystems. Gilt sofort.</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
+        <translation type="obsolete">Sprache der Oberfläche. Systemstandard folgt der Einstellung des Betriebssystems. Gilt ab dem nächsten Start.</translation>
+    </message>
+    <message>
         <source>Restart QCView to apply.</source>
         <extracomment>Caption under the language picker</extracomment>
-        <translation type="unfinished">Zum Anwenden QCView neu starten.</translation>
+        <translation type="obsolete">Zum Anwenden QCView neu starten.</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+32"/>
         <source>Always open in minimal mode</source>
         <translation type="unfinished">Immer im Minimalmodus öffnen</translation>
     </message>
@@ -2341,17 +2350,17 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+22"/>
         <source>Drag viewport to move window</source>
-        <translation type="unfinished">Fenster durch Ziehen im Viewport verschieben</translation>
+        <translation type="unfinished">Fenster am Viewport ziehen</translation>
     </message>
     <message>
         <location line="+28"/>
         <source>Timeline audio waveforms</source>
-        <translation type="unfinished">Audio-Waveforms in der Timeline</translation>
+        <translation type="unfinished">Timeline-Wellenformen</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Draw an audio waveform over timeline clips. Peaks decode lazily in the background for the visible range and pause during playback.</source>
-        <translation type="unfinished">Eine Audio-Waveform über die Timeline-Clips zeichnen. Pegelspitzen werden für den sichtbaren Bereich im Hintergrund nachträglich dekodiert und pausieren während der Wiedergabe.</translation>
+        <translation type="unfinished">Eine Audio-Wellenform über die Timeline-Clips zeichnen. Pegelspitzen werden für den sichtbaren Bereich bei Bedarf im Hintergrund dekodiert und pausieren während der Wiedergabe.</translation>
     </message>
     <message>
         <location line="+29"/>
@@ -2372,7 +2381,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+11"/>
         <source>Automatically check for updates</source>
-        <translation type="unfinished">Automatisch nach Updates suchen</translation>
+        <translation type="unfinished">Updates automatisch suchen</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3484,7 +3493,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+108"/>
         <source>Edit mode ON — click to disable</source>
-        <translation type="unfinished">Bearbeitungsmodus AN — zum Deaktivieren klicken</translation>
+        <translation type="unfinished">Bearbeitungsmodus EIN — zum Deaktivieren klicken</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -3732,7 +3741,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+12"/>
         <source>Timeline hover thumbnails (on)</source>
-        <translation type="unfinished">Timeline-Vorschaubilder (an)</translation>
+        <translation type="unfinished">Timeline-Vorschaubilder (ein)</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3752,7 +3761,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+24"/>
         <source>Unmute (M)</source>
-        <translation type="unfinished">Ton an (M)</translation>
+        <translation type="unfinished">Ton ein (M)</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -3837,7 +3846,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>A audio on — click to mute</source>
-        <translation type="unfinished">Audio A an — zum Stummschalten klicken</translation>
+        <translation type="unfinished">Audio A ein — zum Stummschalten klicken</translation>
     </message>
     <message>
         <location line="+24"/>
@@ -3868,7 +3877,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>B audio on — click to mute</source>
-        <translation type="unfinished">Audio B an — zum Stummschalten klicken</translation>
+        <translation type="unfinished">Audio B ein — zum Stummschalten klicken</translation>
     </message>
     <message>
         <location line="+29"/>
@@ -3884,7 +3893,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+13"/>
         <source>Highlight Knee on: %1 → %2 nits. Highlights are compressed — the picture is not 1:1.</source>
-        <translation type="unfinished">Highlight Knee an: %1 → %2 nits. Lichter werden komprimiert — das Bild ist nicht 1:1.</translation>
+        <translation type="unfinished">Highlight Knee ein: %1 → %2 nits. Lichter werden komprimiert — das Bild ist nicht 1:1.</translation>
     </message>
     <message>
         <location line="+28"/>
@@ -4051,13 +4060,13 @@ Choice: follow the source</extracomment>
     <message>
         <location filename="../src/decode/host_bridge_source.cpp" line="+108"/>
         <source>Waiting for %1 (QCBridge Transmit device not publishing)</source>
-        <translation type="unfinished">Warte auf %1 (QCBridge-Transmit-Gerät sendet nicht)</translation>
+        <translation type="unfinished">Warten auf %1 (QCBridge-Transmit-Gerät sendet nicht)</translation>
     </message>
 </context>
 <context>
     <name>qcv::I18n</name>
     <message>
-        <location filename="../src/app/i18n.cpp" line="+116"/>
+        <location filename="../src/app/i18n.cpp" line="+137"/>
         <source>System default</source>
         <translation type="unfinished">Systemstandard</translation>
     </message>
@@ -4096,12 +4105,12 @@ Choice: follow the source</extracomment>
         <location line="+4"/>
         <source> · limited range</source>
         <extracomment>Suffix appended to the Input line</extracomment>
-        <translation type="unfinished"> · begrenzter Wertebereich</translation>
+        <translation type="unfinished"> · Limited Range</translation>
     </message>
     <message>
         <location line="+4"/>
         <source>Highlight Knee: on · %1 → %2 nits</source>
-        <translation type="unfinished">Highlight Knee: an · %1 → %2 nits</translation>
+        <translation type="unfinished">Highlight Knee: ein · %1 → %2 nits</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -4193,7 +4202,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+7"/>
         <source>Highlight Knee: on · %1 → %2 nits</source>
-        <translation type="unfinished">Highlight Knee: an · %1 → %2 nits</translation>
+        <translation type="unfinished">Highlight Knee: ein · %1 → %2 nits</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -4459,7 +4468,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>qcv::WindowManager</name>
     <message>
-        <location filename="../src/window/window_manager.cpp" line="+2161"/>
+        <location filename="../src/window/window_manager.cpp" line="+2173"/>
         <source>No clip under the playhead to compare</source>
         <translation type="unfinished">Kein Clip unter dem Abspielkopf zum Vergleichen</translation>
     </message>

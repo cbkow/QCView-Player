@@ -309,6 +309,18 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     m_alwaysOnTop =
         settings.value(QStringLiteral("ui/alwaysOnTop"), false).toBool();
 
+    // Monitoring volume and mute — remembered (chris, 2026-10-23). The
+    // player only holds atomics, so it takes them before any device
+    // opens; every later change writes straight back.
+    m_audio->setVolume(settings.value(QStringLiteral("audio/volume"), 1.0).toFloat());
+    m_audio->setMuted(settings.value(QStringLiteral("audio/muted"), false).toBool());
+    connect(m_audio, &AudioPlayer::volumeChanged, this, [this] {
+        QSettings().setValue(QStringLiteral("audio/volume"), m_audio->volume());
+    });
+    connect(m_audio, &AudioPlayer::mutedChanged, this, [this] {
+        QSettings().setValue(QStringLiteral("audio/muted"), m_audio->muted());
+    });
+
     // Phase 3.H.6 Stage A — annotation backbone wiring.
     //
     // Stroke completion → AnnotationManager: every time the user

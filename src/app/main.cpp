@@ -653,6 +653,7 @@ int main(int argc, char *argv[])
     if (!phosphorName.isEmpty()) windowManager.setPhosphorFamily(phosphorName);
     engine.rootContext()->setContextProperty(QStringLiteral("WindowManager"), &windowManager);
     engine.rootContext()->setContextProperty(QStringLiteral("I18n"), &i18n);
+    i18n.attachEngine(&engine);
 
     // Frozen modal backdrop (image://qcv/backdrop/<n>). The engine takes
     // ownership of the provider; WindowManager keeps a borrowed pointer

@@ -1,0 +1,823 @@
+﻿context,source,disambiguation,developer_comment,form,translation,status,location
+ColorPanel,Choose LUT,,,,选择 LUT,unfinished,src/ui/qml/ColorPanel.qml:88
+ColorPanel,LUT / CDL files (*.cube *.3dl *.csp *.cc *.ccc *.cdl),,,,LUT / CDL 文件 (*.cube *.3dl *.csp *.cc *.ccc *.cdl),unfinished,src/ui/qml/ColorPanel.qml:91
+ColorPanel,All files (*),,,,所有文件 (*),unfinished,src/ui/qml/ColorPanel.qml:92
+ColorPanel,LUT files (*.cube *.3dl *.csp),,,,LUT 文件 (*.cube *.3dl *.csp),unfinished,src/ui/qml/ColorPanel.qml:93
+ColorPanel,Export LUT…,,,,导出 LUT…,unfinished,src/ui/qml/ColorPanel.qml:116
+ColorPanel,3D LUT (*.cube),,,,3D LUT (*.cube),unfinished,src/ui/qml/ColorPanel.qml:119
+ColorPanel,Export LUT failed — %1,,,,导出 LUT 失败 — %1,unfinished,src/ui/qml/ColorPanel.qml:125
+ColorPanel,LUT exported: %1,,,,LUT 已导出：%1,unfinished,src/ui/qml/ColorPanel.qml:128
+ColorPanel,Save preset as…,,,,预设另存为…,unfinished,src/ui/qml/ColorPanel.qml:149
+ColorPanel,Preset name,,,,预设名称,unfinished,src/ui/qml/ColorPanel.qml:169
+ColorPanel,Cancel,,,,取消,unfinished,src/ui/qml/ColorPanel.qml:178
+ColorPanel,Save,,,,保存,unfinished,src/ui/qml/ColorPanel.qml:182
+ColorPanel,Preset saved: %1,,,,预设已保存：%1,unfinished,src/ui/qml/ColorPanel.qml:205
+ColorPanel,Couldn't save preset “%1” — try another name,,,,无法保存预设“%1”，请换一个名称,unfinished,src/ui/qml/ColorPanel.qml:209
+ColorPanel,Color,,Panel title,,色彩,unfinished,src/ui/qml/ColorPanel.qml:250
+ColorPanel,"minColor · OpenDRT 1.1.0 rendering, AgX, no OCIO",,,,minColor · OpenDRT 1.1.0 渲染、AgX，不经 OCIO,unfinished,src/ui/qml/ColorPanel.qml:258
+ColorPanel,OCIO,,,,OCIO,unfinished,src/ui/qml/ColorPanel.qml:273
+ColorPanel,Colour through the OpenColorIO chain (Input · Look · LUTs · Output · View),,,,通过 OpenColorIO 链处理色彩（输入 · Look · LUT · 输出 · 视图）,unfinished,src/ui/qml/ColorPanel.qml:274
+ColorPanel,minColor,,,,minColor,unfinished,src/ui/qml/ColorPanel.qml:282
+ColorPanel,"Colour through the minColor engine: Input → Knee → AgX → OpenDRT rendering → Display, no OCIO",,,,通过 minColor 引擎处理色彩：输入 → 拐点 → AgX → OpenDRT 渲染 → 显示，不经 OCIO,unfinished,src/ui/qml/ColorPanel.qml:283
+ColorPanel,Previous preset,,,,上一个预设,unfinished,src/ui/qml/ColorPanel.qml:291
+ColorPanel,(no preset),,,,（无预设）,unfinished,src/ui/qml/ColorPanel.qml:309
+ColorPanel,%1 — modified,,,,%1 — 已修改,unfinished,src/ui/qml/ColorPanel.qml:313
+ColorPanel,Next preset,,,,下一个预设,unfinished,src/ui/qml/ColorPanel.qml:332
+ColorPanel,Overwrite the active user preset,,,,覆盖当前用户预设,unfinished,src/ui/qml/ColorPanel.qml:341
+ColorPanel,Save as…,,,,另存为…,unfinished,src/ui/qml/ColorPanel.qml:358
+ColorPanel,Delete,,,,删除,unfinished,src/ui/qml/ColorPanel.qml:370
+ColorPanel,Delete the active user preset,,,,删除当前用户预设,unfinished,src/ui/qml/ColorPanel.qml:377
+ColorPanel,Select a user preset to delete,,,,请选择要删除的用户预设,unfinished,src/ui/qml/ColorPanel.qml:378
+ColorPanel,Preset deleted: %1,,,,预设已删除：%1,unfinished,src/ui/qml/ColorPanel.qml:383
+ColorPanel,Undo,,Button in the toast after deleting a preset,,撤销,unfinished,src/ui/qml/ColorPanel.qml:385
+ColorPanel,Setup,,Tab: the Color panel's setup column (presets and config),,设定,unfinished,src/ui/qml/ColorPanel.qml:434
+ColorPanel,Presets,,Tab,,预设,unfinished,src/ui/qml/ColorPanel.qml:449
+ColorPanel,"A preset sets both groups: its clip half on the selected clip, its view half on the View",,,,预设同时设定两组：片段部分应用于所选片段，视图部分应用于视图,unfinished,src/ui/qml/ColorPanel.qml:450
+ColorPanel,Config · %1,,,,配置 · %1,unfinished,src/ui/qml/ColorPanel.qml:459
+ColorPanel,"The OCIO config — the colourspace, display and view names every column uses",,,,OCIO 配置——各列所用的色彩空间、显示和视图名称均来自于此,unfinished,src/ui/qml/ColorPanel.qml:461
+ColorPanel,Sets clip + view,,,,设定片段 + 视图,unfinished,src/ui/qml/ColorPanel.qml:476
+ColorPanel,Names every column uses,,,,各列所用的名称,unfinished,src/ui/qml/ColorPanel.qml:477
+ColorPanel,Filter…,,Placeholder of a filter field over a list,,筛选…,unfinished,src/ui/qml/ColorPanel.qml:502
+ColorPanel,SDR,,Preset list badge: the preset's target,,SDR,unfinished,src/ui/qml/ColorPanel.qml:619
+ColorPanel,HDR,,Preset list badge: the preset's target,,HDR,unfinished,src/ui/qml/ColorPanel.qml:623
+ColorPanel,Clip,,"Column header: the per-clip half of the colour chain (Input, Look, LUTs)",,片段,unfinished,src/ui/qml/ColorPanel.qml:761
+ColorPanel,no clip,,,,无片段,unfinished,src/ui/qml/ColorPanel.qml:777
+ColorPanel,"%1
+A's clip — changes stay with this clip",,,,"%1
+A 的片段——更改仅随此片段保存",unfinished,src/ui/qml/ColorPanel.qml:779
+ColorPanel,"%1
+Changes here stay with this clip",,,,"%1
+此处的更改仅随此片段保存",unfinished,src/ui/qml/ColorPanel.qml:781
+ColorPanel,"%1
+B's clip — changes stay with this clip",,,,"%1
+B 的片段——更改仅随此片段保存",unfinished,src/ui/qml/ColorPanel.qml:797
+ColorPanel,Input gamut,,,,输入色域,unfinished,src/ui/qml/ColorPanel.qml:816
+ColorPanel,Input transfer,,,,输入传递函数,unfinished,src/ui/qml/ColorPanel.qml:829
+ColorPanel,Input,,OCIO input: the clip's source colourspace,,输入,unfinished,src/ui/qml/ColorPanel.qml:854
+ColorPanel,Look,,OCIO look: a creative transform from the config,,Look,unfinished,src/ui/qml/ColorPanel.qml:865
+ColorPanel,(none),,Picker entry: nothing selected,,（无）,unfinished,src/ui/qml/ColorPanel.qml:872
+ColorPanel,Scene LUT,,"A LUT applied in scene-linear space, before the view",,场景 LUT,unfinished,src/ui/qml/ColorPanel.qml:891
+ColorPanel,View,,OCIO view: the display-side transform,,视图,unfinished,src/ui/qml/ColorPanel.qml:937
+ColorPanel,both sides,,Caption: the clip chain applies to both sides of the dual view,,两侧,unfinished,src/ui/qml/ColorPanel.qml:947
+ColorPanel,everything,,,,全部,unfinished,src/ui/qml/ColorPanel.qml:947
+ColorPanel,Rendering · AgX,,minColor's tone-mapping stage (OpenDRT),,渲染 · AgX,unfinished,src/ui/qml/ColorPanel.qml:970
+ColorPanel,Rendering,,,,渲染,unfinished,src/ui/qml/ColorPanel.qml:970
+ColorPanel,Un-tone-mapped,,Rendering choice: no tone mapping applied,,无色调映射,unfinished,src/ui/qml/ColorPanel.qml:976
+ColorPanel,Display,,OCIO display: the target display,,显示,unfinished,src/ui/qml/ColorPanel.qml:998
+ColorPanel,Output,,Column header: the output (display) half of the chain,,输出,unfinished,src/ui/qml/ColorPanel.qml:1011
+ColorPanel,Display LUT,,,,显示 LUT,unfinished,src/ui/qml/ColorPanel.qml:1034
+ColorPanel,%1 On,,%1 is the engine name (OCIO or minColor),,%1 开,unfinished,src/ui/qml/ColorPanel.qml:1092
+ColorPanel,%1 Off,,,,%1 关,unfinished,src/ui/qml/ColorPanel.qml:1092
+ColorPanel,Exposure,,"Viewer aid slider, in stops",,曝光,unfinished,src/ui/qml/ColorPanel.qml:1116
+ColorPanel,Gamma,,Viewer aid slider,,伽马,unfinished,src/ui/qml/ColorPanel.qml:1160
+ColorPanel,RGB,,,,RGB,unfinished,src/ui/qml/ColorPanel.qml:1198
+ColorPanel,All channels,,,,所有通道,unfinished,src/ui/qml/ColorPanel.qml:1205
+ColorPanel,Red,,,,红,unfinished,src/ui/qml/ColorPanel.qml:1205
+ColorPanel,Green,,,,绿,unfinished,src/ui/qml/ColorPanel.qml:1205
+ColorPanel,Blue,,,,蓝,unfinished,src/ui/qml/ColorPanel.qml:1205
+ColorPanel,Alpha matte,,Channel view: the alpha channel shown as a matte,,Alpha 遮罩,unfinished,src/ui/qml/ColorPanel.qml:1207
+ColorPanel,Luma (output primaries),,,,亮度（输出原色）,unfinished,src/ui/qml/ColorPanel.qml:1208
+ColorPanel,"Reset exposure, gamma and channel",,,,重置曝光、伽马和通道,unfinished,src/ui/qml/ColorPanel.qml:1216
+ColorPanel,SDR — sRGB,,,,SDR — sRGB,unfinished,src/ui/qml/ColorPanel.qml:1260
+ColorPanel,SDR — Display P3,,,,SDR — Display P3,unfinished,src/ui/qml/ColorPanel.qml:1261
+ColorPanel,EDR — Linear sRGB,,,,EDR — 线性 sRGB,unfinished,src/ui/qml/ColorPanel.qml:1262
+ColorPanel,EDR — Linear P3,,,,EDR — 线性 P3,unfinished,src/ui/qml/ColorPanel.qml:1263
+ColorPanel,HDR10 PQ,,,,HDR10 PQ,unfinished,src/ui/qml/ColorPanel.qml:1264
+ColorPanel,Extended Linear sRGB,,,,扩展线性 sRGB,unfinished,src/ui/qml/ColorPanel.qml:1265
+ColorPanel,Bake the active OCIO chain to a 65³ .cube LUT,,,,将当前 OCIO 链烘焙为 65³ 的 .cube LUT,unfinished,src/ui/qml/ColorPanel.qml:1323
+ColorPanel,Configure input / display / view first,,,,请先配置输入 / 显示 / 视图,unfinished,src/ui/qml/ColorPanel.qml:1324
+ColorPanel,Set on this clip — click to go back to the default,,,,已在此片段上设定——点击恢复默认,unfinished,src/ui/qml/ColorPanel.qml:1362
+ColorPanel,Collapse,,Button: fold this section,,折叠,unfinished,src/ui/qml/ColorPanel.qml:1459
+ColorPanel,%1 — click to expand,,,,%1 — 点击展开,unfinished,src/ui/qml/ColorPanel.qml:1579
+ColorPanel,Highlight Knee,,Section title: the highlight compression stage,,高光拐点,unfinished,src/ui/qml/ColorPanel.qml:1684
+ColorPanel,On,,Toggle state,,开,unfinished,src/ui/qml/ColorPanel.qml:1751
+ColorPanel,Off,,,,关,unfinished,src/ui/qml/ColorPanel.qml:1751
+ColorPanel,"Not available for this chain (data view, or the config has no interchange role).",,,,此链不可用（数据视图，或该配置没有 interchange 角色）。,unfinished,src/ui/qml/ColorPanel.qml:1764
+ColorPanel,Source peak,,"Highlight Knee: the brightest level the source carries, in nits",,源峰值,unfinished,src/ui/qml/ColorPanel.qml:1775
+ColorPanel,nits,,Unit suffix,,nits,unfinished,src/ui/qml/ColorPanel.qml:1794
+ColorPanel,+%1 stops over SDR white,,,,高于 SDR 白 +%1 档,unfinished,src/ui/qml/ColorPanel.qml:1802
+ColorPanel,Use file MaxCLL (%1),,,,使用文件 MaxCLL (%1),unfinished,src/ui/qml/ColorPanel.qml:1814
+ColorPanel,Use mastering peak (%1),,,,使用母版峰值 (%1),unfinished,src/ui/qml/ColorPanel.qml:1816
+ColorPanel,No MaxCLL in file,,,,文件中无 MaxCLL,unfinished,src/ui/qml/ColorPanel.qml:1817
+ColorPanel,Set the source peak from the file's HDR10 metadata,,,,根据文件的 HDR10 元数据设定源峰值,unfinished,src/ui/qml/ColorPanel.qml:1819
+ColorPanel,Target peak,,"Highlight Knee: the brightest level the display shows, in nits",,目标峰值,unfinished,src/ui/qml/ColorPanel.qml:1827
+ColorPanel,100 nits · SDR display,,,,100 nits · SDR 显示器,unfinished,src/ui/qml/ColorPanel.qml:1836
+ColorPanel,Knee start,,Highlight Knee: the nits level where highlight compression begins,,拐点起点,unfinished,src/ui/qml/ColorPanel.qml:1865
+ColorPanel,%1 nits,,,,%1 nits,unfinished,src/ui/qml/ColorPanel.qml:1902
+ColorPanel,BT.2390,,,,BT.2390,unfinished,src/ui/qml/ColorPanel.qml:1910
+ColorPanel,Reset knee start to BT.2390,,,,将拐点起点重置为 BT.2390,unfinished,src/ui/qml/ColorPanel.qml:1918
+ColorPanel,"Highlight Knee — on, %1 → %2 nits",,,,高光拐点 — 开，%1 → %2 nits,unfinished,src/ui/qml/ColorPanel.qml:1945
+ColorPanel,"Highlight Knee — off, click to expand",,,,高光拐点 — 关，点击展开,unfinished,src/ui/qml/ColorPanel.qml:1949
+ColorPanel,AgX,,,,AgX,unfinished,src/ui/qml/ColorPanel.qml:2014
+ColorPanel,Blender's AgX at the defaults; HDR above 100 nits.,,,,Blender 的 AgX，默认参数；100 nits 以上为 HDR。,unfinished,src/ui/qml/ColorPanel.qml:2084
+ColorPanel,Target gamut,,,,目标色域,unfinished,src/ui/qml/ColorPanel.qml:2093
+ColorPanel,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/ColorPanel.qml:2101
+ColorPanel,Rec.709,,,,Rec.709,unfinished,src/ui/qml/ColorPanel.qml:2101
+ColorPanel,P3-D65,,,,P3-D65,unfinished,src/ui/qml/ColorPanel.qml:2101
+ColorPanel,Peak luminance,,,,峰值亮度,unfinished,src/ui/qml/ColorPanel.qml:2115
+ColorPanel,White (EV over grey),,,,白（高于灰的 EV）,unfinished,src/ui/qml/ColorPanel.qml:2142
+ColorPanel,Black (EV under grey),,,,黑（低于灰的 EV）,unfinished,src/ui/qml/ColorPanel.qml:2143
+ColorPanel,Contrast,,,,对比度,unfinished,src/ui/qml/ColorPanel.qml:2144
+ColorPanel,Toe power,,AgX curve control: the dark end of the tone curve,,趾部指数,unfinished,src/ui/qml/ColorPanel.qml:2146
+ColorPanel,Shoulder power,,AgX curve control: the bright end of the tone curve,,肩部指数,unfinished,src/ui/qml/ColorPanel.qml:2148
+ColorPanel,Hue restore,,AgX control: how much of the original hue is kept in bright areas,,色相还原,unfinished,src/ui/qml/ColorPanel.qml:2150
+ColorPanel,HDR purity,,AgX control: saturation kept above SDR white,,HDR 纯度,unfinished,src/ui/qml/ColorPanel.qml:2152
+ColorPanel,"AgX — on, %1 nits",,,,AgX — 开，%1 nits,unfinished,src/ui/qml/ColorPanel.qml:2211
+ColorPanel,"AgX — off, click to expand",,,,AgX — 关，点击展开,unfinished,src/ui/qml/ColorPanel.qml:2212
+ColorPanel,Replace LUT,,Button on a filled LUT slot,,替换 LUT,unfinished,src/ui/qml/ColorPanel.qml:2386
+ColorPanel,+ Add LUT,,Button on an empty LUT slot,,+ 添加 LUT,unfinished,src/ui/qml/ColorPanel.qml:2388
+ColorPanel,Correction ID (first),,Field: the id of the first correction inside a CDL file,,校正 ID（第一个）,unfinished,src/ui/qml/ColorPanel.qml:2416
+ColorPanel,click to choose,,Tooltip on an empty LUT slot,,点击选择,unfinished,src/ui/qml/ColorPanel.qml:2425
+ColorPanel,Clear LUT,,Button,,清除 LUT,unfinished,src/ui/qml/ColorPanel.qml:2464
+ColorPanel,%1 — %2,,,,%1 — %2,unfinished,src/ui/qml/ColorPanel.qml:2491
+ColorPickerInline,Hex,,Colour as a hexadecimal code,,十六进制,unfinished,src/ui/qml/ColorPickerInline.qml:260
+ColorPickerInline,R,,"Red channel field, one letter",,R,unfinished,src/ui/qml/ColorPickerInline.qml:301
+ColorPickerInline,G,,"Green channel field, one letter",,G,unfinished,src/ui/qml/ColorPickerInline.qml:321
+ColorPickerInline,B,,"Blue channel field, one letter",,B,unfinished,src/ui/qml/ColorPickerInline.qml:341
+CompactStrip,Pause (Space),,,,暂停 (Space),unfinished,src/ui/qml/CompactStrip.qml:83
+CompactStrip,Play (Space),,,,播放 (Space),unfinished,src/ui/qml/CompactStrip.qml:83
+CompactStrip,Drag to move the window,,,,拖动以移动窗口,unfinished,src/ui/qml/CompactStrip.qml:99
+CompactStrip,LIVE,,Badge: a live source is playing,,实时,unfinished,src/ui/qml/CompactStrip.qml:106
+CompactStrip,%1 / %2,,Current frame / total frames,,%1 / %2,unfinished,src/ui/qml/CompactStrip.qml:120
+CompactStrip,Always on Top — click to unpin (Ctrl+Alt+T),,,,始终置顶 — 点击取消固定 (Ctrl+Alt+T),unfinished,src/ui/qml/CompactStrip.qml:213
+CompactStrip,Always on Top (Ctrl+Alt+T),,,,始终置顶 (Ctrl+Alt+T),unfinished,src/ui/qml/CompactStrip.qml:214
+CompactStrip,Exit Compact Mode (Esc),,,,退出紧凑模式 (Esc),unfinished,src/ui/qml/CompactStrip.qml:225
+FFmpegMetadataExtractor,Image sequence,,,,图像序列,unfinished,src/project/ffmpeg_metadata_extractor.cpp:297
+FFmpegMetadataExtractor,Unknown,,Media kind,,未知,unfinished,src/project/ffmpeg_metadata_extractor.cpp:302
+ImageSequenceInspector,Image Sequence,,,,图像序列,unfinished,src/ui/qml/ImageSequenceInspector.qml:103
+ImageSequenceInspector,Frame rate,,,,帧率,unfinished,src/ui/qml/ImageSequenceInspector.qml:143
+ImageSequenceInspector,Transfer,,"Transfer function (PQ, HLG, sRGB)",,传递函数,unfinished,src/ui/qml/ImageSequenceInspector.qml:185
+ImageSequenceInspector,"Auto (Linear, EXR)",,,,自动（线性，EXR）,unfinished,src/ui/qml/ImageSequenceInspector.qml:203
+ImageSequenceInspector,Auto (sRGB),,,,自动 (sRGB),unfinished,src/ui/qml/ImageSequenceInspector.qml:203
+ImageSequenceInspector,Auto,,Choice: decided from the file,,自动,unfinished,src/ui/qml/ImageSequenceInspector.qml:208
+ImageSequenceInspector,SDR 709,,,,SDR 709,unfinished,src/ui/qml/ImageSequenceInspector.qml:209
+ImageSequenceInspector,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/ImageSequenceInspector.qml:210
+ImageSequenceInspector,PQ P3,,,,PQ P3,unfinished,src/ui/qml/ImageSequenceInspector.qml:211
+ImageSequenceInspector,HLG,,,,HLG,unfinished,src/ui/qml/ImageSequenceInspector.qml:212
+ImageSequenceInspector,Linear,,,,线性,unfinished,src/ui/qml/ImageSequenceInspector.qml:213
+ImageSequenceInspector,Range,,Frame number range,,范围,unfinished,src/ui/qml/ImageSequenceInspector.qml:238
+ImageSequenceInspector,%1 – %2 (%3 frames),,,,%1 – %2（%3 帧）,unfinished,src/ui/qml/ImageSequenceInspector.qml:239
+ImageSequenceInspector,Pattern,,The file name pattern of the sequence,,文件名模式,unfinished,src/ui/qml/ImageSequenceInspector.qml:247
+ImageSequenceInspector,Resolution,,,,分辨率,unfinished,src/ui/qml/ImageSequenceInspector.qml:252
+ImageSequenceInspector,%1 × %2,,,,%1 × %2,unfinished,src/ui/qml/ImageSequenceInspector.qml:254
+ImageSequenceInspector,(probing…),,,,（探测中…）,unfinished,src/ui/qml/ImageSequenceInspector.qml:255
+ImageSequenceInspector,Compression,,EXR compression,,压缩,unfinished,src/ui/qml/ImageSequenceInspector.qml:264
+ImageSequenceInspector,Duration,,,,时长,unfinished,src/ui/qml/ImageSequenceInspector.qml:268
+ImageSequenceInspector,Cache stride,,,,缓存步长,unfinished,src/ui/qml/ImageSequenceInspector.qml:296
+ImageSequenceInspector,Every Frame (Full),,,,每帧（全部）,unfinished,src/ui/qml/ImageSequenceInspector.qml:321
+ImageSequenceInspector,Every %1 Frames,,,,每 %1 帧,unfinished,src/ui/qml/ImageSequenceInspector.qml:322
+ImageSequenceInspector,Cache ahead,,,,向前缓存,unfinished,src/ui/qml/ImageSequenceInspector.qml:349
+ImageSequenceInspector,%1 / %2 frames,,,,%1 / %2 帧,unfinished,src/ui/qml/ImageSequenceInspector.qml:350
+ImageSequenceInspector,Cache behind,,,,向后缓存,unfinished,src/ui/qml/ImageSequenceInspector.qml:356
+ImageSequenceInspector,Layer,,EXR layer,,图层,unfinished,src/ui/qml/ImageSequenceInspector.qml:377
+InspectorPanel,Video,,Section title,,视频,unfinished,src/ui/qml/InspectorPanel.qml:109
+InspectorPanel,Audio,,Section title,,音频,unfinished,src/ui/qml/InspectorPanel.qml:111
+InspectorPanel,Image,,Media kind: a single still image,,图像,unfinished,src/ui/qml/InspectorPanel.qml:113
+InspectorPanel,Image Sequence,,,,图像序列,unfinished,src/ui/qml/InspectorPanel.qml:114
+InspectorPanel,Playlist,,,,播放列表,unfinished,src/ui/qml/InspectorPanel.qml:115
+InspectorPanel,Dual View,,,,双画面,unfinished,src/ui/qml/InspectorPanel.qml:116
+InspectorPanel,Live,,Media kind: a live stream or bridge feed,,实时源,unfinished,src/ui/qml/InspectorPanel.qml:118
+InspectorPanel,Media,,Media kind: generic,,媒体,unfinished,src/ui/qml/InspectorPanel.qml:121
+InspectorPanel,File,,Section title,,文件,unfinished,src/ui/qml/InspectorPanel.qml:280
+InspectorPanel,Colour,,Section title,,色彩,unfinished,src/ui/qml/InspectorPanel.qml:426
+InspectorPanel,Range,,"Section: video levels, full or limited",,范围,unfinished,src/ui/qml/InspectorPanel.qml:428
+InspectorPanel,Alpha,,Row: whether the file has an alpha channel,,Alpha,unfinished,src/ui/qml/InspectorPanel.qml:430
+InspectorPanel,Container,,"File container format (QuickTime, MXF)",,容器,unfinished,src/ui/qml/InspectorPanel.qml:476
+InspectorPanel,Encoder,,,,编码器,unfinished,src/ui/qml/InspectorPanel.qml:491
+InspectorPanel,Copy URL,,,,复制 URL,unfinished,src/ui/qml/InspectorPanel.qml:509
+InspectorPanel,Copy path,,,,复制路径,unfinished,src/ui/qml/InspectorPanel.qml:509
+InspectorPanel,Reveal,,Button: show the file in Finder / Explorer,,显示位置,unfinished,src/ui/qml/InspectorPanel.qml:526
+InspectorPanel,Reading metadata…,,,,正在读取元数据…,unfinished,src/ui/qml/InspectorPanel.qml:553
+InspectorPanel,Resolution,,,,分辨率,unfinished,src/ui/qml/InspectorPanel.qml:570
+InspectorPanel,Frame rate,,,,帧率,unfinished,src/ui/qml/InspectorPanel.qml:576
+InspectorPanel,Total frames,,,,总帧数,unfinished,src/ui/qml/InspectorPanel.qml:582
+InspectorPanel,Codec,,,,编解码器,unfinished,src/ui/qml/InspectorPanel.qml:586
+InspectorPanel,Profile,,Codec profile (e.g. ProRes 422 HQ),,配置文件,unfinished,src/ui/qml/InspectorPanel.qml:597
+InspectorPanel,Bitrate,,,,比特率,unfinished,src/ui/qml/InspectorPanel.qml:610
+InspectorPanel,file avg %1,,,,文件平均 %1,unfinished,src/ui/qml/InspectorPanel.qml:614
+InspectorPanel,file avg,,,,文件平均,unfinished,src/ui/qml/InspectorPanel.qml:615
+InspectorPanel,Pixel format,,,,像素格式,unfinished,src/ui/qml/InspectorPanel.qml:618
+InspectorPanel,RGB,,"Pixel format summary: the file is RGB, not YUV",,RGB,unfinished,src/ui/qml/InspectorPanel.qml:624
+InspectorPanel,Bit depth,,,,位深度,unfinished,src/ui/qml/InspectorPanel.qml:627
+InspectorPanel,%1 bit + alpha,,,,%1 位 + Alpha,unfinished,src/ui/qml/InspectorPanel.qml:629
+InspectorPanel,%1 bit,,,,%1 位,unfinished,src/ui/qml/InspectorPanel.qml:629
+InspectorPanel,HDR,,,,HDR,unfinished,src/ui/qml/InspectorPanel.qml:635
+InspectorPanel,Yes — %1,,,,是 — %1,unfinished,src/ui/qml/InspectorPanel.qml:637
+InspectorPanel,Geometry,,"Section title: dimensions, aspect, rotation",,几何,unfinished,src/ui/qml/InspectorPanel.qml:654
+InspectorPanel,Auto (%1°),,Choice: decided from the file,,自动 (%1°),unfinished,src/ui/qml/InspectorPanel.qml:722
+InspectorPanel,Auto,,Choice: decided from the file,,自动,unfinished,src/ui/qml/InspectorPanel.qml:722
+InspectorPanel,Aspect,,,,宽高比,unfinished,src/ui/qml/InspectorPanel.qml:726
+InspectorPanel,Square,,Pixel aspect choice: square pixels,,方形,unfinished,src/ui/qml/InspectorPanel.qml:730
+InspectorPanel,Detected,,Pixel aspect choice: the aspect found in the file,,检测值,unfinished,src/ui/qml/InspectorPanel.qml:732
+InspectorPanel,Custom,,Pixel aspect choice: a value typed by the user,,自定义,unfinished,src/ui/qml/InspectorPanel.qml:734
+InspectorPanel,Detected %1:%2,,,,检测到 %1:%2,unfinished,src/ui/qml/InspectorPanel.qml:746
+InspectorPanel,%1:%2 (non-square),,,,%1:%2（非方形）,unfinished,src/ui/qml/InspectorPanel.qml:776
+InspectorPanel,1:1 (square),,,,1:1（方形）,unfinished,src/ui/qml/InspectorPanel.qml:778
+InspectorPanel,Display,,Row: display aspect,,显示,unfinished,src/ui/qml/InspectorPanel.qml:782
+InspectorPanel,Rotation,,,,旋转,unfinished,src/ui/qml/InspectorPanel.qml:802
+InspectorPanel,Pixel aspect,,,,像素宽高比,unfinished,src/ui/qml/InspectorPanel.qml:843
+InspectorPanel,Display aspect,,,,显示宽高比,unfinished,src/ui/qml/InspectorPanel.qml:877
+InspectorPanel,Color,,Section title,,色彩,unfinished,src/ui/qml/InspectorPanel.qml:922
+InspectorPanel,Colorspace,,,,色彩空间,unfinished,src/ui/qml/InspectorPanel.qml:936
+InspectorPanel,Primaries,,Colour primaries,,原色,unfinished,src/ui/qml/InspectorPanel.qml:942
+InspectorPanel,Transfer,,"Transfer function (PQ, HLG, sRGB)",,传递函数,unfinished,src/ui/qml/InspectorPanel.qml:948
+InspectorPanel,HDR metadata,,,,HDR 元数据,unfinished,src/ui/qml/InspectorPanel.qml:958
+InspectorPanel,MaxCLL %1,,,,MaxCLL %1,unfinished,src/ui/qml/InspectorPanel.qml:961
+InspectorPanel,MaxFALL %1,,,,MaxFALL %1,unfinished,src/ui/qml/InspectorPanel.qml:962
+InspectorPanel,mastering %1 nits,,,,母版 %1 nits,unfinished,src/ui/qml/InspectorPanel.qml:964
+InspectorPanel,NCLC tag,,,,NCLC 标签,unfinished,src/ui/qml/InspectorPanel.qml:970
+InspectorPanel,Range tag,,,,范围标签,unfinished,src/ui/qml/InspectorPanel.qml:985
+InspectorPanel,untagged,,The file carries no range tag,,未标记,unfinished,src/ui/qml/InspectorPanel.qml:990
+InspectorPanel,decoder: %1,,,,解码器：%1,unfinished,src/ui/qml/InspectorPanel.qml:997
+InspectorPanel,Auto assumes full,,,,自动视为全范围,unfinished,src/ui/qml/InspectorPanel.qml:999
+InspectorPanel,Auto assumes limited,,,,自动视为有限范围,unfinished,src/ui/qml/InspectorPanel.qml:1000
+InspectorPanel,Auto (Full),,,,自动（全范围）,unfinished,src/ui/qml/InspectorPanel.qml:1065
+InspectorPanel,Auto (Limited),,,,自动（有限范围）,unfinished,src/ui/qml/InspectorPanel.qml:1066
+InspectorPanel,"Auto (Full, assumed)",,,,自动（全范围，假定）,unfinished,src/ui/qml/InspectorPanel.qml:1070
+InspectorPanel,"Auto (Limited, assumed)",,,,自动（有限范围，假定）,unfinished,src/ui/qml/InspectorPanel.qml:1071
+InspectorPanel,Full,,Video levels,,全范围,unfinished,src/ui/qml/InspectorPanel.qml:1079
+InspectorPanel,Limited,,Video levels,,有限范围,unfinished,src/ui/qml/InspectorPanel.qml:1081
+InspectorPanel,Auto (PQ P3),,,,自动 (PQ P3),unfinished,src/ui/qml/InspectorPanel.qml:1144
+InspectorPanel,Auto (PQ 2020),,,,自动 (PQ 2020),unfinished,src/ui/qml/InspectorPanel.qml:1144
+InspectorPanel,Auto (HLG),,,,自动 (HLG),unfinished,src/ui/qml/InspectorPanel.qml:1146
+InspectorPanel,"Auto (SDR, untagged)",,,,自动（SDR，未标记）,unfinished,src/ui/qml/InspectorPanel.qml:1148
+InspectorPanel,Auto (SDR),,,,自动 (SDR),unfinished,src/ui/qml/InspectorPanel.qml:1149
+InspectorPanel,SDR 709,,,,SDR 709,unfinished,src/ui/qml/InspectorPanel.qml:1156
+InspectorPanel,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/InspectorPanel.qml:1157
+InspectorPanel,PQ P3,,,,PQ P3,unfinished,src/ui/qml/InspectorPanel.qml:1158
+InspectorPanel,HLG,,,,HLG,unfinished,src/ui/qml/InspectorPanel.qml:1159
+InspectorPanel,Linear,,,,线性,unfinished,src/ui/qml/InspectorPanel.qml:1160
+InspectorPanel,State,,Row: the bridge's current state,,状态,unfinished,src/ui/qml/InspectorPanel.qml:1220
+InspectorPanel,Off in the host,,Bridge state: the Transmit device is disabled in the host application,,宿主中已关闭,unfinished,src/ui/qml/InspectorPanel.qml:1224
+InspectorPanel,Idle,,Bridge state: nothing is being sent,,空闲,unfinished,src/ui/qml/InspectorPanel.qml:1226
+InspectorPanel,Pushing,,Bridge state: the host is sending frames,,推送中,unfinished,src/ui/qml/InspectorPanel.qml:1228
+InspectorPanel,Scrubbing,,Bridge state: the host is scrubbing,,搓擦中,unfinished,src/ui/qml/InspectorPanel.qml:1230
+InspectorPanel,No audio,,,,无音频,unfinished,src/ui/qml/InspectorPanel.qml:1231
+InspectorPanel,Sample rate,,,,采样率,unfinished,src/ui/qml/InspectorPanel.qml:1236
+InspectorPanel,%1 Hz,,,,%1 Hz,unfinished,src/ui/qml/InspectorPanel.qml:1239
+InspectorPanel,Channels,,,,声道,unfinished,src/ui/qml/InspectorPanel.qml:1244
+InspectorPanel,%1 (stereo),,,,%1（立体声）,unfinished,src/ui/qml/InspectorPanel.qml:1248
+InspectorPanel,%1 (mono),,,,%1（单声道）,unfinished,src/ui/qml/InspectorPanel.qml:1249
+InspectorPanel,Layout,,"Audio channel layout (stereo, 5.1)",,声道布局,unfinished,src/ui/qml/InspectorPanel.qml:1257
+InspectorPanel,Listen in QCView,,Toggle: play the bridge's audio in QCView,,在 QCView 中收听,unfinished,src/ui/qml/InspectorPanel.qml:1273
+InspectorPanel,Audio Stream,,Row label for the bridge's audio,,音频流,unfinished,src/ui/qml/InspectorPanel.qml:1299
+InspectorPanel,off: tick it in Premiere ▸ Preferences ▸ Playback,,,,关闭：请在 Premiere ▸ 首选项 ▸ 回放 中勾选,unfinished,src/ui/qml/InspectorPanel.qml:1300
+InspectorPanel,Mix,,Audio downmix choice,,混音,unfinished,src/ui/qml/InspectorPanel.qml:1351
+InspectorPanel,Auto — picks the right mix per source,,,,自动 — 按源选择合适的混音,unfinished,src/ui/qml/InspectorPanel.qml:1372
+InspectorPanel,5.1 → Stereo (BS.775 downmix from channels 1-6),,,,5.1 → 立体声（声道 1-6 按 BS.775 下混）,unfinished,src/ui/qml/InspectorPanel.qml:1374
+InspectorPanel,Channels 7-8 (broadcast stereo bounce),,,,声道 7-8（广播立体声混缩）,unfinished,src/ui/qml/InspectorPanel.qml:1375
+InspectorPanel,Timecode,,Section title,,时间码,unfinished,src/ui/qml/InspectorPanel.qml:1490
+InspectorPanel,From start,,Timecode origin: counting from the start of the file,,从文件开头,unfinished,src/ui/qml/InspectorPanel.qml:1515
+InspectorPanel,Embedded,,Timecode origin: the timecode track in the file,,内嵌,unfinished,src/ui/qml/InspectorPanel.qml:1521
+InspectorPanel,QT Start,,Timecode origin: the QuickTime start timecode,,QT 起始,unfinished,src/ui/qml/InspectorPanel.qml:1528
+InspectorPanel,QT TC,,,,QT TC,unfinished,src/ui/qml/InspectorPanel.qml:1536
+InspectorPanel,XMP Alt,,,,XMP Alt,unfinished,src/ui/qml/InspectorPanel.qml:1544
+InspectorPanel,Origin,,Row: where the timecode comes from,,基准,unfinished,src/ui/qml/InspectorPanel.qml:1552
+InspectorPanel,Source,,Row: which metadata the timecode was read from,,来源,unfinished,src/ui/qml/InspectorPanel.qml:1585
+InspectorPanel,(frame %1),,,,（第 %1 帧）,unfinished,src/ui/qml/InspectorPanel.qml:1588
+InspectorPanel,QT TimeCode,,,,QT TimeCode,unfinished,src/ui/qml/InspectorPanel.qml:1598
+InspectorPanel,Created,,Row: file creation date,,创建时间,unfinished,src/ui/qml/InspectorPanel.qml:1615
+InspectorPanel,Media Created,,Row: the media's own creation date from its metadata,,媒体创建时间,unfinished,src/ui/qml/InspectorPanel.qml:1618
+InspectorPanel,Linked Projects,,Section title: project files that reference this media,,关联项目,unfinished,src/ui/qml/InspectorPanel.qml:1638
+InspectorPanel,After Effects,,,,After Effects,unfinished,src/ui/qml/InspectorPanel.qml:1644
+InspectorPanel,Premiere (Mac),,,,Premiere (Mac),unfinished,src/ui/qml/InspectorPanel.qml:1646
+InspectorPanel,Premiere (Windows),,,,Premiere (Windows),unfinished,src/ui/qml/InspectorPanel.qml:1648
+InspectorPanel,Open,,Button: open the linked project in its application,,打开,unfinished,src/ui/qml/InspectorPanel.qml:1681
+InspectorPanel,Copy,,Button: copy the project path,,复制,unfinished,src/ui/qml/InspectorPanel.qml:1693
+InspectorPanel,Playlist Contents,,,,播放列表内容,unfinished,src/ui/qml/InspectorPanel.qml:1722
+InspectorPanel,%1 clips,,,,%1 个片段,unfinished,src/ui/qml/InspectorPanel.qml:1740
+InspectorPanel,(missing),,,,（缺失）,unfinished,src/ui/qml/InspectorPanel.qml:1816
+InspectorPanel,Open in single mode,,,,以单画面模式打开,unfinished,src/ui/qml/InspectorPanel.qml:1878
+LeftRail,Videos,,Media bin heading,,视频,unfinished,src/ui/qml/LeftRail.qml:280
+LeftRail,Audio,,Media bin heading,,音频,unfinished,src/ui/qml/LeftRail.qml:282
+LeftRail,Images,,Media bin heading,,图像,unfinished,src/ui/qml/LeftRail.qml:284
+LeftRail,Image Sequences,,Media bin heading,,图像序列,unfinished,src/ui/qml/LeftRail.qml:286
+LeftRail,Playlists,,Media bin heading,,播放列表,unfinished,src/ui/qml/LeftRail.qml:288
+LeftRail,Dual Views,,Media bin heading,,双画面,unfinished,src/ui/qml/LeftRail.qml:290
+LeftRail,Live,,Media bin heading,,实时源,unfinished,src/ui/qml/LeftRail.qml:292
+LeftRail,Add Media,,,,添加媒体,unfinished,src/ui/qml/LeftRail.qml:299
+LeftRail,All media (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,所有媒体 (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/LeftRail.qml:303
+LeftRail,Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif),,,,视频文件 (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif),unfinished,src/ui/qml/LeftRail.qml:306
+LeftRail,Audio files (*.wav *.aif *.aiff *.mp3 *.flac *.m4a),,,,音频文件 (*.wav *.aif *.aiff *.mp3 *.flac *.m4a),unfinished,src/ui/qml/LeftRail.qml:307
+LeftRail,Image files (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp),,,,图像文件 (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp),unfinished,src/ui/qml/LeftRail.qml:308
+LeftRail,All files (*),,,,所有文件 (*),unfinished,src/ui/qml/LeftRail.qml:309
+LeftRail,Create Playlist from Selection,,,,从所选项创建播放列表,unfinished,src/ui/qml/LeftRail.qml:851
+LeftRail,Input,,Context menu: set the OCIO input colourspace of the selected clips,,输入,unfinished,src/ui/qml/LeftRail.qml:866
+LeftRail,In this project,,Picker group header: inputs already used in the project,,本项目中,unfinished,src/ui/qml/LeftRail.qml:891
+LeftRail,All,,Picker group header: every input in the config,,全部,unfinished,src/ui/qml/LeftRail.qml:894
+LeftRail,Input for 1 clip,,,,1 个片段的输入,unfinished,src/ui/qml/LeftRail.qml:910
+LeftRail,Input for %1 clips,,,,%1 个片段的输入,unfinished,src/ui/qml/LeftRail.qml:911
+LeftRail,Filter…,,,,筛选…,unfinished,src/ui/qml/LeftRail.qml:922
+LeftRail,default,,Picker entry: use the config's default input,,默认,unfinished,src/ui/qml/LeftRail.qml:1008
+LeftRail,Use Clip Chain of “%1”,,,,使用“%1”的片段链,unfinished,src/ui/qml/LeftRail.qml:1029
+LeftRail,Use Clip Chain of the Clip on Screen,,,,使用当前显示片段的片段链,unfinished,src/ui/qml/LeftRail.qml:1030
+LeftRail,Reset Clip Chain,,,,重置片段链,unfinished,src/ui/qml/LeftRail.qml:1037
+LeftRail,Delete,,,,删除,unfinished,src/ui/qml/LeftRail.qml:1048
+LeftRail,Expand panel,,Tooltip on the rail's edge button,,展开面板,unfinished,src/ui/qml/LeftRail.qml:1150
+LeftRail,Collapse panel,,Tooltip on the rail's edge button,,折叠面板,unfinished,src/ui/qml/LeftRail.qml:1152
+LeftRail,Project,,Rail title,,项目,unfinished,src/ui/qml/LeftRail.qml:1173
+LeftRail,(%1),,"Count of items, in parentheses",,(%1),unfinished,src/ui/qml/LeftRail.qml:1184
+LeftRail,Media,,Section title: the project's media bins,,媒体,unfinished,src/ui/qml/LeftRail.qml:1310
+LeftRail,Drop media here to add to the project,,,,将媒体拖放到此处以添加到项目,unfinished,src/ui/qml/LeftRail.qml:1453
+LeftRail,New playlist,,Default name of a new playlist,,新播放列表,unfinished,src/ui/qml/LeftRail.qml:1693
+LeftRail,Safety Guides,,Section title,,安全框,unfinished,src/ui/qml/LeftRail.qml:1743
+LeftRail,Guide,,Row: which safety guide to show,,安全框,unfinished,src/ui/qml/LeftRail.qml:1785
+LeftRail,(none),,,,（无）,unfinished,src/ui/qml/LeftRail.qml:1794
+LeftRail,Opacity,,Row: guide opacity,,不透明度,unfinished,src/ui/qml/LeftRail.qml:1807
+LeftRail,Width,,Row: guide line width,,线宽,unfinished,src/ui/qml/LeftRail.qml:1825
+LeftRail,Color,,Row: guide line colour,,颜色,unfinished,src/ui/qml/LeftRail.qml:1848
+LeftRail,Background,,Section title,,背景,unfinished,src/ui/qml/LeftRail.qml:1892
+LeftRail,Black,,Background choice,,黑色,unfinished,src/ui/qml/LeftRail.qml:1909
+LeftRail,Dark Gray,,Background choice,,深灰,unfinished,src/ui/qml/LeftRail.qml:1912
+LeftRail,Dark Check,,Background choice: a dark checkerboard,,深色棋盘格,unfinished,src/ui/qml/LeftRail.qml:1919
+LeftRail,Light Check,,Background choice: a light checkerboard,,浅色棋盘格,unfinished,src/ui/qml/LeftRail.qml:1926
+LeftRail,Output,,"Section: installed outputs (NDI, AJA, streaming)",,输出,unfinished,src/ui/qml/LeftRail.qml:2026
+LeftRail,Mute feed,,Chip: silence the audio sent to outputs,,输出静音,unfinished,src/ui/qml/LeftRail.qml:2050
+LeftRail,Silence the audio sent to outputs while you keep listening. The master mute (M) silences both.,,,,使发送到输出的音频静音，您仍可继续收听。主静音 (M) 会同时静音两者。,unfinished,src/ui/qml/LeftRail.qml:2051
+LeftRail,Guides,,Chip: send the safety guides to outputs,,安全框,unfinished,src/ui/qml/LeftRail.qml:2061
+LeftRail,Draw the safety guides into the outputs that ask for them.,,,,在需要的输出中绘制安全框。,unfinished,src/ui/qml/LeftRail.qml:2062
+LeftRail,Notes,,Chip: send note strokes to outputs,,批注,unfinished,src/ui/qml/LeftRail.qml:2071
+LeftRail,Draw note strokes into the outputs that ask for them.,,,,在需要的输出中绘制批注笔迹。,unfinished,src/ui/qml/LeftRail.qml:2072
+LeftRail,Stop,,Button on an output card,,停止,unfinished,src/ui/qml/LeftRail.qml:2126
+LeftRail,Start,,,,启动,unfinished,src/ui/qml/LeftRail.qml:2126
+LeftRail,PQ Rec.2100,,Output transfer choice,,PQ Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2154
+LeftRail,HLG Rec.2100,,,,HLG Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2154
+LeftRail,SDR Rec.709,,Output transfer choice,,SDR Rec.709,unfinished,src/ui/qml/LeftRail.qml:2154
+LeftRail,1080p,,Output resolution choice,,1080p,unfinished,src/ui/qml/LeftRail.qml:2157
+LeftRail,UHD,,,,UHD,unfinished,src/ui/qml/LeftRail.qml:2157
+LeftRail,Auto,,"Output resolution choice
+----------
+Choice: follow the source",,自动,unfinished,src/ui/qml/LeftRail.qml:2157
+LeftRail,attached,,Output state: the sink is receiving,,已连接,unfinished,src/ui/qml/LeftRail.qml:2164
+LeftRail,waiting for the sink,,Output state,,等待接收端,unfinished,src/ui/qml/LeftRail.qml:2167
+LeftRail,P3-D65,,,,P3-D65,unfinished,src/ui/qml/LeftRail.qml:2171
+LeftRail,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/LeftRail.qml:2171
+LeftRail,%1 / %2 / %3 nits,,,,%1 / %2 / %3 nits,unfinished,src/ui/qml/LeftRail.qml:2172
+LeftRail,live,,Output state,,运行中,unfinished,src/ui/qml/LeftRail.qml:2193
+LeftRail,refused,,Output state: the sink refused the connection,,被拒绝,unfinished,src/ui/qml/LeftRail.qml:2195
+LeftRail,starting,,Output state,,启动中,unfinished,src/ui/qml/LeftRail.qml:2197
+LeftRail,not installed,,Output state,,未安装,unfinished,src/ui/qml/LeftRail.qml:2199
+LeftRail,Publish the viewport and the mixed audio to this output. The sink runs as its own application; QCView starts it with Start and stops it with Stop.,,,,将视口和混合音频发布到此输出。接收端作为独立应用运行；QCView 通过“启动”启动它，通过“停止”停止它。,unfinished,src/ui/qml/LeftRail.qml:2200
+LeftRail,peak · MaxCLL · MaxFALL nits,,Caption under three number fields,,峰值 · MaxCLL · MaxFALL nits,unfinished,src/ui/qml/LeftRail.qml:2261
+LeftRail,No outputs installed. An output registers itself in Application Support/QCView/Outputs.,,,,未安装任何输出。输出程序会在 Application Support/QCView/Outputs 中自行注册。,unfinished,src/ui/qml/LeftRail.qml:2304
+LeftRail,streaming,,Output state,,推流中,unfinished,src/ui/qml/LeftRail.qml:2337
+LeftRail,reconnecting,,Output state,,重连中,unfinished,src/ui/qml/LeftRail.qml:2339
+LeftRail,connecting,,Output state,,连接中,unfinished,src/ui/qml/LeftRail.qml:2341
+LeftRail,failed,,Output state,,失败,unfinished,src/ui/qml/LeftRail.qml:2343
+LeftRail,%1 kbps,,,,%1 kbps,unfinished,src/ui/qml/LeftRail.qml:2350
+LeftRail,%1 fps,,,,%1 fps,unfinished,src/ui/qml/LeftRail.qml:2351
+LeftRail,%n encoded,,,0,已编码 %n,unfinished,src/ui/qml/LeftRail.qml:2352
+LeftRail,%n repeated,,,0,重复 %n,unfinished,src/ui/qml/LeftRail.qml:2353
+LeftRail,%n skipped,,,0,跳过 %n,unfinished,src/ui/qml/LeftRail.qml:2354
+LeftRail,%n dropped,,,0,丢弃 %n,unfinished,src/ui/qml/LeftRail.qml:2355
+LeftRail,%n send error(s),,,0,%n 次发送错误,unfinished,src/ui/qml/LeftRail.qml:2356
+LeftRail,%n reconnect(s),,,0,%n 次重连,unfinished,src/ui/qml/LeftRail.qml:2357
+LeftRail,Auto fps,,Frame rate choice: follow the source,,自动帧率,unfinished,src/ui/qml/LeftRail.qml:2368
+LeftRail,Main,,"H.264 profile name, keep in English",,Main,unfinished,src/ui/qml/LeftRail.qml:2370
+LeftRail,Baseline,,,,Baseline,unfinished,src/ui/qml/LeftRail.qml:2370
+LeftRail,no audio,,Summary: the stream sends video only,,无音频,unfinished,src/ui/qml/LeftRail.qml:2372
+LeftRail,AAC %1,,,,AAC %1,unfinished,src/ui/qml/LeftRail.qml:2372
+LeftRail,SRT %1 ms,,,,SRT %1 ms,unfinished,src/ui/qml/LeftRail.qml:2373
+LeftRail,Stream,,Card title: the SRT / RTMP streaming output,,推流,unfinished,src/ui/qml/LeftRail.qml:2381
+LeftRail,no hardware encoder,,Output state: this machine cannot encode,,无硬件编码器,unfinished,src/ui/qml/LeftRail.qml:2388
+LeftRail,"Send the viewport and the mixed audio to a streaming server (Louper, or any SRT or RTMP server) as H.264 + AAC, encoded on the GPU. srt://host:port with the key as the stream id, or rtmp://host/app with the key as the stream name. A dropped connection reconnects on its own. The picture is the same Rec.709 SDR picture the output bus serves; the frame rate is fixed for the session (a paused viewport repeats its last frame).",,,,将视口和混合音频以 H.264 + AAC 的形式发送到流媒体服务器（Louper，或任意 SRT / RTMP 服务器），由 GPU 编码。srt://host:port 以推流码作为 stream id，或 rtmp://host/app 以推流码作为流名称。连接中断后会自动重连。画面与输出总线提供的 Rec.709 SDR 画面相同；帧率在会话期间固定（视口暂停时重复最后一帧）。,unfinished,src/ui/qml/LeftRail.qml:2389
+LeftRail,srt://host:port,,,,srt://host:port,unfinished,src/ui/qml/LeftRail.qml:2411
+LeftRail,Stream key (SRT stream id),,,,推流码（SRT stream id）,unfinished,src/ui/qml/LeftRail.qml:2424
+LeftRail,Hide the key,,,,隐藏推流码,unfinished,src/ui/qml/LeftRail.qml:2451
+LeftRail,Show the key,,,,显示推流码,unfinished,src/ui/qml/LeftRail.qml:2451
+LeftRail,Bitrate (kbps),,,,比特率 (kbps),unfinished,src/ui/qml/LeftRail.qml:2465
+LeftRail,Constant-rate target. Louper suggests 2500–8000 at 1080p.,,,,恒定码率目标。Louper 建议 1080p 使用 2500–8000。,unfinished,src/ui/qml/LeftRail.qml:2466
+LeftRail,Resolution,,,,分辨率,unfinished,src/ui/qml/LeftRail.qml:2487
+LeftRail,The stream's raster; the viewport is letterboxed into it like any output.,,,,流的画幅；视口会像其他输出一样以信箱模式嵌入其中。,unfinished,src/ui/qml/LeftRail.qml:2488
+LeftRail,Frame rate,,,,帧率,unfinished,src/ui/qml/LeftRail.qml:2510
+LeftRail,Auto takes the source's rate when the stream starts (30 when it has none) and keeps it for the session. A 23.976 source into a 30 fps clock repeats six frames a second.,,,,“自动”在推流开始时采用源的帧率（若无则为 30）并在会话期间保持。23.976 的源进入 30 fps 时钟时每秒重复六帧。,unfinished,src/ui/qml/LeftRail.qml:2511
+LeftRail,H.264 profile,,,,H.264 配置文件,unfinished,src/ui/qml/LeftRail.qml:2535
+LeftRail,Baseline is what Louper's recipe asks for; Main gives better quality per bit where the service accepts it. Never B-frames.,,,,Baseline 是 Louper 方案所要求的；在服务支持的情况下，Main 的每比特画质更好。从不使用 B 帧。,unfinished,src/ui/qml/LeftRail.qml:2536
+LeftRail,Audio (kbps),,,,音频 (kbps),unfinished,src/ui/qml/LeftRail.qml:2559
+LeftRail,"AAC stereo at 48 kHz from the mixed audio, before Listen, mute and volume. Off sends video only.",,,,来自混合音频的 48 kHz AAC 立体声，位于收听、静音和音量之前。关闭则只发送视频。,unfinished,src/ui/qml/LeftRail.qml:2560
+LeftRail,Off,,AAC bitrate choice: no audio in the stream,,关,unfinished,src/ui/qml/LeftRail.qml:2570
+LeftRail,SRT latency (ms),,,,SRT 延迟 (ms),unfinished,src/ui/qml/LeftRail.qml:2584
+LeftRail,"The SRT retransmission window, both ends negotiate the larger. 120 ms suits a LAN or a good link; raise it on a lossy one.",,,,SRT 重传窗口，两端协商取较大值。120 ms 适合局域网或良好链路；丢包多时请调高。,unfinished,src/ui/qml/LeftRail.qml:2585
+LeftRail,Settings,,Section title,,设置,unfinished,src/ui/qml/LeftRail.qml:2621
+LeftRail,Reset all preferences?,,,,重置所有偏好设置？,unfinished,src/ui/qml/LeftRail.qml:2681
+LeftRail,"Every preference (recents, layout, settings, shortcuts) will be erased and the app will quit. Relaunch to continue.",,,,所有偏好设置（最近项目、布局、设置、快捷键）都将被清除，应用随后退出。重新启动以继续。,unfinished,src/ui/qml/LeftRail.qml:2682
+LeftRail,Performance,,Settings group header,,性能,unfinished,src/ui/qml/LeftRail.qml:2830
+LeftRail,Image-seq decode threads,,Image-seq = image sequence,,图像序列解码线程,unfinished,src/ui/qml/LeftRail.qml:2841
+LeftRail,Applies on next sequence load.,,,,下次加载序列时生效。,unfinished,src/ui/qml/LeftRail.qml:2842
+LeftRail,Image-seq cache window,,Image-seq = image sequence,,图像序列缓存窗口,unfinished,src/ui/qml/LeftRail.qml:2871
+LeftRail,Frames cached ahead of the playhead. Lower = less RAM.,,,,沿播放方向预先缓存的帧数。数值越低占用内存越少。,unfinished,src/ui/qml/LeftRail.qml:2872
+LeftRail,Video decode threads,,,,视频解码线程,unfinished,src/ui/qml/LeftRail.qml:2902
+LeftRail,0 = Auto. Single-video playback only; dual and scrub stay on Auto. Applies on next video load.,,,,0 = 自动。仅用于单视频播放；双画面和搓擦保持自动。下次加载视频时生效。,unfinished,src/ui/qml/LeftRail.qml:2903
+LeftRail,Enable hardware decoding,,,,启用硬件解码,unfinished,src/ui/qml/LeftRail.qml:2951
+LeftRail,GPU decode (Vulkan/D3D11VA) when available. Turn off if playback misbehaves — forces software decode everywhere. Applies on next file load.,,,,可用时使用 GPU 解码 (Vulkan/D3D11VA)。播放异常时请关闭——将全部强制为软件解码。下次加载文件时生效。,unfinished,src/ui/qml/LeftRail.qml:2952
+LeftRail,Scrub cache size (MB),,,,搓擦缓存大小 (MB),unfinished,src/ui/qml/LeftRail.qml:2982
+LeftRail,"Decoded frames kept near the playhead for instant backward scrub. Higher = smoother, more RAM/VRAM. Per decoder — dual uses 2x. Applies on next file load.",,,,保留在播放头附近的已解码帧，用于即时向后搓擦。越高越流畅，但占用更多内存/显存。每个解码器各自计算——双画面为 2 倍。下次加载文件时生效。,unfinished,src/ui/qml/LeftRail.qml:2983
+LeftRail,Hardware scrub for h264/h265 (experimental),,,,h264/h265 硬件搓擦（实验性）,unfinished,src/ui/qml/LeftRail.qml:3015
+LeftRail,"GPU decode while scrubbing h264/h265, not just all-intra (ProRes). Experimental — turn off if scrubbed frames look wrong. Applies on next file load.",,,,搓擦 h264/h265 时也使用 GPU 解码，而不只是全帧内编码 (ProRes)。实验性功能——若搓擦帧显示异常请关闭。下次加载文件时生效。,unfinished,src/ui/qml/LeftRail.qml:3016
+LeftRail,Interface,,Settings group header,,界面,unfinished,src/ui/qml/LeftRail.qml:3040
+LeftRail,Language,,,,语言,unfinished,src/ui/qml/LeftRail.qml:3053
+LeftRail,Language of the interface. System default follows the OS setting. Applies at once.,,,,界面语言。“系统默认”跟随操作系统设置。立即生效。,unfinished,src/ui/qml/LeftRail.qml:3054
+LeftRail,Language of the interface. System default follows the OS setting. Applies on next launch.,,,,界面语言。“系统默认”跟随操作系统设置。下次启动时生效。,obsolete,
+LeftRail,Restart QCView to apply.,,Caption under the language picker,,重新启动 QCView 后生效。,obsolete,
+LeftRail,Always open in minimal mode,,,,始终以极简模式打开,unfinished,src/ui/qml/LeftRail.qml:3086
+LeftRail,"Launch with the rails collapsed and the color panel hidden, ignoring the last-used layout. Applies on next launch.",,,,启动时折叠侧栏并隐藏色彩面板，忽略上次使用的布局。下次启动时生效。,unfinished,src/ui/qml/LeftRail.qml:3087
+LeftRail,Timeline hover thumbnails,,,,时间线悬停缩略图,unfinished,src/ui/qml/LeftRail.qml:3114
+LeftRail,Drag viewport to move window,,,,拖动视口移动窗口,unfinished,src/ui/qml/LeftRail.qml:3136
+LeftRail,Timeline audio waveforms,,,,时间线音频波形,unfinished,src/ui/qml/LeftRail.qml:3164
+LeftRail,Draw an audio waveform over timeline clips. Peaks decode lazily in the background for the visible range and pause during playback.,,,,在时间线片段上绘制音频波形。峰值按可见范围在后台延迟解码，播放时暂停。,unfinished,src/ui/qml/LeftRail.qml:3165
+LeftRail,Screenshot format,,,,截图格式,unfinished,src/ui/qml/LeftRail.qml:3194
+LeftRail,Format for Desktop screenshots. JPEG is lossy; PNG/TIFF lossless. Notes always use PNG.,,,,桌面截图的格式。JPEG 有损；PNG/TIFF 无损。批注始终使用 PNG。,unfinished,src/ui/qml/LeftRail.qml:3195
+LeftRail,Updates,,Settings group header,,更新,unfinished,src/ui/qml/LeftRail.qml:3223
+LeftRail,Automatically check for updates,,,,自动检查更新,unfinished,src/ui/qml/LeftRail.qml:3234
+LeftRail,"Checks daily for updates, sending only your IP and app/OS version. Update manually anytime from the About menu.",,,,每天检查更新，仅发送您的 IP 和应用/系统版本。随时可从“关于”菜单手动更新。,unfinished,src/ui/qml/LeftRail.qml:3235
+LeftRail,A/V sync (Single),,Audio/video offset setting for single-clip playback,,音画同步（单画面）,unfinished,src/ui/qml/LeftRail.qml:3274
+LeftRail,Positive values delay audio to offset pipeline/display lag. Tune by ear; applies on the next seek or play.,,,,正值延迟音频，以补偿管线/显示延迟。凭听感调整；下次定位或播放时生效。,unfinished,src/ui/qml/LeftRail.qml:3275
+LeftRail,A/V sync (Dual),,Audio/video offset setting for dual view,,音画同步（双画面）,unfinished,src/ui/qml/LeftRail.qml:3309
+LeftRail,Positive values delay audio to offset pipeline/display lag. Dual's latency runs deeper than single. Tune by ear; applies on the next seek or play.,,,,正值延迟音频，以补偿管线/显示延迟。双画面的延迟比单画面更大。凭听感调整；下次定位或播放时生效。,unfinished,src/ui/qml/LeftRail.qml:3310
+LeftRail,Mute scrub audio,,,,搓擦音频静音,unfinished,src/ui/qml/LeftRail.qml:3352
+LeftRail,Silence the audio feedback while dragging the timeline or holding fast-forward/rewind. Scrubbing itself is unaffected.,,,,拖动时间线或按住快进/快退时静音音频反馈。搓擦本身不受影响。,unfinished,src/ui/qml/LeftRail.qml:3353
+LeftRail,Listen to live audio,,,,收听实时音频,unfinished,src/ui/qml/LeftRail.qml:3383
+LeftRail,Play audio pushed by Premiere Pro over QCBridge in QCView. Off by default: Premiere is already playing it. Meters run either way.,,,,在 QCView 中播放 Premiere Pro 通过 QCBridge 推送的音频。默认关闭：Premiere 已在播放。电平表始终运行。,unfinished,src/ui/qml/LeftRail.qml:3384
+LeftRail,A/V sync (Live),,Audio/video offset setting for bridge feeds,,音画同步（实时）,unfinished,src/ui/qml/LeftRail.qml:3407
+LeftRail,Positive values delay the bridge audio; negative values hold the picture. Kept per host application. Tune by ear.,,,,正值延迟桥接音频；负值延迟画面。按宿主应用分别保存。凭听感调整。,unfinished,src/ui/qml/LeftRail.qml:3408
+LeftRail,Live audio buffer,,,,实时音频缓冲,unfinished,src/ui/qml/LeftRail.qml:3439
+LeftRail,How much bridge audio is queued before it plays. Raise it if live audio stutters; lower it for less delay.,,,,桥接音频在播放前的排队量。实时音频卡顿时调高；想要更低延迟则调低。,unfinished,src/ui/qml/LeftRail.qml:3440
+LeftRail,Reset all preferences…,,,,重置所有偏好设置…,unfinished,src/ui/qml/LeftRail.qml:3487
+LiveStrip,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,审阅 · %1,unfinished,src/ui/qml/LiveStrip.qml:106
+LiveStrip,LIVE,,"Live feed state badge, upper case",,实时,unfinished,src/ui/qml/LiveStrip.qml:108
+LiveStrip,PAUSED,,"Live feed state badge, upper case",,已暂停,unfinished,src/ui/qml/LiveStrip.qml:110
+LiveStrip,WAITING,,"Live feed state badge, upper case",,等待中,unfinished,src/ui/qml/LiveStrip.qml:112
+LiveStrip,RECONNECTING,,"Live feed state badge, upper case",,重连中,unfinished,src/ui/qml/LiveStrip.qml:114
+LiveStrip,CONNECTING,,"Live feed state badge, upper case",,连接中,unfinished,src/ui/qml/LiveStrip.qml:116
+LiveStrip,OFFLINE,,"Live feed state badge, upper case",,离线,unfinished,src/ui/qml/LiveStrip.qml:118
+LiveStrip,shared memory,,Transport of a bridge feed,,共享内存,unfinished,src/ui/qml/LiveStrip.qml:162
+LiveStrip,inf/NaN in frame,,Warning: the frame contains non-finite pixel values,,帧内含 inf/NaN,unfinished,src/ui/qml/LiveStrip.qml:178
+LiveStrip,%n restart(s),,Count of times the host application went away and came back,0,%n 次重启,unfinished,src/ui/qml/LiveStrip.qml:202
+LiveStrip,%n drop(s),,Count of stream drops followed by a reconnect,0,%n 次掉线,unfinished,src/ui/qml/LiveStrip.qml:204
+LiveStrip,Auto,,Transfer override choice: follow the feed's tags,,自动,unfinished,src/ui/qml/LiveStrip.qml:242
+LiveStrip,SDR 709,,,,SDR 709,unfinished,src/ui/qml/LiveStrip.qml:242
+LiveStrip,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/LiveStrip.qml:242
+LiveStrip,PQ P3,,,,PQ P3,unfinished,src/ui/qml/LiveStrip.qml:243
+LiveStrip,HLG,,,,HLG,unfinished,src/ui/qml/LiveStrip.qml:243
+LiveStrip,Linear,,,,线性,unfinished,src/ui/qml/LiveStrip.qml:243
+LiveStrip,Auto · PQ P3,,,,自动 · PQ P3,unfinished,src/ui/qml/LiveStrip.qml:250
+LiveStrip,Auto · PQ 2020,,,,自动 · PQ 2020,unfinished,src/ui/qml/LiveStrip.qml:250
+LiveStrip,Auto · HLG,,,,自动 · HLG,unfinished,src/ui/qml/LiveStrip.qml:251
+LiveStrip,"Auto · SDR, untagged",,,,自动 · SDR，未标记,unfinished,src/ui/qml/LiveStrip.qml:252
+LiveStrip,Auto · SDR,,,,自动 · SDR,unfinished,src/ui/qml/LiveStrip.qml:253
+LiveStrip,How the scopes read this feed (Transfer override),,,,示波器如何解读此源（传递函数覆盖）,unfinished,src/ui/qml/LiveStrip.qml:258
+LiveStrip,Color panel (⌃3),,,,色彩面板 (⌃3),unfinished,src/ui/qml/LiveStrip.qml:283
+LiveStrip,Notes panel (⌃4),,,,批注面板 (⌃4),unfinished,src/ui/qml/LiveStrip.qml:291
+LiveStrip,Screenshot to clipboard (⌥T),,,,截图到剪贴板 (⌥T),unfinished,src/ui/qml/LiveStrip.qml:299
+LiveStrip,Screenshot to Desktop (T),,,,截图到桌面 (T),unfinished,src/ui/qml/LiveStrip.qml:305
+Main,Open Media…,,,,打开媒体…,unfinished,src/ui/qml/Main.qml:128
+Main,Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,媒体文件 (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/Main.qml:131
+Main,All files (*),,,,所有文件 (*),unfinished,src/ui/qml/Main.qml:134
+Main,Open Project…,,,,打开项目…,unfinished,src/ui/qml/Main.qml:145
+Main,QCView Project (*.qcvproj),,,,QCView 项目 (*.qcvproj),unfinished,src/ui/qml/Main.qml:147
+Main,Save Project As…,,,,项目另存为…,unfinished,src/ui/qml/Main.qml:155
+Main,Project error,,,,项目错误,unfinished,src/ui/qml/Main.qml:233
+Main,OK,,,,确定,unfinished,src/ui/qml/Main.qml:249
+Main,Open Stream,,,,打开网络流,unfinished,src/ui/qml/Main.qml:264
+Main,Stream URL,,,,流 URL,unfinished,src/ui/qml/Main.qml:309
+Main,Name (optional),,,,名称（可选）,unfinished,src/ui/qml/Main.qml:318
+Main,defaults to host:port,,,,默认为 host:port,unfinished,src/ui/qml/Main.qml:324
+Main,Passphrase (optional),,,,密码短语（可选）,unfinished,src/ui/qml/Main.qml:327
+Main,Cancel,,,,取消,unfinished,src/ui/qml/Main.qml:342
+Main,Connect,,,,连接,unfinished,src/ui/qml/Main.qml:348
+Main,About QCView,,,,关于 QCView,unfinished,src/ui/qml/Main.qml:360
+Main,QCView,,,,QCView,unfinished,src/ui/qml/Main.qml:366
+Main,Version %1,,,,版本 %1,unfinished,src/ui/qml/Main.qml:374
+Main,Color-accurate review player.,,,,色彩精准的审片播放器。,unfinished,src/ui/qml/Main.qml:381
+Main,Docs,,Button: open the documentation website,,文档,unfinished,src/ui/qml/Main.qml:392
+Main,Check for Updates…,,,,检查更新…,unfinished,src/ui/qml/Main.qml:400
+Main,Close,,Button,,关闭,unfinished,src/ui/qml/Main.qml:408
+Main,&File,,,,文件(&F),unfinished,src/ui/qml/Main.qml:456
+Main,Open Stream…,,,,打开网络流…,unfinished,src/ui/qml/Main.qml:463
+Main,Connect to After Effects,,,,连接到 After Effects,unfinished,src/ui/qml/Main.qml:469
+Main,Connect to Premiere Pro,,,,连接到 Premiere Pro,unfinished,src/ui/qml/Main.qml:474
+Main,Open Recent Media,,,,打开最近的媒体,unfinished,src/ui/qml/Main.qml:480
+Main,(none),,,,（无）,unfinished,src/ui/qml/Main.qml:525
+Main,Clear Menu,,,,清除菜单,unfinished,src/ui/qml/Main.qml:532
+Main,New Project,,,,新建项目,unfinished,src/ui/qml/Main.qml:539
+Main,Open Recent Project,,,,打开最近的项目,unfinished,src/ui/qml/Main.qml:549
+Main,Save Project,,,,保存项目,unfinished,src/ui/qml/Main.qml:591
+Main,Copy Project Link,,,,复制项目链接,unfinished,src/ui/qml/Main.qml:602
+Main,E&xit,,,,退出(&X),unfinished,src/ui/qml/Main.qml:622
+Main,&View,,,,视图(&V),unfinished,src/ui/qml/Main.qml:634
+Main,Minimal Mode,,View menu: a layout mode,,极简模式,unfinished,src/ui/qml/Main.qml:637
+Main,Compact Mode,,View menu: a layout mode,,紧凑模式,unfinished,src/ui/qml/Main.qml:647
+Main,Always on Top,,,,始终置顶,unfinished,src/ui/qml/Main.qml:659
+Main,Show All Panels,,View menu,,显示所有面板,unfinished,src/ui/qml/Main.qml:667
+Main,Zoom In Timeline,,,,放大时间线,unfinished,src/ui/qml/Main.qml:676
+Main,Zoom Out Timeline,,,,缩小时间线,unfinished,src/ui/qml/Main.qml:681
+Main,Fullscreen,,,,全屏,unfinished,src/ui/qml/Main.qml:690
+Main,Default Size && Position,,View menu: reset the window geometry; && is a literal ampersand,,默认大小和位置,unfinished,src/ui/qml/Main.qml:699
+Main,Left Rail,,View menu: toggle the left side panel,,左侧栏,unfinished,src/ui/qml/Main.qml:713
+Main,Right Rail,,View menu: toggle the right side panel,,右侧栏,unfinished,src/ui/qml/Main.qml:719
+Main,Color Panel,,,,色彩面板,unfinished,src/ui/qml/Main.qml:724
+Main,Timeline,,,,时间线,unfinished,src/ui/qml/Main.qml:729
+Main,Notes,,,,批注,unfinished,src/ui/qml/Main.qml:733
+Main,Status Bar,,,,状态栏,unfinished,src/ui/qml/Main.qml:738
+Main,&Tools,,,,工具(&T),unfinished,src/ui/qml/Main.qml:750
+Main,Background,,,,背景,unfinished,src/ui/qml/Main.qml:752
+Main,Safety Guides,,,,安全框,unfinished,src/ui/qml/Main.qml:760
+Main,Keyboard Shortcuts,,,,键盘快捷键,unfinished,src/ui/qml/Main.qml:768
+Main,Settings…,,,,设置…,unfinished,src/ui/qml/Main.qml:780
+Main,&About,,,,关于(&A),unfinished,src/ui/qml/Main.qml:796
+Main,About QCView…,,,,关于 QCView…,unfinished,src/ui/qml/Main.qml:798
+Main,Open media,,,,打开媒体,unfinished,src/ui/qml/Main.qml:1224
+Main,Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,媒体文件 (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/Main.qml:1229
+Main,Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),,,,视频文件 (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),unfinished,src/ui/qml/Main.qml:1230
+Main,Image / sequence files (*.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,图像 / 序列文件 (*.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/Main.qml:1231
+Main,Player detached,,Title of the separate player window,,播放器已分离,unfinished,src/ui/qml/Main.qml:1524
+Main,Click 'Reattach' to dock back,,,,点击“重新附加”以重新停靠,unfinished,src/ui/qml/Main.qml:1530
+MinColor,Use look,,Toggle: apply the look,,使用 Look,unfinished,src/color/mincolor_chain.cpp:298
+ModalHost,Close,,Tooltip on a dialog's close button,,关闭,unfinished,src/ui/qml/ModalHost.qml:109
+NotesPanel,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,审阅 · %1,unfinished,src/ui/qml/NotesPanel.qml:217
+NotesPanel,LIVE,,Badge: the feed is live,,实时,unfinished,src/ui/qml/NotesPanel.qml:219
+NotesPanel,back to live,,Hover hint on the review pill: a click returns to the live feed,,返回实时,unfinished,src/ui/qml/NotesPanel.qml:231
+NotesPanel,freeze,,Hover hint on the review pill: a click holds the current frame,,冻结,unfinished,src/ui/qml/NotesPanel.qml:233
+NotesPanel,Save the project to keep notes for this stream,,,,保存项目以保留此流的批注,unfinished,src/ui/qml/NotesPanel.qml:283
+NotesPanel,Add note here,,The add-note tile's label,,在此添加批注,unfinished,src/ui/qml/NotesPanel.qml:285
+NotesPanel,Save…,,Add-note tile when the project must be saved first,,保存…,unfinished,src/ui/qml/NotesPanel.qml:296
+NotesPanel,on the frozen frame,,Caption under Add note: the note captures the frozen frame,,在冻结帧上,unfinished,src/ui/qml/NotesPanel.qml:298
+NotesPanel,freezes the feed,,Caption under Add note: adding a note freezes the live feed,,会冻结画面,unfinished,src/ui/qml/NotesPanel.qml:300
+NotesPanel,captures current frame,,Caption under Add note,,捕获当前帧,unfinished,src/ui/qml/NotesPanel.qml:302
+NotesPanel,Export notes,,,,导出批注,unfinished,src/ui/qml/NotesPanel.qml:352
+NotesPanel,Export folder (Markdown),,,,导出文件夹 (Markdown),unfinished,src/ui/qml/NotesPanel.qml:390
+NotesPanel,Save HTML…,,,,保存 HTML…,unfinished,src/ui/qml/NotesPanel.qml:418
+NotesPanel,HTML (*.html),,,,HTML (*.html),unfinished,src/ui/qml/NotesPanel.qml:420
+NotesPanel,Save PDF…,,,,保存 PDF…,unfinished,src/ui/qml/NotesPanel.qml:425
+NotesPanel,PDF (*.pdf),,,,PDF (*.pdf),unfinished,src/ui/qml/NotesPanel.qml:427
+NotesPanel,Save DOCX…,,,,保存 DOCX…,unfinished,src/ui/qml/NotesPanel.qml:432
+NotesPanel,Word document (*.docx),,,,Word 文档 (*.docx),unfinished,src/ui/qml/NotesPanel.qml:434
+NotesPanel,%1 notes will be exported.,,,,将导出 %1 条批注。,unfinished,src/ui/qml/NotesPanel.qml:450
+NotesPanel,No notes to export yet.,,,,尚无可导出的批注。,unfinished,src/ui/qml/NotesPanel.qml:452
+NotesPanel,Markdown folder…,,,,Markdown 文件夹…,unfinished,src/ui/qml/NotesPanel.qml:468
+NotesPanel,Folder + linked images.  Type any name to set the output dir; the export creates a timestamped subfolder there.,,,,文件夹 + 关联图像。输入任意名称以设定输出目录；导出时会在其中创建带时间戳的子文件夹。,unfinished,src/ui/qml/NotesPanel.qml:473
+NotesPanel,HTML (single file)…,,,,HTML（单个文件）…,unfinished,src/ui/qml/NotesPanel.qml:480
+NotesPanel,PDF…,,,,PDF…,unfinished,src/ui/qml/NotesPanel.qml:488
+NotesPanel,DOCX…,,,,DOCX…,unfinished,src/ui/qml/NotesPanel.qml:496
+NotesPanel,Open in minNotes,,,,在 minNotes 中打开,unfinished,src/ui/qml/NotesPanel.qml:519
+NotesPanel,Open this stream's notes folder in minNotes,,,,在 minNotes 中打开此流的批注文件夹,unfinished,src/ui/qml/NotesPanel.qml:525
+NotesPanel,minNotes is not installed,,,,未安装 minNotes,unfinished,src/ui/qml/NotesPanel.qml:526
+NotesPanel,Cancel,,,,取消,unfinished,src/ui/qml/NotesPanel.qml:532
+NotesPanel,(no thumb),,No thumbnail,,（无缩略图）,unfinished,src/ui/qml/NotesPanel.qml:736
+NotesPanel,VIEWER,,Badge: the note was captured with viewer aids active,,查看辅助,unfinished,src/ui/qml/NotesPanel.qml:768
+NotesPanel,OCIO,,Badge: the note was captured through OCIO,,OCIO,unfinished,src/ui/qml/NotesPanel.qml:796
+NotesPanel,Mark addressed,,Button: mark this note as dealt with,,标记为已处理,unfinished,src/ui/qml/NotesPanel.qml:870
+NotesPanel,Delete note,,,,删除批注,unfinished,src/ui/qml/NotesPanel.qml:897
+NotesPanel,Note…,,Placeholder of the note text field,,批注…,unfinished,src/ui/qml/NotesPanel.qml:910
+NotesPanel,"Select (drag to move, corners to scale, Del to remove; click again to exit)",,,,选择（拖动移动，拖角缩放，Del 删除；再次点击退出）,unfinished,src/ui/qml/NotesPanel.qml:1021
+NotesPanel,Freehand,,,,自由绘制,unfinished,src/ui/qml/NotesPanel.qml:1023
+NotesPanel,Rectangle,,,,矩形,unfinished,src/ui/qml/NotesPanel.qml:1025
+NotesPanel,Oval,,,,椭圆,unfinished,src/ui/qml/NotesPanel.qml:1027
+NotesPanel,Arrow,,,,箭头,unfinished,src/ui/qml/NotesPanel.qml:1029
+NotesPanel,Line,,,,直线,unfinished,src/ui/qml/NotesPanel.qml:1031
+NotesPanel,Erase stroke (click strokes to remove),,,,擦除笔迹（点击笔迹以删除）,unfinished,src/ui/qml/NotesPanel.qml:1032
+NotesPanel,Width:,,Stroke width label,,线宽：,unfinished,src/ui/qml/NotesPanel.qml:1075
+PlayerWindow,Player — Phase 1.7 (compositor: %1),,,,播放器 — Phase 1.7（合成器：%1）,unfinished,src/ui/qml/PlayerWindow.qml:106
+PlayerWindow,Window: %1×%2,,,,窗口：%1×%2,unfinished,src/ui/qml/PlayerWindow.qml:112
+ProjectIo,Save: empty path.,,The prefix names the operation,,保存：路径为空。,unfinished,src/project/project_io.cpp:542
+ProjectIo,Save: cannot open '%1' for write: %2,,,,保存：无法打开“%1”进行写入：%2,unfinished,src/project/project_io.cpp:587
+ProjectIo,Save: write to '%1' truncated: %2,,,,保存：写入“%1”被截断：%2,unfinished,src/project/project_io.cpp:594
+ProjectIo,Save: commit to '%1' failed: %2,,,,保存：提交到“%1”失败：%2,unfinished,src/project/project_io.cpp:602
+ProjectIo,Open: cannot read '%1': %2,,The prefix names the operation,,打开：无法读取“%1”：%2,unfinished,src/project/project_io.cpp:627
+ProjectIo,Open: parse error in '%1': %2,,,,打开：解析“%1”出错：%2,unfinished,src/project/project_io.cpp:636
+QObject,Trim head,,Undo action name: trim the clip's start,,修剪头部,unfinished,src/timeline/timeline_edits.cpp:72
+QObject,Trim tail,,Undo action name: trim the clip's end,,修剪尾部,unfinished,src/timeline/timeline_edits.cpp:97
+QObject,Slide clip,,Undo action name: move the clip without changing its content,,滑动片段,unfinished,src/timeline/timeline_edits.cpp:117
+QObject,Slip clip,,Undo action name: shift the clip's content without moving it,,滑移片段,unfinished,src/timeline/timeline_edits.cpp:138
+QObject,Cut clip,,Undo action name,,切割片段,unfinished,src/timeline/timeline_edits.cpp:158
+QObject,Delete clip,,Undo action name,,删除片段,unfinished,src/timeline/timeline_edits.cpp:220
+QObject,Add clip,,Undo action name,,添加片段,unfinished,src/timeline/timeline_edits.cpp:260
+QObject,Reorder clip,,Undo action name,,重新排序片段,unfinished,src/timeline/timeline_edits.cpp:290
+RightRail,Inspector,,Panel title,,检查器,unfinished,src/ui/qml/RightRail.qml:99
+RightRail,Expand panel,,,,展开面板,unfinished,src/ui/qml/RightRail.qml:147
+RightRail,Collapse panel,,,,折叠面板,unfinished,src/ui/qml/RightRail.qml:148
+RightRail,Vectorscope,,Section title,,矢量示波器,unfinished,src/ui/qml/RightRail.qml:171
+RightRail,Waveform,,Section title,,波形,unfinished,src/ui/qml/RightRail.qml:185
+RightRail,Keyboard Shortcuts,,,,键盘快捷键,unfinished,src/ui/qml/RightRail.qml:324
+ScopePanel,Zoom %1× — magnifies the centre,,,,缩放 %1× — 放大中心区域,unfinished,src/ui/qml/ScopePanel.qml:216
+ScopePanel,Color,,Toggle: colour the trace by hue,,彩色,unfinished,src/ui/qml/ScopePanel.qml:223
+ScopePanel,Colour the trace by hue,,,,按色相为迹线着色,unfinished,src/ui/qml/ScopePanel.qml:227
+ScopePanel,Signal tier draws mono — the colour space isn't known,,,,信号层以单色绘制——色彩空间未知,unfinished,src/ui/qml/ScopePanel.qml:228
+ScopePanel,Trace brightness,,,,迹线亮度,unfinished,src/ui/qml/ScopePanel.qml:239
+StatusStrip,DUAL,,"Status bar mode badge, upper case, keep short",,双画面,unfinished,src/ui/qml/StatusStrip.qml:47
+StatusStrip,PLAYLIST,,"Status bar mode badge, upper case, keep short",,播放列表,unfinished,src/ui/qml/StatusStrip.qml:49
+StatusStrip,IMAGE SEQ,,"Status bar mode badge, upper case, keep short",,图像序列,unfinished,src/ui/qml/StatusStrip.qml:51
+StatusStrip,SINGLE,,"Status bar mode badge, upper case, keep short",,单画面,unfinished,src/ui/qml/StatusStrip.qml:53
+StatusStrip,idle,,Decoder state,,空闲,unfinished,src/ui/qml/StatusStrip.qml:60
+StatusStrip,opening…,,Decoder state,,打开中…,unfinished,src/ui/qml/StatusStrip.qml:62
+StatusStrip,decoding,,Decoder state,,解码中,unfinished,src/ui/qml/StatusStrip.qml:64
+StatusStrip,EOF,,Decoder state: end of file,,EOF,unfinished,src/ui/qml/StatusStrip.qml:66
+StatusStrip,ERROR,,Decoder state,,错误,unfinished,src/ui/qml/StatusStrip.qml:68
+StatusStrip,%1  %2  %3,,,,%1  %2  %3,unfinished,src/ui/qml/StatusStrip.qml:116
+StatusStrip,HW: %1,,Hardware decoder in use,,解码：%1,unfinished,src/ui/qml/StatusStrip.qml:188
+StatusStrip,HW: software,,No hardware decoder,,解码：软件,unfinished,src/ui/qml/StatusStrip.qml:195
+StatusStrip,OCIO: %1,,,,OCIO：%1,unfinished,src/ui/qml/StatusStrip.qml:216
+StatusStrip,TC: %1 DF,,"Timecode, drop frame",,TC：%1 DF,unfinished,src/ui/qml/StatusStrip.qml:229
+StatusStrip,TC: %1,,,,TC：%1,unfinished,src/ui/qml/StatusStrip.qml:229
+StatusStrip,%1 errors,,Decoder error count,,%1 个错误,unfinished,src/ui/qml/StatusStrip.qml:241
+TimelinePanel,head %1,,Trim badge: the clip's head was trimmed by %1 frames,,头 %1,unfinished,src/ui/qml/TimelinePanel.qml:479
+TimelinePanel,tail %1,,Trim badge: the clip's tail was trimmed by %1 frames,,尾 %1,unfinished,src/ui/qml/TimelinePanel.qml:493
+TimelinePanel,start %1,,Badge: the clip's start moved by %1 frames,,起点 %1,unfinished,src/ui/qml/TimelinePanel.qml:504
+TimelinePanel,slip %1,,Badge: the clip's content slipped by %1 frames,,滑移 %1,unfinished,src/ui/qml/TimelinePanel.qml:528
+TimelinePanel,→ slot %1/%2,,Drag badge: the clip will move to playlist position %1 of %2,,→ 位置 %1/%2,unfinished,src/ui/qml/TimelinePanel.qml:609
+TimelinePanel,Edit mode ON — click to disable,,,,编辑模式已开启 — 点击关闭,unfinished,src/ui/qml/TimelinePanel.qml:717
+TimelinePanel,Edit this track,,Tooltip on the track's edit toggle,,编辑此轨道,unfinished,src/ui/qml/TimelinePanel.qml:719
+TimelinePanel,Drop media here to add to the playlist,,,,将媒体拖放到此处以添加到播放列表,unfinished,src/ui/qml/TimelinePanel.qml:1376
+TimelinePanel,"Drop media onto a lane, or a side of the viewport, to compare",,,,将媒体拖放到某个轨道或视口的一侧以进行对比,unfinished,src/ui/qml/TimelinePanel.qml:1378
+TimelinePanel,Open a video to enable the timeline.,,,,打开视频以启用时间线。,unfinished,src/ui/qml/TimelinePanel.qml:1379
+TimelinePanel,⇄,,"Swap glyph, do not translate",,⇄,unfinished,src/ui/qml/TimelinePanel.qml:1511
+TimelinePanel,Audio files can't be added to playlists — added to the Audio bin instead,,,,音频文件无法添加到播放列表——已改为添加到音频素材箱,unfinished,src/ui/qml/TimelinePanel.qml:1742
+TimelinePanel,%1 audio files can't be added to playlists — added to the Audio bin instead,,,,%1 个音频文件无法添加到播放列表——已改为添加到音频素材箱,unfinished,src/ui/qml/TimelinePanel.qml:1744
+TimelineStatus,Time —,,Status well with no value yet,,时间 —,unfinished,src/ui/qml/TimelineStatus.qml:123
+TimelineStatus,Frame —,,Status well with no value yet,,帧 —,unfinished,src/ui/qml/TimelineStatus.qml:130
+TimelineStatus,Frame %1 / %2,,,,帧 %1 / %2,unfinished,src/ui/qml/TimelineStatus.qml:137
+TimelineStatus,RANGE,,Badge: an in/out range is set,,范围,unfinished,src/ui/qml/TimelineStatus.qml:217
+TimelineStatus,%1 fr,,"Range length in frames, abbreviated",,%1 帧,unfinished,src/ui/qml/TimelineStatus.qml:231
+TimelineStatus,%1 s,,Range length in seconds,,%1 秒,unfinished,src/ui/qml/TimelineStatus.qml:276
+TimelineStatus,%1 fps,,,,%1 fps,unfinished,src/ui/qml/TimelineStatus.qml:308
+TimelineStatus,GO TO FRAME,,Popup title,,跳转到帧,unfinished,src/ui/qml/TimelineStatus.qml:405
+TimelineStatus,GO TO TIMECODE,,Popup title,,跳转到时间码,unfinished,src/ui/qml/TimelineStatus.qml:408
+TimelineStatus,GO TO TIME,,Popup title,,跳转到时间,unfinished,src/ui/qml/TimelineStatus.qml:410
+TimelineStatus,frame number,,Field placeholder,,帧号,unfinished,src/ui/qml/TimelineStatus.qml:426
+TimelineStatus,HH:MM:SS:FF,,Field placeholder: timecode,,HH:MM:SS:FF,unfinished,src/ui/qml/TimelineStatus.qml:429
+TimelineStatus,MM:SS.mmm,,Field placeholder: time,,MM:SS.mmm,unfinished,src/ui/qml/TimelineStatus.qml:431
+TransportBar,Open media…,,,,打开媒体…,unfinished,src/ui/qml/TransportBar.qml:142
+TransportBar,Previous clip,,,,上一个片段,unfinished,src/ui/qml/TransportBar.qml:166
+TransportBar,Skip to start,,,,跳到开头,unfinished,src/ui/qml/TransportBar.qml:172
+TransportBar,Rewind (hold),,Tooltip: hold the button,,快退（按住）,unfinished,src/ui/qml/TransportBar.qml:180
+TransportBar,Step back 1 frame,,,,后退 1 帧,unfinished,src/ui/qml/TransportBar.qml:190
+TransportBar,Pause,,,,暂停,unfinished,src/ui/qml/TransportBar.qml:197
+TransportBar,Play,,,,播放,unfinished,src/ui/qml/TransportBar.qml:197
+TransportBar,Step forward 1 frame,,,,前进 1 帧,unfinished,src/ui/qml/TransportBar.qml:203
+TransportBar,Fast-forward (hold),,Tooltip: hold the button,,快进（按住）,unfinished,src/ui/qml/TransportBar.qml:210
+TransportBar,Skip to end,,,,跳到结尾,unfinished,src/ui/qml/TransportBar.qml:220
+TransportBar,Next clip,,,,下一个片段,unfinished,src/ui/qml/TransportBar.qml:230
+TransportBar,"Review speed — click to cycle (R), Shift+click for 1× (Shift+R)",,,,审阅速度 — 点击循环切换 (R)，Shift+点击恢复 1× (Shift+R),unfinished,src/ui/qml/TransportBar.qml:273
+TransportBar,In point not available in playlist mode,,,,播放列表模式下不可标记入点,unfinished,src/ui/qml/TransportBar.qml:296
+TransportBar,Set in point (I),,,,标记入点 (I),unfinished,src/ui/qml/TransportBar.qml:297
+TransportBar,Out point not available in playlist mode,,,,播放列表模式下不可标记出点,unfinished,src/ui/qml/TransportBar.qml:313
+TransportBar,Set out point (O),,,,标记出点 (O),unfinished,src/ui/qml/TransportBar.qml:314
+TransportBar,Clear in/out points (Shift+I),,,,清除入点/出点 (Shift+I),unfinished,src/ui/qml/TransportBar.qml:328
+TransportBar,Loop (L),,,,循环 (L),unfinished,src/ui/qml/TransportBar.qml:346
+TransportBar,Fullscreen (F),,,,全屏 (F),unfinished,src/ui/qml/TransportBar.qml:351
+TransportBar,Compact Mode (Ctrl+Shift+C),,,,紧凑模式 (Ctrl+Shift+C),unfinished,src/ui/qml/TransportBar.qml:358
+TransportBar,Screenshot to clipboard (⌥T),,,,截图到剪贴板 (⌥T),unfinished,src/ui/qml/TransportBar.qml:374
+TransportBar,Screenshot to Desktop (T),,,,截图到桌面 (T),unfinished,src/ui/qml/TransportBar.qml:380
+TransportBar,Safety guides,,Tooltip,,安全框,unfinished,src/ui/qml/TransportBar.qml:388
+TransportBar,Background,,Tooltip,,背景,unfinished,src/ui/qml/TransportBar.qml:394
+TransportBar,Timeline hover thumbnails (on),,,,时间线悬停缩略图（开）,unfinished,src/ui/qml/TransportBar.qml:406
+TransportBar,Timeline hover thumbnails (off),,,,时间线悬停缩略图（关）,unfinished,src/ui/qml/TransportBar.qml:407
+TransportBar,Color panel (⌃3),,,,色彩面板 (⌃3),unfinished,src/ui/qml/TransportBar.qml:429
+TransportBar,Notes panel (⌃4),,,,批注面板 (⌃4),unfinished,src/ui/qml/TransportBar.qml:437
+TransportBar,Unmute (M),,,,取消静音 (M),unfinished,src/ui/qml/TransportBar.qml:461
+TransportBar,Mute (M),,,,静音 (M),unfinished,src/ui/qml/TransportBar.qml:461
+TransportBar,Volume — %1%,,,,音量 — %1%,unfinished,src/ui/qml/TransportBar.qml:482
+TransportBar,Always on Top — click to unpin (Ctrl+Alt+T),,,,始终置顶 — 点击取消固定 (Ctrl+Alt+T),unfinished,src/ui/qml/TransportBar.qml:502
+TransportBar,Always on Top (Ctrl+Alt+T),,,,始终置顶 (Ctrl+Alt+T),unfinished,src/ui/qml/TransportBar.qml:503
+ViewportOverlay,Untitled Dual View,,,,未命名双画面,unfinished,src/ui/qml/ViewportOverlay.qml:73
+ViewportOverlay,(none),,Picker entry: nothing selected,,（无）,unfinished,src/ui/qml/ViewportOverlay.qml:76
+ViewportOverlay,Dual view saved: %1,,,,双画面已保存：%1,unfinished,src/ui/qml/ViewportOverlay.qml:97
+ViewportOverlay,Couldn't save dual view,,,,无法保存双画面,unfinished,src/ui/qml/ViewportOverlay.qml:100
+ViewportOverlay,Dual view updated,,,,双画面已更新,unfinished,src/ui/qml/ViewportOverlay.qml:115
+ViewportOverlay,Couldn't update dual view,,,,无法更新双画面,unfinished,src/ui/qml/ViewportOverlay.qml:118
+ViewportOverlay,Live source,,Chip label for a live source,,实时源,unfinished,src/ui/qml/ViewportOverlay.qml:192
+ViewportOverlay,A,,"Source letter, do not translate",,A,unfinished,src/ui/qml/ViewportOverlay.qml:196
+ViewportOverlay,(drop a file…),,Placeholder in the empty A chip,,（拖放文件…）,unfinished,src/ui/qml/ViewportOverlay.qml:216
+ViewportOverlay,A audio muted — click to unmute,,,,A 音频已静音 — 点击取消静音,unfinished,src/ui/qml/ViewportOverlay.qml:309
+ViewportOverlay,A audio on — click to mute,,,,A 音频开启 — 点击静音,unfinished,src/ui/qml/ViewportOverlay.qml:310
+ViewportOverlay,Couldn't load that file,,,,无法加载该文件,unfinished,src/ui/qml/ViewportOverlay.qml:334
+ViewportOverlay,Couldn't load that file as Source B,,,,无法将该文件加载为源 B,unfinished,src/ui/qml/ViewportOverlay.qml:414
+ViewportOverlay,B,,"Source letter, do not translate",,B,unfinished,src/ui/qml/ViewportOverlay.qml:441
+ViewportOverlay,"(drop a video, sequence or stream…)",,,,（拖放视频、序列或流…）,unfinished,src/ui/qml/ViewportOverlay.qml:451
+ViewportOverlay,B audio muted — click to unmute,,,,B 音频已静音 — 点击取消静音,unfinished,src/ui/qml/ViewportOverlay.qml:543
+ViewportOverlay,B audio on — click to mute,,,,B 音频开启 — 点击静音,unfinished,src/ui/qml/ViewportOverlay.qml:544
+ViewportOverlay,Close source B,,,,关闭源 B,unfinished,src/ui/qml/ViewportOverlay.qml:573
+ViewportOverlay,KNEE,,Pill: Highlight Knee is on,,拐点,unfinished,src/ui/qml/ViewportOverlay.qml:616
+ViewportOverlay,Highlight Knee on: %1 → %2 nits. Highlights are compressed — the picture is not 1:1.,,,,高光拐点已开启：%1 → %2 nits。高光被压缩——画面并非 1:1。,unfinished,src/ui/qml/ViewportOverlay.qml:629
+ViewportOverlay,VIEWER,,Pill: viewer aids are active,,查看辅助,unfinished,src/ui/qml/ViewportOverlay.qml:657
+ViewportOverlay,%1 — click to reset,,,,%1 — 点击重置,unfinished,src/ui/qml/ViewportOverlay.qml:676
+ViewportOverlay,Single view,,Dual view mode,,单画面,unfinished,src/ui/qml/ViewportOverlay.qml:692
+ViewportOverlay,Side-by-side,,Dual view mode,,并排,unfinished,src/ui/qml/ViewportOverlay.qml:702
+ViewportOverlay,Split wipe,,Dual view mode,,划像,unfinished,src/ui/qml/ViewportOverlay.qml:712
+ViewportOverlay,Difference,,Dual view mode,,差值,unfinished,src/ui/qml/ViewportOverlay.qml:722
+ViewportOverlay,Update this saved dual view,,,,更新此已保存的双画面,unfinished,src/ui/qml/ViewportOverlay.qml:740
+ViewportOverlay,Save as a new dual view,,,,另存为新的双画面,unfinished,src/ui/qml/ViewportOverlay.qml:761
+ViewportOverlay,Save dual view,,,,保存双画面,unfinished,src/ui/qml/ViewportOverlay.qml:762
+ViewportOverlay,Name,,Field label when saving a dual view,,名称,unfinished,src/ui/qml/ViewportOverlay.qml:835
+ViewportOverlay,e.g. ‘US30 v001 vs v002’,,,,例如“US30 v001 vs v002”,unfinished,src/ui/qml/ViewportOverlay.qml:847
+ViewportOverlay,Save,,,,保存,unfinished,src/ui/qml/ViewportOverlay.qml:854
+ViewportOverlay,Cancel,,,,取消,unfinished,src/ui/qml/ViewportOverlay.qml:862
+ViewportOverlay,Show project panel,,,,显示项目面板,unfinished,src/ui/qml/ViewportOverlay.qml:911
+ViewportOverlay,Show inspector panel,,,,显示检查器面板,unfinished,src/ui/qml/ViewportOverlay.qml:949
+WaveformPanel,nits · reference,,Scale mode: nits on a reference display,,nits · 参考,unfinished,src/ui/qml/WaveformPanel.qml:41
+WaveformPanel,% Y′,,,,% Y′,unfinished,src/ui/qml/WaveformPanel.qml:41
+WaveformPanel,"What the file encodes on a reference display, not what this screen emits. SDR white = 100 nits (BT.1886 reference).",,,,文件在参考显示器上的编码值，而非此屏幕的实际输出。SDR 白 = 100 nits（BT.1886 参考）。,unfinished,src/ui/qml/WaveformPanel.qml:48
+WaveformPanel,Frame <b>%1</b>  ·  Max <b>%2</b> nits,,,,帧 <b>%1</b>  ·  最大 <b>%2</b> nits,unfinished,src/ui/qml/WaveformPanel.qml:136
+WaveformPanel,Frame <b>%1</b>  ·  Max <b>%2</b>,,,,帧 <b>%1</b>  ·  最大 <b>%2</b>,unfinished,src/ui/qml/WaveformPanel.qml:137
+WaveformPanel,Reset,,Button: reset the running maximum,,重置,unfinished,src/ui/qml/WaveformPanel.qml:153
+WaveformPanel,Start Max over,,Tooltip on Reset: restart the running maximum,,重新开始统计最大值,unfinished,src/ui/qml/WaveformPanel.qml:155
+WaveformPanel,Auto,,Scale choice,,自动,unfinished,src/ui/qml/WaveformPanel.qml:169
+WaveformPanel,Scale from the interpretation,,,,根据解读方式确定刻度,unfinished,src/ui/qml/WaveformPanel.qml:169
+WaveformPanel,Force the SDR percent scale (the signal's own Y′),,,,强制使用 SDR 百分比刻度（信号自身的 Y′）,unfinished,src/ui/qml/WaveformPanel.qml:170
+WaveformPanel,nits,,Scale choice button,,nits,unfinished,src/ui/qml/WaveformPanel.qml:172
+WaveformPanel,Force the nits scale (SDR white at 100),,,,强制使用 nits 刻度（SDR 白为 100）,unfinished,src/ui/qml/WaveformPanel.qml:172
+WaveformPanel,Top of scale %1 nits,,,,刻度上限 %1 nits,unfinished,src/ui/qml/WaveformPanel.qml:198
+WaveformPanel,Trace brightness,,,,迹线亮度,unfinished,src/ui/qml/WaveformPanel.qml:210
+qcv::HostBridgeSource,Waiting for %1 (QCBridge Transmit device not publishing),,,,正在等待 %1（QCBridge Transmit 设备未发布）,unfinished,src/decode/host_bridge_source.cpp:108
+qcv::I18n,System default,,,,系统默认,unfinished,src/app/i18n.cpp:137
+qcv::I18n,machine translation,,Suffix after a language name whose catalog is machine translated and not yet checked by a person,,机器翻译,unfinished,src/app/i18n.cpp:146
+qcv::MinColorEngine,Knee,,Badge name in the viewport's chain summary,,拐点,unfinished,src/color/mincolor_engine.cpp:187
+qcv::MinColorEngine,Clip chain,,Badge name in the viewport's chain summary,,片段链,unfinished,src/color/mincolor_engine.cpp:189
+qcv::MinColorEngine,Set on this clip (minColor):,,,,此片段上的设定 (minColor)：,unfinished,src/color/mincolor_engine.cpp:196
+qcv::MinColorEngine,Input: %1 · %2%3,,,,输入：%1 · %2%3,unfinished,src/color/mincolor_engine.cpp:198
+qcv::MinColorEngine, · limited range,,Suffix appended to the Input line,, · 有限范围,unfinished,src/color/mincolor_engine.cpp:202
+qcv::MinColorEngine,Highlight Knee: on · %1 → %2 nits,,,,高光拐点：开 · %1 → %2 nits,unfinished,src/color/mincolor_engine.cpp:206
+qcv::MinColorEngine,Highlight Knee: off,,,,高光拐点：关,unfinished,src/color/mincolor_engine.cpp:208
+qcv::OCIOConfigManager,Output path is empty,,,,输出路径为空,unfinished,src/color/ocio_config_manager.cpp:486
+qcv::OCIOConfigManager,Cube size must be ≥ 2 (got %1),,,,Cube 尺寸必须 ≥ 2（当前为 %1）,unfinished,src/color/ocio_config_manager.cpp:489
+qcv::OCIOConfigManager,No OCIO config loaded,,,,未加载 OCIO 配置,unfinished,src/color/ocio_config_manager.cpp:501
+qcv::OCIOConfigManager,Chain build failed,,,,链构建失败,unfinished,src/color/ocio_config_manager.cpp:540
+qcv::OCIOConfigManager,Look,,Badge name in the viewport's chain summary,,Look,unfinished,src/color/ocio_config_manager.cpp:905
+qcv::OCIOConfigManager,CDL,,Badge name in the viewport's chain summary,,CDL,unfinished,src/color/ocio_config_manager.cpp:910
+qcv::OCIOConfigManager,LUT,,,,LUT,unfinished,src/color/ocio_config_manager.cpp:910
+qcv::OCIOConfigManager,Knee,,Badge name in the viewport's chain summary,,拐点,unfinished,src/color/ocio_config_manager.cpp:913
+qcv::OCIOConfigManager,Clip chain,,Badge name in the viewport's chain summary,,片段链,unfinished,src/color/ocio_config_manager.cpp:916
+qcv::OCIOConfigManager,Set on this clip:,,,,此片段上的设定：,unfinished,src/color/ocio_config_manager.cpp:924
+qcv::OCIOConfigManager,Input: %1,,No input set,,输入：%1,unfinished,src/color/ocio_config_manager.cpp:926
+qcv::OCIOConfigManager,(none),,No input set,,（无）,unfinished,src/color/ocio_config_manager.cpp:926
+qcv::OCIOConfigManager,Look: %1,,No input set,,Look：%1,unfinished,src/color/ocio_config_manager.cpp:928
+qcv::OCIOConfigManager,Scene LUT: %1,,,,场景 LUT：%1,unfinished,src/color/ocio_config_manager.cpp:930
+qcv::OCIOConfigManager,Highlight Knee: on · %1 → %2 nits,,,,高光拐点：开 · %1 → %2 nits,unfinished,src/color/ocio_config_manager.cpp:937
+qcv::OCIOConfigManager,Highlight Knee: off,,,,高光拐点：关,unfinished,src/color/ocio_config_manager.cpp:939
+qcv::ProjectManager,Save failed: no path provided.,,,,保存失败：未提供路径。,unfinished,src/project/project_manager.cpp:141
+qcv::ProjectManager,Save failed.,,,,保存失败。,unfinished,src/project/project_manager.cpp:147
+qcv::ProjectManager,Open failed: no path provided.,,,,打开失败：未提供路径。,unfinished,src/project/project_manager.cpp:164
+qcv::ProjectManager,Open failed.,,,,打开失败。,unfinished,src/project/project_manager.cpp:170
+qcv::ScopeController,Brightest channel (linear Rec.2020): frame %1 · max %2 nits,,,,最亮通道（线性 Rec.2020）：帧 %1 · 最大 %2 nits,unfinished,src/window/scope_controller.cpp:249
+qcv::ScopeController,Brightest channel (code value): frame %1 · max %2,,,,最亮通道（码值）：帧 %1 · 最大 %2,unfinished,src/window/scope_controller.cpp:251
+qcv::ScopeController,set,,Why the scopes assume this colourspace: the user set it,,手动设定,unfinished,src/window/scope_controller.cpp:384
+qcv::ScopeController,EXR default,,Why the scopes assume this colourspace: the EXR default (linear),,EXR 默认,unfinished,src/window/scope_controller.cpp:392
+qcv::ScopeController,still,,Why the scopes assume this colourspace: it is a still image,,静态图像,unfinished,src/window/scope_controller.cpp:396
+qcv::ScopeController,tags,,Why the scopes assume this colourspace: the file's colour tags,,标签,unfinished,src/window/scope_controller.cpp:412
+qcv::ScopeController,untagged,,,,未标记,unfinished,src/window/scope_controller.cpp:412
+qcv::ScopeController,Input · minColor %1,,,,输入 · minColor %1,unfinished,src/window/scope_controller.cpp:532
+qcv::ScopeController,Input · minColor %1 (built-in config),,,,输入 · minColor %1（内置配置）,unfinished,src/window/scope_controller.cpp:540
+qcv::ScopeController,Signal · minColor Input not convertible,,,,信号 · minColor 输入无法转换,unfinished,src/window/scope_controller.cpp:542
+qcv::ScopeController,Input · %1,,,,输入 · %1,unfinished,src/window/scope_controller.cpp:551
+qcv::ScopeController,⚠ Set to %1 · Input: %2,,,,⚠ 已设为 %1 · 输入：%2,unfinished,src/window/scope_controller.cpp:554
+qcv::ScopeController,⚠ File tagged %1 · Input: %2,,,,⚠ 文件标记为 %1 · 输入：%2,unfinished,src/window/scope_controller.cpp:555
+qcv::ScopeController,⚠ Set to %1 — not in this config · Input: %2,,,,⚠ 已设为 %1——不在此配置中 · 输入：%2,unfinished,src/window/scope_controller.cpp:558
+qcv::ScopeController,⚠ File tagged %1 — not in this config · Input: %2,,,,⚠ 文件标记为 %1——不在此配置中 · 输入：%2,unfinished,src/window/scope_controller.cpp:559
+qcv::ScopeController,Assumed · %1 (%2),,,,假定 · %1（%2）,unfinished,src/window/scope_controller.cpp:567
+qcv::ScopeController,"Assumed · %1 (%2, built-in config)",,,,假定 · %1（%2，内置配置）,unfinished,src/window/scope_controller.cpp:574
+qcv::ScopeController,"Signal · RGB, nominal curve",,,,信号 · RGB，标称曲线,unfinished,src/window/scope_controller.cpp:576
+qcv::ScopeController,Signal · YUV,,,,信号 · YUV,unfinished,src/window/scope_controller.cpp:577
+qcv::ScopeController,A %1  ·  B %2,,,,A %1  ·  B %2,unfinished,src/window/scope_controller.cpp:613
+qcv::ScopeController,SDR · Rec.709,,,,SDR · Rec.709,unfinished,src/window/scope_controller.cpp:632
+qcv::ScopeController,HDR · PQ Rec.2020,,,,HDR · PQ Rec.2020,unfinished,src/window/scope_controller.cpp:633
+qcv::ScopeController, (manual),,,,（手动）,unfinished,src/window/scope_controller.cpp:634
+qcv::ScopeController,%1 matrix,,,,%1 矩阵,unfinished,src/window/scope_controller.cpp:637
+qcv::ScopeController,Signal Y′ · %1 matrix,,,,信号 Y′ · %1 矩阵,unfinished,src/window/scope_controller.cpp:663
+qcv::ScopeController, · luminance,,,, · 亮度,unfinished,src/window/scope_controller.cpp:666
+qcv::VideoDecoder,File not found: %1,,,,文件未找到：%1,unfinished,src/decode/video_decoder.cpp:262
+qcv::VideoDecoder,avformat_open_input failed: %1,,"FFmpeg function name, keep as written",,avformat_open_input 失败：%1,unfinished,src/decode/video_decoder.cpp:650
+qcv::VideoDecoder,avformat_find_stream_info failed: %1,,"FFmpeg function name, keep as written",,avformat_find_stream_info 失败：%1,unfinished,src/decode/video_decoder.cpp:656
+qcv::VideoDecoder,No video stream found,,,,未找到视频流,unfinished,src/decode/video_decoder.cpp:668
+qcv::VideoDecoder,No decoder available for codec id %1,,,,没有可用于编解码器 id %1 的解码器,unfinished,src/decode/video_decoder.cpp:676
+qcv::VideoDecoder,avcodec_alloc_context3 failed,,"FFmpeg function name, keep as written",,avcodec_alloc_context3 失败,unfinished,src/decode/video_decoder.cpp:683
+qcv::VideoDecoder,avcodec_open2 failed: %1,,"FFmpeg function name, keep as written",,avcodec_open2 失败：%1,unfinished,src/decode/video_decoder.cpp:957
+qcv::VideoDecoder,swscale context init failed,,"FFmpeg library name, keep as written",,swscale 上下文初始化失败,unfinished,src/decode/video_decoder.cpp:1091
+qcv::VideoDecoder,Vulkan device lost — restart to recover hardware decode,,,,Vulkan 设备丢失——重新启动以恢复硬件解码,unfinished,src/decode/video_decoder.cpp:1475
+qcv::VideoDecoder,av_read_frame error: %1,,"FFmpeg function name, keep as written",,av_read_frame 错误：%1,unfinished,src/decode/video_decoder.cpp:1551
+qcv::VideoDecoder,send_packet: %1,,"FFmpeg function name, keep as written",,send_packet：%1,unfinished,src/decode/video_decoder.cpp:1558
+qcv::VideoDecoder,avcodec_receive_frame: %1,,"FFmpeg function name, keep as written",,avcodec_receive_frame：%1,unfinished,src/decode/video_decoder.cpp:1576
+qcv::VideoDecoder,hwframe_transfer_data fallback failed,,"FFmpeg function name, keep as written",,hwframe_transfer_data 回退失败,unfinished,src/decode/video_decoder.cpp:1618
+qcv::VideoDecoder,hwframe_transfer_data: %1,,"FFmpeg function name, keep as written",,hwframe_transfer_data：%1,unfinished,src/decode/video_decoder.cpp:1641
+qcv::VideoDecoder,av_seek_frame failed for frame %1,,"FFmpeg function name, keep as written",,av_seek_frame 定位第 %1 帧失败,unfinished,src/decode/video_decoder.cpp:1685
+qcv::VideoDecoder,read_frame after seek: %1,,"FFmpeg function name, keep as written",,定位后 read_frame：%1,unfinished,src/decode/video_decoder.cpp:1713
+qcv::WindowManager,No clip under the playhead to compare,,,,播放头下没有可对比的片段,unfinished,src/window/window_manager.cpp:2173
+qcv::WindowManager,After Effects / Premiere live view is not available on this platform yet,,,,此平台暂不支持 After Effects / Premiere 实时视图,unfinished,src/window/window_manager.cpp:4338
+qcv::WindowManager,"Could not open stream
+%1",,,,"无法打开流
+%1",unfinished,src/window/window_manager.cpp:4356
+qcv::WindowManager,This note has no captured frame,,,,此批注没有捕获的帧,unfinished,src/window/window_manager.cpp:4494
+qcv::WindowManager,No frame to freeze yet,,,,尚无可冻结的帧,unfinished,src/window/window_manager.cpp:4517
+qcv::WindowManager,Removed %1,,,,已移除 %1,unfinished,src/window/window_manager.cpp:5989
+qcv::WindowManager,Removed %1 items,,,,已移除 %1 项,unfinished,src/window/window_manager.cpp:5990
+qcv::WindowManager,Undo,,Toast button,,撤销,unfinished,src/window/window_manager.cpp:5992
+qcv::WindowManager,Nothing to capture — load media first,,,,没有可捕获的内容——请先加载媒体,unfinished,src/window/window_manager.cpp:6109
+qcv::WindowManager,Screenshot copied to clipboard,,,,截图已复制到剪贴板,unfinished,src/window/window_manager.cpp:6116
+qcv::WindowManager,Couldn't resolve the Desktop folder,,,,无法找到桌面文件夹,unfinished,src/window/window_manager.cpp:6147
+qcv::WindowManager,Saving screenshot…,,,,正在保存截图…,unfinished,src/window/window_manager.cpp:6189
+qcv::WindowManager,Screenshot saved (%1),,,,截图已保存 (%1),unfinished,src/window/window_manager.cpp:6206
+qcv::WindowManager,Screenshot export failed,,,,截图导出失败,unfinished,src/window/window_manager.cpp:6207
+qcv::WindowManager,Nothing to restore,,,,没有可恢复的内容,unfinished,src/window/window_manager.cpp:7836
+qcv::WindowManager,Restored %1,,,,已恢复 %1,unfinished,src/window/window_manager.cpp:7838
+qcv::WindowManager,Restored %1 items,,,,已恢复 %1 项,unfinished,src/window/window_manager.cpp:7840
+qcv::WindowManager,Preset restored: %1,,,,预设已恢复：%1,unfinished,src/window/window_manager.cpp:7848
+qcv::WindowManager,minNotes is not installed,,,,未安装 minNotes,unfinished,src/window/window_manager.cpp:8962

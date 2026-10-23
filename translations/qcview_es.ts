@@ -450,7 +450,7 @@ Clip de B — los cambios se quedan en este clip</translation>
     <message>
         <location line="+58"/>
         <source>Bake the active OCIO chain to a 65³ .cube LUT</source>
-        <translation type="unfinished">Convertir la cadena OCIO activa en una LUT .cube de 65³</translation>
+        <translation type="unfinished">Exportar la cadena OCIO activa como LUT .cube de 65³</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -638,7 +638,7 @@ Clip de B — los cambios se quedan en este clip</translation>
         <location line="+2"/>
         <source>Toe power</source>
         <extracomment>AgX curve control: the dark end of the tone curve</extracomment>
-        <translation type="unfinished">Potencia del pie (toe)</translation>
+        <translation type="unfinished">Potencia del pie</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -914,7 +914,7 @@ Clip de B — los cambios se quedan en este clip</translation>
     <message>
         <location line="+27"/>
         <source>Cache ahead</source>
-        <translation type="unfinished">Caché adelante</translation>
+        <translation type="unfinished">Caché por delante</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -925,7 +925,7 @@ Clip de B — los cambios se quedan en este clip</translation>
     <message>
         <location line="-1"/>
         <source>Cache behind</source>
-        <translation type="unfinished">Caché atrás</translation>
+        <translation type="unfinished">Caché por detrás</translation>
     </message>
     <message>
         <location line="+21"/>
@@ -1670,7 +1670,7 @@ Clip de B — los cambios se quedan en este clip</translation>
     <message>
         <location line="+542"/>
         <source>Create Playlist from Selection</source>
-        <translation type="unfinished">Crear lista de reproducción con la selección</translation>
+        <translation type="unfinished">Crear lista de reproducción a partir de la selección</translation>
     </message>
     <message>
         <location line="+15"/>
@@ -1848,7 +1848,7 @@ Clip de B — los cambios se quedan en este clip</translation>
         <location line="+24"/>
         <source>Mute feed</source>
         <extracomment>Chip: silence the audio sent to outputs</extracomment>
-        <translation type="unfinished">Silenciar envío</translation>
+        <translation type="unfinished">Silenciar salidas</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -1924,7 +1924,7 @@ Clip de B — los cambios se quedan en este clip</translation>
     <message>
         <location line="-82"/>
         <location line="+82"/>
-        <location line="+673"/>
+        <location line="+679"/>
         <location line="+5"/>
         <source>Auto</source>
         <extracomment>Output resolution choice
@@ -1933,7 +1933,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">Auto</translation>
     </message>
     <message>
-        <location line="-753"/>
+        <location line="-759"/>
         <source>attached</source>
         <extracomment>Output state: the sink is receiving</extracomment>
         <translation type="unfinished">conectada</translation>
@@ -2195,7 +2195,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+1"/>
         <source>Baseline is what Louper&apos;s recipe asks for; Main gives better quality per bit where the service accepts it. Never B-frames.</source>
-        <translation type="unfinished">Baseline es lo que pide la receta de Louper; Main da mejor calidad por bit donde el servicio lo acepta. Nunca B-frames.</translation>
+        <translation type="unfinished">Baseline es lo que pide la receta de Louper; Main da mejor calidad por bit donde el servicio lo acepta. Nunca usa B-frames.</translation>
     </message>
     <message>
         <location line="+23"/>
@@ -2208,7 +2208,13 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">AAC estéreo a 48 kHz desde el audio mezclado, antes de Escuchar, silencio y volumen. Desactivado envía solo video.</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+10"/>
+        <source>Off</source>
+        <extracomment>AAC bitrate choice: no audio in the stream</extracomment>
+        <translation type="unfinished">Desactivado</translation>
+    </message>
+    <message>
+        <location line="+14"/>
         <source>SRT latency (ms)</source>
         <translation type="unfinished">Latencia SRT (ms)</translation>
     </message>
@@ -2234,7 +2240,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">Se borrarán todas las preferencias (recientes, disposición, ajustes, atajos) y la aplicación se cerrará. Vuelva a abrirla para continuar.</translation>
     </message>
     <message>
-        <location line="+143"/>
+        <location line="+148"/>
         <source>Performance</source>
         <extracomment>Settings group header</extracomment>
         <translation type="unfinished">Rendimiento</translation>
@@ -2243,7 +2249,7 @@ Choice: follow the source</extracomment>
         <location line="+11"/>
         <source>Image-seq decode threads</source>
         <extracomment>Image-seq = image sequence</extracomment>
-        <translation type="unfinished">Hilos de decodificación (sec. de imágenes)</translation>
+        <translation type="unfinished">Hilos de decod. (sec. img)</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2254,7 +2260,7 @@ Choice: follow the source</extracomment>
         <location line="+29"/>
         <source>Image-seq cache window</source>
         <extracomment>Image-seq = image sequence</extracomment>
-        <translation type="unfinished">Ventana de caché (sec. de imágenes)</translation>
+        <translation type="unfinished">Ventana de caché (sec. img)</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2264,7 +2270,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+30"/>
         <source>Video decode threads</source>
-        <translation type="unfinished">Hilos de decodificación de video</translation>
+        <translation type="unfinished">Hilos de decod. de video</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2274,7 +2280,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+48"/>
         <source>Enable hardware decoding</source>
-        <translation type="unfinished">Activar decodificación por hardware</translation>
+        <translation type="unfinished">Decodificación por hardware</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2284,7 +2290,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+30"/>
         <source>Scrub cache size (MB)</source>
-        <translation type="unfinished">Tamaño de la caché de scrub (MB)</translation>
+        <translation type="unfinished">Caché de scrub (MB)</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2294,7 +2300,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+32"/>
         <source>Hardware scrub for h264/h265 (experimental)</source>
-        <translation type="unfinished">Scrub por hardware para h264/h265 (experimental)</translation>
+        <translation type="unfinished">Scrub por hardware h264/h265 (experimental)</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -2314,17 +2320,20 @@ Choice: follow the source</extracomment>
     </message>
     <message>
         <location line="+1"/>
-        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
-        <translation type="unfinished">Idioma de la interfaz. Predeterminado del sistema sigue el ajuste del sistema operativo. Se aplica en el próximo inicio.</translation>
+        <source>Language of the interface. System default follows the OS setting. Applies at once.</source>
+        <translation type="unfinished">Idioma de la interfaz. “Predeterminado del sistema” sigue el ajuste del sistema operativo. Se aplica al instante.</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <source>Language of the interface. System default follows the OS setting. Applies on next launch.</source>
+        <translation type="obsolete">Idioma de la interfaz. Predeterminado del sistema sigue el ajuste del sistema operativo. Se aplica en el próximo inicio.</translation>
+    </message>
+    <message>
         <source>Restart QCView to apply.</source>
         <extracomment>Caption under the language picker</extracomment>
-        <translation type="unfinished">Reinicie QCView para aplicarlo.</translation>
+        <translation type="obsolete">Reinicie QCView para aplicarlo.</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+32"/>
         <source>Always open in minimal mode</source>
         <translation type="unfinished">Abrir siempre en modo mínimo</translation>
     </message>
@@ -2336,7 +2345,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+27"/>
         <source>Timeline hover thumbnails</source>
-        <translation type="unfinished">Miniaturas al pasar por la línea de tiempo</translation>
+        <translation type="unfinished">Miniaturas en la línea de tiempo</translation>
     </message>
     <message>
         <location line="+22"/>
@@ -2581,7 +2590,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+5"/>
         <source>How the scopes read this feed (Transfer override)</source>
-        <translation type="unfinished">Cómo leen los scopes esta señal (transferencia forzada)</translation>
+        <translation type="unfinished">Cómo leen los scopes esta señal (ajuste de transferencia)</translation>
     </message>
     <message>
         <location line="+25"/>
@@ -2927,7 +2936,7 @@ Choice: follow the source</extracomment>
         <location line="+293"/>
         <source>Player detached</source>
         <extracomment>Title of the separate player window</extracomment>
-        <translation type="unfinished">Reproductor separado</translation>
+        <translation type="unfinished">Reproductor desacoplado</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -2972,7 +2981,7 @@ Choice: follow the source</extracomment>
         <location line="+12"/>
         <source>back to live</source>
         <extracomment>Hover hint on the review pill: a click returns to the live feed</extracomment>
-        <translation type="unfinished">volver al vivo</translation>
+        <translation type="unfinished">volver a en vivo</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -3254,7 +3263,7 @@ Choice: follow the source</extracomment>
         <location line="+20"/>
         <source>Slide clip</source>
         <extracomment>Undo action name: move the clip without changing its content</extracomment>
-        <translation type="unfinished">Deslizar clip</translation>
+        <translation type="unfinished">Deslizar clip (slide)</translation>
     </message>
     <message>
         <location line="+21"/>
@@ -3960,7 +3969,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+49"/>
         <source>Show project panel</source>
-        <translation type="unfinished">Mostrar panel de proyecto</translation>
+        <translation type="unfinished">Mostrar panel del proyecto</translation>
     </message>
     <message>
         <location line="+38"/>
@@ -4057,7 +4066,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>qcv::I18n</name>
     <message>
-        <location filename="../src/app/i18n.cpp" line="+116"/>
+        <location filename="../src/app/i18n.cpp" line="+137"/>
         <source>System default</source>
         <translation type="unfinished">Predeterminado del sistema</translation>
     </message>
@@ -4240,7 +4249,7 @@ Choice: follow the source</extracomment>
         <location line="+133"/>
         <source>set</source>
         <extracomment>Why the scopes assume this colourspace: the user set it</extracomment>
-        <translation type="unfinished">definido</translation>
+        <translation type="unfinished">manual</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -4288,7 +4297,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+3"/>
         <source>⚠ Set to %1 · Input: %2</source>
-        <translation type="unfinished">⚠ Definido en %1 · Entrada: %2</translation>
+        <translation type="unfinished">⚠ Ajustado a %1 · Entrada: %2</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -4298,7 +4307,7 @@ Choice: follow the source</extracomment>
     <message>
         <location line="+3"/>
         <source>⚠ Set to %1 — not in this config · Input: %2</source>
-        <translation type="unfinished">⚠ Definido en %1 — no está en esta configuración · Entrada: %2</translation>
+        <translation type="unfinished">⚠ Ajustado a %1 — no está en esta configuración · Entrada: %2</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -4459,7 +4468,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>qcv::WindowManager</name>
     <message>
-        <location filename="../src/window/window_manager.cpp" line="+2161"/>
+        <location filename="../src/window/window_manager.cpp" line="+2173"/>
         <source>No clip under the playhead to compare</source>
         <translation type="unfinished">No hay ningún clip bajo el cabezal para comparar</translation>
     </message>
