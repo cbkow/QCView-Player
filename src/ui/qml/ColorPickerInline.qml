@@ -120,6 +120,7 @@ Pane {
             color: cf.activeFocus
                    ? Theme.surface
                    : (cf.hovered ? Theme.bgAlt : Theme.bg)
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             radius: Theme.radiusSmall
             Rectangle {
                 anchors.left:   parent.left
@@ -286,6 +287,7 @@ Pane {
                         color: hexFieldWide.activeFocus
                                ? Theme.surface
                                : (hexFieldWide.hovered ? Theme.bgAlt : Theme.bg)
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         radius: Theme.radiusSmall
                         Rectangle {
                             anchors.left:   parent.left
@@ -399,6 +401,7 @@ Pane {
                     color: hexField.activeFocus
                            ? Theme.surface
                            : (hexField.hovered ? Theme.bgAlt : Theme.bg)
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     radius: Theme.radiusSmall
                     Rectangle {
                         anchors.left:   parent.left

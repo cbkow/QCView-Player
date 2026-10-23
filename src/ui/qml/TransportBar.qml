@@ -245,6 +245,7 @@ Pane {
             radius: Theme.radiusSmall
             color: speedMa.containsMouse
                    ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             Text {
                 id: speedText
                 anchors.centerIn: parent
@@ -253,6 +254,7 @@ Pane {
                 color: parent.offUnity ? Theme.accent
                      : (speedMa.containsMouse ? Theme.textPrimary
                                               : Theme.textSecondary)
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 font.family: Theme.monoFamily
                 font.pixelSize: Theme.fontSizeMono
                 font.bold: parent.offUnity

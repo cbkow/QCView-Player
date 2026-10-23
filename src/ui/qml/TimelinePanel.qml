@@ -694,7 +694,8 @@ Pane {
             radius: 0
             color: editToggle.editing
                    ? (toggleMa.containsMouse ? Theme.accentHover : Theme.accent)
-                   : (toggleMa.containsMouse ? Theme.surfaceHover : "transparent")
+                   : (toggleMa.containsMouse ? Theme.surfaceHover : Theme.hoverIdle)
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         Icon {
             anchors.centerIn: parent

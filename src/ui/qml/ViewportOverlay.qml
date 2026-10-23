@@ -170,6 +170,7 @@ Pane {
             // border via the overlay below; hover lifts the fill.
             color: aChipMa.containsMouse
                    ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             radius: Theme.radiusSmall
 
             RowLayout {
@@ -280,10 +281,12 @@ Pane {
                     color: sideMuted
                            ? (aMuteMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess)
                            : (aMuteMa.containsMouse ? Theme.sideA : Theme.sideAMuted)
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     border.width: 1
                     border.color: sideMuted
                                   ? (aMuteMa.containsMouse ? Theme.borderStrong : Theme.border)
                                   : Theme.sideA
+                    Behavior on border.color { ColorAnimation { duration: Theme.hoverMs } }
                     Icon {
                         anchors.centerIn: parent
                         name: aMutePill.sideMuted ? "speaker-slash" : "speaker-high"
@@ -291,6 +294,7 @@ Pane {
                         color: aMutePill.sideMuted
                                ? (aMuteMa.containsMouse ? Theme.textPrimary : Theme.textMuted)
                                : (aMuteMa.containsMouse ? Theme.textBright : Theme.sideAText)
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     MouseArea {
                         id: aMuteMa
@@ -388,6 +392,7 @@ Pane {
             // comment.
             color: bChipMa.containsMouse
                    ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             radius: Theme.radiusSmall
 
             // Drop zone — currently video-only. Source B
@@ -514,10 +519,12 @@ Pane {
                     color: sideMuted
                            ? (bMuteMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess)
                            : (bMuteMa.containsMouse ? Theme.sideB : Theme.sideBMuted)
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     border.width: 1
                     border.color: sideMuted
                                   ? (bMuteMa.containsMouse ? Theme.borderStrong : Theme.border)
                                   : Theme.sideB
+                    Behavior on border.color { ColorAnimation { duration: Theme.hoverMs } }
                     Icon {
                         anchors.centerIn: parent
                         name: bMutePill.sideMuted ? "speaker-slash" : "speaker-high"
@@ -525,6 +532,7 @@ Pane {
                         color: bMutePill.sideMuted
                                ? (bMuteMa.containsMouse ? Theme.textPrimary : Theme.textMuted)
                                : (bMuteMa.containsMouse ? Theme.textBright : Theme.sideBText)
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     MouseArea {
                         id: bMuteMa
@@ -557,6 +565,7 @@ Pane {
                         size: Theme.iconSizeSmall
                         color: bCloseMa.containsMouse
                                ? Theme.error : Theme.textMuted
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     MouseArea {
                         id: bCloseMa
@@ -647,7 +656,8 @@ Pane {
             Layout.preferredHeight: Theme.chipHeight
             Layout.preferredWidth: viewerLabel.implicitWidth + 14
             radius: Theme.radiusSmall
-            color: viewerPillMa.containsMouse ? Theme.surfaceHover : "transparent"
+            color: viewerPillMa.containsMouse ? Theme.surfaceHover : Theme.hoverIdle
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             border.width: 1
             border.color: Theme.warning
             Text {
@@ -899,6 +909,7 @@ Pane {
             name: "arrow-right"
             size: Theme.iconSizeSmall
             color: leftOpenMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         MouseArea {
             id: leftOpenMa
@@ -937,6 +948,7 @@ Pane {
             name: "arrow-left"
             size: Theme.iconSizeSmall
             color: rightOpenMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         MouseArea {
             id: rightOpenMa

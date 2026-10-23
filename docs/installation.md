@@ -54,6 +54,8 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 What's new in 2.6.1
 
+- **Type** — the interface is set in Geist and Geist Mono throughout: one sans for labels, one mono for timecode, frame counts and values.
+- **Motion** — every hover now ramps rather than snaps: project bin rows, playlist clips, the Color panel's strips and LUT tiles, note cards and buttons, the A/B chips, spin-box arrows and the timeline wells join the buttons and menus that already did.
 - **Playlists** — after seeking in a playlist, pressing play could leave the playhead frozen at the seek point while the picture ran on and the audio stuttered; seen with a clip carrying eight audio channels. Playback now follows the seek every time.
 
 What's new in 2.6.0

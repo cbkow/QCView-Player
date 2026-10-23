@@ -130,6 +130,7 @@ Pane {
                         size: Theme.iconSizeSmall
                         color: railToggleMa.containsMouse
                                ? Theme.textPrimary : Theme.textSecondary
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     MouseArea {
                         id: railToggleMa

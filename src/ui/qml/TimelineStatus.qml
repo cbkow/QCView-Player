@@ -95,7 +95,8 @@ Rectangle {
             color: Theme.surface
             border.width: 1
             border.color: frameWellMa.containsMouse
-                          ? Theme.divider : "transparent"
+                          ? Theme.divider : Theme.hoverIdle
+            Behavior on border.color { ColorAnimation { duration: Theme.hoverMs } }
             MouseArea {
                 id: frameWellMa
                 anchors.fill: parent
@@ -150,7 +151,8 @@ Rectangle {
             id: tcWell
             border.width: 1
             border.color: tcWellMa.containsMouse
-                          ? Theme.divider : "transparent"
+                          ? Theme.divider : Theme.hoverIdle
+            Behavior on border.color { ColorAnimation { duration: Theme.hoverMs } }
             MouseArea {
                 id: tcWellMa
                 anchors.fill: parent

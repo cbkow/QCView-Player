@@ -62,6 +62,9 @@ QtObject {
     // 0, so the colour animation would dip dark before it lightens.
     // This is surfaceHover at alpha 0 — the ramp only fades in.
     readonly property color hoverIdle: Qt.rgba(0x25 / 255, 0x25 / 255, 0x25 / 255, 0)
+    // The same idea for the two filled-on-hover delete chips (LUT clear,
+    // note delete): Theme.error at alpha 0, so the red only fades in.
+    readonly property color errorIdle: Qt.rgba(0xc0 / 255, 0x40 / 255, 0x40 / 255, 0)
 
     // --- Text ---
     readonly property color textPrimary:   "#dddddd"

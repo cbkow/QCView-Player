@@ -1029,6 +1029,7 @@ ApplicationWindow {
             // "this edge is draggable" affordance.
             color: ma.pressed || ma.containsMouse
                    ? Theme.accent : Theme.divider
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         MouseArea {
             id: ma
@@ -1059,6 +1060,7 @@ ApplicationWindow {
             height: 1 / Screen.devicePixelRatio
             color: ma.pressed || ma.containsMouse
                    ? Theme.accent : Theme.divider
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         MouseArea {
             id: ma

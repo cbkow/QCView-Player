@@ -146,6 +146,7 @@ Rectangle {
                 width: parent.width
                 height: 2
                 color: scrubMa.containsMouse || scrubMa.pressed ? Theme.borderStrong : Theme.divider
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             }
             // Played part
             Rectangle {

@@ -1350,6 +1350,7 @@ Pane {
             name: "arrow-counter-clockwise"
             size: Theme.iconSizeSmall
             color: revertMa.containsMouse ? Theme.textBright : Theme.accent
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         MouseArea {
             id: revertMa
@@ -1442,6 +1443,7 @@ Pane {
                 size: Theme.iconSizeSmall
                 color: reelCollapseMa.containsMouse
                        ? Theme.textPrimary : Theme.textSecondary
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             }
             MouseArea {
                 id: reelCollapseMa
@@ -1519,7 +1521,8 @@ Pane {
                     Rectangle {
                         anchors.fill: parent
                         color: modelData === reel.currentText ? reel.selectionColor
-                             : (mouseArea.containsMouse ? Theme.surfaceHover : "transparent")
+                             : (mouseArea.containsMouse ? Theme.surfaceHover : Theme.hoverIdle)
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     // Current-entry accent rule — same selected
                     // vocabulary as the rail rows (the old green ★
@@ -1565,6 +1568,7 @@ Pane {
             Layout.fillHeight: true
             visible: reel.expandable && !reel.expanded
             color: reelExpandMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -1615,6 +1619,7 @@ Pane {
                     // collapsed strip neutral.
                     color: reelExpandMa.containsMouse
                            ? Theme.accent : Theme.textMuted
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 }
 
                 Icon {
@@ -1703,6 +1708,7 @@ Pane {
                 name: "caret-double-left"
                 size: Theme.iconSizeSmall
                 color: kneeCollapseMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             }
             MouseArea {
                 id: kneeCollapseMa
@@ -1931,6 +1937,7 @@ Pane {
             Layout.fillHeight: true
             visible: !knee.expanded
             color: kneeStripMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             radius: Theme.radiusSmall
 
             MouseArea {
@@ -1978,6 +1985,7 @@ Pane {
                     size: 20
                     color: knee.on ? Theme.warning
                                    : (kneeStripMa.containsMouse ? Theme.accent : Theme.textMuted)
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 }
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
@@ -2026,6 +2034,7 @@ Pane {
                 name: "caret-double-left"
                 size: Theme.iconSizeSmall
                 color: agxCollapseMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             }
             MouseArea {
                 id: agxCollapseMa
@@ -2198,6 +2207,7 @@ Pane {
             Layout.fillHeight: true
             visible: !agx.expanded
             color: agxStripMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             radius: Theme.radiusSmall
 
             MouseArea {
@@ -2239,6 +2249,7 @@ Pane {
                     size: 20
                     color: agx.on ? Theme.warning
                                   : (agxStripMa.containsMouse ? Theme.accent : Theme.textMuted)
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 }
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
@@ -2314,6 +2325,7 @@ Pane {
                 size: Theme.iconSizeSmall
                 color: collapseMa.containsMouse
                        ? Theme.textPrimary : Theme.textSecondary
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             }
             MouseArea {
                 id: collapseMa
@@ -2346,6 +2358,7 @@ Pane {
             // Borderless recessed well. Hover lifts the fill; loaded-
             // state cue lives on the identity icon (Theme.success).
             color: tileMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             border.width: 0
             radius: Theme.radiusSmall
 
@@ -2388,6 +2401,7 @@ Pane {
                           : qsTr("+ Add LUT")
                     color: tileMa.containsMouse
                            ? Theme.textBright : Theme.textPrimary
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeBase
                     font.bold: true
@@ -2442,7 +2456,8 @@ Pane {
                 anchors.margins: Theme.spacing
                 width: 22
                 height: 22
-                color: clearMa.containsMouse ? Theme.error : "transparent"
+                color: clearMa.containsMouse ? Theme.error : Theme.errorIdle
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 radius: Theme.radiusSmall
                 visible: tile.path.length > 0
                 Icon {
@@ -2451,6 +2466,7 @@ Pane {
                     size: Theme.iconSizeSmall
                     color: clearMa.containsMouse
                            ? Theme.textBright : Theme.textMuted
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 }
                 MouseArea {
                     id: clearMa
@@ -2476,6 +2492,7 @@ Pane {
             // Borderless recessed well. Hover lifts the fill; loaded-
             // state cue lives on the identity icon (Theme.success).
             color: collapsedMa.containsMouse ? Theme.surfaceHover : Theme.surfaceRecess
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
             border.width: 0
             radius: Theme.radiusSmall
 

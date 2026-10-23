@@ -200,6 +200,7 @@ Pane {
                 visible: WindowManager.activeNotesAreStream
                 readonly property bool inReview: WindowManager.liveReview
                 color: pillMa.containsMouse ? Theme.surfaceHover : Theme.bg
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 10
@@ -258,6 +259,7 @@ Pane {
                 // Borderless. Hover lifts the fill; the icon and
                 // label color shift carry the affordance.
                 color: addMa.containsMouse ? Theme.surfaceHover : Theme.bg
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 border.width: 0
 
                 // Stream notes (plan B1) live in the project's sidecar, so
@@ -276,6 +278,7 @@ Pane {
                         name: addTile.needSave ? "floppy-disk" : "plus"
                         size: 32
                         color: addMa.containsMouse ? Theme.success : Theme.textMuted
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     Text {
                         Layout.alignment: Qt.AlignHCenter
@@ -284,6 +287,7 @@ Pane {
                                                //: The add-note tile's label
                                                : qsTr("Add note here")
                         color: addMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         horizontalAlignment: Text.AlignHCenter
@@ -333,6 +337,7 @@ Pane {
                        ? Theme.accentMuted
                        : (exportMa.containsMouse ? Theme.surfaceHover
                                                   : Theme.bg)
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 border.width: 0
 
                 ColumnLayout {
@@ -345,12 +350,14 @@ Pane {
                         name: "export"
                         size: 22
                         color: exportMa.containsMouse ? Theme.info : Theme.textSecondary
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.fillWidth: true
                         text: qsTr("Export notes")
                         color: exportMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         horizontalAlignment: Text.AlignHCenter
@@ -593,6 +600,7 @@ Pane {
                         color: cardMa.containsMouse
                                 ? Theme.surfaceHover
                                 : (_live.addressed ? Theme.bgAlt : Theme.surfaceAlt)
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         opacity: _live.addressed ? 0.7 : 1.0
 
                         // Live lookup against WindowManager.notesList
@@ -875,7 +883,8 @@ Pane {
                                     // matching the LUT clear button.
                                     Layout.preferredWidth: 18
                                     Layout.preferredHeight: 18
-                                    color: delMa.containsMouse ? Theme.error : "transparent"
+                                    color: delMa.containsMouse ? Theme.error : Theme.errorIdle
+                                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                                     radius: Theme.radiusSmall
                                     Icon {
                                         anchors.centerIn: parent
@@ -884,6 +893,7 @@ Pane {
                                         color: delMa.containsMouse
                                                ? Theme.textBright
                                                : Theme.textMuted
+                                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                                     }
                                     MouseArea {
                                         id: delMa
@@ -927,6 +937,7 @@ Pane {
                                         color: noteText.activeFocus
                                                ? Theme.surface
                                                : (noteText.hovered ? Theme.bgAlt : Theme.bg)
+                                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                                         radius: Theme.radiusSmall
                                         Rectangle {
                                             anchors.left:   parent.left
@@ -982,6 +993,7 @@ Pane {
                            ? Theme.textBright
                            : (toolBtn.hovered ? Theme.textPrimary
                                               : Theme.textSecondary)
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 }
                 background: Rectangle {
                     // Match FlatButton default-checked vocabulary —

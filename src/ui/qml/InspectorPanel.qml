@@ -224,7 +224,8 @@ Rectangle {
                         color: isActive
                                ? modelData.color
                                : (sideMa.containsMouse ? Theme.surfaceHover
-                                                       : "transparent")
+                                                       : Theme.hoverIdle)
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         Text {
                             anchors.centerIn: parent
                             text: modelData.side
@@ -1778,6 +1779,7 @@ Rectangle {
                            ? Theme.rowActive
                            : (rowMa.containsMouse ? Theme.surfaceHover
                                                   : Theme.surfaceRecess)
+                    Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     border.color: Theme.accent
                     border.width: clipRow.isCurrentClip ? 1 : 0
                     radius: Theme.radiusSmall
@@ -1851,7 +1853,8 @@ Rectangle {
                         radius: Theme.radiusSmall
                         visible: clipRow.modelData.mediaId
                         color: openMa.containsMouse ? Theme.surfaceHover
-                                                    : "transparent"
+                                                    : Theme.hoverIdle
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         Icon {
                             anchors.centerIn: parent
                             name: "arrow-square-out"
@@ -1860,6 +1863,7 @@ Rectangle {
                                    ? Theme.accent
                                    : (clipRow.isCurrentClip ? Theme.textBright
                                                             : Theme.textSecondary)
+                            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         }
                         MouseArea {
                             id: openMa

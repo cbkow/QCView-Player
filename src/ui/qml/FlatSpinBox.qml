@@ -46,13 +46,15 @@ SpinBox {
         implicitWidth: 18
         color: root.up.pressed
                 ? Theme.accentMuted
-                : (upMa.containsMouse ? Theme.surfaceHover : "transparent")
+                : (upMa.containsMouse ? Theme.surfaceHover : Theme.hoverIdle)
+        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         border.width: 0
         Icon {
             anchors.centerIn: parent
             name: "caret-up"
             size: 10
             color: upMa.containsMouse ? Theme.accent : Theme.textSecondary
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         MouseArea {
             id: upMa
@@ -69,13 +71,15 @@ SpinBox {
         implicitWidth: 18
         color: root.down.pressed
                 ? Theme.accentMuted
-                : (downMa.containsMouse ? Theme.surfaceHover : "transparent")
+                : (downMa.containsMouse ? Theme.surfaceHover : Theme.hoverIdle)
+        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         border.width: 0
         Icon {
             anchors.centerIn: parent
             name: "caret-down"
             size: 10
             color: downMa.containsMouse ? Theme.accent : Theme.textSecondary
+            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
         }
         MouseArea {
             id: downMa

@@ -71,7 +71,8 @@ Rectangle {
         anchors.top: parent.top
         height: Theme.headerHeight
         color: imgSeqHeaderMa.containsMouse
-               ? Theme.surfaceHover : "transparent"
+               ? Theme.surfaceHover : Theme.hoverIdle
+        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
 
         MouseArea {
             id: imgSeqHeaderMa

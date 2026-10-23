@@ -539,6 +539,7 @@ Rectangle {
                             ? Theme.selection
                             : (rowMa.containsMouse
                                  ? Theme.surfaceHover : Theme.surface))
+                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                 border.color: Theme.accent
                 border.width: rowItem.isActive ? 1 : 0
             }
@@ -986,7 +987,8 @@ Rectangle {
                                 width: ListView.view.width
                                 height: Theme.rowHeightDense
                                 color: inputRowMa.containsMouse || ListView.isCurrentItem
-                                       ? Theme.surfaceHover : "transparent"
+                                       ? Theme.surfaceHover : Theme.hoverIdle
+                                Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.leftMargin: 6
@@ -1132,6 +1134,7 @@ Rectangle {
                         size: Theme.iconSizeSmall
                         color: railToggleMa.containsMouse
                                ? Theme.textPrimary : Theme.textSecondary
+                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                     }
                     MouseArea {
                         id: railToggleMa
@@ -1680,6 +1683,7 @@ Rectangle {
                             size: Theme.iconSizeSmall
                             color: playlistsPlusMa.containsMouse
                                    ? Theme.accent : Theme.textSecondary
+                            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         }
                         MouseArea {
                             id: playlistsPlusMa
@@ -1939,6 +1943,7 @@ Rectangle {
                                               : (bgMa.containsMouse
                                                   ? Theme.borderStrong
                                                   : Theme.border)
+                                Behavior on border.color { ColorAnimation { duration: Theme.hoverMs } }
                                 border.width: isCurrent ? 2 : 1
 
                                 // Inner preview: solid OR 4×4 mini
@@ -2439,6 +2444,7 @@ Rectangle {
                                         name: streamBlock.showKey ? "eye-slash" : "eye"
                                         size: Theme.iconSizeSmall
                                         color: eyeMa.containsMouse ? Theme.accent : Theme.textMuted
+                                        Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                                     }
                                     MouseArea {
                                         id: eyeMa
@@ -2739,6 +2745,7 @@ Rectangle {
                             size: Theme.iconSizeSmall
                             color: revertMa.containsMouse
                                    ? Theme.accent : Theme.textMuted
+                            Behavior on color { ColorAnimation { duration: Theme.hoverMs } }
                         }
                         MouseArea {
                             id: revertMa
