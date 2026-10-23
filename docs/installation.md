@@ -52,6 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.6.1
+
+- **Playlists** — after seeking in a playlist, pressing play could leave the playhead frozen at the seek point while the picture ran on and the audio stuttered; seen with a clip carrying eight audio channels. Playback now follows the seek every time.
+
 What's new in 2.6.0
 
 - **Languages** — QCView speaks Chinese (Simplified), Japanese, Korean, German, French, Spanish, Portuguese (Brazil), Italian and Polish. Pick one in Settings ▸ Interface ▸ Language; it applies at once. These first catalogs are machine translated and reviewed, not yet read by native speakers, so they say so in the picker; corrections are welcome through the [translations folder](https://github.com/cbkow/QCView-Player/tree/main/translations).
