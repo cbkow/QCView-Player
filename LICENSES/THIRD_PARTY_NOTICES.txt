@@ -281,15 +281,17 @@ FONTS
 ================================================================================
 
 30. Geist (sans)
-    Copyright (c) 2024 The Geist Project Authors.
-    License: SIL Open Font License 1.1
-    Website: https://vercel.com/font
+    Copyright 2024 The Geist Project Authors
+    License: SIL Open Font License 1.1 (no Reserved Font Name declared;
+    shipped unmodified as assets/fonts/Geist-*.ttf with its own copy of
+    the license, assets/fonts/GeistLICENSE.txt)
+    Website: https://github.com/vercel/geist-font
     Files: OFL-1.1.txt
 
 31. Geist Mono
-    Copyright (c) 2024 The Geist Project Authors.
-    License: SIL Open Font License 1.1
-    Website: https://vercel.com/font
+    Copyright 2024 The Geist Project Authors
+    License: SIL Open Font License 1.1 (as above; assets/fonts/GeistMono-*.ttf)
+    Website: https://github.com/vercel/geist-font
     Files: OFL-1.1.txt
 
 32. Phosphor Icons (icon font / SVG set)

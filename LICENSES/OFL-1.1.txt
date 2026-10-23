@@ -96,6 +96,8 @@ This file is the canonical OFL 1.1 text. QCView ships the following fonts
 under this license; the copyright holders below take precedence over the
 "<copyright holders>" placeholder above:
 
-  - Inter — Copyright (c) The Inter Project Authors (https://rsms.me/inter/)
-  - JetBrains Mono — Copyright (c) JetBrains s.r.o.
+  - Geist — Copyright 2024 The Geist Project Authors
+    (https://github.com/vercel/geist-font)
+  - Geist Mono — Copyright 2024 The Geist Project Authors
+    (https://github.com/vercel/geist-font)
 ================================================================================

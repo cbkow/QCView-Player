@@ -970,9 +970,9 @@ Pin the version once per shipped binary; update annually.
 
 | Font | License | Used for |
 |---|---|---|
-| **Inter** | OFL | UI text, PDF export body |
-| **JetBrains Mono** | OFL | code blocks in markdown, monospace timecode |
-| **Material Symbols** (icon font) | Apache 2.0 | icons throughout the UI |
+| **Geist** | OFL 1.1 | all interface text (Regular, Bold, Italic) |
+| **Geist Mono** | OFL 1.1 | timecode, frame counts, data values (Regular, Bold) |
+| **Phosphor** (icon font) | MIT | icons throughout the UI |
 
 Stable; no version pin needed beyond the asset files themselves.
 
