@@ -52,6 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.6.2
+
+- **Windows** — on a PC set to light app mode, the title bar and window border were white around QCView's dark window. They are dark now, whatever the Windows setting.
+
 What's new in 2.6.1
 
 - **Type** — the interface is set in Geist and Geist Mono throughout: one sans for labels, one mono for timecode, frame counts and values.

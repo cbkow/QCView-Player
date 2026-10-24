@@ -31,6 +31,7 @@
 #include <QFileInfo>
 #include <QSet>
 #include <QSGRendererInterface>
+#include <QStyleHints>
 #include <QSurfaceFormat>
 #include <QTextStream>
 #include <QTimer>
@@ -480,6 +481,17 @@ int main(int argc, char *argv[])
     }
 
     QGuiApplication app(argc, argv);
+
+#ifdef Q_OS_WIN
+    // The app is dark whatever Windows' app mode says. Without this Qt
+    // follows the OS light / dark setting for the native title bar and
+    // frame (DWMWA_USE_IMMERSIVE_DARK_MODE), so a light-mode PC got a
+    // white title bar and border around the dark window. Qt applies it
+    // to every window it creates and keeps it across theme changes;
+    // Compact's DWMWA_COLOR_DEFAULT on exit then means the dark frame
+    // too. Before any window exists. macOS keeps following the system.
+    QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Dark);
+#endif
 
     // Single-instance handoff (secondary side).
     //
