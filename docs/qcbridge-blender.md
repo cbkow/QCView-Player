@@ -101,6 +101,8 @@ From the host panel:
 - **Pause Sync** — holds your edits back (queued, not lost) while you try something messy; resume flushes them.
 - **Force Resync** — resyncs the whole file if something is not updating naturally.
 
-In QCView the stream is a live media item: load it on one side of a Dual View against an approved render, and set the OCIO input to your Blender scene's working space.
+In QCView the stream is a live media item: load it on one side of a Dual View against an approved render.
+
+**Colour (QCBridge 0.3 and later).** The stream is scene-referred: the replica's viewport leaves Blender as linear light, PQ-encoded with scene 1.0 at 100 nits in a BT.2020 container, so the view transform is applied in QCView, exactly as Blender would. Opening the stream from the host panel's **Open in QCView** sets the clip's **Input** to `Rec.2100-PQ Scene` and the **View**, **Look**, exposure and gamma to the host scene's; the chain is a normal clip pin, visible in the Color panel and yours to change. If you add the stream by URL instead, pick `Rec.2100-PQ Scene` as the Input yourself and the view transform you use in Blender. With the minColor engine the equivalent Input is `Rec.2020 · PQ 100` with the AgX display transform. Older QCBridge (0.2) streams are display-referred sRGB: leave the Input at the default.
 
 The stream's colour tags, when the encoder writes them, reach the scopes with the session, so a PQ stream measures in nits without further setup. If the encoder leaves them out, the **Transfer** chip on the live strip names the encoding; see [HDR sources without tags](/hdr/#hdr-sources-without-tags).

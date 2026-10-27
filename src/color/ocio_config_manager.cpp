@@ -994,6 +994,22 @@ void OCIOConfigManager::setInputForClips(const QStringList &clipIds, const QStri
     if (any) publish(/*knee=*/true);
 }
 
+void OCIOConfigManager::setLookForClips(const QStringList &clipIds, const QString &look)
+{
+    if (!look.isEmpty() && !isValidLook(look)) {
+        qWarning("OCIOConfigManager: rejected unknown Look '%s'", qPrintable(look));
+        return;
+    }
+    bool any = false;
+    for (const QString &id : clipIds) {
+        if (id.isEmpty()) continue;
+        m_pins[id].look = look;
+        notePinEdit(id);
+        any = true;
+    }
+    if (any) publish(/*knee=*/true);
+}
+
 void OCIOConfigManager::copyClipChain(const QString &fromClipId, const QStringList &toClipIds)
 {
     // The source's effective chain (its own settings over the default),

@@ -49,10 +49,12 @@
      name: Rec.2100-HLG
      aliases: [hlg_rec2020_display, rec2100_hlg_display, Rec.2100-HLG - Display]
      family: Display
-@@ -226,6 +257,42 @@
+@@ -224,8 +255,44 @@
+     from_display_reference: !<GroupTransform>
+       children:
          - !<BuiltinTransform> {style: DISPLAY - CIE-XYZ-D65_to_REC.2100-HLG-1000nit}
- 
-   - !<ColorSpace>
++
++  - !<ColorSpace>
 +    name: Linear sRGB EDR
 +    aliases: [lin_srgb_edr_display, lin_rec709_edr_display]
 +    family: Display
@@ -69,8 +71,8 @@
 +    from_display_reference: !<GroupTransform>
 +      children:
 +        - !<ColorSpaceTransform> {src: cie_xyz_d65_interchange, dst: Linear Rec.709}
-+
-+  - !<ColorSpace>
+ 
+   - !<ColorSpace>
 +    name: Linear P3 EDR
 +    aliases: [lin_p3d65_edr_display]
 +    family: Display
@@ -92,3 +94,83 @@
      name: Filmic sRGB
      family: View Inverse
      description: |
+@@ -515,7 +582,7 @@
+ 
+   - !<ColorSpace>
+     name: Linear Rec.709
+-    aliases: [lin_rec709_scene, lin_rec709_display, Linear, Linear BT.709, Linear BT.709 I-D65, Linear Tristimulus, linrec709, Utility - Linear - sRGB, Utility - Linear - Rec.709, lin_srgb, Linear Rec.709 (sRGB), lin_rec709_srgb, lin_rec709, lin_srgb, "CGI: Linear - Rec.709"]
++    aliases: [lin_rec709_scene, Linear, Linear BT.709, Linear BT.709 I-D65, Linear Tristimulus, linrec709, Utility - Linear - sRGB, Utility - Linear - Rec.709, lin_srgb, Linear Rec.709 (sRGB), lin_rec709_srgb, lin_rec709, lin_srgb, "CGI: Linear - Rec.709"]
+     family: Linear
+     equalitygroup:
+     bitdepth: 32f
+@@ -530,7 +597,7 @@
+ 
+   - !<ColorSpace>
+     name: Linear DCI-P3 D65
+-    aliases: [lin_p3d65_scene, lin_p3d65_display, Linear DCI-P3 I-D65, Linear P3-D65, lin_p3d65, Utility - Linear - P3-D65, Apple DCI-P3 D65]
++    aliases: [lin_p3d65_scene, Linear DCI-P3 I-D65, Linear P3-D65, lin_p3d65, Utility - Linear - P3-D65, Apple DCI-P3 D65]
+     family: Linear
+     equalitygroup:
+     bitdepth: 32f
+@@ -545,7 +612,7 @@
+ 
+   - !<ColorSpace>
+     name: Linear Rec.2020
+-    aliases: [lin_rec2020_scene, lin_rec2020_display, Linear BT.2020 I-D65, Linear BT.2020, lin_rec2020, Utility - Linear - Rec.2020]
++    aliases: [lin_rec2020_scene, Linear BT.2020 I-D65, Linear BT.2020, lin_rec2020, Utility - Linear - Rec.2020]
+     family: Linear
+     equalitygroup:
+     bitdepth: 32f
+@@ -559,6 +626,25 @@
+         - !<MatrixTransform> {matrix: [1.7166512, -0.3556708, -0.2533663, 0, -0.6666844, 1.6164812, 0.0157685, 0, 0.0176399, -0.0427706, 0.9421031, 0, 0, 0, 0, 1]}
+ 
+   - !<ColorSpace>
++    name: Rec.2100-PQ Scene
++    aliases: [pq_rec2020_scene_100, qcbridge_pq, QCBridge PQ]
++    family: Utility
++    equalitygroup: ""
++    bitdepth: 32f
++    description: |
++      SMPTE ST 2084 (PQ) with BT.2020 primaries, decoded to SCENE-linear with 100 nits = 1.0.
++      QCBridge 0.3's wire: the replica's scene-linear viewport, PQ-encoded with scene 1.0 at
++      100 nits, so a view transform (AgX, Filmic, Standard) applies here exactly as in Blender.
++      The exact inverse of the Rec.2100-PQ display (same builtin), landed on the scene side.
++    isdata: false
++    encoding: hdr-video
++    allocation: uniform
++    to_scene_reference: !<GroupTransform>
++      children:
++        - !<BuiltinTransform> {style: DISPLAY - CIE-XYZ-D65_to_REC.2100-PQ, direction: inverse}
++        - !<ColorSpaceTransform> {src: Linear CIE-XYZ D65, dst: ACES2065-1}
++
++  - !<ColorSpace>
+     name: Linear Adobe RGB
+     aliases: [lin_adobergb_scene, lin_adobergb, Linear AdobeRGB, Utility - Linear - Adobe RGB]
+     family: Linear
+@@ -1119,7 +1205,7 @@
+ 
+   - !<ColorSpace>
+     name: Gamma 2.2 Encoded Rec.709
+-    aliases: [g22_rec709_scene, g22_rec709_display, g22_rec709, Gamma 2.2 Rec.709 - Texture, Utility - Gamma 2.2 - Rec.709 - Texture, sRGB 2.2]
++    aliases: [g22_rec709_scene, g22_rec709, Gamma 2.2 Rec.709 - Texture, Utility - Gamma 2.2 - Rec.709 - Texture, sRGB 2.2]
+     family: Utility
+     equalitygroup:
+     bitdepth: 32f
+@@ -1135,7 +1221,7 @@
+ 
+   - !<ColorSpace>
+     name: Gamma 2.4 Encoded Rec.709
+-    aliases: [g24_rec709_scene, ocio:g24_rec709_scene, g24_rec709, Gamma 2.4 Rec.709 - Texture, Utility - Rec.709 - Display, rec709_display]
++    aliases: [ocio:g24_rec709_scene, g24_rec709, Gamma 2.4 Rec.709 - Texture, Utility - Rec.709 - Display, rec709_display]
+     family: Utility
+     equalitygroup:
+     bitdepth: 32f
+@@ -1143,7 +1229,7 @@
+       2.4 gamma-encoded Rec.709 with illuminant D65 white point.
+       For use with scene-referred textures.
+     isdata: false
+-    interop_id: g24_rec709_scene
++    interop_id: ocio:g24_rec709_scene
+     from_scene_reference: !<GroupTransform>
+       children:
+         - !<MatrixTransform> {matrix: [2.52168618674388, -1.13413098823972, -0.387555198504164, 0, -0.276479914229922, 1.37271908766826, -0.096239173438334, 0, -0.0153780649660342, -0.152975335867399, 1.16835340083343, 0, 0, 0, 0, 1]}

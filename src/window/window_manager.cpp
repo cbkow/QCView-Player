@@ -9579,6 +9579,59 @@ QString WindowManager::audioRoutingScopeMediaItemId() const
     return m_project ? m_project->activeItemId() : QString();
 }
 
+// QCBridge 0.3 (DESIGN-NOTES pixels in that repo): the stream is the
+// replica's scene-linear viewport, PQ-encoded with scene 1.0 at 100 nits in
+// a BT.2020 container, and the link carries the host scene's view transform
+// (`wire=pq-bt2020-100&input=linear-rec709&view=AgX&look=…&exposure=…
+// &gamma=…&display=…`). This is not a guess from stream tags — the sender
+// named it and the user opened the link — and it lands as an ordinary clip
+// chain: a pin the Color panel shows and the user can change or reset, and
+// a View like any the user picks. Nothing applies without `wire`.
+void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQuery &q)
+{
+    if (!m_ocio || clipId.isEmpty()) return;
+    const QString wire = q.queryItemValue(QStringLiteral("wire"), QUrl::FullyDecoded).trimmed();
+    if (wire.isEmpty()) return;
+    // The wire name → the OCIO Input that decodes it back to scene-linear.
+    // "pq-bt2020-100": PQ, BT.2020 primaries, scene 1.0 = 100 nits —
+    // `Rec.2100-PQ Scene` in the bundled Blender 5.2 config (our patch).
+    QString input;
+    if (wire == QLatin1String("pq-bt2020-100")) input = QStringLiteral("Rec.2100-PQ Scene");
+    if (input.isEmpty()) {
+        qWarning("openProjectLink: stream wire '%s' is not one QCView knows; chain left as is",
+                 qPrintable(wire));
+        return;
+    }
+    if (m_ocio->engine() != 0) {
+        // minColor engine: its inputs are gamut + transfer blocks, not OCIO
+        // names; the docs name the equivalent (Rec.2020 · PQ 100 → AgX).
+        qInfo("openProjectLink: stream names wire %s; minColor engine active, set the Input "
+              "to Rec.2020 / PQ 100 by hand", qPrintable(wire));
+        return;
+    }
+    m_ocio->setInputForClips({clipId}, input);
+    const QString look = q.queryItemValue(QStringLiteral("look"), QUrl::FullyDecoded).trimmed();
+    if (!look.isEmpty() && look != QLatin1String("None"))
+        m_ocio->setLookForClips({clipId}, look);   // rejected (and logged) if the config lacks it
+    const QString view = q.queryItemValue(QStringLiteral("view"), QUrl::FullyDecoded).trimmed();
+    if (!view.isEmpty() && view != m_ocio->activeView()) {
+        if (m_ocio->viewsForDisplay(m_ocio->activeDisplay()).contains(view))
+            m_ocio->setActiveView(view);
+        else
+            qWarning("openProjectLink: view '%s' is not available on display '%s'; keeping '%s'",
+                     qPrintable(view), qPrintable(m_ocio->activeDisplay()),
+                     qPrintable(m_ocio->activeView()));
+    }
+    bool ok = false;
+    const double exposure = q.queryItemValue(QStringLiteral("exposure")).toDouble(&ok);
+    if (ok) setExposure(exposure);
+    const double gamma = q.queryItemValue(QStringLiteral("gamma")).toDouble(&ok);
+    if (ok && gamma > 0.0) setViewerGamma(gamma);
+    qInfo("openProjectLink: stream chain from the link — input %s, look %s, view %s",
+          qPrintable(input), qPrintable(look.isEmpty() ? QStringLiteral("(default)") : look),
+          qPrintable(view.isEmpty() ? QStringLiteral("(unchanged)") : view));
+}
+
 bool WindowManager::openProjectLink(const QString &uri)
 {
     if (!m_project) return false;
@@ -9614,6 +9667,7 @@ bool WindowManager::openProjectLink(const QString &uri)
         const QString id = m_project->addLiveStream(streamUrl, streamName);
         if (id.isEmpty()) return false;
         m_project->setActiveItem(id);
+        applyStreamChainFromLink(id, q);
         qInfo("openProjectLink: live stream via deep link — %s",
               qPrintable(streamUrl));
         return true;

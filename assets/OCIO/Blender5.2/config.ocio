@@ -626,6 +626,25 @@ colorspaces:
         - !<MatrixTransform> {matrix: [1.7166512, -0.3556708, -0.2533663, 0, -0.6666844, 1.6164812, 0.0157685, 0, 0.0176399, -0.0427706, 0.9421031, 0, 0, 0, 0, 1]}
 
   - !<ColorSpace>
+    name: Rec.2100-PQ Scene
+    aliases: [pq_rec2020_scene_100, qcbridge_pq, QCBridge PQ]
+    family: Utility
+    equalitygroup: ""
+    bitdepth: 32f
+    description: |
+      SMPTE ST 2084 (PQ) with BT.2020 primaries, decoded to SCENE-linear with 100 nits = 1.0.
+      QCBridge 0.3's wire: the replica's scene-linear viewport, PQ-encoded with scene 1.0 at
+      100 nits, so a view transform (AgX, Filmic, Standard) applies here exactly as in Blender.
+      The exact inverse of the Rec.2100-PQ display (same builtin), landed on the scene side.
+    isdata: false
+    encoding: hdr-video
+    allocation: uniform
+    to_scene_reference: !<GroupTransform>
+      children:
+        - !<BuiltinTransform> {style: DISPLAY - CIE-XYZ-D65_to_REC.2100-PQ, direction: inverse}
+        - !<ColorSpaceTransform> {src: Linear CIE-XYZ D65, dst: ACES2065-1}
+
+  - !<ColorSpace>
     name: Linear Adobe RGB
     aliases: [lin_adobergb_scene, lin_adobergb, Linear AdobeRGB, Utility - Linear - Adobe RGB]
     family: Linear

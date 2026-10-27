@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include <QUrlQuery>
+
 #include "annotations/annotation_manager.h"
 #include "annotations/viewport_annotator.h"
 #include "audio/audio_player.h"
@@ -808,6 +810,10 @@ public:
     // it fires whether the link launches a fresh process or hits
     // an already-running instance.
     Q_INVOKABLE bool openProjectLink(const QString &uri);
+    // qcview://stream links from QCBridge 0.3 name what is on the wire and
+    // the view transform the host artist sees; applied as the new clip's
+    // chain (a visible, editable pin) — see applyStreamChainFromLink.
+    void applyStreamChainFromLink(const QString &clipId, const QUrlQuery &query);
     Q_INVOKABLE bool    copyProjectLinkToClipboard() const;
 
     // Polish — font family accessors. main.cpp populates these

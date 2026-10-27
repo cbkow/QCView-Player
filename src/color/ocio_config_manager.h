@@ -254,6 +254,7 @@ public:
     // give them `fromClipId`'s whole clip chain; reset them to the
     // default. One publish each.
     Q_INVOKABLE void setInputForClips(const QStringList &clipIds, const QString &colourspace);
+    Q_INVOKABLE void setLookForClips(const QStringList &clipIds, const QString &look);
     Q_INVOKABLE void copyClipChain(const QString &fromClipId, const QStringList &toClipIds);
     Q_INVOKABLE void resetClipChains(const QStringList &clipIds);
     // The Inputs in use in the project: the default first, then every
