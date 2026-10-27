@@ -54,7 +54,7 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 What's new in 2.6.3
 
-- **QCBridge for Blender 0.3** — its stream is scene-referred, PQ with 100 nits at scene 1.0. **Open in QCView** from the host panel pins the Input that decodes it (`Rec.2100-PQ Scene` on OCIO, `Rec.2020 · PQ 100` on minColor) and, on the Blender config, suggests the host's view transform, so QCView shows what Blender shows.
+- **QCBridge for Blender 0.3** — its stream is scene-referred, PQ with 100 nits at scene 1.0. **Open in QCView** from the host panel pins the Input that decodes it (`Rec.2100-PQ Scene` on OCIO, `Rec.2020 · PQ 100` on minColor) turns colour management on if it was off, and, on the Blender config, suggests the host's view transform, so QCView shows what Blender shows.
 - **Annotations** — a stroke may start or run off the picture; it keeps following the cursor, and only the part over the picture is drawn, saved and exported. A gesture that never touches the picture leaves nothing.
 - **minColor** — the Rendering reel offers Un-tone-mapped; the OpenDRT looks stay underneath for chains that carry one.
 

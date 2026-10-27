@@ -9606,6 +9606,10 @@ void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQu
     //    the config's defaults only, never over a choice already made.
     //    minColor's view half stays the viewer's (AgX by default).
     //  - Display, neither: the output surface is this machine's.
+    //  - Engaged: a known wire turns colour management ON when it is off
+    //    (announced; never off, never a different engine). Nobody opens
+    //    this link by accident — it is the host panel's Open in QCView,
+    //    pressed to see the Blender picture, and raw PQ serves nobody.
     if (!m_ocio || clipId.isEmpty()) return;
     const QString wire = q.queryItemValue(QStringLiteral("wire"), QUrl::FullyDecoded).trimmed();
     if (wire.isEmpty()) return;
@@ -9619,21 +9623,30 @@ void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQu
         return;
     }
 
+    // The wire is known: colour management runs, whichever engine is set.
+    auto engageIfOff = [this] {
+        if (m_ocio->engaged()) return;
+        m_ocio->setEngaged(true);
+        qInfo("openProjectLink: colour management turned on for the Blender stream");
+        toast(tr("Colour management turned on for the Blender stream"), 0);
+    };
+
     if (m_ocio->engine() != 0) {
         // minColor: Rec.2020 gamut, PQ with 100 nits = 1.0 — the wire's
         // own anchor (opendrt_kernel: pq EOTF × 100).
         if (!m_minColor) return;
         if (m_minColor->clipHasInputPin(clipId)) {
             qInfo("openProjectLink: minColor clip already has an Input pin; link leaves it");
-            return;
+        } else {
+            MinColorInput in;
+            in.gamut    = DRT_IN_REC2020;
+            in.transfer = DRT_OETF_PQ_100;
+            in.limited  = false;
+            m_minColor->pinInputForClip(clipId, in);
+            qInfo("openProjectLink: stream wire %s → minColor Input Rec.2020 / PQ 100 pinned",
+                  qPrintable(wire));
         }
-        MinColorInput in;
-        in.gamut    = DRT_IN_REC2020;
-        in.transfer = DRT_OETF_PQ_100;
-        in.limited  = false;
-        m_minColor->pinInputForClip(clipId, in);
-        qInfo("openProjectLink: stream wire %s → minColor Input Rec.2020 / PQ 100 pinned",
-              qPrintable(wire));
+        engageIfOff();
         return;
     }
 
@@ -9653,6 +9666,7 @@ void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQu
     } else {
         m_ocio->setInputForClips({clipId}, input);
     }
+    engageIfOff();
     const QString look = q.queryItemValue(QStringLiteral("look"), QUrl::FullyDecoded).trimmed();
     if (!look.isEmpty() && look != QLatin1String("None") && !pins.look.has_value())
         m_ocio->setLookForClips({clipId}, look);   // rejected (and logged) if the config lacks it
