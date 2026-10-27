@@ -8198,11 +8198,11 @@ void WindowManager::onEraseAt(QPointF normalizedPos)
         for (int i = static_cast<int>(strokes.size()) - 1;
              i >= 0; --i) {
             const auto &s = strokes[i];
-            // strokeBoundsNorm is oval-aware ({center, radii} → true
-            // visual box); the old inline point-bbox made ovals
-            // nearly un-erasable away from their center/radius
-            // points. Shared with the select tool's hit test.
-            const QRectF b = strokeBoundsNorm(s);
+            // visibleStrokeBoundsNorm is oval-aware ({center, radii}
+            // → true visual box) and clipped to the picture, since
+            // strokes may run off the frame. Shared with the select
+            // tool's hit test.
+            const QRectF b = visibleStrokeBoundsNorm(s);
             if (b.isNull()) continue;
             const double pad = std::max(tol,
                 static_cast<double>(s.strokeWidth) / 1920.0);
@@ -8249,7 +8249,11 @@ QRectF WindowManager::annotationSelectionBoundsNorm() const
     if (!annotationSelectionActive()) return {};
     if (m_annotSelIdx >= static_cast<int>(m_annotSelWorking.size()))
         return {};
-    return strokeBoundsNorm(
+    // Visible part only: handles sit on the frame edge for a stroke
+    // that runs off it, and the drag clamps below keep that visible
+    // part inside the picture (hidden ink can be pulled back in, never
+    // pushed further out).
+    return visibleStrokeBoundsNorm(
         m_annotSelWorking[static_cast<size_t>(m_annotSelIdx)]);
 }
 
@@ -8324,7 +8328,7 @@ void WindowManager::onSelectPointer(int phase, QPointF norm)
             int hit = -1;
             for (int i = static_cast<int>(strokes.size()) - 1;
                  i >= 0; --i) {
-                const QRectF b = strokeBoundsNorm(strokes[i]);
+                const QRectF b = visibleStrokeBoundsNorm(strokes[i]);
                 if (b.isNull()) continue;
                 const double pad = std::max(0.012,
                     static_cast<double>(strokes[i].strokeWidth) / 1920.0);

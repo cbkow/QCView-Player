@@ -20,6 +20,7 @@
 namespace qcv {
 
 struct TessellatedMesh;
+struct MeshClip;
 
 class D3D11AnnotationRenderer {
 public:
@@ -52,9 +53,14 @@ public:
     // viewport size in pixels — used to build the pixel-coords → NDC
     // transform (matches MetalAnnotationRenderer::drawMesh). The
     // caller has already bound the RTV the strokes draw onto.
+    //
+    // `clip`, when given, scissors the draw to that pixel rect (the
+    // displayed image rect) so strokes that run off the picture stop
+    // at its edge; the scissor-less rasterizer state is restored after.
     void drawMesh(void *ctx,
                   const TessellatedMesh &mesh,
-                  int targetWidth, int targetHeight);
+                  int targetWidth, int targetHeight,
+                  const MeshClip *clip = nullptr);
 
     // Reset the per-frame dynamic vertex buffer's append cursor.
     // MUST be called once per frame before any drawMesh — otherwise

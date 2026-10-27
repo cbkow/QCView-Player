@@ -34,6 +34,13 @@ struct TessellatedMesh {
     std::vector<TessVertex> vertices;  // Triangle list (3 vertices per triangle)
 };
 
+// Pixel rectangle a mesh draw is scissored to — the displayed image
+// rect. Strokes are captured past the frame edge and must not paint on
+// the letterbox or the UI around the picture.
+struct MeshClip {
+    float x = 0, y = 0, w = 0, h = 0;
+};
+
 class StrokeTessellator {
 public:
     // Tessellate a single stroke into a triangle mesh.

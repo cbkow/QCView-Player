@@ -15,6 +15,8 @@
 #include <QtLogging>
 
 #include <atomic>
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <string>
 
@@ -193,6 +195,7 @@ struct D3D11AnnotationRenderer::Impl {
     ComPtr<ID3D11Buffer>       vbuf;        // dynamic vertex buffer
     ComPtr<ID3D11BlendState>   blend;       // alpha source-over
     ComPtr<ID3D11RasterizerState> raster;   // solid + no cull
+    ComPtr<ID3D11RasterizerState> rasterScissor;   // same, ScissorEnable (clipped stroke draws)
 
     UINT  vbCapacityBytes = 0;
     UINT  vbAppendOffset  = 0;
@@ -336,6 +339,11 @@ bool D3D11AnnotationRenderer::initialize(int targetFormat, int encode)
         qWarning("D3D11AnnotationRenderer: CreateRasterizerState failed");
         return false;
     }
+    rd.ScissorEnable = TRUE;
+    if (FAILED(m_impl->device->CreateRasterizerState(&rd, m_impl->rasterScissor.GetAddressOf()))) {
+        qWarning("D3D11AnnotationRenderer: CreateRasterizerState (scissor) failed");
+        return false;
+    }
 
     qInfo("D3D11AnnotationRenderer: initialized (target DXGI_FORMAT=%d)", targetFormat);
     return true;
@@ -348,6 +356,7 @@ void D3D11AnnotationRenderer::shutdown()
     m_impl->ps.Reset();
     m_impl->inputLayout.Reset();
     m_impl->cbuf.Reset();
+    m_impl->rasterScissor.Reset();
     m_impl->psCbuf.Reset();
     m_impl->vbuf.Reset();
     m_impl->blend.Reset();
@@ -384,11 +393,24 @@ void D3D11AnnotationRenderer::setReferenceLuminance(float nits)
 
 void D3D11AnnotationRenderer::drawMesh(void *ctxPtr,
                                          const TessellatedMesh &mesh,
-                                         int targetWidth, int targetHeight)
+                                         int targetWidth, int targetHeight,
+                                         const MeshClip *clip)
 {
     if (!isInitialized() || !ctxPtr || targetWidth <= 0 || targetHeight <= 0) return;
     if (mesh.vertices.empty()) return;
     auto *ctx = static_cast<ID3D11DeviceContext *>(ctxPtr);
+
+    // Scissor to the image rect, clamped to the target. An empty
+    // intersection means nothing of the picture is on screen.
+    D3D11_RECT scissor{0, 0, targetWidth, targetHeight};
+    if (clip) {
+        const double x0 = std::clamp<double>(std::floor(clip->x), 0.0, targetWidth);
+        const double y0 = std::clamp<double>(std::floor(clip->y), 0.0, targetHeight);
+        const double x1 = std::clamp<double>(std::ceil(clip->x + clip->w), 0.0, targetWidth);
+        const double y1 = std::clamp<double>(std::ceil(clip->y + clip->h), 0.0, targetHeight);
+        if (x1 <= x0 || y1 <= y0) return;
+        scissor = D3D11_RECT{LONG(x0), LONG(y0), LONG(x1), LONG(y1)};
+    }
 
     const UINT bytesNeeded =
         static_cast<UINT>(mesh.vertices.size()) * kVertexStride;
@@ -482,11 +504,17 @@ void D3D11AnnotationRenderer::drawMesh(void *ctxPtr,
         ctx->PSSetConstantBuffers(0, 1, pcbs);
     }
 
-    ctx->RSSetState(m_impl->raster.Get());
+    if (clip) {
+        ctx->RSSetScissorRects(1, &scissor);
+        ctx->RSSetState(m_impl->rasterScissor.Get());
+    } else {
+        ctx->RSSetState(m_impl->raster.Get());
+    }
     const float blendFactor[4] = {0, 0, 0, 0};
     ctx->OMSetBlendState(m_impl->blend.Get(), blendFactor, 0xFFFFFFFF);
 
     ctx->Draw(static_cast<UINT>(mesh.vertices.size()), 0);
+    if (clip) ctx->RSSetState(m_impl->raster.Get());
 
     m_impl->vbAppendOffset += bytesNeeded;
 }

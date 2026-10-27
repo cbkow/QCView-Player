@@ -2008,6 +2008,9 @@ void D3D11PlayerRenderer::drawFrame()
         // pointer mid-mutation trips MSVC Debug CRT's iterator
         // checks. Metal's raw-pointer path works only because libc++
         // is more permissive.
+        // Strokes may run past the picture (captured unclamped);
+        // scissor every stroke draw to the image rect.
+        const MeshClip strokeClip{fitX, fitY, fitW, fitH};
         if (m_annotator) {
             m_annotator->setViewportRect(QPointF(fitX, fitY),
                                           QSizeF(fitW, fitH));
@@ -2016,7 +2019,7 @@ void D3D11PlayerRenderer::drawFrame()
                 TessellatedMesh mesh = StrokeTessellator::tessellate(
                     activeCopy, fitX, fitY, fitW, fitH, lineScale);
                 if (!mesh.vertices.empty()) {
-                    m_impl->annotations.drawMesh(ctx, mesh, W, H);
+                    m_impl->annotations.drawMesh(ctx, mesh, W, H, &strokeClip);
                 }
             }
         }
@@ -2032,7 +2035,7 @@ void D3D11PlayerRenderer::drawFrame()
                 TessellatedMesh mesh = StrokeTessellator::tessellate(
                     s, fitX, fitY, fitW, fitH, lineScale);
                 if (!mesh.vertices.empty()) {
-                    m_impl->annotations.drawMesh(ctx, mesh, W, H);
+                    m_impl->annotations.drawMesh(ctx, mesh, W, H, &strokeClip);
                 }
             }
         }
@@ -2457,6 +2460,9 @@ void D3D11PlayerRenderer::drawDualFrame()
         const float lineScale = (canvasW > 0)
             ? (fitW / static_cast<float>(canvasW)) : 1.0f;
 
+        // Strokes may run past the picture (captured unclamped);
+        // scissor every stroke draw to the image rect.
+        const MeshClip strokeClip{fitX, fitY, fitW, fitH};
         if (m_annotator) {
             m_annotator->setViewportRect(QPointF(fitX, fitY),
                                           QSizeF(fitW, fitH));
@@ -2465,7 +2471,7 @@ void D3D11PlayerRenderer::drawDualFrame()
                 TessellatedMesh mesh = StrokeTessellator::tessellate(
                     activeCopy, fitX, fitY, fitW, fitH, lineScale);
                 if (!mesh.vertices.empty()) {
-                    m_impl->annotations.drawMesh(ctx, mesh, W, H);
+                    m_impl->annotations.drawMesh(ctx, mesh, W, H, &strokeClip);
                 }
             }
         }
@@ -2479,7 +2485,7 @@ void D3D11PlayerRenderer::drawDualFrame()
                 TessellatedMesh mesh = StrokeTessellator::tessellate(
                     s, fitX, fitY, fitW, fitH, lineScale);
                 if (!mesh.vertices.empty()) {
-                    m_impl->annotations.drawMesh(ctx, mesh, W, H);
+                    m_impl->annotations.drawMesh(ctx, mesh, W, H, &strokeClip);
                 }
             }
         }
@@ -3517,15 +3523,16 @@ void D3D11PlayerRenderer::encodeOutputs(void *ctxVoid, void *deviceVoid, const O
                     if (wantStrokes && r.width() >= 2 && in.effAW > 0) {
                         const float fx = float(r.x()), fy = float(r.y()), fw = float(r.width()), fh = float(r.height());
                         const float lineScale = fw / float(in.effAW);
+                        const MeshClip clip{fx, fy, fw, fh};   // strokes stop at the picture's edge
                         if (haveActive) {
                             const TessellatedMesh m = StrokeTessellator::tessellate(activeCopy, fx, fy, fw, fh, lineScale);
-                            if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                            if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H, &clip); drawn |= qcbae::kOutputLayerAnnotations; }
                         }
                         std::vector<ActiveStroke> stored;
                         { std::lock_guard<std::mutex> lock(m_storedStrokesMutex); stored = m_storedStrokes; }
                         for (const ActiveStroke &sk : stored) {
                             const TessellatedMesh m = StrokeTessellator::tessellate(sk, fx, fy, fw, fh, lineScale);
-                            if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                            if (!m.vertices.empty()) { res.annotations.drawMesh(ctx, m, W, H, &clip); drawn |= qcbae::kOutputLayerAnnotations; }
                         }
                     }
                 } else if (wantGuides) {

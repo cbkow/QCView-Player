@@ -2448,12 +2448,15 @@ void MetalPlayerRenderer::drawFrame()
         // grows / shrinks proportionally as the window resizes.
         // effSourceW (not raw) keeps the ratio stable under un-squeeze.
         const float lineScale = float(fitW) / float(effSourceW);
+        // Strokes may run past the picture (captured unclamped);
+        // scissor every stroke draw to the image rect.
+        const MeshClip strokeClip{fitX, fitY, fitW, fitH};
         if (const ActiveStroke *stroke = m_annotator->activeStroke()) {
             const TessellatedMesh mesh = StrokeTessellator::tessellate(
                 *stroke, fitX, fitY, fitW, fitH, lineScale);
             if (!mesh.vertices.empty()) {
                 m_impl->annotations.drawMesh(
-                    (__bridge void *)enc, mesh, dstW, dstH);
+                    (__bridge void *)enc, mesh, dstW, dstH, &strokeClip);
             }
         }
 
@@ -2471,7 +2474,7 @@ void MetalPlayerRenderer::drawFrame()
                 s, fitX, fitY, fitW, fitH, lineScale);
             if (!mesh.vertices.empty()) {
                 m_impl->annotations.drawMesh(
-                    (__bridge void *)enc, mesh, dstW, dstH);
+                    (__bridge void *)enc, mesh, dstW, dstH, &strokeClip);
             }
         }
     }
@@ -3088,15 +3091,16 @@ void MetalPlayerRenderer::encodeOutputs(void *cmdBuffer, const OutputFrameInputs
                     if (wantStrokes && r.width() >= 2 && ew > 0) {
                         const float fx = float(r.x()), fy = float(r.y()), fw = float(r.width()), fh = float(r.height());
                         const float lineScale = fw / float(ew);
+                        const MeshClip clip{fx, fy, fw, fh};   // strokes stop at the picture's edge
                         if (const ActiveStroke *a = m_annotator->activeStroke()) {
                             const TessellatedMesh m = StrokeTessellator::tessellate(*a, fx, fy, fw, fh, lineScale);
-                            if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                            if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H, &clip); drawn |= qcbae::kOutputLayerAnnotations; }
                         }
                         std::vector<ActiveStroke> stored;
                         { std::lock_guard<std::mutex> lock(m_storedStrokesMutex); stored = m_storedStrokes; }
                         for (const ActiveStroke &sk : stored) {
                             const TessellatedMesh m = StrokeTessellator::tessellate(sk, fx, fy, fw, fh, lineScale);
-                            if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H); drawn |= qcbae::kOutputLayerAnnotations; }
+                            if (!m.vertices.empty()) { res.annotations.drawMesh((__bridge void *)enc, m, W, H, &clip); drawn |= qcbae::kOutputLayerAnnotations; }
                         }
                     }
                 } else if (wantGuides) {

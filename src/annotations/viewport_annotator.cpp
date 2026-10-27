@@ -11,8 +11,30 @@ namespace qcv {
 
 namespace {
 
-// Clamp helper for QPointF (QPointF doesn't ship one).
-inline qreal clamp01(qreal v) { return std::clamp<qreal>(v, 0.0, 1.0); }
+// Does any part of a shape's bounding box lie over the picture
+// (the unit square)? Points are captured unclamped, so a shape
+// dragged entirely beside the frame has nothing to show and is
+// dropped on release. Freehand uses the cursor instead (see
+// entered_frame_): a scribble that only loops around a corner would
+// pass this test yet draw nothing.
+bool touchesFrame(const ActiveStroke &s)
+{
+    if (s.points.empty()) return false;
+    qreal l, t, r, b;
+    if (s.tool == DrawingTool::Oval && s.points.size() >= 2) {
+        const QPointF c = s.points[0], rad = s.points[1];
+        l = c.x() - std::abs(rad.x()); r = c.x() + std::abs(rad.x());
+        t = c.y() - std::abs(rad.y()); b = c.y() + std::abs(rad.y());
+    } else {
+        l = r = s.points.front().x();
+        t = b = s.points.front().y();
+        for (const QPointF &p : s.points) {
+            l = std::min(l, p.x()); r = std::max(r, p.x());
+            t = std::min(t, p.y()); b = std::max(b, p.y());
+        }
+    }
+    return r >= 0.0 && l <= 1.0 && b >= 0.0 && t <= 1.0;
+}
 
 } // namespace
 
@@ -211,9 +233,14 @@ QPointF ViewportAnnotator::screenToNormalized(QPointF screenPos,
     if (displaySize.width() <= 0.0 || displaySize.height() <= 0.0) {
         return {};
     }
+    // Deliberately unclamped: a point off the picture maps outside
+    // [0,1]. The gesture is captured whole and clipped to the frame
+    // where it is drawn (renderers scissor, exporters paint onto the
+    // frame image), so a stroke that strays over the edge keeps its
+    // shape instead of being cut or ended early.
     return QPointF(
-        clamp01((screenPos.x() - displayPos.x()) / displaySize.width()),
-        clamp01((screenPos.y() - displayPos.y()) / displaySize.height()));
+        (screenPos.x() - displayPos.x()) / displaySize.width(),
+        (screenPos.y() - displayPos.y()) / displaySize.height());
 }
 
 QPointF ViewportAnnotator::normalizedToScreen(QPointF normalizedPos,
@@ -243,30 +270,16 @@ void ViewportAnnotator::processFreehand(PointerPhase phase,
                                         QPointF screenPos,
                                         qint64 timestampMs)
 {
+    // The stroke follows the cursor wherever it goes — off the
+    // picture, back on, out of the window under an implicit mouse
+    // grab. Nothing ends the stroke but the release (or Esc). What
+    // falls outside the frame is clipped at draw time; a stroke whose
+    // cursor never touched the frame is dropped on release.
     const bool inside = isInsideDisplayArea(screenPos, display_pos_, display_size_);
-
-    // Mouse left the display area mid-stroke → finalize (matches old
-    // app behavior; only Freehand auto-finalizes on leave).
-    if (is_drawing_ && phase == PointerPhase::Move && !inside) {
-        if (stroke_modeler_ && stroke_modeler_->IsActive()) {
-            const QPointF lastNorm = active_stroke_.points.empty()
-                ? screenToNormalized(screenPos, display_pos_, display_size_)
-                : active_stroke_.points.back();
-            const double t = (timestampMs - stroke_t0_ms_) / 1000.0;
-            for (const QPointF &pt : stroke_modeler_->EndStroke(lastNorm, t)) {
-                active_stroke_.points.push_back(pt);
-                active_stroke_.timestamps.push_back(static_cast<qint64>(t * 1000.0));
-            }
-        }
-        active_stroke_.isComplete = true;
-        is_drawing_ = false;
-        return;
-    }
-
-    if (!inside && phase != PointerPhase::Release) return;
 
     if (phase == PointerPhase::Press) {
         is_drawing_ = true;
+        entered_frame_ = inside;
         active_stroke_.clear();
         active_stroke_.tool        = DrawingTool::Freehand;
         active_stroke_.color       = drawing_color_;
@@ -295,6 +308,7 @@ void ViewportAnnotator::processFreehand(PointerPhase phase,
     }
 
     if (!is_drawing_) return;
+    entered_frame_ = entered_frame_ || inside;
 
     if (phase == PointerPhase::Move) {
         const QPointF norm = screenToNormalized(screenPos, display_pos_, display_size_);
@@ -323,8 +337,14 @@ void ViewportAnnotator::processFreehand(PointerPhase phase,
                 active_stroke_.timestamps.push_back(static_cast<qint64>(t * 1000.0));
             }
         }
-        active_stroke_.isComplete = true;
         is_drawing_ = false;
+        if (!entered_frame_) {
+            // Pressed, dragged and released beside the picture: an
+            // accidental gesture, not a note. No finalize callback.
+            active_stroke_.clear();
+            return;
+        }
+        active_stroke_.isComplete = true;
     }
 }
 
@@ -336,11 +356,6 @@ void ViewportAnnotator::processRectangle(PointerPhase phase,
                                          QPointF screenPos,
                                          qint64 /*timestampMs*/)
 {
-    if (!isInsideDisplayArea(screenPos, display_pos_, display_size_) &&
-        phase != PointerPhase::Release) {
-        return;
-    }
-
     if (phase == PointerPhase::Press) {
         is_drawing_ = true;
         active_stroke_.clear();
@@ -366,8 +381,13 @@ void ViewportAnnotator::processRectangle(PointerPhase phase,
     }
 
     if (phase == PointerPhase::Release) {
-        active_stroke_.isComplete = true;
         is_drawing_ = false;
+        if (!touchesFrame(active_stroke_)) {
+            // The whole shape sits beside the picture: nothing to show.
+            active_stroke_.clear();
+            return;
+        }
+        active_stroke_.isComplete = true;
     }
 }
 
@@ -379,11 +399,6 @@ void ViewportAnnotator::processOval(PointerPhase phase,
                                     QPointF screenPos,
                                     qint64 /*timestampMs*/)
 {
-    if (!isInsideDisplayArea(screenPos, display_pos_, display_size_) &&
-        phase != PointerPhase::Release) {
-        return;
-    }
-
     if (phase == PointerPhase::Press) {
         is_drawing_ = true;
         active_stroke_.clear();
@@ -408,8 +423,13 @@ void ViewportAnnotator::processOval(PointerPhase phase,
     }
 
     if (phase == PointerPhase::Release) {
-        active_stroke_.isComplete = true;
         is_drawing_ = false;
+        if (!touchesFrame(active_stroke_)) {
+            // The whole shape sits beside the picture: nothing to show.
+            active_stroke_.clear();
+            return;
+        }
+        active_stroke_.isComplete = true;
     }
 }
 
@@ -421,11 +441,6 @@ void ViewportAnnotator::processArrow(PointerPhase phase,
                                      QPointF screenPos,
                                      qint64 /*timestampMs*/)
 {
-    if (!isInsideDisplayArea(screenPos, display_pos_, display_size_) &&
-        phase != PointerPhase::Release) {
-        return;
-    }
-
     if (phase == PointerPhase::Press) {
         is_drawing_ = true;
         active_stroke_.clear();
@@ -447,8 +462,13 @@ void ViewportAnnotator::processArrow(PointerPhase phase,
     }
 
     if (phase == PointerPhase::Release) {
-        active_stroke_.isComplete = true;
         is_drawing_ = false;
+        if (!touchesFrame(active_stroke_)) {
+            // The whole shape sits beside the picture: nothing to show.
+            active_stroke_.clear();
+            return;
+        }
+        active_stroke_.isComplete = true;
     }
 }
 
@@ -456,11 +476,6 @@ void ViewportAnnotator::processLine(PointerPhase phase,
                                     QPointF screenPos,
                                     qint64 /*timestampMs*/)
 {
-    if (!isInsideDisplayArea(screenPos, display_pos_, display_size_) &&
-        phase != PointerPhase::Release) {
-        return;
-    }
-
     if (phase == PointerPhase::Press) {
         is_drawing_ = true;
         active_stroke_.clear();
@@ -482,8 +497,13 @@ void ViewportAnnotator::processLine(PointerPhase phase,
     }
 
     if (phase == PointerPhase::Release) {
-        active_stroke_.isComplete = true;
         is_drawing_ = false;
+        if (!touchesFrame(active_stroke_)) {
+            // The whole shape sits beside the picture: nothing to show.
+            active_stroke_.clear();
+            return;
+        }
+        active_stroke_.isComplete = true;
     }
 }
 

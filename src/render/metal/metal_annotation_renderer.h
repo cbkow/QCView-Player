@@ -18,6 +18,7 @@
 namespace qcv {
 
 struct TessellatedMesh;
+struct MeshClip;
 
 class MetalAnnotationRenderer {
 public:
@@ -48,9 +49,15 @@ public:
     // The mesh's vertices are in pixel coordinates produced by
     // StrokeTessellator with the same display size. No per-frame
     // CPU work required beyond the vertex-buffer upload.
+    //
+    // `clip`, when given, scissors the draw to that pixel rect (the
+    // displayed image rect) and restores a full-target scissor after,
+    // so strokes that run off the picture stop at its edge. Without
+    // it the encoder's current scissor applies.
     void drawMesh(void *encoder,
                   const TessellatedMesh &mesh,
-                  int targetWidth, int targetHeight);
+                  int targetWidth, int targetHeight,
+                  const MeshClip *clip = nullptr);
 
     // Reset the per-frame vertex buffer append cursor. Must be
     // called at the start of each frame's render encoding (before

@@ -34,6 +34,18 @@ QRectF strokeBoundsNorm(const ActiveStroke &s)
     return QRectF(minX, minY, maxX - minX, maxY - minY);
 }
 
+QRectF visibleStrokeBoundsNorm(const ActiveStroke &s)
+{
+    const QRectF b = strokeBoundsNorm(s);
+    if (b.isNull()) return b;     // dot / degenerate: callers skip it
+    const double l = std::max(b.left(),   0.0);
+    const double t = std::max(b.top(),    0.0);
+    const double r = std::min(b.right(),  1.0);
+    const double d = std::min(b.bottom(), 1.0);
+    if (r < l || d < t) return {};
+    return QRectF(l, t, r - l, d - t);
+}
+
 namespace {
 
 inline QPointF toPx(const QPointF &norm, double w, double h)

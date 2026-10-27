@@ -32,6 +32,13 @@ namespace qcv {
 // copies identical — minNotes vendors this file.
 QRectF strokeBoundsNorm(const ActiveStroke &s);
 
+// The part of strokeBoundsNorm that lies over the picture (clipped to
+// the unit square). Points are captured unclamped (see
+// ViewportAnnotator::screenToNormalized), so hit-tests, selection
+// handles and drag clamps work on what the viewer can actually see.
+// Returns a null QRectF when nothing of the stroke is over the frame.
+QRectF visibleStrokeBoundsNorm(const ActiveStroke &s);
+
 // Recomposite a note's display thumbnail.
 //   cleanSquare : the durable square clean frame (raw storage pixels).
 //   strokes     : the note's strokes (normalized [0,1] coords).

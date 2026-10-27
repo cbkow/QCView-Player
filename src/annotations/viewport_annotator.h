@@ -162,6 +162,10 @@ public:
     void cancelActiveStroke();
 
     // ---- Coord helpers (static, useful elsewhere) ----
+    // screenToNormalized is NOT clamped: points off the display rect
+    // map outside [0,1]. Strokes are captured whole and clipped to the
+    // frame where they are drawn; hit-tests use the visible bounds
+    // (visibleStrokeBoundsNorm in annotation_thumbnail.h).
     static QPointF screenToNormalized(QPointF screenPos,
                                       QPointF displayPos,
                                       QSizeF displaySize);
@@ -200,8 +204,11 @@ private:
     // copy. No call into Qt or modeler is made while held.
     mutable std::mutex active_stroke_mutex_;
     bool         is_drawing_ = false;
+    // Freehand: has the cursor been over the picture at any point of
+    // this gesture? A stroke that never was is dropped on release.
+    bool         entered_frame_ = false;
 
-    QPointF drag_start_norm_;       // normalized 0..1 anchor for shape tools
+    QPointF drag_start_norm_;       // normalized anchor for shape tools (may lie outside 0..1)
 
     // Stroke-relative time base (so the modeler sees t=0 at first
     // point regardless of QInputEvent::timestamp() epoch).

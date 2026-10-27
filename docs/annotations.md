@@ -22,6 +22,8 @@ Click **Add Note** to create a note at the current playhead position. A diamond 
 
 The annotation toolbar on the right of the Notes panel provides a pointer (select, move, scale or delete a drawn shape), freehand pen, box, circle, arrow, line and eraser, plus a color picker and a line-width slider for drawing directly on the viewport. The note's thumbnail picks up the strokes.
 
+A stroke can start or stray off the picture: it keeps following the cursor, and only the part over the picture is drawn, saved and exported. Everything beyond the edge is kept with the note, so a shape dragged back into frame later, or moved with the pointer tool, is still whole. A gesture that never touches the picture leaves nothing behind.
+
 | Shortcut | Action |
 |---|---|
 | `Ctrl + Z` | Undo stroke |

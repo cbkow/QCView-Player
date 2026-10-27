@@ -9,6 +9,8 @@
 
 #include <QtLogging>
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace qcv {
@@ -231,11 +233,26 @@ int MetalAnnotationRenderer::targetPixelFormat() const
 
 void MetalAnnotationRenderer::drawMesh(void *encoderPtr,
                                        const TessellatedMesh &mesh,
-                                       int targetWidth, int targetHeight)
+                                       int targetWidth, int targetHeight,
+                                       const MeshClip *clip)
 {
     if (!isInitialized() || !encoderPtr) return;
     if (mesh.vertices.empty())            return;
     if (targetWidth <= 0 || targetHeight <= 0) return;
+
+    // Scissor to the image rect, clamped to the target (Metal rejects
+    // a scissor that leaves the attachment). An empty intersection
+    // means nothing of the picture is on screen: skip the draw.
+    MTLScissorRect scissor{0, 0, NSUInteger(targetWidth), NSUInteger(targetHeight)};
+    if (clip) {
+        const double x0 = std::clamp<double>(std::floor(clip->x), 0.0, targetWidth);
+        const double y0 = std::clamp<double>(std::floor(clip->y), 0.0, targetHeight);
+        const double x1 = std::clamp<double>(std::ceil(clip->x + clip->w), 0.0, targetWidth);
+        const double y1 = std::clamp<double>(std::ceil(clip->y + clip->h), 0.0, targetHeight);
+        if (x1 <= x0 || y1 <= y0) return;
+        scissor = MTLScissorRect{NSUInteger(x0), NSUInteger(y0),
+                                 NSUInteger(x1 - x0), NSUInteger(y1 - y0)};
+    }
 
     const std::size_t needBytes = mesh.vertices.size() * sizeof(TessVertex);
 
@@ -294,9 +311,14 @@ void MetalAnnotationRenderer::drawMesh(void *encoderPtr,
     [enc setVertexBytes:&ubo length:sizeof(ubo) atIndex:1];
     [enc setFragmentBytes:&ubo length:sizeof(ubo) atIndex:1];
 
+    if (clip) [enc setScissorRect:scissor];
     [enc drawPrimitives:MTLPrimitiveTypeTriangle
             vertexStart:0
             vertexCount:mesh.vertices.size()];
+    if (clip) {
+        [enc setScissorRect:MTLScissorRect{0, 0, NSUInteger(targetWidth),
+                                           NSUInteger(targetHeight)}];
+    }
 
     m_impl->vertexBufferOffset += needBytes;
 }
