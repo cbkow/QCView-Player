@@ -1268,6 +1268,7 @@ void OCIOConfigManager::resetActiveDefaults()
     } else {
         m_activeView.clear();
     }
+    m_defaultView = m_activeView;
 
     m_activeDisplayLutPath.clear();
     // m_engaged intentionally preserved — see comment at top of fn.

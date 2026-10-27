@@ -165,6 +165,12 @@ public:
     QString activeInput()           const { return focusedScene().input; }
     QString activeDisplay()         const { return m_activeDisplay; }
     QString activeView()            const { return m_activeView; }
+    // The View the active config opened with (Un-tone-mapped when the
+    // display has it, else the config's default). A stream link suggests
+    // a View only while this still stands — a view someone chose is theirs.
+    QString defaultView()           const { return m_defaultView; }
+    // Does the active config define this colourspace (by name or alias)?
+    bool hasColorSpace(const QString &name) const { return isValidColorSpace(name); }
     QString activeLook()            const { return focusedScene().look; }
     QString activeSceneLutPath()    const { return focusedScene().sceneLutPath; }
     QString activeDisplayLutPath()  const { return m_activeDisplayLutPath; }
@@ -338,6 +344,7 @@ private:
     OcioSceneChain m_default;      // the scene side of every unpinned slot
     QString m_activeDisplay;
     QString m_activeView;
+    QString m_defaultView;     // what the config opened with (defaultView())
     QString m_activeDisplayLutPath;
     bool    m_engaged = false;     // default disengaged — see Q_PROPERTY note
     int     m_engine  = 0;         // 0 OCIO, 1 minColor (ColorEngine)

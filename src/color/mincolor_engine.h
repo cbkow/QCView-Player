@@ -106,6 +106,12 @@ public:
     // Pins, mirrored to the project by WindowManager (pinsChanged) and
     // loaded back on project open.
     void setSlotPinned(const QString &slot, bool pinned);   // "mcInput" / "mcKnee"
+    // Pin a clip's Input by id (the stream link: a wire QCView knows by
+    // name decodes to this). Does nothing when the clip already carries
+    // an Input pin — ours from last time, or one somebody set.
+    void pinInputForClip(const QString &clipId, const MinColorInput &input);
+    bool clipHasInputPin(const QString &clipId) const
+    { return m_pins.value(clipId).input.has_value(); }
     QVariantMap clipPinsVariant(const QString &clipId) const;
     void replaceAllPins(const QHash<QString, QVariantMap> &pins);
     QString clipBadge(const QString &clipId) const;

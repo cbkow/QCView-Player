@@ -11,6 +11,8 @@
 #include "audio/live_audio_source.h"
 #include "audio/shuttle_audio_engine.h"
 #include "color/ocio_config_manager.h"
+#include "color/mincolor_engine.h"
+#include "color/mincolor/opendrt_params.h"
 #include "color/preset_manager.h"
 #include "decode/frame_handle.h"
 #include "decode/image_loader.h"
@@ -9593,47 +9595,90 @@ QString WindowManager::audioRoutingScopeMediaItemId() const
 // a View like any the user picks. Nothing applies without `wire`.
 void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQuery &q)
 {
+    // The rule (agreed with chris 2026-10-27), by step of the chain:
+    //  - Input, both engines: the link pins the clip's Input when it
+    //    names a wire QCView knows EXACTLY — a fact about the pixels, as
+    //    a visible clip pin, never over an Input pin already there (a
+    //    re-opened link, or one somebody set). Nothing is ever inferred
+    //    from the stream itself; an unknown wire name is refused.
+    //  - View, OCIO only: Blender's View / Look names resolve in the
+    //    bundled Blender config, so the host's are SUGGESTED there — over
+    //    the config's defaults only, never over a choice already made.
+    //    minColor's view half stays the viewer's (AgX by default).
+    //  - Display, neither: the output surface is this machine's.
     if (!m_ocio || clipId.isEmpty()) return;
     const QString wire = q.queryItemValue(QStringLiteral("wire"), QUrl::FullyDecoded).trimmed();
     if (wire.isEmpty()) return;
-    // The wire name → the OCIO Input that decodes it back to scene-linear.
-    // "pq-bt2020-100": PQ, BT.2020 primaries, scene 1.0 = 100 nits —
-    // `Rec.2100-PQ Scene` in the bundled Blender 5.2 config (our patch).
-    QString input;
-    if (wire == QLatin1String("pq-bt2020-100")) input = QStringLiteral("Rec.2100-PQ Scene");
-    if (input.isEmpty()) {
+    // "pq-bt2020-100": PQ, BT.2020 primaries, scene 1.0 = 100 nits. A
+    // future wire gets a new name, not a wrong decode.
+    if (wire != QLatin1String("pq-bt2020-100")) {
         qWarning("openProjectLink: stream wire '%s' is not one QCView knows; chain left as is",
                  qPrintable(wire));
+        toast(tr("The stream names a wire this QCView does not know (%1); set the Input yourself")
+                  .arg(wire), 1);
         return;
     }
+
     if (m_ocio->engine() != 0) {
-        // minColor engine: its inputs are gamut + transfer blocks, not OCIO
-        // names; the docs name the equivalent (Rec.2020 · PQ 100 → AgX).
-        qInfo("openProjectLink: stream names wire %s; minColor engine active, set the Input "
-              "to Rec.2020 / PQ 100 by hand", qPrintable(wire));
+        // minColor: Rec.2020 gamut, PQ with 100 nits = 1.0 — the wire's
+        // own anchor (opendrt_kernel: pq EOTF × 100).
+        if (!m_minColor) return;
+        if (m_minColor->clipHasInputPin(clipId)) {
+            qInfo("openProjectLink: minColor clip already has an Input pin; link leaves it");
+            return;
+        }
+        MinColorInput in;
+        in.gamut    = DRT_IN_REC2020;
+        in.transfer = DRT_OETF_PQ_100;
+        in.limited  = false;
+        m_minColor->pinInputForClip(clipId, in);
+        qInfo("openProjectLink: stream wire %s → minColor Input Rec.2020 / PQ 100 pinned",
+              qPrintable(wire));
         return;
     }
-    m_ocio->setInputForClips({clipId}, input);
+
+    // OCIO: `Rec.2100-PQ Scene` in the bundled Blender 5.2 config (our patch).
+    const QString input = QStringLiteral("Rec.2100-PQ Scene");
+    if (!m_ocio->hasColorSpace(input)) {
+        qWarning("openProjectLink: the active config has no '%s' input; nothing applied",
+                 qPrintable(input));
+        toast(tr("Blender stream: the active OCIO config has no %1 input; the Blender config does")
+                  .arg(input), 1);
+        return;
+    }
+    const OcioScenePin pins = m_ocio->clipPins(clipId);
+    if (pins.input.has_value()) {
+        qInfo("openProjectLink: clip already has Input '%s' pinned; link leaves it",
+              qPrintable(*pins.input));
+    } else {
+        m_ocio->setInputForClips({clipId}, input);
+    }
     const QString look = q.queryItemValue(QStringLiteral("look"), QUrl::FullyDecoded).trimmed();
-    if (!look.isEmpty() && look != QLatin1String("None"))
+    if (!look.isEmpty() && look != QLatin1String("None") && !pins.look.has_value())
         m_ocio->setLookForClips({clipId}, look);   // rejected (and logged) if the config lacks it
     const QString view = q.queryItemValue(QStringLiteral("view"), QUrl::FullyDecoded).trimmed();
+    QString viewNote = QStringLiteral("(unchanged)");
     if (!view.isEmpty() && view != m_ocio->activeView()) {
-        if (m_ocio->viewsForDisplay(m_ocio->activeDisplay()).contains(view))
+        if (m_ocio->activeView() != m_ocio->defaultView()) {
+            viewNote = QStringLiteral("(kept: chosen by hand)");
+        } else if (m_ocio->viewsForDisplay(m_ocio->activeDisplay()).contains(view)) {
             m_ocio->setActiveView(view);
-        else
+            viewNote = view;
+        } else {
             qWarning("openProjectLink: view '%s' is not available on display '%s'; keeping '%s'",
                      qPrintable(view), qPrintable(m_ocio->activeDisplay()),
                      qPrintable(m_ocio->activeView()));
+        }
     }
     bool ok = false;
     const double exposure = q.queryItemValue(QStringLiteral("exposure")).toDouble(&ok);
-    if (ok) setExposure(exposure);
+    if (ok && this->exposure() == 0.0) setExposure(exposure);
     const double gamma = q.queryItemValue(QStringLiteral("gamma")).toDouble(&ok);
-    if (ok && gamma > 0.0) setViewerGamma(gamma);
+    if (ok && gamma > 0.0 && m_viewerGamma == 1.0) setViewerGamma(gamma);
     qInfo("openProjectLink: stream chain from the link — input %s, look %s, view %s",
-          qPrintable(input), qPrintable(look.isEmpty() ? QStringLiteral("(default)") : look),
-          qPrintable(view.isEmpty() ? QStringLiteral("(unchanged)") : view));
+          qPrintable(pins.input.has_value() ? *pins.input : input),
+          qPrintable(look.isEmpty() ? QStringLiteral("(default)") : look),
+          qPrintable(viewNote));
 }
 
 bool WindowManager::openProjectLink(const QString &uri)

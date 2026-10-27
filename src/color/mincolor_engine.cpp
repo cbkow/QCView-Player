@@ -124,6 +124,13 @@ void MinColorEngine::setKneeSourceNits(double v) { setKneeField(&MinColorKnee::s
 void MinColorEngine::setKneeTargetNits(double v) { setKneeField(&MinColorKnee::targetNits, float(std::clamp(v, 1.0, 10000.0))); }
 void MinColorEngine::setKneeStart(double v)      { setKneeField(&MinColorKnee::start, float(v < 0.0 ? -1.0 : std::clamp(v, 0.0, 0.99))); }
 
+void MinColorEngine::pinInputForClip(const QString &clipId, const MinColorInput &input)
+{
+    if (clipId.isEmpty() || clipHasInputPin(clipId)) return;
+    m_pins[clipId].input = input;
+    notePinEdit(clipId, &MinColorEngine::inputChanged);
+}
+
 void MinColorEngine::setSlotPinned(const QString &slot, bool pinned)
 {
     const QString clip = focusClipId();
