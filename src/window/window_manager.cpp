@@ -9596,11 +9596,15 @@ QString WindowManager::audioRoutingScopeMediaItemId() const
 void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQuery &q)
 {
     // The rule (agreed with chris 2026-10-27), by step of the chain:
-    //  - Input, both engines: the link pins the clip's Input when it
-    //    names a wire QCView knows EXACTLY — a fact about the pixels, as
-    //    a visible clip pin, never over an Input pin already there (a
-    //    re-opened link, or one somebody set). Nothing is ever inferred
-    //    from the stream itself; an unknown wire name is refused.
+    //  - Input, BOTH engines, every time: the link pins the clip's Input
+    //    on OCIO and on minColor when it names a wire QCView knows
+    //    EXACTLY — a fact about the pixels, as visible clip pins, never
+    //    over an Input pin already there (a re-opened link, or one
+    //    somebody set). Both engines, because the viewer may switch
+    //    engines after the link (or the saved engine choice may land
+    //    after it), and a PQ wire through the other engine's default
+    //    Input shows flat and desaturated. Nothing is ever inferred from
+    //    the stream itself; an unknown wire name is refused.
     //  - View, OCIO only: Blender's View / Look names resolve in the
     //    bundled Blender config, so the host's are SUGGESTED there — over
     //    the config's defaults only, never over a choice already made.
@@ -9631,10 +9635,10 @@ void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQu
         toast(tr("Colour management turned on for the Blender stream"), 0);
     };
 
-    if (m_ocio->engine() != 0) {
-        // minColor: Rec.2020 gamut, PQ with 100 nits = 1.0 — the wire's
-        // own anchor (opendrt_kernel: pq EOTF × 100).
-        if (!m_minColor) return;
+    // minColor Input: Rec.2020 gamut, PQ with 100 nits = 1.0 — the wire's
+    // own anchor (opendrt_kernel: pq EOTF × 100). Pinned whichever engine
+    // is active.
+    if (m_minColor) {
         if (m_minColor->clipHasInputPin(clipId)) {
             qInfo("openProjectLink: minColor clip already has an Input pin; link leaves it");
         } else {
@@ -9646,27 +9650,35 @@ void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQu
             qInfo("openProjectLink: stream wire %s → minColor Input Rec.2020 / PQ 100 pinned",
                   qPrintable(wire));
         }
-        engageIfOff();
-        return;
     }
 
-    // OCIO: `Rec.2100-PQ Scene` in the bundled Blender 5.2 config (our patch).
+    // OCIO Input: `Rec.2100-PQ Scene` in the bundled Blender 5.2 config
+    // (our patch). Pinned whichever engine is active; refused with a
+    // toast only when the OCIO engine is the one on screen and its config
+    // lacks the input (ACES) — on minColor that config is not in use.
     const QString input = QStringLiteral("Rec.2100-PQ Scene");
-    if (!m_ocio->hasColorSpace(input)) {
-        qWarning("openProjectLink: the active config has no '%s' input; nothing applied",
-                 qPrintable(input));
-        toast(tr("Blender stream: the active OCIO config has no %1 input; the Blender config does")
-                  .arg(input), 1);
-        return;
-    }
     const OcioScenePin pins = m_ocio->clipPins(clipId);
-    if (pins.input.has_value()) {
+    if (!m_ocio->hasColorSpace(input)) {
+        qWarning("openProjectLink: the active config has no '%s' input; OCIO Input not pinned",
+                 qPrintable(input));
+        if (m_ocio->engine() == 0) {
+            toast(tr("Blender stream: the active OCIO config has no %1 input; the Blender config does")
+                      .arg(input), 1);
+            return;
+        }
+    } else if (pins.input.has_value()) {
         qInfo("openProjectLink: clip already has Input '%s' pinned; link leaves it",
               qPrintable(*pins.input));
     } else {
         m_ocio->setInputForClips({clipId}, input);
     }
     engageIfOff();
+    if (m_ocio->engine() != 0) {
+        // minColor on screen: its view half (AgX by default) is the
+        // viewer's; Blender's View / Look names only resolve in OCIO.
+        qInfo("openProjectLink: minColor engine on screen; view left to the viewer");
+        return;
+    }
     const QString look = q.queryItemValue(QStringLiteral("look"), QUrl::FullyDecoded).trimmed();
     if (!look.isEmpty() && look != QLatin1String("None") && !pins.look.has_value())
         m_ocio->setLookForClips({clipId}, look);   // rejected (and logged) if the config lacks it
