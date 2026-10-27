@@ -31,7 +31,7 @@ nav_order: 1
 ### Color
 - Live [OCIO](https://opencolorio.org/) color management, with a colour chain per clip and per side of a dual view
 - Bundled OCIO configs: ACES 2.0, ACES 1.3, Blender 5.2, Blender 5.1
-- A second, OCIO-free colour engine, **minColor**: Input → Highlight Knee → AgX → Rendering (un-tone-mapped or OpenDRT) → Display, from the minColorAE core
+- A second, OCIO-free colour engine, **minColor**: Input → Highlight Knee → AgX → Display, linear conversions between the working spaces and encodings a review meets, from the minColorAE core
 - **Compact Mode** (`Ctrl + Shift + C`): the window becomes the picture plus one slim strip, no title bar, no panels
 - **Always on Top** (`Ctrl + Alt + T`): a pin on the transport row and the Compact strip keeps the window above every other app's, and is remembered
 - Highlight Knee for reviewing HDR masters on SDR displays; ASC CDL and `.cube` LUTs

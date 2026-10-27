@@ -40,7 +40,7 @@ The same knee as the OCIO chain, between the Input and the View: it compresses h
 
 ### AgX
 
-An optional picture formation before the rendering: a parametric, HDR-capable AgX that matches Blender's at its defaults. While it is on the Rendering reel offers only Un-tone-mapped, since AgX has already formed the picture.
+An optional picture formation before the display encoding: a parametric, HDR-capable AgX that matches Blender's at its defaults.
 
 ![AgX column open on a Rec.709 clip](images/qcv043.jpg)
 
@@ -55,8 +55,7 @@ An optional picture formation before the rendering: a parametric, HDR-capable Ag
 
 ### Rendering
 
-- **Un-tone-mapped** — the scene values go straight to the display encoding. Every built-in preset uses this.
-- **An OpenDRT look** — Standard, Arriba, Sylvan, Colorful, Aery, Dystopic, Umbra or Base: the OpenDRT 1.1.0 picture formation with that look's tonescale and creative white. A look is only ever an explicit choice.
+**Un-tone-mapped**: the scene values go straight to the display encoding, which is what minColor is for — describing media and converting between encodings, not interpreting it. Every built-in preset uses it, and it is the only rendering the reel offers. The engine still carries the OpenDRT looks underneath (its PQ, HLG and gamut maths are transcribed from OpenDRT, and a chain or preset saved with a look keeps rendering with it; that look then shows on the reel so you can see it and switch it off), but they are not offered, the same choice minColorAE made in 0.1.4.
 
 ### Display
 

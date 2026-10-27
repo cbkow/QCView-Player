@@ -255,7 +255,7 @@ Pane {
             }
             Text {
                 text: root.minColorMode
-                      ? qsTr("minColor · OpenDRT 1.1.0 rendering, AgX, no OCIO")
+                      ? qsTr("minColor · linear conversions, AgX, no OCIO")
                       : (WindowManager.ocio ? WindowManager.ocio.configDescription : "")
                 color: Theme.textMuted
                 font.family: Theme.fontFamily
@@ -280,7 +280,7 @@ Pane {
                 variant: "raised"
                 checkedFill: Theme.selection
                 text: qsTr("minColor")
-                tooltipText: qsTr("Colour through the minColor engine: Input → Knee → AgX → OpenDRT rendering → Display, no OCIO")
+                tooltipText: qsTr("Colour through the minColor engine: Input → Knee → AgX → Display, no OCIO")
                 onClicked: if (WindowManager.ocio) WindowManager.ocio.engine = 1
             }
             Item { width: Theme.spacingLoose }
@@ -966,16 +966,20 @@ Pane {
                     ReelColumn {
                         visible: root.minColorMode
                         readonly property bool agxOn: !!root.minColor && root.minColor.agxEnabled
-                        //: minColor's tone-mapping stage (OpenDRT)
+                        //: minColor's rendering stage
                         title: agxOn ? qsTr("Rendering · AgX") : qsTr("Rendering")
-                        // Un-tone-mapped first, then the OpenDRT looks. AgX and
-                        // OpenDRT are both picture formations: with AgX on the
-                        // looks go away and the rendering is the encode only.
+                        // Un-tone-mapped is the offer (as minColorAE 0.1.4: the
+                        // engine describes media, it does not interpret it).
+                        // The OpenDRT looks stay in the engine and keep
+                        // rendering for a chain or preset that holds one —
+                        // that look is listed so the state is visible and
+                        // can be switched off — but they are not offered.
+                        readonly property bool lookOn: !!root.minColor && root.minColor.openDrt && !agxOn
                         model: !root.minColor ? []
                                //: Rendering choice: no tone mapping applied
-                               : agxOn ? [qsTr("Un-tone-mapped")]
+                               : lookOn ? [qsTr("Un-tone-mapped"), root.minColor.lookNames[root.minColor.look]]
                                //: Rendering choice: no tone mapping applied
-                               : [qsTr("Un-tone-mapped")].concat(root.minColor.lookNames)
+                               : [qsTr("Un-tone-mapped")]
                         currentText: root.minColor
                                      ? (root.minColor.openDrt && !agxOn
                                         ? root.minColor.lookNames[root.minColor.look]
@@ -1998,8 +2002,8 @@ Pane {
     }
 
     // AgX — minColor's parametric picture formation (the vendored
-    // darktable / Blender port). A view-side step: when on, the Rendering
-    // reel loses its OpenDRT looks and only the Display encode follows.
+    // darktable / Blender port). A view-side step: when on, only the
+    // Display encode follows (a held OpenDRT look is set aside).
     component AgxColumn: ColumnLayout {
         id: agx
         property bool expanded: false
