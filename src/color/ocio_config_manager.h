@@ -97,6 +97,7 @@ class OCIOConfigManager : public QObject
     // Per-clip scene chain. Which scene-side slots of the focused clip
     // are pinned to it (else they follow the default).
     Q_PROPERTY(bool inputPinned    READ inputPinned    NOTIFY activeChainChanged)
+    Q_PROPERTY(bool hostDisplayPinned READ hostDisplayPinned NOTIFY activeChainChanged)
     Q_PROPERTY(bool lookPinned     READ lookPinned     NOTIFY activeChainChanged)
     Q_PROPERTY(bool sceneLutPinned READ sceneLutPinned NOTIFY activeChainChanged)
     Q_PROPERTY(bool kneePinned     READ kneePinned     NOTIFY activeChainChanged)
@@ -226,7 +227,7 @@ public:
     }
 
     // ---- Per-clip scene chain ----
-    enum class Slot { Input, Look, SceneLut, Knee };
+    enum class Slot { Input, Look, SceneLut, Knee, HostDisplay };
 
     // What is on screen, from WindowManager: the single-view clip (the
     // playlist clip under the playhead in a playlist), and the dual
@@ -245,6 +246,29 @@ public:
     bool lookPinned()     const { return slotPinned(Slot::Look); }
     bool sceneLutPinned() const { return slotPinned(Slot::SceneLut); }
     bool kneePinned()     const { return slotPinned(Slot::Knee); }
+    bool hostDisplayPinned() const { return slotPinned(Slot::HostDisplay); }
+
+    // Host-display emulation for a stream clip (2026-10-27): the host
+    // Blender's display device and view, set by the qcview://stream link,
+    // rendered for that display and carried to ours (OcioSceneChain::
+    // hostDisplay). Set only when the pair exists in the active config;
+    // never over a pin already there. `on` is the chip's toggle;
+    // `trueEmulation` picks display→display conversion over "as shown".
+    Q_INVOKABLE bool setHostDisplayForClip(const QString &clipId, const QString &display,
+                                           const QString &view, bool on = true,
+                                           bool trueEmulation = false);
+    Q_INVOKABLE void setHostDisplayEnabledForClip(const QString &clipId, bool on);
+    Q_INVOKABLE void setHostDisplayTrueEmulationForClip(const QString &clipId, bool trueEmulation);
+    Q_INVOKABLE QVariantMap clipHostDisplay(const QString &clipId) const;
+    // Does the active config have this display / this view on it?
+    Q_INVOKABLE bool displayValid(const QString &display) const { return isValidDisplay(display); }
+    Q_INVOKABLE bool viewValidForDisplay(const QString &display, const QString &view) const
+    { return isValidViewForDisplay(display, view); }
+    // The bundled display nearest a host display the config lacks, from
+    // the host's reported primaries (xy of R, G, B, W) and transfer
+    // estimate: {display, exact, note}. `note` names a transfer
+    // difference the match cannot reproduce.
+    Q_INVOKABLE QVariantMap nearestDisplay(const QVariantMap &xy, double gammaEst) const;
 
     // Pin the focused clip's current value of `slot` ("input", "look",
     // "sceneLut", "knee") to it, or (pinned = false) return that slot to

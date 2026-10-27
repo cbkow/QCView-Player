@@ -44,6 +44,7 @@ The Clip group is the selected clip's own chain, so each clip can be read differ
 - **Look** — optional creative look (Blender's AgX, Contrast, Punchy, etc.)
 - **Scene LUT** — optional LUT applied in the scene-linear stage: a `.cube` file, or an ASC CDL (`.cc`, `.ccc`, `.cdl`). For a CDL collection, a **Correction ID** field picks the correction (an id or an index; empty uses the first).
 - **Highlight Knee** — see [below](#highlight-knee)
+- **Host display** — set by a [QCBridge for Blender](/qcbridge/blender/) stream link: the host's view rendered for the host's display device, shown as a caption with ↺. The live strip's chip has its options.
 
 Every change you make here stays with that clip. A column the clip has set shows **↺** in its header; click it to go back to the default. Clips that haven't set a column follow the default chain, which is what you edit when no clip is loaded.
 

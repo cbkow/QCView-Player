@@ -28,10 +28,62 @@ struct ChainParts {
     OCIO::LookTransformRcPtr look;         // null if no Look
     OCIO::FileTransformRcPtr sceneLut;     // null if no Scene LUT
     QByteArray               dvtSrcCs;     // colourspace entering the Display/View
-    QByteArray               display;
+    QByteArray               display;      // the DVT's display/view: the host's when emulating
     QByteArray               view;
+    QByteArray               targetDisplay;   // this machine's (what the output is encoded for)
+    QByteArray               targetView;
     OCIO::FileTransformRcPtr displayLut;   // null if none (or overridden)
+    // Host-display emulation (OcioSceneChain::hostDisplay): after the DVT,
+    // carry the codes from `emulateFromCs` to `emulateToCs` and clamp.
+    bool                     emulate = false;
+    bool                     clampSdr = false;
+    QByteArray               emulateFromCs;
+    QByteArray               emulateToCs;
 };
+
+// A display's OWN colourspace: the Standard view's, else the first view
+// that is not a data view, else the display's name. Never a view's baked
+// colourspace (a studio config's "AgX Base Rec.2020") — the display →
+// display step of emulation must not undo the view.
+QByteArray displayColorSpaceOf(OCIO::ConstConfigRcPtr cfg, const QByteArray &display)
+{
+    auto resolve = [&](const char *view) -> QByteArray {
+        const char *n = cfg->getDisplayViewColorSpaceName(display.constData(), view);
+        if (!n || !*n) return {};
+        QByteArray name(n);
+        if (name == "<USE_DISPLAY_NAME>") name = display;
+        OCIO::ConstColorSpaceRcPtr cs = cfg->getColorSpace(name.constData());
+        if (!cs || cs->isData()) return {};
+        return name;
+    };
+    const QByteArray std = resolve("Standard");
+    if (!std.isEmpty()) return std;
+    for (int i = 0; i < cfg->getNumViews(display.constData()); ++i) {
+        const QByteArray n = resolve(cfg->getView(display.constData(), i));
+        if (!n.isEmpty()) return n;
+    }
+    return display;
+}
+
+// The emulation steps after the DVT: codes from one display colourspace to
+// another, through the display reference, then a clamp (0..1 for an SDR
+// target, ≥ 0 otherwise).
+void appendEmulation(OCIO::GroupTransformRcPtr group, const ChainParts &p)
+{
+    if (!p.emulate) return;
+    OCIO::ColorSpaceTransformRcPtr cst = OCIO::ColorSpaceTransform::Create();
+    cst->setSrc(p.emulateFromCs.constData());
+    cst->setDst(p.emulateToCs.constData());
+    group->appendTransform(cst);
+    OCIO::RangeTransformRcPtr rng = OCIO::RangeTransform::Create();
+    rng->setMinInValue(0.0);
+    rng->setMinOutValue(0.0);
+    if (p.clampSdr) {
+        rng->setMaxInValue(1.0);
+        rng->setMaxOutValue(1.0);
+    }
+    group->appendTransform(rng);
+}
 
 bool resolveParts(const OcioChainSpec &spec, OCIO::ConstConfigRcPtr cfg,
                   const DisplayViewOverride *override,
@@ -56,9 +108,41 @@ bool resolveParts(const OcioChainSpec &spec, OCIO::ConstConfigRcPtr cfg,
     const QString displayLutPath =
         override ? QString() : spec.displayLutPath;
 
-    out.dvtSrcCs = inputCs.toUtf8();
-    out.display  = display.toUtf8();
-    out.view     = view.toUtf8();
+    out.dvtSrcCs      = inputCs.toUtf8();
+    out.display       = display.toUtf8();
+    out.view          = view.toUtf8();
+    out.targetDisplay = out.display;
+    out.targetView    = out.view;
+
+    // Host-display emulation: render the host's view for the host's
+    // display, then carry those codes to this machine's display. "As
+    // shown" (the default, measured on Blender 5.2.2 / macOS) means the
+    // host's codes are what an sRGB-tagged window shows: from the sRGB
+    // display's colourspace; "true" emulation starts from the host
+    // display's own colourspace. Same colourspace both ends = no step.
+    if (spec.scene.emulate && !spec.scene.hostDisplay.isEmpty() && !spec.scene.hostView.isEmpty()) {
+        const QByteArray hd = spec.scene.hostDisplay.toUtf8();
+        const QByteArray hv = spec.scene.hostView.toUtf8();
+        bool ok = false;
+        for (int i = 0; i < cfg->getNumViews(hd.constData()); ++i) {
+            if (hv == QByteArray(cfg->getView(hd.constData(), i))) { ok = true; break; }
+        }
+        if (ok) {
+            out.display = hd;
+            out.view    = hv;
+            const QByteArray from = spec.scene.emulateTrue ? displayColorSpaceOf(cfg, hd)
+                                                           : displayColorSpaceOf(cfg, "sRGB");
+            const QByteArray to = displayColorSpaceOf(cfg, out.targetDisplay);
+            if (from != to && cfg->getColorSpace(from.constData()) && cfg->getColorSpace(to.constData())) {
+                out.emulate       = true;
+                out.emulateFromCs = from;
+                out.emulateToCs   = to;
+            }
+        } else {
+            qWarning("OcioChainBuilder: host display/view '%s'/'%s' not in the config — emulation off",
+                     hd.constData(), hv.constData());
+        }
+    }
 
     if (!look.isEmpty()) {
         const char *lookResultCs =
@@ -116,13 +200,15 @@ struct DisplayOutput {
 
 DisplayOutput displayViewOutput(OCIO::ConstConfigRcPtr cfg, const ChainParts &p)
 {
+    // The TARGET display: what the chain's output is encoded for (with
+    // emulation the DVT's display is the host's, the output is still ours).
     const char *csName =
-        cfg->getDisplayViewColorSpaceName(p.display.constData(), p.view.constData());
+        cfg->getDisplayViewColorSpaceName(p.targetDisplay.constData(), p.targetView.constData());
     QByteArray name = csName ? QByteArray(csName) : QByteArray();
-    if (name.isEmpty() || name == "<USE_DISPLAY_NAME>") name = p.display;
+    if (name.isEmpty() || name == "<USE_DISPLAY_NAME>") name = p.targetDisplay;
     OCIO::ConstColorSpaceRcPtr cs = cfg->getColorSpace(name.constData());
     const QByteArray enc = cs ? QByteArray(cs->getEncoding()) : QByteArray();
-    const QString n = QString::fromUtf8(name) + QLatin1Char(' ') + QString::fromUtf8(p.display);
+    const QString n = QString::fromUtf8(name) + QLatin1Char(' ') + QString::fromUtf8(p.targetDisplay);
     auto has = [&n](const char *s) { return n.contains(QLatin1String(s), Qt::CaseInsensitive); };
 
     DisplayOutput out;
@@ -191,10 +277,12 @@ OCIO::GroupTransformRcPtr OcioChainBuilder::buildGroupTransform(
         ChainParts p;
         if (!resolveParts(spec, cfg, override, p, errorOut)) return nullptr;
 
+        p.clampSdr = displayViewOutput(cfg, p).encoding == OutputEncoding::Sdr;
         OCIO::GroupTransformRcPtr group = OCIO::GroupTransform::Create();
         if (p.look)       group->appendTransform(p.look);
         if (p.sceneLut)   group->appendTransform(p.sceneLut);
         group->appendTransform(makeDvt(p.dvtSrcCs.constData(), p));
+        appendEmulation(group, p);
         if (p.displayLut) group->appendTransform(p.displayLut);
         return group;
     } catch (const OCIO::Exception &e) {
@@ -256,12 +344,14 @@ bool OcioChainBuilder::buildSplitTransforms(const OcioChainSpec &spec,
         toInterchange->setDst(interchange);
         out.pre->appendTransform(toInterchange);
 
+        const DisplayOutput dout = displayViewOutput(cfg, p);
+        p.clampSdr = dout.encoding == OutputEncoding::Sdr;
         out.post = OCIO::GroupTransform::Create();
         out.post->appendTransform(makeDvt(interchange, p));
+        appendEmulation(out.post, p);
         if (p.displayLut) out.post->appendTransform(p.displayLut);
 
         out.side         = scene ? InterchangeSide::Scene : InterchangeSide::Display;
-        const DisplayOutput dout = displayViewOutput(cfg, p);
         out.encoding        = dout.encoding;
         out.outputPrimaries = dout.primaries;
         out.displayIsSdr    = dout.encoding == OutputEncoding::Sdr;

@@ -7867,6 +7867,15 @@ void WindowManager::invokeToastAction(const QString &actionId)
         } else {
             toast(tr("Restored %1 items").arg(names.size()), 0);
         }
+    } else if (actionId == QLatin1String("switch-config-blender52")) {
+        if (m_ocio) m_ocio->setActiveConfig(QStringLiteral("Blender 5.2"));
+        if (!m_pendingStreamLinkClip.isEmpty()) {
+            const QString clip = m_pendingStreamLinkClip;
+            const QUrlQuery query = m_pendingStreamLinkQuery;
+            m_pendingStreamLinkClip.clear();
+            m_pendingStreamLinkQuery.clear();
+            applyStreamChainFromLink(clip, query);
+        }
     } else if (actionId == QLatin1String("undo-preset-delete")) {
         const QString name =
             m_presets ? m_presets->undoDeleteLast() : QString();
@@ -9595,28 +9604,60 @@ QString WindowManager::audioRoutingScopeMediaItemId() const
 // a View like any the user picks. Nothing applies without `wire`.
 void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQuery &q)
 {
-    // The rule (agreed with chris 2026-10-27), by step of the chain:
-    //  - Input, BOTH engines, every time: the link pins the clip's Input
-    //    on OCIO and on minColor when it names a wire QCView knows
-    //    EXACTLY — a fact about the pixels, as visible clip pins, never
-    //    over an Input pin already there (a re-opened link, or one
-    //    somebody set). Both engines, because the viewer may switch
-    //    engines after the link (or the saved engine choice may land
-    //    after it), and a PQ wire through the other engine's default
-    //    Input shows flat and desaturated. Nothing is ever inferred from
-    //    the stream itself; an unknown wire name is refused.
-    //  - View, OCIO only: Blender's View / Look names resolve in the
-    //    bundled Blender config, so the host's are SUGGESTED there — over
-    //    the config's defaults only, never over a choice already made.
-    //    minColor's view half stays the viewer's (AgX by default).
-    //  - Display, neither: the output surface is this machine's.
-    //  - Engaged: a known wire turns colour management ON when it is off
-    //    (announced; never off, never a different engine). Nobody opens
-    //    this link by accident — it is the host panel's Open in QCView,
-    //    pressed to see the Blender picture, and raw PQ serves nobody.
+    // The rule (2026-10-27 colour awareness, with chris), by step of the
+    // chain. Nothing is ever inferred from the stream itself — the link
+    // names everything, and QCView follows it by name or says what it
+    // cannot do:
+    //  - Input, both engines, every time: a wire QCView knows EXACTLY pins
+    //    the clip's Input on OCIO and on minColor (a fact about the pixels),
+    //    never over an Input pin already there.
+    //  - Engaged: a known wire turns colour management on (announced).
+    //  - Config: the host's View / Look / Display names resolve in the
+    //    bundled Blender config; on another config the link offers the
+    //    switch and does only the Inputs.
+    //  - View: the host's view, for the host's DISPLAY DEVICE, as a
+    //    host-display pin on the clip (OcioScenePin::hostDisplay) — the
+    //    picture the artist sees, including a Rec.2020 or P3 device's raw
+    //    codes in an sRGB window ("as shown", measured on Blender 5.2.2).
+    //    No view is ever assumed: AgX arrives only when the host says AgX;
+    //    a view the config lacks on that display is refused by name.
+    //  - Display: this machine's, never the host's.
+    //  - minColor knows only AgX: it gets the Input and a plain notice.
     if (!m_ocio || clipId.isEmpty()) return;
-    const QString wire = q.queryItemValue(QStringLiteral("wire"), QUrl::FullyDecoded).trimmed();
+    const auto item = [&](const char *key) {
+        return q.queryItemValue(QString::fromLatin1(key), QUrl::FullyDecoded).trimmed();
+    };
+    const QString wire = item("wire");
     if (wire.isEmpty()) return;
+
+    QVariantMap info;
+    QStringList notes;
+    const QString config = item("config");
+    const QString configKind = config.section(QLatin1Char(':'), 0, 0);
+    const QString display = item("display");
+    const QString view = item("view");
+    const QString look = item("look");
+    info[QStringLiteral("hasLink")] = true;
+    info[QStringLiteral("wire")] = wire;
+    info[QStringLiteral("config")] = config;
+    info[QStringLiteral("configKind")] = configKind;
+    info[QStringLiteral("ws")] = item("ws");
+    info[QStringLiteral("input")] = item("input");
+    info[QStringLiteral("display")] = display;
+    info[QStringLiteral("view")] = view;
+    info[QStringLiteral("look")] = look;
+    info[QStringLiteral("emulation")] = item("emulation");
+    info[QStringLiteral("engine")] = item("engine");
+    info[QStringLiteral("cmOk")] = item("cm_ok") != QLatin1String("0");
+    auto finish = [&]() {
+        info[QStringLiteral("notes")] = notes;
+        m_streamColorInfo.insert(clipId, info);
+        emit streamColorInfoChanged(clipId);
+        qInfo("openProjectLink: stream colour — config %s, ws %s, display %s, view %s, look %s, notes [%s]",
+              qPrintable(config), qPrintable(item("ws")), qPrintable(display), qPrintable(view),
+              qPrintable(look), qPrintable(notes.join(QStringLiteral(" | "))));
+    };
+
     // "pq-bt2020-100": PQ, BT.2020 primaries, scene 1.0 = 100 nits. A
     // future wire gets a new name, not a wrong decode.
     if (wire != QLatin1String("pq-bt2020-100")) {
@@ -9624,87 +9665,126 @@ void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQu
                  qPrintable(wire));
         toast(tr("The stream names a wire this QCView does not know (%1); set the Input yourself")
                   .arg(wire), 1);
+        notes << tr("unknown wire %1").arg(wire);
+        finish();
         return;
     }
 
-    // The wire is known: colour management runs, whichever engine is set.
-    auto engageIfOff = [this] {
-        if (m_ocio->engaged()) return;
-        m_ocio->setEngaged(true);
-        qInfo("openProjectLink: colour management turned on for the Blender stream");
-        toast(tr("Colour management turned on for the Blender stream"), 0);
-    };
-
-    // minColor Input: Rec.2020 gamut, PQ with 100 nits = 1.0 — the wire's
-    // own anchor (opendrt_kernel: pq EOTF × 100). Pinned whichever engine
-    // is active.
+    // Input pins, both engines, never over a pin already there.
     if (m_minColor) {
-        if (m_minColor->clipHasInputPin(clipId)) {
-            qInfo("openProjectLink: minColor clip already has an Input pin; link leaves it");
-        } else {
+        if (!m_minColor->clipHasInputPin(clipId)) {
             MinColorInput in;
             in.gamut    = DRT_IN_REC2020;
             in.transfer = DRT_OETF_PQ_100;
             in.limited  = false;
             m_minColor->pinInputForClip(clipId, in);
-            qInfo("openProjectLink: stream wire %s → minColor Input Rec.2020 / PQ 100 pinned",
-                  qPrintable(wire));
         }
     }
-
-    // OCIO Input: `Rec.2100-PQ Scene` in the bundled Blender 5.2 config
-    // (our patch). Pinned whichever engine is active; refused with a
-    // toast only when the OCIO engine is the one on screen and its config
-    // lacks the input (ACES) — on minColor that config is not in use.
     const QString input = QStringLiteral("Rec.2100-PQ Scene");
     const OcioScenePin pins = m_ocio->clipPins(clipId);
-    if (!m_ocio->hasColorSpace(input)) {
-        qWarning("openProjectLink: the active config has no '%s' input; OCIO Input not pinned",
-                 qPrintable(input));
-        if (m_ocio->engine() == 0) {
-            toast(tr("Blender stream: the active OCIO config has no %1 input; the Blender config does")
-                      .arg(input), 1);
-            return;
-        }
-    } else if (pins.input.has_value()) {
-        qInfo("openProjectLink: clip already has Input '%s' pinned; link leaves it",
-              qPrintable(*pins.input));
-    } else {
-        m_ocio->setInputForClips({clipId}, input);
+    const bool ocioInputOk = m_ocio->hasColorSpace(input);
+    if (ocioInputOk && !pins.input.has_value()) m_ocio->setInputForClips({clipId}, input);
+
+    // A known wire: colour management runs, whichever engine is set.
+    if (!m_ocio->engaged()) {
+        m_ocio->setEngaged(true);
+        qInfo("openProjectLink: colour management turned on for the Blender stream");
+        toast(tr("Colour management turned on for the Blender stream"), 0);
     }
-    engageIfOff();
-    if (m_ocio->engine() != 0) {
-        // minColor on screen: its view half (AgX by default) is the
-        // viewer's; Blender's View / Look names only resolve in OCIO.
-        qInfo("openProjectLink: minColor engine on screen; view left to the viewer");
+
+    // The host's view and display resolve in Blender's config only.
+    const bool onBlenderConfig = m_ocio->activeConfigName().startsWith(QLatin1String("Blender"));
+    if (configKind == QLatin1String("blender") && !onBlenderConfig) {
+        m_pendingStreamLinkClip  = clipId;
+        m_pendingStreamLinkQuery = q;
+        toastAction(tr("Blender stream: its view and display resolve in the Blender 5.2 config"), 1,
+                    tr("Switch"), QStringLiteral("switch-config-blender52"));
+        notes << tr("view not applied: active config is %1").arg(m_ocio->activeConfigName());
+        finish();
         return;
     }
-    const QString look = q.queryItemValue(QStringLiteral("look"), QUrl::FullyDecoded).trimmed();
-    if (!look.isEmpty() && look != QLatin1String("None") && !pins.look.has_value())
-        m_ocio->setLookForClips({clipId}, look);   // rejected (and logged) if the config lacks it
-    const QString view = q.queryItemValue(QStringLiteral("view"), QUrl::FullyDecoded).trimmed();
-    QString viewNote = QStringLiteral("(unchanged)");
-    if (!view.isEmpty() && view != m_ocio->activeView()) {
-        if (m_ocio->activeView() != m_ocio->defaultView()) {
-            viewNote = QStringLiteral("(kept: chosen by hand)");
-        } else if (m_ocio->viewsForDisplay(m_ocio->activeDisplay()).contains(view)) {
-            m_ocio->setActiveView(view);
-            viewNote = view;
+    if (configKind != QLatin1String("blender") && !configKind.isEmpty()) {
+        toast(tr("The host runs a non-Blender OCIO config (%1): its view cannot be reproduced; Input pinned only")
+                  .arg(config.section(QLatin1Char(':'), 1, 1).isEmpty() ? configKind
+                                                                          : config.section(QLatin1Char(':'), 1, 1)), 1);
+        notes << tr("host config %1: view not reproduced").arg(configKind);
+        finish();
+        return;
+    }
+    if (!ocioInputOk && m_ocio->engine() == 0) {
+        qWarning("openProjectLink: the active config has no '%s' input; OCIO Input not pinned", qPrintable(input));
+        toast(tr("Blender stream: the active OCIO config has no %1 input; the Blender config does").arg(input), 1);
+        notes << tr("no %1 input in this config").arg(input);
+        finish();
+        return;
+    }
+
+    // The host's display device, by name or the nearest bundled display.
+    QString resolvedDisplay = display;
+    bool exact = m_ocio->displayValid(display);
+    if (!display.isEmpty() && !exact) {
+        QVariantMap xy;
+        const QStringList parts = item("display_xy").split(QLatin1Char(','));
+        if (parts.size() == 8) {
+            const char *keys[4] = {"r", "g", "b", "w"};
+            for (int i = 0; i < 4; ++i) {
+                xy.insert(QString::fromLatin1(keys[i]),
+                          QVariantList{parts[i * 2].toDouble(), parts[i * 2 + 1].toDouble()});
+            }
+        }
+        const QVariantMap nearest = m_ocio->nearestDisplay(xy, item("display_gamma").toDouble());
+        resolvedDisplay = nearest.value(QStringLiteral("display")).toString();
+        exact = nearest.value(QStringLiteral("exact")).toBool();
+        const QString note = nearest.value(QStringLiteral("note")).toString();
+        if (!note.isEmpty()) notes << note;
+        else if (!resolvedDisplay.isEmpty()) notes << tr("host display %1 → %2").arg(display, resolvedDisplay);
+    }
+    info[QStringLiteral("hostDisplayResolved")] = resolvedDisplay;
+    info[QStringLiteral("exact")] = exact;
+
+    // The view, on that display, or nothing: never a substitute.
+    if (!view.isEmpty() && !resolvedDisplay.isEmpty()) {
+        if (!m_ocio->viewValidForDisplay(resolvedDisplay, view)) {
+            toast(tr("Blender stream: view '%1' is not on display '%2' in the Blender config; view left as is")
+                      .arg(view, resolvedDisplay), 1);
+            notes << tr("view %1 not on %2").arg(view, resolvedDisplay);
+        } else if (pins.hostDisplay.has_value()) {
+            qInfo("openProjectLink: clip already carries a host display pin; link leaves it");
         } else {
-            qWarning("openProjectLink: view '%s' is not available on display '%s'; keeping '%s'",
-                     qPrintable(view), qPrintable(m_ocio->activeDisplay()),
-                     qPrintable(m_ocio->activeView()));
+            const bool on = QSettings().value(QStringLiteral("stream/emulateHostDisplay"), true).toBool();
+            m_ocio->setHostDisplayForClip(clipId, resolvedDisplay, view, on, false);
+            qInfo("openProjectLink: host display %s / %s → pinned (%s)", qPrintable(resolvedDisplay),
+                  qPrintable(view), on ? "emulating" : "off");
         }
     }
+    if (!look.isEmpty() && look != QLatin1String("None") && !pins.look.has_value()) {
+        if (m_ocio->looks().contains(look)) m_ocio->setLookForClips({clipId}, look);
+        else notes << tr("look %1 not in this config").arg(look);
+    }
+
+    if (m_ocio->engine() != 0) {
+        toast(tr("Blender stream: the host's view (%1 for %2) is not reproduced on minColor; switch to the OCIO engine to match it")
+                  .arg(view, display), 1);
+        notes << tr("minColor on screen: host view not reproduced");
+        finish();
+        return;
+    }
+
     bool ok = false;
-    const double exposure = q.queryItemValue(QStringLiteral("exposure")).toDouble(&ok);
+    const double exposure = item("exposure").toDouble(&ok);
     if (ok && this->exposure() == 0.0) setExposure(exposure);
-    const double gamma = q.queryItemValue(QStringLiteral("gamma")).toDouble(&ok);
+    const double gamma = item("gamma").toDouble(&ok);
     if (ok && gamma > 0.0 && m_viewerGamma == 1.0) setViewerGamma(gamma);
-    qInfo("openProjectLink: stream chain from the link — input %s, look %s, view %s",
-          qPrintable(pins.input.has_value() ? *pins.input : input),
-          qPrintable(look.isEmpty() ? QStringLiteral("(default)") : look),
-          qPrintable(viewNote));
+
+    // What the host does that QCView cannot, and what the two ends said
+    // about each other: one plain sentence each.
+    if (item("wb") == QLatin1String("1"))     notes << tr("host white balance not reproduced");
+    if (item("curves") == QLatin1String("1")) notes << tr("host curves not reproduced");
+    if (item("hdr") == QLatin1String("1"))    notes << tr("host HDR view: shown SDR");
+    if (item("ws_assumed") == QLatin1String("1")) notes << tr("working space assumed Linear Rec.709");
+    if (item("cm_ok") == QLatin1String("0"))  notes << tr("host and replica colour setups differ (%1)").arg(item("cm_n"));
+    if (!notes.isEmpty()) toast(tr("Blender stream: %1").arg(notes.join(QStringLiteral(" · "))), 1);
+    finish();
 }
 
 bool WindowManager::openProjectLink(const QString &uri)

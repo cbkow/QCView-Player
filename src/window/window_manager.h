@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <QHash>
 #include <QUrlQuery>
 
 #include "annotations/annotation_manager.h"
@@ -814,6 +815,11 @@ public:
     // the view transform the host artist sees; applied as the new clip's
     // chain (a visible, editable pin) — see applyStreamChainFromLink.
     void applyStreamChainFromLink(const QString &clipId, const QUrlQuery &query);
+    QHash<QString, QVariantMap> m_streamColorInfo;
+    // A link that asked for the Blender config before it could finish:
+    // re-run after the user takes the toast's "Switch".
+    QString   m_pendingStreamLinkClip;
+    QUrlQuery m_pendingStreamLinkQuery;
     Q_INVOKABLE bool    copyProjectLinkToClipboard() const;
 
     // Polish — font family accessors. main.cpp populates these
@@ -1074,6 +1080,14 @@ public:
     // Each outcome reports back through a plain toast.
     Q_INVOKABLE void invokeToastAction(const QString &actionId);
 
+    // What a qcview://stream link said about the host's colour state and
+    // what QCView did with it (2026-10-27 colour awareness): the live
+    // strip's emulation chip and its warning line read this. Keys:
+    // hasLink, wire, config, configKind, ws, input, display, view, look,
+    // emulation, hostDisplayResolved, exact, notes (QStringList), cmOk.
+    Q_INVOKABLE QVariantMap streamColorInfo(const QString &itemId) const
+    { return m_streamColorInfo.value(itemId); }
+
     Q_INVOKABLE void closeMedia();
 
     // ---- Phase 3.H.6 Stage B — notes panel surface for QML. ----
@@ -1277,6 +1291,8 @@ signals:
     // (the StatusStrip chip it used to drive is hidden by default
     // now that the strip is an opt-in panel).
     void toastRequested(const QString &message, int kind);
+    // A stream link's colour info for `itemId` changed (streamColorInfo).
+    void streamColorInfoChanged(const QString &itemId);
     // Action-carrying variant (undo toasts) — see toastAction().
     void toastActionRequested(const QString &message, int kind,
                               const QString &actionLabel,

@@ -869,8 +869,119 @@ bool OCIOConfigManager::slotPinned(Slot slot) const
     case Slot::Look:     return it->look.has_value();
     case Slot::SceneLut: return it->sceneLut.has_value();
     case Slot::Knee:     return it->knee.has_value();
+    case Slot::HostDisplay: return it->hostDisplay.has_value();
     }
     return false;
+}
+
+bool OCIOConfigManager::setHostDisplayForClip(const QString &clipId, const QString &display,
+                                              const QString &view, bool on, bool trueEmulation)
+{
+    if (clipId.isEmpty() || !isValidViewForDisplay(display, view)) return false;
+    OcioScenePin &pin = m_pins[clipId];
+    pin.hostDisplay = OcioScenePin::HostDisplay{display, view, on, trueEmulation};
+    notePinEdit(clipId);
+    publish(/*knee=*/true);
+    return true;
+}
+
+void OCIOConfigManager::setHostDisplayEnabledForClip(const QString &clipId, bool on)
+{
+    auto it = m_pins.find(clipId);
+    if (it == m_pins.end() || !it->hostDisplay || it->hostDisplay->on == on) return;
+    it->hostDisplay->on = on;
+    notePinEdit(clipId);
+    publish(/*knee=*/true);
+}
+
+void OCIOConfigManager::setHostDisplayTrueEmulationForClip(const QString &clipId, bool trueEmulation)
+{
+    auto it = m_pins.find(clipId);
+    if (it == m_pins.end() || !it->hostDisplay || it->hostDisplay->trueEmulation == trueEmulation) return;
+    it->hostDisplay->trueEmulation = trueEmulation;
+    notePinEdit(clipId);
+    publish(/*knee=*/true);
+}
+
+QVariantMap OCIOConfigManager::clipHostDisplay(const QString &clipId) const
+{
+    const auto it = m_pins.constFind(clipId);
+    if (it == m_pins.constEnd() || !it->hostDisplay) return {};
+    return QVariantMap{{QStringLiteral("display"), it->hostDisplay->display},
+                       {QStringLiteral("view"), it->hostDisplay->view},
+                       {QStringLiteral("on"), it->hostDisplay->on},
+                       {QStringLiteral("trueEmulation"), it->hostDisplay->trueEmulation},
+                       {QStringLiteral("valid"), isValidViewForDisplay(it->hostDisplay->display,
+                                                                       it->hostDisplay->view)}};
+}
+
+QVariantMap OCIOConfigManager::nearestDisplay(const QVariantMap &xy, double gammaEst) const
+{
+    QVariantMap out{{QStringLiteral("display"), QString()}, {QStringLiteral("exact"), false},
+                    {QStringLiteral("note"), QString()}};
+    if (!m_impl->config) return out;
+    auto pair = [&](const QString &k) -> std::pair<double, double> {
+        const QVariantList v = xy.value(k).toList();
+        return v.size() == 2 ? std::make_pair(v[0].toDouble(), v[1].toDouble()) : std::make_pair(0.0, 0.0);
+    };
+    const auto hostR = pair(QStringLiteral("r")), hostG = pair(QStringLiteral("g")),
+               hostB = pair(QStringLiteral("b")), hostW = pair(QStringLiteral("w"));
+    if (!m_impl->config->hasRole("cie_xyz_d65_interchange")) return out;
+    const char *xyzRole = m_impl->config->getRoleColorSpace("cie_xyz_d65_interchange");
+    double best = 1e9;
+    QString bestName;
+    double bestGamma = 0.0;
+    for (int i = 0; i < m_impl->config->getNumDisplays(); ++i) {
+        const QByteArray d = m_impl->config->getDisplay(i);
+        // the display's own colourspace (the Standard view's, else the first non-data view's)
+        QByteArray dcs;
+        for (int v = 0; v < m_impl->config->getNumViews(d.constData()); ++v) {
+            const char *view = m_impl->config->getView(d.constData(), v);
+            const char *n = m_impl->config->getDisplayViewColorSpaceName(d.constData(), view);
+            if (!n || !*n) continue;
+            QByteArray name(n);
+            if (name == "<USE_DISPLAY_NAME>") name = d;
+            OCIO::ConstColorSpaceRcPtr cs = m_impl->config->getColorSpace(name.constData());
+            if (!cs || cs->isData()) continue;
+            if (QByteArray(view) == "Standard" || dcs.isEmpty()) dcs = name;
+            if (QByteArray(view) == "Standard") break;
+        }
+        if (dcs.isEmpty()) continue;
+        try {
+            OCIO::ConstCPUProcessorRcPtr p =
+                m_impl->config->getProcessor(dcs.constData(), xyzRole)->getDefaultCPUProcessor();
+            auto toxy = [&](float r, float g, float b) {
+                float v[3] = {r, g, b};
+                p->applyRGB(v);
+                const double s = v[0] + v[1] + v[2];
+                return s > 0 ? std::make_pair(double(v[0]) / s, double(v[1]) / s) : std::make_pair(0.0, 0.0);
+            };
+            const auto dr = toxy(1, 0, 0), dg = toxy(0, 1, 0), db = toxy(0, 0, 1), dw = toxy(1, 1, 1);
+            float yw[3] = {1, 1, 1}, yh[3] = {0.5f, 0.5f, 0.5f};
+            p->applyRGB(yw); p->applyRGB(yh);
+            const double gamma = (yw[1] > 0 && yh[1] > 0) ? std::log(yh[1] / yw[1]) / std::log(0.5) : 0.0;
+            auto dist = [](std::pair<double, double> a, std::pair<double, double> b) {
+                return std::abs(a.first - b.first) + std::abs(a.second - b.second);
+            };
+            const double score = dist(dr, hostR) + dist(dg, hostG) + dist(db, hostB) + dist(dw, hostW)
+                               + 0.02 * std::abs(gamma - gammaEst);
+            if (score < best) { best = score; bestName = QString::fromUtf8(d); bestGamma = gamma; }
+        } catch (const OCIO::Exception &) {
+            continue;
+        }
+    }
+    if (bestName.isEmpty()) return out;
+    out[QStringLiteral("display")] = bestName;
+    out[QStringLiteral("exact")] = best < 0.01;
+    if (gammaEst > 0.0 && std::abs(bestGamma - gammaEst) > 0.1) {
+        out[QStringLiteral("note")] = tr("nearest display %1 (transfer %2 vs %3)")
+                                          .arg(bestName)
+                                          .arg(QString::number(bestGamma, 'f', 2))
+                                          .arg(QString::number(gammaEst, 'f', 2));
+    } else if (best >= 0.01) {
+        out[QStringLiteral("note")] = tr("nearest display %1").arg(bestName);
+    }
+    return out;
 }
 
 OcioScenePin *OCIOConfigManager::editPin(Slot slot)
@@ -911,6 +1022,8 @@ QString OCIOConfigManager::clipBadge(const QString &clipId) const
     }
     //: Badge name in the viewport's chain summary
     if (it->knee && it->knee->enabled) parts << tr("Knee");
+    //: Badge name in the viewport's chain summary: the host Blender's display device is emulated
+    if (it->hostDisplay && it->hostDisplay->on) parts << tr("Host display");
     // Only empty slots set (e.g. a preset's "no Look"): still its own chain.
     //: Badge name in the viewport's chain summary
     return parts.isEmpty() ? tr("Clip chain") : parts.join(QStringLiteral(" + "));
@@ -938,6 +1051,13 @@ QString OCIOConfigManager::clipBadgeTooltip(const QString &clipId) const
                             .arg(qRound(it->knee->sourceNits)).arg(qRound(it->knee->targetNits))
                       : tr("Highlight Knee: off"));
     }
+    if (it->hostDisplay) {
+        lines << (it->hostDisplay->on
+                      ? tr("Host display: %1 · %2 (emulated%3)")
+                            .arg(it->hostDisplay->display, it->hostDisplay->view,
+                                 it->hostDisplay->trueEmulation ? tr(", display to display") : QString())
+                      : tr("Host display: %1 · %2 (off)").arg(it->hostDisplay->display, it->hostDisplay->view));
+    }
     return lines.join(QLatin1Char('\n'));
 }
 
@@ -963,6 +1083,9 @@ void OCIOConfigManager::setSlotPinned(const QString &slotName, bool pinned)
                               : std::nullopt;
     } else if (slotName == QLatin1String("knee")) {
         pin.knee = pinned ? kneeOf(cur) : std::nullopt;
+    } else if (slotName == QLatin1String("hostDisplay")) {
+        // Only the link sets this slot; ↺ clears it (pinned = true is a no-op).
+        if (!pinned) pin.hostDisplay = std::nullopt;
     } else {
         qWarning("OCIOConfigManager: unknown slot '%s'", qPrintable(slotName));
     }
@@ -1102,6 +1225,12 @@ OcioSceneChain OCIOConfigManager::resolveScene(const QString &clipId) const
         s.kneeSourceNits = it->knee->sourceNits;
         s.kneeTargetNits = it->knee->targetNits;
         s.kneeStart      = it->knee->start;
+    }
+    if (it->hostDisplay && isValidViewForDisplay(it->hostDisplay->display, it->hostDisplay->view)) {
+        s.hostDisplay = it->hostDisplay->display;
+        s.hostView    = it->hostDisplay->view;
+        s.emulate     = it->hostDisplay->on;
+        s.emulateTrue = it->hostDisplay->trueEmulation;
     }
     return s;
 }

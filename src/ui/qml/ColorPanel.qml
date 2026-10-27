@@ -471,6 +471,36 @@ Pane {
                 }
                 GroupRule {}
 
+                // A Blender stream's host display (2026-10-27): the view is
+                // rendered for the host's display device; ↺ returns to this
+                // machine's View. The live strip's chip has the options.
+                RowLayout {
+                    visible: !root.minColorMode && !!WindowManager.ocio
+                             && (WindowManager.ocio.pinsRevision, WindowManager.ocio.hostDisplayPinned)
+                    spacing: 6
+                    Text {
+                        readonly property var pin: {
+                            if (WindowManager.ocio) WindowManager.ocio.pinsRevision;
+                            return WindowManager.ocio ? WindowManager.ocio.clipHostDisplay(WindowManager.ocio.focusClipId) : ({});
+                        }
+                        //: Color panel caption: the clip follows the host Blender's display device and view
+                        text: pin && pin.display !== undefined
+                              ? (pin.on ? qsTr("Host display: %1 · %2 (emulated)") : qsTr("Host display: %1 · %2 (off)"))
+                                    .arg(pin.display).arg(pin.view)
+                              : ""
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeTiny
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+                    FlatButton {
+                        iconName: "arrow-counter-clockwise"
+                        tooltipText: qsTr("Use my View instead of the host's display")
+                        onClicked: WindowManager.ocio.setSlotPinned("hostDisplay", false)
+                    }
+                }
+
                 // Caption in the reels' title row, so the lists line up.
                 Text {
                     text: presetColumn.setupTab === 0 ? qsTr("Sets clip + view")

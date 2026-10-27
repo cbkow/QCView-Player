@@ -54,7 +54,7 @@ The Inspector's **HDR metadata** row shows the file's MaxCLL, MaxFALL and master
 
 ## HDR sources without tags
 
-Some HDR exports carry no transfer tag, and a live source never carries a file's tags: an SRT stream brings what its encoder put in the bitstream, and a QCBridge Transmit feed is the host's working space, untagged by nature. (A QCBridge for Blender 0.3 stream is the exception that names itself: PQ with scene 1.0 at 100 nits, read through the `Rec.2100-PQ Scene` Input — see [QCBridge for Blender](/qcbridge/blender/).) QCView treats an untagged source as SDR, so the scopes would measure it in percent.
+Some HDR exports carry no transfer tag, and a live source never carries a file's tags: an SRT stream brings what its encoder put in the bitstream, and a QCBridge Transmit feed is the host's working space, untagged by nature. (A QCBridge for Blender 0.3 stream is the exception that names itself: PQ with scene 1.0 at 100 nits, converted from the host's working space, read through the `Rec.2100-PQ Scene` Input and shown through the host's own view and display device — see [QCBridge for Blender](/qcbridge/blender/).) QCView treats an untagged source as SDR, so the scopes would measure it in percent.
 
 - **Files, stills and sequences** — set the **Transfer** pill in the Inspector (Color card for video, Image Sequence card for sequences and stills): `PQ 2020`, `PQ P3`, `HLG`, or `Linear` for a scene-linear feed. Auto tells you what the tags resolve to before you override them.
 - **Streams** — the same choice is a chip on the live strip, next to the Color panel button.

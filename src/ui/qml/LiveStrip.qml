@@ -275,6 +275,89 @@ Rectangle {
             }
         }
 
+        // ---- Host display — a Blender stream's picture as the artist sees it
+        // (2026-10-27 colour awareness). The qcview://stream link names the
+        // host's display device and view; QCView renders that view for that
+        // display and carries the codes to this machine's display
+        // (OcioScenePin::hostDisplay). The chip shows it in words, toggles it,
+        // and the red line beside it says what the link could not do.
+        FlatChip {
+            id: emulationChip
+            property int rev: 0
+            Connections {
+                target: WindowManager
+                function onStreamColorInfoChanged(itemId) { emulationChip.rev++ }
+            }
+            Connections {
+                target: WindowManager.ocio
+                function onPinsRevisionChanged() { emulationChip.rev++ }
+                function onActiveChainChanged() { emulationChip.rev++ }
+            }
+            Connections {
+                target: WindowManager.project
+                function onActiveItemIdChanged() { emulationChip.rev++ }
+            }
+            readonly property string itemId:
+                WindowManager.project ? WindowManager.project.activeItemId : ""
+            readonly property var info: { rev; return itemId ? WindowManager.streamColorInfo(itemId) : ({}); }
+            readonly property var pin: { rev; return itemId && WindowManager.ocio ? WindowManager.ocio.clipHostDisplay(itemId) : ({}); }
+            readonly property bool pinned: !!pin && pin.display !== undefined
+            readonly property bool ocioEngine: !!WindowManager.ocio && WindowManager.ocio.engine === 0
+            visible: !!root.live && !!info && info.hasLink === true && ocioEngine
+            active: pinned && pin.on === true
+            label: pinned
+                   ? (pin.on
+                      //: Live strip chip: the host Blender's display device and view are being emulated
+                      ? qsTr("Host display %1 · %2").arg(pin.display).arg(pin.view)
+                      //: Live strip chip: host-display emulation is pinned but switched off
+                      : qsTr("Host display off"))
+                   //: Live strip chip: the link named a view QCView could not apply
+                   : qsTr("View %1 not applied").arg(info && info.view ? info.view : "")
+            tooltip: qsTr("The Blender host's view, rendered for its display device, shown here (click for options)")
+            onClicked: emulationMenu.popup()
+            ThemedMenu {
+                id: emulationMenu
+                ThemedMenuItem {
+                    //: Menu: switch host-display emulation on or off for this stream
+                    text: qsTr("Emulate the host display")
+                    checkable: true
+                    enabled: emulationChip.pinned
+                    checked: emulationChip.pinned && emulationChip.pin.on === true
+                    onTriggered: if (emulationChip.itemId)
+                        WindowManager.ocio.setHostDisplayEnabledForClip(emulationChip.itemId, checked)
+                }
+                ThemedMenuItem {
+                    //: Menu: convert the host display's colourspace to ours instead of showing its codes as sRGB
+                    text: qsTr("True emulation (display to display)")
+                    checkable: true
+                    enabled: emulationChip.pinned
+                    checked: emulationChip.pinned && emulationChip.pin.trueEmulation === true
+                    onTriggered: if (emulationChip.itemId)
+                        WindowManager.ocio.setHostDisplayTrueEmulationForClip(emulationChip.itemId, checked)
+                }
+                ThemedMenuItem {
+                    //: Menu: drop the host-display pin; this machine's own View applies
+                    text: qsTr("Use my View instead")
+                    enabled: emulationChip.pinned
+                    onTriggered: if (emulationChip.itemId) {
+                        WindowManager.ocio.setViewContext(emulationChip.itemId, false, "", "");
+                        WindowManager.ocio.setSlotPinned("hostDisplay", false);
+                    }
+                }
+            }
+        }
+        Text {
+            readonly property var info: emulationChip.info
+            readonly property var notes: info && info.notes ? info.notes : []
+            visible: emulationChip.visible && notes.length > 0
+            text: notes.join("  ·  ")
+            color: "#e5484d"
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            elide: Text.ElideRight
+            Layout.maximumWidth: 420
+        }
+
         // ---- Colour / Notes panels — the two that matter live ------
         FlatButton {
             iconName: "palette"

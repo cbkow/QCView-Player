@@ -35,10 +35,24 @@ struct OcioSceneChain {
     float kneeTargetNits = 1000.0f;
     float kneeStart      = -1.0f;   // < 0 = BT.2390's default
 
+    // Host-display emulation (2026-10-27, a Blender stream's clip): the
+    // view is rendered for the HOST's display device and view, then the
+    // result is carried to this machine's Display. Two modes, measured
+    // against Blender 5.2.2 on macOS: `emulateTrue = false` ("as shown")
+    // treats the host's display codes as sRGB-encoded, which is what
+    // Blender writes into its sRGB-tagged window whatever the device;
+    // `emulateTrue = true` converts the host display's colourspace to
+    // ours (a host that really emulates). Empty hostDisplay = off.
+    QString hostDisplay;
+    QString hostView;
+    bool    emulate     = false;
+    bool    emulateTrue = false;
+
     bool sameShader(const OcioSceneChain &o) const
     {
         return input == o.input && look == o.look && sceneLutPath == o.sceneLutPath
-            && sceneLutCccId == o.sceneLutCccId;
+            && sceneLutCccId == o.sceneLutCccId && hostDisplay == o.hostDisplay
+            && hostView == o.hostView && emulate == o.emulate && emulateTrue == o.emulateTrue;
     }
     bool operator==(const OcioSceneChain &o) const
     {
@@ -55,12 +69,17 @@ struct OcioScenePin {
     struct SceneLut { QString path, cccId; };
     struct Knee { bool enabled = false; float sourceNits = 1000, targetNits = 1000, start = -1; };
 
-    std::optional<QString>  input;
-    std::optional<QString>  look;
-    std::optional<SceneLut> sceneLut;
-    std::optional<Knee>     knee;
+    // The host display a stream link named, and whether the emulation is
+    // on and in which mode (OcioSceneChain::emulateTrue).
+    struct HostDisplay { QString display, view; bool on = true; bool trueEmulation = false; };
 
-    bool empty() const { return !input && !look && !sceneLut && !knee; }
+    std::optional<QString>     input;
+    std::optional<QString>     look;
+    std::optional<SceneLut>    sceneLut;
+    std::optional<Knee>        knee;
+    std::optional<HostDisplay> hostDisplay;
+
+    bool empty() const { return !input && !look && !sceneLut && !knee && !hostDisplay; }
 
     // The project file's form (MediaItem::ocioClip): only set slots.
     QVariantMap toVariant() const
@@ -80,6 +99,13 @@ struct OcioScenePin {
                 {QStringLiteral("targetNits"), double(knee->targetNits)},
                 {QStringLiteral("start"), double(knee->start)}});
         }
+        if (hostDisplay) {
+            m.insert(QStringLiteral("hostDisplay"), QVariantMap{
+                {QStringLiteral("display"), hostDisplay->display},
+                {QStringLiteral("view"), hostDisplay->view},
+                {QStringLiteral("on"), hostDisplay->on},
+                {QStringLiteral("trueEmulation"), hostDisplay->trueEmulation}});
+        }
         return m;
     }
     static OcioScenePin fromVariant(const QVariantMap &m)
@@ -98,6 +124,13 @@ struct OcioScenePin {
                           float(k.value(QStringLiteral("sourceNits"), 1000.0).toDouble()),
                           float(k.value(QStringLiteral("targetNits"), 1000.0).toDouble()),
                           float(k.value(QStringLiteral("start"), -1.0).toDouble())};
+        }
+        if (m.contains(QStringLiteral("hostDisplay"))) {
+            const QVariantMap h = m.value(QStringLiteral("hostDisplay")).toMap();
+            p.hostDisplay = HostDisplay{h.value(QStringLiteral("display")).toString(),
+                                        h.value(QStringLiteral("view")).toString(),
+                                        h.value(QStringLiteral("on"), true).toBool(),
+                                        h.value(QStringLiteral("trueEmulation"), false).toBool()};
         }
         return p;
     }
