@@ -33,7 +33,7 @@ Settings ▸ Interface ▸ Language picks the interface language. **System defau
 
 ## Blender sessions
 
-On by default. QCView watches its Inputs folder for the card the QCBridge for Blender host add-on writes on this machine when a session starts, listens on the card's port and shows the replica's stream as a live clip with the host's colour setup applied. The line under the switch says what is happening — no session yet, listening for the host on a port, live, or ended — and the host's colour notes appear under it in red. Turn it off to ignore cards; **File ▸ Connect to Blender** still picks one up by hand. See [QCBridge for Blender](/qcbridge-blender/).
+Off at every launch, and the same switch as **File ▸ Connect to Blender**. QCView does nothing for Blender until you turn it on; then it watches its Inputs folder for the card the QCBridge for Blender host add-on writes on this machine when a session starts, listens on the card's port and shows the replica's stream as a live clip with the host's colour setup applied, now or when the session starts. The line under the switch says what is happening — no session yet, listening for the host on a port, live, or ended — and the host's colour notes appear under it in red. Turning it off stops listening. See [QCBridge for Blender](/qcbridge-blender/).
 
 ## Live audio
 

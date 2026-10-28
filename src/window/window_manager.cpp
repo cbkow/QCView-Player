@@ -3193,17 +3193,19 @@ void WindowManager::setBlenderInputEnabled(bool on)
 
 void WindowManager::connectBlender()
 {
+    // The toggle (File > Connect to Blender). On: watch for the card and
+    // show the session, now or when it starts. Off: stop listening, and
+    // QCView touches nothing of Blender's again until asked.
     if (!m_blenderCard) return;
-    if (!m_blenderCard->enabled()) m_blenderCard->setEnabled(true);
-    m_blenderCard->poll();
-    if (m_blenderCard->present()) {
-        onBlenderCard(m_blenderCard->card());
-        // By hand means show it, whatever is on screen.
-        if (m_project && !m_blenderItemId.isEmpty() && m_project->activeItemId() != m_blenderItemId)
-            invokeToastAction(QStringLiteral("connect-blender"));
-    } else {
-        toast(tr("No Blender session on this machine yet: start one from the QCBridge host panel, it hands QCView the card"), 1);
+    if (m_blenderCard->enabled()) {
+        m_blenderCard->setEnabled(false);   // emits cardRemoved -> the clip stops
+        toast(tr("Blender: not listening"), 0);
+        emit blenderInputChanged();
+        return;
     }
+    m_blenderCard->setEnabled(true);        // polls at once: a present card arrives through onBlenderCard
+    if (!m_blenderCard->present())
+        toast(tr("Listening for a Blender session on this machine: start one from the QCBridge host panel"), 0);
     emit blenderInputChanged();
 }
 
@@ -3219,25 +3221,14 @@ void WindowManager::onBlenderCard(const QVariantMap &card)
     // rewritten with new colour rows re-applies on the same clip.
     const QString id = m_project->addLiveStream(url, name.isEmpty() ? tr("Blender") : name);
     if (id.isEmpty()) { emit blenderInputChanged(); return; }
-    const bool fresh = id != m_blenderItemId;
     m_blenderItemId = id;
     const QString hostName = card.value(QStringLiteral("host")).toString();
     if (m_project->activeItemId() != id) {
-        // A new session must not take the viewport from whatever is being
-        // reviewed (2026-10-28, with chris): switch only when nothing is on
-        // screen or the Blender clip already is; otherwise offer it. The
-        // replica keeps calling until the clip is selected.
-        const bool nothingOnScreen = m_project->activeItemId().isEmpty();
-        if (nothingOnScreen) {
-            m_project->setActiveItem(id);
-            qInfo("blenderInput: listening for %s on port %d (%s)", qPrintable(hostName),
-                  card.value(QStringLiteral("port")).toInt(), qPrintable(m_blenderCard ? m_blenderCard->path() : QString()));
-        } else if (fresh) {
-            toastAction(tr("Blender session from %1: show its stream?").arg(hostName.isEmpty() ? tr("this machine") : hostName), 0,
-                        tr("Show"), QStringLiteral("connect-blender"));
-            qInfo("blenderInput: card from %s on port %d, another clip is on screen — offered", qPrintable(hostName),
-                  card.value(QStringLiteral("port")).toInt());
-        }
+        // Only ever here because the user toggled Connect to Blender on:
+        // that is the consent, so the session is shown, now or when it starts.
+        m_project->setActiveItem(id);
+        qInfo("blenderInput: listening for %s on port %d (%s)", qPrintable(hostName),
+              card.value(QStringLiteral("port")).toInt(), qPrintable(m_blenderCard ? m_blenderCard->path() : QString()));
     }
     // The colour chain: the card's "colour" block carries the same keys the
     // qcview://stream link did; applyStreamChainFromLink reads a query.

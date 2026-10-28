@@ -7,7 +7,6 @@
 #include <QFileSystemWatcher>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -36,7 +35,6 @@ BlenderCardWatcher::BlenderCardWatcher(QObject *parent)
     , m_watcher(new QFileSystemWatcher(this))
     , m_poll(new QTimer(this))
 {
-    m_enabled = QSettings().value(QStringLiteral("input/blender/enabled"), true).toBool();
     connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this](const QString &) { poll(); });
     connect(m_watcher, &QFileSystemWatcher::fileChanged, this, [this](const QString &) { poll(); rewatch(); });
     // The folder may not exist until the first session, and a watcher on a
@@ -45,21 +43,13 @@ BlenderCardWatcher::BlenderCardWatcher(QObject *parent)
     // Windows file-system quirks. 2 s is well under a session's start.
     m_poll->setInterval(2000);
     connect(m_poll, &QTimer::timeout, this, [this] { poll(); rewatch(); });
-    rewatch();
-    if (m_enabled) {
-        m_poll->start();
-        // The first look comes after the owner has connected to the
-        // signals and the window exists (a card found at construction
-        // time was announced to nobody, 2026-10-28).
-        QTimer::singleShot(1500, this, [this] { if (m_enabled) poll(); });
-    }
+    // Nothing runs until setEnabled(true): no watch, no poll, no file read.
 }
 
 void BlenderCardWatcher::setEnabled(bool on)
 {
     if (m_enabled == on) return;
     m_enabled = on;
-    QSettings().setValue(QStringLiteral("input/blender/enabled"), on);
     if (on) {
         m_poll->start();
         rewatch();

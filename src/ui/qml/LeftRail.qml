@@ -3418,10 +3418,10 @@ Rectangle {
                                 RowLabel {
                                     //: Setting: watch for a QCBridge (Blender) session on this machine
                                     text: qsTr("Blender sessions")
-                                    help: qsTr("With QCBridge for Blender 0.4 the host add-on on this "
-                                             + "machine writes QCView a card when a session starts; "
-                                             + "QCView then listens on the card's port and the replica "
-                                             + "streams to it. Nothing is launched. Off: ignore cards.")
+                                    help: qsTr("Off at every launch. On (also File ▸ Connect to Blender): "
+                                             + "QCView watches for the card the QCBridge host add-on on this "
+                                             + "machine writes when a session starts, listens on its port and "
+                                             + "shows the replica's stream. Off again stops listening.")
                                 }
                                 SlotSwitch {
                                     checked: parent.bi ? parent.bi.enabled === true : false

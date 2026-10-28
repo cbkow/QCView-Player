@@ -27,7 +27,9 @@ public:
     static QStringList inputsDirs();
     static QString     cardFileName() { return QStringLiteral("blender.json"); }
 
-    // Watching is on by default (QSettings input/blender/enabled).
+    // Off at every launch, never remembered: QCView spends nothing on
+    // Blender until File > Connect to Blender is toggled on (2026-10-28,
+    // with chris: "QCView has a greater purpose than Blender streaming").
     bool enabled() const { return m_enabled; }
     void setEnabled(bool on);
 
@@ -51,7 +53,7 @@ private:
 
     QFileSystemWatcher *m_watcher = nullptr;
     QTimer             *m_poll = nullptr;
-    bool        m_enabled = true;
+    bool        m_enabled = false;
     bool        m_present = false;
     QVariantMap m_card;
     QString     m_path;

@@ -477,8 +477,12 @@ ApplicationWindow {
             }
             // QCBridge for Blender 0.4: the host add-on on this machine hands
             // QCView a card; QCView listens, the replica streams to it.
+            // Off at every launch; a toggle, so QCView spends nothing on
+            // Blender until asked.
             Action {
                 text: qsTr("Connect to Blender")
+                checkable: true
+                checked: WindowManager.blenderInput ? WindowManager.blenderInput.enabled === true : false
                 onTriggered: WindowManager.connectBlender()
             }
             ThemedMenu {
