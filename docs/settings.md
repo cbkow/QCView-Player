@@ -31,6 +31,10 @@ Toggle the timeline hover thumbnail preview on or off (low-RAM systems or focus-
 
 Settings ▸ Interface ▸ Language picks the interface language. **System default** follows the operating system; the list shows the languages QCView ships. The change applies at once. Languages marked *machine translation* were produced by a machine pass and not yet read through by a person, so expect the odd awkward term; corrections are welcome, and the [translations folder](https://github.com/cbkow/QCView-Player/tree/main/translations) explains how to send them.
 
+## Blender sessions
+
+On by default. QCView watches its Inputs folder for the card the QCBridge for Blender host add-on writes on this machine when a session starts, listens on the card's port and shows the replica's stream as a live clip with the host's colour setup applied. The line under the switch says what is happening — no session yet, listening for the host on a port, live, or ended — and the host's colour notes appear under it in red. Turn it off to ignore cards; **File ▸ Connect to Blender** still picks one up by hand. See [QCBridge for Blender](/qcbridge-blender/).
+
 ## Live audio
 
 Two settings apply to the audio a QCBridge feed carries: **A/V sync (Live)**, an offset per host application that delays the audio (or, when negative, holds the picture) so the two meet on your system, and the **live audio buffer**, the depth the feed's jitter buffer fills to before it plays. Raise the buffer if a busy host chops the sound; lower it for a tighter feel.

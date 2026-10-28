@@ -52,9 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
-What's new in 2.6.3
+What's new in 2.7.0
 
-- **QCBridge for Blender 0.3** — its stream is scene-referred, PQ with 100 nits at scene 1.0, converted from the host's real working space. **Open in QCView** from the host panel pins the Input that decodes it (`Rec.2100-PQ Scene` on OCIO, `Rec.2020 · PQ 100` on minColor), turns colour management on if it was off, and pins a **Host display** on the clip: the host's view transform rendered for the host's Display Device, so QCView shows what the artist sees. A chip on the live strip shows it and switches it.
+- **QCBridge for Blender 0.4** — QCView is the listener now. Start a session from the Blender host panel on this machine and QCView picks it up on its own: the add-on hands it a card, QCView listens on the card's port, the replica streams to it, and the clip's chain follows the host's colour setup. Nothing is launched. **File ▸ Connect to Blender** picks a card up by hand; **Settings ▸ Blender sessions** switches the watcher and shows the state and the host's red notes. A joining viewer gets a picture within a second.
+- **Blender colour** — the stream is scene-referred, PQ with 100 nits at scene 1.0, converted from the file's real working space (Blender 5.2's per-file Working Space included). The clip gets the Input that decodes it (`Rec.2100-PQ Scene` on OCIO, `Rec.2020 · PQ 100` on minColor), colour management turns on if it was off, and a **Host display** pin renders the host's view transform for the host's Display Device, so QCView shows what the artist sees. A chip on the live strip shows it and switches it. The host's display and view only have to exist in your active config; the Blender 5.2 switch is offered when they do not.
 - **Annotations** — a stroke may start or run off the picture; it keeps following the cursor, and only the part over the picture is drawn, saved and exported. A gesture that never touches the picture leaves nothing.
 - **minColor** — the Rendering reel offers Un-tone-mapped; the OpenDRT looks stay underneath for chains that carry one.
 
