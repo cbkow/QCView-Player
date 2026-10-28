@@ -3198,6 +3198,9 @@ void WindowManager::connectBlender()
     m_blenderCard->poll();
     if (m_blenderCard->present()) {
         onBlenderCard(m_blenderCard->card());
+        // By hand means show it, whatever is on screen.
+        if (m_project && !m_blenderItemId.isEmpty() && m_project->activeItemId() != m_blenderItemId)
+            invokeToastAction(QStringLiteral("connect-blender"));
     } else {
         toast(tr("No Blender session on this machine yet: start one from the QCBridge host panel, it hands QCView the card"), 1);
     }
@@ -3218,10 +3221,23 @@ void WindowManager::onBlenderCard(const QVariantMap &card)
     if (id.isEmpty()) { emit blenderInputChanged(); return; }
     const bool fresh = id != m_blenderItemId;
     m_blenderItemId = id;
-    if (fresh || m_project->activeItemId() != id) {
-        m_project->setActiveItem(id);
-        qInfo("blenderInput: listening for %s on port %d (%s)", qPrintable(card.value(QStringLiteral("host")).toString()),
-              card.value(QStringLiteral("port")).toInt(), qPrintable(m_blenderCard ? m_blenderCard->path() : QString()));
+    const QString hostName = card.value(QStringLiteral("host")).toString();
+    if (m_project->activeItemId() != id) {
+        // A new session must not take the viewport from whatever is being
+        // reviewed (2026-10-28, with chris): switch only when nothing is on
+        // screen or the Blender clip already is; otherwise offer it. The
+        // replica keeps calling until the clip is selected.
+        const bool nothingOnScreen = m_project->activeItemId().isEmpty();
+        if (nothingOnScreen) {
+            m_project->setActiveItem(id);
+            qInfo("blenderInput: listening for %s on port %d (%s)", qPrintable(hostName),
+                  card.value(QStringLiteral("port")).toInt(), qPrintable(m_blenderCard ? m_blenderCard->path() : QString()));
+        } else if (fresh) {
+            toastAction(tr("Blender session from %1: show its stream?").arg(hostName.isEmpty() ? tr("this machine") : hostName), 0,
+                        tr("Show"), QStringLiteral("connect-blender"));
+            qInfo("blenderInput: card from %s on port %d, another clip is on screen — offered", qPrintable(hostName),
+                  card.value(QStringLiteral("port")).toInt());
+        }
     }
     // The colour chain: the card's "colour" block carries the same keys the
     // qcview://stream link did; applyStreamChainFromLink reads a query.
@@ -7969,6 +7985,16 @@ void WindowManager::invokeToastAction(const QString &actionId)
             toast(tr("Restored %1").arg(names.first()), 0);
         } else {
             toast(tr("Restored %1 items").arg(names.size()), 0);
+        }
+    } else if (actionId == QLatin1String("connect-blender")) {
+        if (m_project && !m_blenderItemId.isEmpty()) {
+            m_project->setActiveItem(m_blenderItemId);
+            const QVariantMap colour = m_blenderCardData.value(QStringLiteral("colour")).toMap();
+            QUrlQuery q;
+            for (auto it = colour.cbegin(); it != colour.cend(); ++it)
+                q.addQueryItem(it.key(), QString::fromUtf8(QUrl::toPercentEncoding(it.value().toString())));
+            if (!colour.isEmpty()) applyStreamChainFromLink(m_blenderItemId, q);
+            emit blenderInputChanged();
         }
     } else if (actionId == QLatin1String("switch-config-blender52")) {
         if (m_ocio) m_ocio->setActiveConfig(QStringLiteral("Blender 5.2"));
