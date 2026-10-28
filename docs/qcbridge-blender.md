@@ -76,8 +76,8 @@ Everything about the connection lives in the **QCBridge Agent** and is set in it
 ![Agent settings window](/images/qcbridge_013.png)
 
 - **Path mapping** — one row per storage root the two machines share, in both spellings, so file paths translate between platforms. Use this for any shared storage (Network volumes, LucidLink paths, etc.) so a receiver on another platform can load the same project.
- 
-![Agent settings window](/images/qcbridge_013.png)
+
+![Agent settings window](/images/qcbridge_016.png)
 
 Windows note: the stream arrives over UDP, and since QCBridge 0.4 the replica calls QCView on the host. If the panel says the replica is calling and QCView never shows a picture, allow the QCView port through the **host's** firewall (9998 by default):
 
