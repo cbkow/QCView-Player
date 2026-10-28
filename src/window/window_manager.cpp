@@ -129,6 +129,19 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     connect(m_blenderCard, &qcv::BlenderCardWatcher::cardChanged, this, &WindowManager::onBlenderCard);
     connect(m_blenderCard, &qcv::BlenderCardWatcher::cardRemoved, this, &WindowManager::onBlenderCardRemoved);
     connect(m_blenderCard, &qcv::BlenderCardWatcher::enabledChanged, this, &WindowManager::blenderInputChanged);
+    // Deleting the Blender clip from the bin is the same as toggling
+    // Connect to Blender off: the listener closes and nothing lingers.
+    if (m_project) {
+        connect(m_project, &ProjectManager::binsChanged, this, [this] {
+            if (!m_blenderItemId.isEmpty() && m_blenderCard && m_blenderCard->enabled()
+                && !m_project->findItem(m_blenderItemId)) {
+                qInfo("blenderInput: the Blender clip was removed from the project — not listening any more");
+                m_blenderItemId.clear();
+                m_blenderCard->setEnabled(false);   // emits cardRemoved
+                emit blenderInputChanged();
+            }
+        });
+    }
     if (!m_audio->initialize()) {
         qWarning("WindowManager: AudioPlayer init failed — playback will be silent");
     }
@@ -3198,7 +3211,12 @@ void WindowManager::connectBlender()
     // QCView touches nothing of Blender's again until asked.
     if (!m_blenderCard) return;
     if (m_blenderCard->enabled()) {
-        m_blenderCard->setEnabled(false);   // emits cardRemoved -> the clip stops
+        const QString id = m_blenderItemId;
+        m_blenderCard->setEnabled(false);   // emits cardRemoved -> the decoder closes
+        if (m_project && !id.isEmpty() && m_project->findItem(id)) m_project->removeMediaItem(id);
+        m_blenderItemId.clear();
+        m_blenderCardData.clear();
+        m_blenderEnded = false;
         toast(tr("Blender: not listening"), 0);
         emit blenderInputChanged();
         return;
@@ -3246,7 +3264,7 @@ void WindowManager::onBlenderCardRemoved()
     m_blenderEnded = true;
     if (m_liveDecoder && m_project && m_project->activeItemId() == m_blenderItemId) {
         stopLiveStream();
-        toast(tr("Blender session ended"), 0);
+        if (m_blenderCard && m_blenderCard->enabled()) toast(tr("Blender session ended"), 0);
     }
     emit blenderInputChanged();
 }
@@ -4439,6 +4457,15 @@ void WindowManager::startLiveStream(const MediaItem &item)
     // closeActiveMedia() already ran in the dispatch path; this is
     // belt-and-braces for any future direct caller.
     stopLiveStream();
+
+    // A Blender listener clip (restored with the project, or selected in
+    // the bin) opens no socket unless Connect to Blender is on: QCView
+    // spends nothing on Blender until asked (2026-10-28, with chris).
+    if (item.path.contains(QLatin1String("mode=listener")) && !(m_blenderCard && m_blenderCard->enabled())) {
+        qInfo("startLiveStream: '%s' is a Blender listener clip and Connect to Blender is off — not started", qPrintable(item.name));
+        emit blenderInputChanged();
+        return;
+    }
 
     if (!m_videoDecoder) {
         qWarning("startLiveStream: no sink VideoDecoder — aborting");
