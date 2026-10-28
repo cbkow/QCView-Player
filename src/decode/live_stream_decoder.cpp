@@ -1,4 +1,5 @@
 #include "live_stream_decoder.h"
+#include <QUrl>
 #include "video_decoder.h"
 #include "decode/rgb_range.h"   // Phase J.1 — cpuPublishPixelFormat
 #include "decode/sws_rgba_image.h"  // swsAllocImage
@@ -221,6 +222,11 @@ bool LiveStreamDecoder::connectOnce()
     av_dict_set(&opts, "fflags", "nobuffer", 0);
     av_dict_set(&opts, "analyzeduration", "1000000", 0);   // 1 s
     av_dict_set(&opts, "probesize", "2000000", 0);         // 2 MB
+    // No frame-rate probing: for HEVC ffmpeg otherwise reads ~20 frames
+    // before it opens the stream, and an idle sender (a converged Blender
+    // viewport re-sending a few frames a second) made that 5 s on every
+    // join (measured 2026-10-28). Frame timing comes from the packets.
+    av_dict_set(&opts, "fpsprobesize", "0", 0);
 
     int rc = avformat_open_input(&fmt, urlUtf8.constData(), nullptr, &opts);
     av_dict_free(&opts);
@@ -589,6 +595,17 @@ void LiveStreamDecoder::publishFrame(AVFrame *frame, AVCodecContext *cctx,
 }
 
 // ---- cross-thread state publication ------------------------------
+
+QString LiveStreamDecoder::statusDetail() const
+{
+    const Status s = status();
+    if (s != Connecting && s != Reconnecting) return {};
+    if (!m_url.contains(QLatin1String("mode=listener"))) return {};
+    const QUrl u(m_url);
+    const int port = u.port(-1);
+    //: Live input state: an SRT listener with no sender yet
+    return port > 0 ? tr("Waiting for a sender on port %1").arg(port) : tr("Waiting for a sender");
+}
 
 void LiveStreamDecoder::setStatus(Status s)
 {

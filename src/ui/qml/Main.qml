@@ -475,6 +475,12 @@ ApplicationWindow {
                 enabled: WindowManager.hostBridgeAvailable
                 onTriggered: root.connectHostBridge("premiere")
             }
+            // QCBridge for Blender 0.4: the host add-on on this machine hands
+            // QCView a card; QCView listens, the replica streams to it.
+            Action {
+                text: qsTr("Connect to Blender")
+                onTriggered: WindowManager.connectBlender()
+            }
             ThemedMenu {
                 id: recentMediaMenu
                 title: qsTr("Open Recent Media")

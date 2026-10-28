@@ -29,6 +29,8 @@ qt_add_library(qcv_decode STATIC
     qcbae/host_bridge_url.h
     live_stream_decoder.cpp
     live_stream_decoder.h
+    blender_card.cpp
+    blender_card.h
     scrub_frame_cache.cpp
     scrub_frame_cache.h
     decoder_cleanup_queue.cpp

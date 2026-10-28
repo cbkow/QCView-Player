@@ -14,6 +14,7 @@
 #include "color/mincolor_engine.h"
 #include "color/mincolor/opendrt_params.h"
 #include "color/preset_manager.h"
+#include "decode/blender_card.h"
 #include "decode/frame_handle.h"
 #include "decode/image_loader.h"
 #include "decode/image_sequence_cache.h"
@@ -123,6 +124,11 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
 {
     // The minColor engine rides OCIOConfigManager's snapshot (engine tag).
     m_ocio->setMinColorEngine(m_minColor);
+    // The Blender input: the card on this machine (decode/blender_card.h).
+    m_blenderCard = new qcv::BlenderCardWatcher(this);
+    connect(m_blenderCard, &qcv::BlenderCardWatcher::cardChanged, this, &WindowManager::onBlenderCard);
+    connect(m_blenderCard, &qcv::BlenderCardWatcher::cardRemoved, this, &WindowManager::onBlenderCardRemoved);
+    connect(m_blenderCard, &qcv::BlenderCardWatcher::enabledChanged, this, &WindowManager::blenderInputChanged);
     if (!m_audio->initialize()) {
         qWarning("WindowManager: AudioPlayer init failed — playback will be silent");
     }
@@ -3145,6 +3151,99 @@ void WindowManager::connectHostBridge(const QString &host)
     m_project->setActiveItem(id);
 }
 
+QVariantMap WindowManager::blenderInput() const
+{
+    QVariantMap m;
+    const bool enabled = m_blenderCard && m_blenderCard->enabled();
+    const bool present = m_blenderCard && m_blenderCard->present();
+    m[QStringLiteral("enabled")] = enabled;
+    m[QStringLiteral("present")] = present;
+    m[QStringLiteral("path")] = m_blenderCard ? m_blenderCard->path() : QString();
+    m[QStringLiteral("dirs")] = qcv::BlenderCardWatcher::inputsDirs();
+    const QVariantMap &c = m_blenderCardData;
+    m[QStringLiteral("name")] = c.value(QStringLiteral("name")).toString();
+    m[QStringLiteral("host")] = c.value(QStringLiteral("host")).toString();
+    m[QStringLiteral("port")] = c.value(QStringLiteral("port")).toInt();
+    m[QStringLiteral("status")] = c.value(QStringLiteral("status")).toString();
+    m[QStringLiteral("mismatches")] = c.value(QStringLiteral("mismatches"));
+    m[QStringLiteral("itemId")] = m_blenderItemId;
+    QString state = QStringLiteral("off");
+    if (enabled) {
+        state = QStringLiteral("waiting");
+        if (present && !m_blenderItemId.isEmpty()) {
+            const bool mine = m_liveDecoder && m_project && m_project->activeItemId() == m_blenderItemId;
+            if (mine && m_liveDecoder->status() == LiveSource::Live) state = QStringLiteral("live");
+            else if (mine) state = QStringLiteral("listening");
+            else state = QStringLiteral("card");   // a card is here, another clip is on screen
+        } else if (m_blenderEnded) {
+            state = QStringLiteral("ended");
+        }
+    }
+    m[QStringLiteral("state")] = state;
+    m[QStringLiteral("notes")] = m_streamColorInfo.value(m_blenderItemId).value(QStringLiteral("notes"));
+    return m;
+}
+
+void WindowManager::setBlenderInputEnabled(bool on)
+{
+    if (!m_blenderCard) return;
+    m_blenderCard->setEnabled(on);
+    emit blenderInputChanged();
+}
+
+void WindowManager::connectBlender()
+{
+    if (!m_blenderCard) return;
+    if (!m_blenderCard->enabled()) m_blenderCard->setEnabled(true);
+    m_blenderCard->poll();
+    if (m_blenderCard->present()) {
+        onBlenderCard(m_blenderCard->card());
+    } else {
+        toast(tr("No Blender session on this machine yet: start one from the QCBridge host panel, it hands QCView the card"), 1);
+    }
+    emit blenderInputChanged();
+}
+
+void WindowManager::onBlenderCard(const QVariantMap &card)
+{
+    if (!m_project) return;
+    const QString url  = card.value(QStringLiteral("url")).toString();
+    const QString name = card.value(QStringLiteral("name")).toString();
+    if (url.isEmpty()) return;
+    m_blenderCardData = card;
+    m_blenderEnded = false;
+    // One item per listener URL: addLiveStream dedupes by URL, so a card
+    // rewritten with new colour rows re-applies on the same clip.
+    const QString id = m_project->addLiveStream(url, name.isEmpty() ? tr("Blender") : name);
+    if (id.isEmpty()) { emit blenderInputChanged(); return; }
+    const bool fresh = id != m_blenderItemId;
+    m_blenderItemId = id;
+    if (fresh || m_project->activeItemId() != id) {
+        m_project->setActiveItem(id);
+        qInfo("blenderInput: listening for %s on port %d (%s)", qPrintable(card.value(QStringLiteral("host")).toString()),
+              card.value(QStringLiteral("port")).toInt(), qPrintable(m_blenderCard ? m_blenderCard->path() : QString()));
+    }
+    // The colour chain: the card's "colour" block carries the same keys the
+    // qcview://stream link did; applyStreamChainFromLink reads a query.
+    QUrlQuery q;
+    const QVariantMap colour = card.value(QStringLiteral("colour")).toMap();
+    for (auto it = colour.cbegin(); it != colour.cend(); ++it)
+        q.addQueryItem(it.key(), QString::fromUtf8(QUrl::toPercentEncoding(it.value().toString())));
+    if (!colour.isEmpty()) applyStreamChainFromLink(id, q);
+    emit blenderInputChanged();
+}
+
+void WindowManager::onBlenderCardRemoved()
+{
+    if (m_blenderItemId.isEmpty()) { emit blenderInputChanged(); return; }
+    m_blenderEnded = true;
+    if (m_liveDecoder && m_project && m_project->activeItemId() == m_blenderItemId) {
+        stopLiveStream();
+        toast(tr("Blender session ended"), 0);
+    }
+    emit blenderInputChanged();
+}
+
 QVariantMap WindowManager::hostBridgeFacts(const QString &url) const
 {
     const hostbridge::SourceFacts f = hostbridge::facts(url);
@@ -4411,6 +4510,9 @@ void WindowManager::startLiveStream(const MediaItem &item)
     m_liveOpenedMs = QDateTime::currentMSecsSinceEpoch();
     emit liveActiveChanged();
     emit liveDecoderChanged();
+    // The Blender input's state in the rail follows the decoder's status.
+    if (m_liveDecoder) connect(m_liveDecoder.get(), &LiveSource::statusChanged, this, &WindowManager::blenderInputChanged);
+    emit blenderInputChanged();
 }
 
 void WindowManager::pushLiveTags(LiveSource *src, const QString &itemId)
@@ -4447,6 +4549,7 @@ void WindowManager::stopLiveStream()
     // and draw one stale frame over the next source's background.
     if (m_videoDecoder) m_videoDecoder->clearPublishedFrame();
     emit liveDecoderChanged();
+    emit blenderInputChanged();
 
     if (m_liveActive) {
         m_liveActive = false;
@@ -9692,8 +9795,14 @@ void WindowManager::applyStreamChainFromLink(const QString &clipId, const QUrlQu
         toast(tr("Colour management turned on for the Blender stream"), 0);
     }
 
-    // The host's view and display resolve in Blender's config only.
-    const bool onBlenderConfig = m_ocio->activeConfigName().startsWith(QLatin1String("Blender"));
+    // The host's view and display must resolve in the ACTIVE config — by
+    // content, not by the config's name (2026-10-28): a file's Working
+    // Space makes Blender derive a new config, $OCIO may name the same
+    // file, and a studio config that carries the view is as good as the
+    // bundled one. The Switch is offered only when they do not resolve.
+    const bool onBlenderConfig = m_ocio->activeConfigName().startsWith(QLatin1String("Blender"))
+        || (!display.isEmpty() && m_ocio->displayValid(display)
+            && (view.isEmpty() || m_ocio->viewValidForDisplay(display, view)));
     if (configKind == QLatin1String("blender") && !onBlenderConfig) {
         m_pendingStreamLinkClip  = clipId;
         m_pendingStreamLinkQuery = q;

@@ -3407,6 +3407,68 @@ Rectangle {
                                     }
                                 }
                             }
+                            // The Blender input (QCBridge 0.4): QCView listens for the
+                            // replica's stream once the host add-on on this machine
+                            // writes its card. State in words, the host's colour
+                            // notes in red under it.
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacing
+                                readonly property var bi: WindowManager.blenderInput
+                                RowLabel {
+                                    //: Setting: watch for a QCBridge (Blender) session on this machine
+                                    text: qsTr("Blender sessions")
+                                    help: qsTr("With QCBridge for Blender 0.4 the host add-on on this "
+                                             + "machine writes QCView a card when a session starts; "
+                                             + "QCView then listens on the card's port and the replica "
+                                             + "streams to it. Nothing is launched. Off: ignore cards.")
+                                }
+                                SlotSwitch {
+                                    checked: parent.bi ? parent.bi.enabled === true : false
+                                    onToggled: WindowManager.setBlenderInputEnabled(checked)
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: Theme.spacing
+                                readonly property var bi: WindowManager.blenderInput
+                                visible: bi && bi.enabled === true
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: (bi && bi.state === "live") ? Theme.success : Theme.textMuted
+                                text: {
+                                    if (!bi) return ""
+                                    //: Blender input state
+                                    if (bi.state === "live")      return qsTr("Live from %1 on port %2").arg(bi.host).arg(bi.port)
+                                    //: Blender input state
+                                    if (bi.state === "listening") return qsTr("Listening for %1 on port %2").arg(bi.host).arg(bi.port)
+                                    //: Blender input state: a card exists but another clip is on screen
+                                    if (bi.state === "card")      return qsTr("%1 is streaming on port %2 — select the Blender clip").arg(bi.host).arg(bi.port)
+                                    //: Blender input state
+                                    if (bi.state === "ended")     return qsTr("Blender session ended")
+                                    //: Blender input state: no card yet
+                                    return qsTr("No Blender session on this machine yet")
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: Theme.spacing
+                                readonly property var bi: WindowManager.blenderInput
+                                readonly property var reds: {
+                                    var out = []
+                                    if (!bi || !bi.mismatches) return out
+                                    for (var i = 0; i < bi.mismatches.length; ++i) {
+                                        var m = bi.mismatches[i]
+                                        if (m && m.length >= 3 && m[0] === "error") out.push(m[2])
+                                    }
+                                    return out
+                                }
+                                visible: bi && bi.enabled === true && reds.length > 0
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.error
+                                text: reds.join("\n")
+                            }
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacing

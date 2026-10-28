@@ -86,6 +86,9 @@ public:
         return static_cast<Status>(m_status.load(std::memory_order_acquire));
     }
     QString url() const override { return m_url; }
+    // "Waiting for a sender on :PORT" while an SRT listener URL has nobody
+    // calling (the Blender input, 2026-10-28); empty otherwise.
+    QString statusDetail() const override;
     int     width() const override { return m_width.load(std::memory_order_acquire); }
     int     height() const override { return m_height.load(std::memory_order_acquire); }
     bool    hasAudio() const override { return m_hasAudio.load(std::memory_order_acquire); }

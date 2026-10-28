@@ -52,6 +52,7 @@ class QQuickItem;
 class QTimer;
 
 namespace qcv {
+class BlenderCardWatcher;
 
 #if !defined(Q_OS_MACOS) && !defined(__APPLE__)
 class WindowManagerDualSourceAdapter;
@@ -341,6 +342,12 @@ class WindowManager : public QObject
     // QCBridgeAE After Effects / Premiere live view is built in (macOS
     // until the Windows ring port). Gates the File-menu Connect actions.
     Q_PROPERTY(bool hostBridgeAvailable READ hostBridgeAvailable CONSTANT)
+    // The Blender input (QCBridge 0.4): the card the host add-on writes on
+    // this machine, watched; QCView listens, the replica calls. The map:
+    // enabled, present, path, state ("off"|"waiting"|"listening"|"live"|
+    // "ended"), name, host, port, status (the host's note), notes
+    // (QStringList, red), mismatches (list of [level,key,text]), itemId.
+    Q_PROPERTY(QVariantMap blenderInput READ blenderInput NOTIFY blenderInputChanged)
     // Phase 7.4.b.4 — pull-model: the cache itself, exposed to QML
     // so the PlayerWindow.qml binding can forward it to
     // PlayerRhiItem::imageSeqCache. Renderer pulls pixels from
@@ -573,6 +580,10 @@ public:
     // for the host's Transmit device if that isn't publishing yet.
     // host: "ae" or "premiere" ("probe" for QCBridgeAE's test producer).
     Q_INVOKABLE void connectHostBridge(const QString &host);
+    QVariantMap blenderInput() const;
+    Q_INVOKABLE void setBlenderInputEnabled(bool on);
+    // The menu action: pick up the card now, or say there is none.
+    Q_INVOKABLE void connectBlender();
     // The Inspector's Source block for a qcbae:// item: source, transport,
     // pixels, colour, alpha, note (decode/qcbae/host_bridge_url.h). Empty
     // map for any other URL.
@@ -816,6 +827,12 @@ public:
     // chain (a visible, editable pin) — see applyStreamChainFromLink.
     void applyStreamChainFromLink(const QString &clipId, const QUrlQuery &query);
     QHash<QString, QVariantMap> m_streamColorInfo;
+    qcv::BlenderCardWatcher *m_blenderCard = nullptr;
+    QString     m_blenderItemId;
+    QVariantMap m_blenderCardData;
+    bool        m_blenderEnded = false;
+    void onBlenderCard(const QVariantMap &card);
+    void onBlenderCardRemoved();
     // A link that asked for the Blender config before it could finish:
     // re-run after the user takes the toast's "Switch".
     QString   m_pendingStreamLinkClip;
@@ -1351,6 +1368,7 @@ signals:
     void audioActiveChanged();
     void liveActiveChanged();
     void liveDecoderChanged();
+    void blenderInputChanged();
     // Bumped at ~30 Hz by m_audioMeterTimer when peaks have moved.
     // Inspector level meters bind via Q_PROPERTY notify.
     void audioMetersChanged();
