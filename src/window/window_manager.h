@@ -833,6 +833,9 @@ public:
     bool        m_blenderEnded = false;
     void onBlenderCard(const QVariantMap &card);
     void onBlenderCardRemoved();
+    void blenderDisconnect(const char *why);
+    bool        m_liveIsBlender = false;   // the live decoder is the Blender listener
+    bool        m_blenderCarry = false;    // a project replace is carrying the toggle over
     // A link that asked for the Blender config before it could finish:
     // re-run after the user takes the toast's "Switch".
     QString   m_pendingStreamLinkClip;

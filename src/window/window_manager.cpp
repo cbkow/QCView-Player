@@ -134,12 +134,27 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
     if (m_project) {
         connect(m_project, &ProjectManager::binsChanged, this, [this] {
             if (!m_blenderItemId.isEmpty() && m_blenderCard && m_blenderCard->enabled()
-                && !m_project->findItem(m_blenderItemId)) {
-                qInfo("blenderInput: the Blender clip was removed from the project — not listening any more");
-                m_blenderItemId.clear();
-                m_blenderCard->setEnabled(false);   // emits cardRemoved
+                && !m_project->findItem(m_blenderItemId))
+                blenderDisconnect("the Blender clip was removed from the project");
+        });
+        // New Project / Open Project replace the pool: the clip belonged to
+        // the old project, the toggle is the user's and stays on. Once the
+        // new pool is in place (and its restored item loaded) the card is
+        // announced again, which adds the clip to this project; it takes
+        // the screen only when the project restored nothing else.
+        // mediaPoolLoaded, not projectReplaced: only newProject() emits the
+        // latter (the header says both), and it fires before binsChanged
+        // on both paths — so the delete hook above sees no item to miss.
+        connect(m_project, &ProjectManager::mediaPoolLoaded, this, [this] {
+            if (!m_blenderCard || !m_blenderCard->enabled() || m_blenderCarry) return;
+            m_blenderItemId.clear();
+            m_blenderCarry = true;
+            QTimer::singleShot(0, this, [this] {
+                if (m_blenderCard && m_blenderCard->enabled() && m_blenderCard->present())
+                    onBlenderCard(m_blenderCard->card());
+                m_blenderCarry = false;
                 emit blenderInputChanged();
-            }
+            });
         });
     }
     if (!m_audio->initialize()) {
@@ -3199,8 +3214,25 @@ QVariantMap WindowManager::blenderInput() const
 
 void WindowManager::setBlenderInputEnabled(bool on)
 {
-    if (!m_blenderCard) return;
-    m_blenderCard->setEnabled(on);
+    // The settings switch is the menu toggle: same way in, same way out.
+    if (m_blenderCard && on != m_blenderCard->enabled()) connectBlender();
+}
+
+void WindowManager::blenderDisconnect(const char *why)
+{
+    // The one way out — the menu, the settings switch, a deleted clip:
+    // the listener closes NOW (the first cut left it open after a bin
+    // delete: removeMediaItems clears the active id but closes nothing),
+    // the watcher stops, the clip leaves the project, and nothing of
+    // Blender's is touched again until asked.
+    if (why) qInfo("blenderInput: %s — not listening any more", why);
+    if (m_liveDecoder && m_liveIsBlender) closeActiveMedia();
+    const QString id = m_blenderItemId;
+    m_blenderItemId.clear();
+    if (m_blenderCard) m_blenderCard->setEnabled(false);   // emits cardRemoved: a no-op without an item
+    if (m_project && !id.isEmpty() && m_project->findItem(id)) m_project->removeMediaItem(id);
+    m_blenderCardData.clear();
+    m_blenderEnded = false;
     emit blenderInputChanged();
 }
 
@@ -3211,14 +3243,8 @@ void WindowManager::connectBlender()
     // QCView touches nothing of Blender's again until asked.
     if (!m_blenderCard) return;
     if (m_blenderCard->enabled()) {
-        const QString id = m_blenderItemId;
-        m_blenderCard->setEnabled(false);   // emits cardRemoved -> the decoder closes
-        if (m_project && !id.isEmpty() && m_project->findItem(id)) m_project->removeMediaItem(id);
-        m_blenderItemId.clear();
-        m_blenderCardData.clear();
-        m_blenderEnded = false;
+        blenderDisconnect(nullptr);
         toast(tr("Blender: not listening"), 0);
-        emit blenderInputChanged();
         return;
     }
     m_blenderCard->setEnabled(true);        // polls at once: a present card arrives through onBlenderCard
@@ -3240,13 +3266,33 @@ void WindowManager::onBlenderCard(const QVariantMap &card)
     const QString id = m_project->addLiveStream(url, name.isEmpty() ? tr("Blender") : name);
     if (id.isEmpty()) { emit blenderInputChanged(); return; }
     m_blenderItemId = id;
+    // The host switched projects: the card's name follows, the clip is the same.
+    if (const MediaItem *it = m_project->findItem(id); it && !name.isEmpty() && it->name != name)
+        m_project->renameMediaItem(id, name);
     const QString hostName = card.value(QStringLiteral("host")).toString();
+    const int port = card.value(QStringLiteral("port")).toInt();
     if (m_project->activeItemId() != id) {
-        // Only ever here because the user toggled Connect to Blender on:
-        // that is the consent, so the session is shown, now or when it starts.
-        m_project->setActiveItem(id);
-        qInfo("blenderInput: listening for %s on port %d (%s)", qPrintable(hostName),
-              card.value(QStringLiteral("port")).toInt(), qPrintable(m_blenderCard ? m_blenderCard->path() : QString()));
+        // Here because the user toggled Connect to Blender on (that is the
+        // consent, so the session is shown, now or when it starts) — or
+        // because a project replace carried the toggle over, where a clip
+        // the project restored keeps the screen and the Blender clip waits
+        // in the bin.
+        if (!m_blenderCarry || m_project->activeItemId().isEmpty()) {
+            m_project->setActiveItem(id);
+            qInfo("blenderInput: listening for %s on port %d (%s)", qPrintable(hostName), port,
+                  qPrintable(m_blenderCard ? m_blenderCard->path() : QString()));
+        } else {
+            qInfo("blenderInput: card for %s kept in the bin — the project restored another clip", qPrintable(hostName));
+        }
+    } else if (!(m_liveDecoder && m_liveIsBlender)) {
+        // The clip is on screen but its listener is gone: the session was
+        // stopped in Blender (card removed, decoder closed) and started
+        // again. setActiveItem is silent on the same id, so reopen the way
+        // loadRequested does. Without this a Stop/Start in Blender left
+        // QCView showing "ended" for good.
+        closeActiveMedia();
+        if (const MediaItem *it = m_project->findItem(id)) startLiveStream(*it);
+        qInfo("blenderInput: listening again for %s on port %d", qPrintable(hostName), port);
     }
     // The colour chain: the card's "colour" block carries the same keys the
     // qcview://stream link did; applyStreamChainFromLink reads a query.
@@ -3262,7 +3308,7 @@ void WindowManager::onBlenderCardRemoved()
 {
     if (m_blenderItemId.isEmpty()) { emit blenderInputChanged(); return; }
     m_blenderEnded = true;
-    if (m_liveDecoder && m_project && m_project->activeItemId() == m_blenderItemId) {
+    if (m_liveDecoder && m_liveIsBlender) {
         stopLiveStream();
         if (m_blenderCard && m_blenderCard->enabled()) toast(tr("Blender session ended"), 0);
     }
@@ -4466,6 +4512,7 @@ void WindowManager::startLiveStream(const MediaItem &item)
         emit blenderInputChanged();
         return;
     }
+    m_liveIsBlender = item.path.contains(QLatin1String("mode=listener"));
 
     if (!m_videoDecoder) {
         qWarning("startLiveStream: no sink VideoDecoder — aborting");
@@ -4575,6 +4622,7 @@ void WindowManager::stopLiveStream()
     // the next source's first publish) replaces the last frame.
     m_liveDecoder->close();
     m_liveDecoder.reset();
+    m_liveIsBlender = false;
 
     // ...but the slot itself may still hold the session's final frame,
     // published and not yet fetched. closeActiveMedia() skips the
