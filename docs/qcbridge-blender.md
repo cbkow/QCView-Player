@@ -52,6 +52,7 @@ Everything about the connection lives in the **QCBridge Agent** and is set in it
 - **Name** — shown to the other machine and in the tray. Empty means the computer's name.
 - **Role** — **Send scene** on the host (your workstation); **Receive scene** on the replica (the render box). One agent per machine; the switch takes effect at once.
   
+
 ![Agent settings window](/images/qcbridge_011.png)
 
 ### Pairing
