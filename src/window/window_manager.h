@@ -69,21 +69,18 @@ class WindowManager : public QObject
     Q_PROPERTY(bool detached READ detached NOTIFY detachedChanged)
     // ---- UI-over-viewport framework (see hazy-weaving-reddy plan) ----
     // The native viewport surface composites ABOVE the Qt scene, so
-    // in-scene QML (modals, the unsupported-media notice) can only sit
-    // ON TOP of it by HIDING that surface. These properties drive the
-    // single shared "viewport cover" primitive from QML.
+    // in-scene QML (modals) can only sit ON TOP of it by HIDING that
+    // surface. These properties drive the single shared "viewport
+    // cover" primitive from QML.
     //   modalActive       — a blocking modal is open (drives the scrim +
     //                       input gating); set via begin/endModal().
-    //   viewportCovered   — the native surface is hidden (modal OR
-    //                       notice); QML shows the backdrop / notice card.
-    //   viewportNoticeText— non-blocking unsupported-media copy ("" none).
+    //   viewportCovered   — the native surface is hidden (a modal is
+    //                       open); QML shows the backdrop.
     //   backdropSource    — image://qcv/backdrop URL of the frozen frame
     //                       shown (dimmed) behind a modal ("" none).
     Q_PROPERTY(bool modalActive READ modalActive NOTIFY modalActiveChanged)
     Q_PROPERTY(bool viewportCovered READ viewportCovered
                NOTIFY viewportCoveredChanged)
-    Q_PROPERTY(QString viewportNoticeText READ viewportNoticeText
-               NOTIFY viewportNoticeTextChanged)
     Q_PROPERTY(QString backdropSource READ backdropSource
                NOTIFY backdropSourceChanged)
     Q_PROPERTY(int compositorMode READ compositorMode WRITE setCompositorMode NOTIFY compositorModeChanged)
@@ -474,7 +471,6 @@ public:
     // ---- UI-over-viewport framework accessors / API ----
     bool    modalActive()       const { return m_modalActive; }
     bool    viewportCovered()   const { return m_viewportCovered; }
-    QString viewportNoticeText() const { return m_viewportNoticeText; }
     QString backdropSource()    const { return m_backdropSource; }
 
     // Borrowed pointer to the engine-owned backdrop image provider.
@@ -1285,7 +1281,6 @@ signals:
     // UI-over-viewport framework state changes (see the Q_PROPERTYs).
     void modalActiveChanged();
     void viewportCoveredChanged();
-    void viewportNoticeTextChanged();
     void backdropSourceChanged();
     void compositorModeChanged();
     void activeDualViewIdChanged();
@@ -1566,7 +1561,6 @@ private:
     bool                   m_modalActive      = false;
     bool                   m_modalWasPlaying  = false;   // resume on close
     bool                   m_viewportCovered  = false;
-    QString                m_viewportNoticeText;        // "" = no notice
     QString                m_backdropSource;            // "" = no backdrop
     int                    m_backdropSeq      = 0;      // image-URL cache-bust
     BackdropImageProvider *m_backdropProvider = nullptr; // engine-owned
@@ -1767,14 +1761,20 @@ private:
     // Forward the loading-spinner flag to the active player renderer.
     void setLoadingActive(bool on);
 
-    // Viewport notice (ARRIRAW / unsupported media). Sets
-    // viewportNoticeText + recomputes the viewport cover so an
-    // in-scene QML card draws over the (hidden) native surface. This
-    // is NON-blocking: chrome stays interactive so the user can load
-    // other media. Empty `text` clears. Evaluated on load-failure +
-    // reconciled when async metadata resolves; see loadRequested.
-    void setViewportNotice(const QString &text);
-    void clearViewportNotice();
+    // Unsupported media (ARRIRAW / no decoder / a stream that will not
+    // open) is reported through the toast (2026-10-29, chris: no more
+    // card over the viewport). The load path has already torn the
+    // previous source down, so the viewport is the bare background;
+    // the toast says why. One toast per item per load: the id of the
+    // last item reported and whether its copy was the camera-named
+    // ARRIRAW line, so the async-metadata reconciliation can upgrade a
+    // generic line once (viewport loaded before metadata) but never
+    // repeats it on later activeItemIdChanged ticks (PAR edits …).
+    // Reset at the top of every load so re-opening the same file
+    // says it again.
+    void reportUnsupportedMedia(const MediaItem &item);
+    QString m_unsupportedToastId;
+    bool    m_unsupportedToastNamed = false;
 
     // ---- Shared "viewport cover" primitive (modal + notice) ----
     // recomputeViewportCover() derives whether the native surface must
@@ -1791,10 +1791,11 @@ private:
     // and publish its image://qcv/backdrop URL. Capture is mode- and
     // HDR-independent (reuses the screenshot path → SDR sRGB QImage).
     void captureBackdrop();
-    // Decide the notice (if any) for a media item and apply/clear it.
-    // Centralizes the "is this an undecodable raw?" check so both the
-    // load-failure path and the async-metadata reconciliation agree.
-    void evaluateViewportNoticeFor(const QString &mediaId);
+    // Async-metadata reconciliation for the toast: when the active
+    // item resolves to an undecodable raw after the load already
+    // failed (viewport loaded before metadata), upgrade the generic
+    // toast to the camera-named one. Set-only; see reportUnsupportedMedia.
+    void reconcileUnsupportedFor(const QString &mediaId);
 
     // Push the per-clip effective pixel aspect (anamorphic un-squeeze)
     // to the renderer for both sides — A from the active/scope clip,

@@ -1359,8 +1359,7 @@ ApplicationWindow {
                             anchors.fill: parent
 
                             // Drag-drop into the centerStage while the
-                            // native surface is hidden (a modal or the
-                            // unsupported-media notice). With the surface
+                            // native surface is hidden (a modal). With the surface
                             // up, the drop never gets here: on macOS the
                             // child QWindow takes it, on Windows the D3D11
                             // child HWND's IDropTarget does (OLE drops do
@@ -1506,10 +1505,7 @@ ApplicationWindow {
                             // (and so harmless) unless covered. Lives INSIDE
                             // centerStage because it must occupy exactly the
                             // viewport rect; the modal scrim/panel (top-level
-                            // ModalHost) layers above it. The unsupported-
-                            // media notice, by contrast, is a top-level
-                            // overlay (see viewportNoticeCard below) so it
-                            // sits above ALL chrome, not just the viewport.
+                            // ModalHost) layers above it.
                             Image {
                                 anchors.fill: parent
                                 z: 30
@@ -1703,55 +1699,6 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.preferredHeight: root.fxStatusStrip ? 22 : 0
             visible: root.fxStatusStrip
-        }
-    }
-
-    // Unsupported-media notice (ARRIRAW / unsupported codec). A
-    // TOP-LEVEL overlay (sibling of menuClickEater) so it sits above
-    // ALL in-scene chrome — rails, transport, panels — not just the
-    // viewport cell. Non-blocking: no scrim, no input gate, so the
-    // user can still drive the chrome to load other media. The native
-    // viewport surface is hidden whenever viewportNoticeText is set
-    // (WindowManager's shared cover primitive), so this card is the
-    // top visible plane where the video would be. z:9000 keeps it
-    // BELOW menus (10000) and modals (11000) so those still layer over
-    // it. Replaces the old CPU-QImage card composited into the viewport.
-    // Dim scrim behind the notice. Click-TRANSPARENT on purpose: it has
-    // no MouseArea, so pointer/drag events fall through to the chrome
-    // beneath — the notice stays non-blocking (the user can still use
-    // menus / rails / the drop zone to load other media) while the
-    // background reads as dimmed. Covers contentItem only (the MenuBar
-    // lives outside it, so the menu bar stays at full brightness).
-    Rectangle {
-        z: 8999
-        anchors.fill: parent
-        visible: WindowManager.viewportNoticeText.length > 0
-        color: "#000000"
-        opacity: 0.5
-    }
-
-    Rectangle {
-        id: viewportNoticeCard
-        z: 9000
-        anchors.centerIn: parent
-        visible: WindowManager.viewportNoticeText.length > 0
-        width: 760
-        height: 240
-        radius: Theme.radiusLarge
-        color: Qt.rgba(0.071, 0.071, 0.071, 0.92)
-        border.color: "#464646"
-        border.width: 1
-        Text {
-            anchors.fill: parent
-            anchors.margins: 28
-            text: WindowManager.viewportNoticeText
-            color: "#e8e8e8"
-            font.family: Theme.fontFamily
-            font.pixelSize: 22
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            wrapMode: Text.WordWrap
         }
     }
 

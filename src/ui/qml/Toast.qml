@@ -98,9 +98,13 @@ Popup {
         border.width: 1
     }
 
+    // Long copy (the unsupported-media lines) wraps at maxTextWidth and
+    // the toast grows in height; a one-liner keeps the 32 px row.
+    property int maxTextWidth: 460
+
     contentItem: Item {
         implicitWidth: row.implicitWidth + 2 * Theme.paddingLoose
-        implicitHeight: 32
+        implicitHeight: Math.max(32, row.implicitHeight + 2 * Theme.padding)
 
         // Dismiss-on-click. Declared BEFORE the content row so the
         // action button (when present) stacks above it and wins the
@@ -126,6 +130,8 @@ Popup {
                 color: Theme.textPrimary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeBase
+                wrapMode: Text.WordWrap
+                Layout.maximumWidth: root.maxTextWidth
             }
             // Action button (undo toasts). Raised + rounded — it
             // carries a text label, so it keeps the control radius per the

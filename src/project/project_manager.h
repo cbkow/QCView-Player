@@ -296,6 +296,11 @@ public:
     // associated path into the player.
     Q_INVOKABLE void setActiveItem(const QString &id);
 
+    // The player's verdict on an item: true after an open() found no
+    // decoder, false once a later load succeeds. Emits binsChanged when
+    // it changes so the Project panel's row badge follows. In-memory.
+    void setLoadFailed(const QString &id, bool failed);
+
     // Look up a pool entry by id. Returns nullptr if not present.
     const MediaItem *findItem(const QString &id) const;
     // Mutable overload — used by WindowManager to write back per-item

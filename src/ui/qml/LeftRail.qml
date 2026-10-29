@@ -630,6 +630,25 @@ Rectangle {
                               ? WindowManager.ocio.clipBadgeTooltip(rowItem.itemId) : ""
                     }
                 }
+                // Can't be played here (2026-10-29): metadata found no
+                // decoder (ARRIRAW …) or the player's open failed. The
+                // far-right mark of the row; the toast said why when the
+                // item was opened, the tooltip repeats it.
+                Icon {
+                    id: unsupportedBadge
+                    visible: rowItem.modelData.unsupported === true
+                             && !rowItem.isEditing
+                    name: "warning"
+                    size: Theme.iconSizeSmall
+                    color: Theme.warn
+                    Layout.alignment: Qt.AlignVCenter
+                    HoverHandler { id: unsupportedBadgeHover }
+                    FlatToolTip {
+                        visible: unsupportedBadgeHover.hovered
+                        //: Tooltip on the warning badge of a media row the player cannot decode
+                        text: qsTr("Can’t be played here: unsupported format or un-debayered camera raw")
+                    }
+                }
                 TextField {
                     id: renameField
                     Layout.fillWidth: true

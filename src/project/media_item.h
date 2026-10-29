@@ -208,9 +208,9 @@ struct VideoMetadata {
     int         rotationDeg = 0;
     // True when the container has a video stream but FFmpeg has no
     // decoder for it (videoCodec == "unknown") — e.g. ARRIRAW camera
-    // raw. Drives the in-viewport "can't play this" notice instead of
-    // a silent black frame. cameraVendor/cameraModel come from the
-    // container tags (company_name / product_name) so the notice can
+    // raw. Drives the unsupported-media toast and the row badge in
+    // the Project panel. cameraVendor/cameraModel come from the
+    // container tags (company_name / product_name) so the toast can
     // name the camera ("ALEXA 35 ARRIRAW").
     bool        unsupportedCodec = false;
     QString     cameraVendor;         // container company_name (e.g. "ARRI")
@@ -465,6 +465,13 @@ struct MediaItem {
     // Phase 7.8 — DualPair save state. Populated when type ==
     // DualPair; default-constructed otherwise.
     DualPairData            dualPair;
+
+    // The player tried to open this item and found no decoder (or the
+    // file is not media at all). Set by WindowManager's load path,
+    // cleared when a later load of the item succeeds. With
+    // video.unsupportedCodec it drives the warning badge on the
+    // item's row in the Project panel. In-memory only.
+    bool loadFailed = false;
 };
 
 } // namespace qcv

@@ -1440,12 +1440,23 @@ QVariantList ProjectManager::bins() const
             entry[QStringLiteral("type")]     = static_cast<int>(it.type);
             entry[QStringLiteral("duration")] = it.duration;
             entry[QStringLiteral("hasAudio")] = it.hasAudio;
+            // Row badge: metadata found no decoder, or a load failed.
+            entry[QStringLiteral("unsupported")] =
+                (it.video.loaded && it.video.unsupportedCodec) || it.loadFailed;
             items.append(entry);
         }
         binMap[QStringLiteral("items")] = items;
         out.append(binMap);
     }
     return out;
+}
+
+void ProjectManager::setLoadFailed(const QString &id, bool failed)
+{
+    const int idx = findIndexInPool(id);
+    if (idx < 0 || m_mediaPool[idx].loadFailed == failed) return;
+    m_mediaPool[idx].loadFailed = failed;
+    emit binsChanged();
 }
 
 QVariantMap ProjectManager::mediaItemMap(const QString &id) const
@@ -1461,6 +1472,8 @@ QVariantMap ProjectManager::mediaItemMap(const QString &id) const
     out[QStringLiteral("type")]     = static_cast<int>(it.type);
     out[QStringLiteral("duration")] = it.duration;
     out[QStringLiteral("hasAudio")] = it.hasAudio;
+    out[QStringLiteral("unsupported")] =
+        (it.video.loaded && it.video.unsupportedCodec) || it.loadFailed;
 
     // Phase 3.G — per-clip YUV range override. Default Auto (0)
     // follows detected `video.colorRange`; Full (1) / Limited (2)
@@ -1703,6 +1716,8 @@ QVariantList ProjectManager::flatItems() const
             entry[QStringLiteral("type")]     = static_cast<int>(it.type);
             entry[QStringLiteral("duration")] = it.duration;
             entry[QStringLiteral("hasAudio")] = it.hasAudio;
+            entry[QStringLiteral("unsupported")] =
+                (it.video.loaded && it.video.unsupportedCodec) || it.loadFailed;
             out.append(entry);
         }
     }

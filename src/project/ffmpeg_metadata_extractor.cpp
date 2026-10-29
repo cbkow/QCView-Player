@@ -598,8 +598,8 @@ void extractVideoStream(AVFormatContext *ctx, VideoMetadata &m)
     if (cp->bit_rate > 0) m.videoBitrate = cp->bit_rate;
     if (cp->codec_id == AV_CODEC_ID_DNXHD) refineDnxProfile(ctx, idx, m);
     // No decoder for a present video stream = we can't play it (e.g.
-    // ARRIRAW camera raw). The viewport surfaces a notice instead of
-    // a black frame; see WindowManager load-failure handling.
+    // ARRIRAW camera raw). WindowManager toasts it and the Project
+    // panel badges the row; see the load-failure handling there.
     m.unsupportedCodec = (codec == nullptr);
 
     const char *pixName = av_get_pix_fmt_name(static_cast<AVPixelFormat>(cp->format));
