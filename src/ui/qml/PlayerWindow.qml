@@ -58,25 +58,19 @@ Window {
         onDropped: (drop) => {
             if (!WindowManager.project) return;
             if (!drop.hasUrls) return;
-            let lastId = "";
+            // Centralized URL→OS-path on WindowManager. Handles
+            // file:///C:/… (Win), file:///path (POSIX), and the
+            // file://server/… UNC form that earlier inline
+            // conversions missed. openMediaPaths runs the file-type
+            // gate (toasts the refusals), adds the rest — live URLs
+            // (srt:// / qcbae://, dragged from the Live bin) included
+            // — and makes the last one active.
+            const paths = [];
             for (let i = 0; i < drop.urls.length; ++i) {
-                // Centralized URL→OS-path on WindowManager. Handles
-                // file:///C:/… (Win), file:///path (POSIX), and the
-                // file://server/… UNC form that earlier inline
-                // conversions missed (the substring(7) shortcut
-                // stripped both leading slashes, leaving "server/path"
-                // which QFile rejects with "does not exist").
                 const path = WindowManager.urlToOsPath(drop.urls[i]);
-                if (!path) continue;
-                // A live source's URL (dragged from the Live bin, or an
-                // srt:// / qcbae:// link) is not a file: addMediaFile's
-                // existence check would reject it.
-                const id = path.indexOf("://") >= 0
-                    ? WindowManager.project.addLiveStream(path, "")
-                    : WindowManager.project.addMediaFile(path);
-                if (id) lastId = id;
+                if (path) paths.push(path);
             }
-            if (lastId) WindowManager.project.setActiveItem(lastId);
+            if (paths.length > 0) WindowManager.openMediaPaths(paths);
             drop.accept();
         }
     }

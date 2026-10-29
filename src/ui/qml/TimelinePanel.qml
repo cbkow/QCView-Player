@@ -1683,12 +1683,17 @@ Pane {
                     }
 
                     let skippedAudio = 0;
+                    // Centralized URL→OS-path on WindowManager (file:///C:/…,
+                    // file:///path, file://server/… UNC), then the file-type
+                    // gate: refused files are toasted once and dropped here.
+                    const droppedPaths = [];
                     for (let i = 0; i < drop.urls.length; ++i) {
-                        // Centralized URL→OS-path on WindowManager.
-                        // Handles file:///C:/… (Win), file:///path
-                        // (POSIX), and the file://server/… UNC form.
-                        const path = WindowManager.urlToOsPath(drop.urls[i]);
-                        if (!path) continue;
+                        const p0 = WindowManager.urlToOsPath(drop.urls[i]);
+                        if (p0) droppedPaths.push(p0);
+                    }
+                    const admitted = WindowManager.admitMediaPaths(droppedPaths);
+                    for (let i = 0; i < admitted.length; ++i) {
+                        const path = admitted[i];
                         const mediaId = WindowManager.project.addMediaFile(path);
                         if (!mediaId) continue;
 

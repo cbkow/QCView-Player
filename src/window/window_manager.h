@@ -1092,7 +1092,7 @@ public:
     // admits and the rest, toasts the refusals (one line for one file,
     // a count with the suffixes for a batch) and returns the admitted
     // ones. Live URLs pass through untouched.
-    QStringList admitMediaPaths(const QStringList &paths);
+    Q_INVOKABLE QStringList admitMediaPaths(const QStringList &paths);
 
     // Toast with a single action button (currently: Undo on the
     // delete toasts). `actionId` names what the button does; the

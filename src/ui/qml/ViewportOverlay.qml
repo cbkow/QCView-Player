@@ -326,17 +326,9 @@ Pane {
                     if (!drop.hasUrls || !WindowManager.project) return;
                     const u = WindowManager.urlToOsPath(drop.urls[0]);
                     if (!u) return;
-                    // Live URLs route to addLiveStream (see PlayerWindow's
-                    // viewport drop).
-                    const id = u.indexOf("://") >= 0
-                        ? WindowManager.project.addLiveStream(u, "")
-                        : WindowManager.project.addMediaFile(u);
-                    if (id) {
-                        WindowManager.project.setActiveItem(id);
-                    } else {
-                        WindowManager.toast(
-                            qsTr("Couldn't load that file"), 1);
-                    }
+                    // The file-type gate, the add and the activation
+                    // (live URLs included) — see openMediaPaths.
+                    WindowManager.openMediaPaths([u]);
                     drop.accept();
                 }
             }
@@ -413,6 +405,12 @@ Pane {
                     if (!drop.hasUrls) return;
                     const u = WindowManager.urlToOsPath(drop.urls[0]);
                     if (!u) return;
+                    // The file-type gate first: a refused file gets its
+                    // toast here and never reaches setBSource.
+                    if (WindowManager.admitMediaPaths([u]).length === 0) {
+                        drop.accept();
+                        return;
+                    }
                     if (!WindowManager.setBSource(u)) {
                         console.warn("ViewportOverlay: setBSource failed:", u);
                         WindowManager.toast(
