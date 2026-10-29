@@ -6820,6 +6820,26 @@ bool WindowManager::eventFilter(QObject *watched, QEvent *event)
 {
     const QEvent::Type t = event->type();
 
+#ifdef Q_OS_WIN
+    // Popup.Window menus, context menus and tooltips are separate
+    // top-level windows that Qt makes topmost once, at creation, and
+    // re-shows in place. With the pin on (or in borderless fullscreen)
+    // the main window is topmost too, and every raise of it within
+    // that band — the pin's re-assert after a Compact toggle, a plain
+    // re-activation after another app was in front — puts it above
+    // every popup window created earlier, so the File menu opened
+    // under the window (box, 2026-10-29). Re-insert the popup at the
+    // top of the band on each show; the handle exists by now
+    // (QWindow::create() runs before the show event).
+    if (t == QEvent::Show) {
+        if (auto *w = qobject_cast<QWindow *>(watched)) {
+            const Qt::WindowType wt = w->type();
+            if ((wt == Qt::Popup || wt == Qt::ToolTip) && w->handle())
+                qcv::raisePopupWindowWin(w);
+        }
+    }
+#endif
+
     // QEvent::FileOpen — Cocoa delivers qcview://… URL launches and
     // double-clicked / Finder-"Open With" file opens through this
     // single event type. url() is set for URL-scheme launches, file()

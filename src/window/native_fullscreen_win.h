@@ -46,6 +46,17 @@ bool setCompactBorderlessWin(QWindow *window, bool on);
 // (Compact Mode's expanded client area must not be re-measured).
 void setAlwaysOnTopWin(QWindow *window, bool on);
 
+// A popup / tooltip window about to be shown goes to the top of the
+// topmost band. Qt makes every Qt::Popup and Qt::ToolTip window
+// WS_EX_TOPMOST once, when it is created, and re-shows it with
+// ShowWindow alone; a pinned (or borderless-fullscreen) main window
+// that was raised within that band after the popup's creation — the
+// pin's re-assert after a Compact toggle, or just the user activating
+// the window again — then covers every menu, context menu and tooltip
+// opened before it (measured 2026-10-29). Called from the application
+// event filter on QEvent::Show.
+void raisePopupWindowWin(QWindow *popup);
+
 } // namespace qcv
 
 #endif // Q_OS_WIN

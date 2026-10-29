@@ -330,6 +330,19 @@ void setAlwaysOnTopWin(QWindow *window, bool on)
     qInfo("setAlwaysOnTopWin: %p %s", hwnd, on ? "topmost" : "not topmost");
 }
 
+void raisePopupWindowWin(QWindow *popup)
+{
+    HWND hwnd = hwndOf(popup);
+    if (!hwnd) return;
+    // HWND_TOPMOST inserts at the top of the topmost band even for a
+    // window that is already WS_EX_TOPMOST — that re-insertion is the
+    // point. The window is still hidden here (QEvent::Show precedes
+    // the platform show), so no SWP_SHOWWINDOW; ShowWindow follows and
+    // keeps this z-order. No activation: a popup must not take focus.
+    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+}
+
 } // namespace qcv
 
 #endif // Q_OS_WIN
