@@ -52,6 +52,10 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.7.2
+
+- **Languages** — the Blender session strings from 2.7.0 and the file-type and unsupported-media messages from 2.7.1 are now in all nine languages. Machine translated and reviewed, as before; corrections are welcome through the translations folder.
+
 What's new in 2.7.1
 
 - **File types** — one list of what QCView opens now governs the Open and Add dialogs, drops, recents and the command line. A folder or a file of another kind is refused at the door with a toast; a mixed drop reports how many were skipped and which kinds. The video list grew: MPEG-TS variants, MPEG-PS, 3GP, WMV, FLV, Ogg video, DV, Motion JPEG and DPX join the usual containers.

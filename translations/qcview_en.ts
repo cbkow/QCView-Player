@@ -4,7 +4,7 @@
 <context>
     <name>LeftRail</name>
     <message numerus="yes">
-        <location filename="../src/ui/qml/LeftRail.qml" line="+2352"/>
+        <location filename="../src/ui/qml/LeftRail.qml" line="+2368"/>
         <source>%n encoded</source>
         <translation>
             <numerusform>%n encoded</numerusform>
