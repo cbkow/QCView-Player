@@ -52,6 +52,12 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.7.1
+
+- **Unsupported media** — a file QCView cannot play (ARRIRAW, a stream that will not open, a file that is not media) no longer covers the viewport with a card. The viewport is left on its background, a toast says why, and the item's row in the Project panel carries a warning badge until a later load of it succeeds. Loading another file takes the toast down at once.
+- **Windows: Always on Top** — with the pin on, the menus, context menus and tooltips could open underneath the window after leaving Compact Mode or after another app had been in front. They open above it now.
+- **Windows: Compact Mode** — the strip's buttons sometimes needed two clicks, and the pin could read out of step with its state. One click, every time.
+
 What's new in 2.7.0
 
 - **QCBridge for Blender 0.4** — QCView is the listener now. Toggle **File ▸ Connect to Blender** on and start a session from the Blender host panel on this machine: the add-on hands QCView a card, QCView listens on the card's port, the replica streams to it, and the clip's chain follows the host's colour setup. Nothing is launched, and QCView does nothing for Blender until you toggle it, every launch. **Settings ▸ Blender sessions** is the same switch and shows the state and the host's red notes. A joining viewer gets a picture within a second.
