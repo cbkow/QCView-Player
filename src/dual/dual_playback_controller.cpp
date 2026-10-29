@@ -12,6 +12,7 @@
 #include "timeline/timeline_types.h"
 
 #include <QFileInfo>
+#include "project/media_extensions.h"
 #include <QSettings>
 #include <QtLogging>
 #include <algorithm>
@@ -24,11 +25,9 @@ namespace {
 
 bool looksLikeVideo(const QString &path)
 {
-    static const QStringList kExts = {
-        "mov", "mp4", "mkv", "avi", "mxf", "webm", "ts", "m2t", "m2ts", "m4v",
-        "webp", "gif"   // animated WebP (FFmpeg 9.0 webp_anim) / GIF; stills decode as 1-frame video
-    };
-    return kExts.contains(QFileInfo(path).suffix().toLower());
+    // The shared table (media_extensions.h): animated WebP / GIF are
+    // video there too, decoding as one-frame videos when still.
+    return mediaext::kindForPath(path) == mediaext::Kind::Video;
 }
 
 bool looksLikeImageSequenceFile(const QString &path)

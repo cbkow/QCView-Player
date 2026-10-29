@@ -297,17 +297,9 @@ Rectangle {
     FileDialog {
         id: addMediaDialog
         title: qsTr("Add Media")
-        // All-types filter; addMediaFile detects the type by
-        // extension and routes to the matching internal bin.
-        nameFilters: [
-            qsTr("All media (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif "
-               + "*.wav *.aif *.aiff *.mp3 *.flac *.m4a "
-               + "*.png *.jpg *.jpeg *.tif *.tiff *.exr)"),
-            qsTr("Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif)"),
-            qsTr("Audio files (*.wav *.aif *.aiff *.mp3 *.flac *.m4a)"),
-            qsTr("Image files (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp)"),
-            qsTr("All files (*)")
-        ]
+        // Filters come from media_extensions.h (the gate); addMediaFile
+        // routes each file to its bin by the same table.
+        nameFilters: WindowManager.mediaNameFilters
         fileMode: FileDialog.OpenFiles
         onAccepted: {
             if (!WindowManager.project) return;

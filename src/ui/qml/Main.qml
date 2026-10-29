@@ -127,12 +127,7 @@ ApplicationWindow {
         id: openMediaDialog
         title: qsTr("Open Media…")
         fileMode: FileDialog.OpenFile
-        nameFilters: [
-            qsTr("Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif "
-                 + "*.wav *.aif *.aiff *.mp3 *.flac *.m4a "
-                 + "*.png *.jpg *.jpeg *.tif *.tiff *.exr)"),
-            qsTr("All files (*)"),
-        ]
+        nameFilters: WindowManager.mediaNameFilters   // from media_extensions.h
         onAccepted: {
             // Route through WindowManager.openMediaPaths so the open
             // shows the loading spinner (adds to the bin AND loads).
@@ -1233,15 +1228,9 @@ ApplicationWindow {
     FileDialog {
         id: openVideoDialog
         title: qsTr("Open media")
-        // Phase 7.4.a: image extensions added so the dialog can
-        // pick any frame of a sequence — ProjectManager.addMediaFile
+        // Any frame of a sequence may be picked — ProjectManager.addMediaFile
         // detects siblings and creates one ImageSequence MediaItem.
-        nameFilters: [
-            qsTr("Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr)"),
-            qsTr("Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi)"),
-            qsTr("Image / sequence files (*.png *.jpg *.jpeg *.tif *.tiff *.exr)"),
-            qsTr("All files (*)")
-        ]
+        nameFilters: WindowManager.mediaNameFilters   // from media_extensions.h
         fileMode: FileDialog.OpenFile
         onAccepted: {
             // Phase 7.1: route through ProjectManager so the file

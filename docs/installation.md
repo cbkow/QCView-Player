@@ -54,6 +54,7 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 What's new in 2.7.1
 
+- **File types** — one list of what QCView opens now governs the Open and Add dialogs, drops, recents and the command line. A folder or a file of another kind is refused at the door with a toast; a mixed drop reports how many were skipped and which kinds. The video list grew: MPEG-TS variants, MPEG-PS, 3GP, WMV, FLV, Ogg video, DV, Motion JPEG and DPX join the usual containers.
 - **Unsupported media** — a file QCView cannot play (ARRIRAW, a stream that will not open, a file that is not media) no longer covers the viewport with a card. The viewport is left on its background, a toast says why, and the item's row in the Project panel carries a warning badge until a later load of it succeeds. Loading another file takes the toast down at once.
 - **Windows: Always on Top** — with the pin on, the menus, context menus and tooltips could open underneath the window after leaving Compact Mode or after another app had been in front. They open above it now.
 - **Windows: Compact Mode** — the strip's buttons sometimes needed two clicks, and the pin could read out of step with its state. One click, every time.

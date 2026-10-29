@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include "media_extensions.h"
 #include <QRegularExpression>
 #include <QUrl>
 #include <QUuid>
@@ -26,18 +27,11 @@ namespace {
 // image-sequence detection branch in addMediaFile.
 bool isImageExtension(const QString &suffixLower)
 {
-    // Must stay in lockstep with ImageSequenceCache's
-    // createLoaderForExtension — every extension here is routed to
-    // the native image loaders (as a sequence OR a single still).
-    // DPX was dropped deliberately: no native loader, and no plan to
-    // build one (a .dpx now falls through to the FFmpeg path like
-    // any other unclaimed extension).
-    static const QStringList kImageExts = {
-        QStringLiteral("png"),  QStringLiteral("jpg"),
-        QStringLiteral("jpeg"), QStringLiteral("tif"),
-        QStringLiteral("tiff"), QStringLiteral("exr"),
-    };
-    return kImageExts.contains(suffixLower);
+    // The native image loaders' set — media_extensions.h keeps it in
+    // lockstep with ImageSequenceCache's createLoaderForExtension
+    // (a sequence OR a single still). DPX has no native loader and
+    // rides the FFmpeg path as a one-frame video.
+    return mediaext::kindForSuffix(suffixLower) == mediaext::Kind::Image;
 }
 
 } // namespace
@@ -281,36 +275,16 @@ ProjectManager::~ProjectManager() = default;
 
 QString ProjectManager::detectType(const QString &path, MediaType *outType)
 {
-    const QString suffix = QFileInfo(path).suffix().toLower();
-
-    // Phase 7.1 handles single-file video only. Other types are
-    // recognized so the enum picks them correctly (for the type
-    // chip in the inspector) but loading still routes through the
-    // video decoder — sequences and playlists wire in 7.4 / 7.5.
-    static const QStringList kVideoExts = {
-        QStringLiteral("mov"), QStringLiteral("mp4"), QStringLiteral("m4v"),
-        QStringLiteral("mxf"), QStringLiteral("mkv"), QStringLiteral("avi"),
-        QStringLiteral("webm"), QStringLiteral("ts"),  QStringLiteral("mts"),
-        // WebP (FFmpeg 9.0 webp_anim demuxer/decoder): animated files
-        // play as video; stills decode as a one-frame video too, since
-        // the single-still cache has no WebP loader (native PNG / TIFF /
-        // JPEG / EXR only).
-        QStringLiteral("webp"),
-        QStringLiteral("gif"),   // animated GIF, same reasoning
-    };
-    static const QStringList kAudioExts = {
-        QStringLiteral("wav"), QStringLiteral("aif"), QStringLiteral("aiff"),
-        QStringLiteral("mp3"), QStringLiteral("flac"), QStringLiteral("m4a"),
-    };
-    static const QStringList kImageExts = {
-        QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"),
-        QStringLiteral("tif"), QStringLiteral("tiff"), QStringLiteral("exr"),
-    };
-
+    // The bin a path files under, from the shared table in
+    // media_extensions.h. An unknown suffix never gets here any more
+    // (addMediaFile refuses it); the Video default is for the sake of
+    // the enum only.
     MediaType t = MediaType::Video;
-    if      (kVideoExts.contains(suffix))  t = MediaType::Video;
-    else if (kAudioExts.contains(suffix))  t = MediaType::Audio;
-    else if (kImageExts.contains(suffix))  t = MediaType::Image;
+    switch (mediaext::kindForPath(path)) {
+    case mediaext::Kind::Audio: t = MediaType::Audio; break;
+    case mediaext::Kind::Image: t = MediaType::Image; break;
+    default: break;
+    }
     if (outType) *outType = t;
 
     QFileInfo fi(path);
@@ -594,6 +568,16 @@ QString ProjectManager::addMediaFile(const QString &path)
     if (!fi.exists()) {
         qWarning("ProjectManager: addMediaFile — '%s' does not exist",
                  qPrintable(path));
+        return {};
+    }
+    // The gate (2026-10-29): only a regular file with a suffix from
+    // media_extensions.h gets a bin entry. Callers that take batches
+    // (WindowManager's open / add / drop) pre-check with
+    // mediaext::isSupportedMediaFile and toast the refusals; this is
+    // the backstop for every other route (recents, command line …).
+    if (!mediaext::isSupportedMediaFile(fi.absoluteFilePath())) {
+        qWarning("ProjectManager: addMediaFile — '%s' refused (%s)",
+                 qPrintable(path), fi.isDir() ? "a folder" : "not a media file type");
         return {};
     }
     const QString abs = fi.absoluteFilePath();

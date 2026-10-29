@@ -3,6 +3,7 @@
 // ported from the old app with namespace + API renames.
 
 #include "timeline_thumbnail_cache.h"
+#include "project/media_extensions.h"
 
 #include "decode/exr_image_loader.h"
 #include "decode/jpeg_image_loader.h"
@@ -440,10 +441,8 @@ TimelineThumbnailCache::getOrCreateLoader(
     splitLayer(source_path, filePath, layer);
     const std::string ext = extOf(filePath);
 
-    const bool isVideo =
-        (ext == "mov" || ext == "mp4" || ext == "mxf"
-         || ext == "avi" || ext == "mkv" || ext == "m4v"
-         || ext == "webm" || ext == "webp" || ext == "gif");
+    const bool isVideo = mediaext::kindForSuffix(QString::fromStdString(ext).toLower())
+                         == mediaext::Kind::Video;
 
     if (isVideo) {
         info->is_video = true;

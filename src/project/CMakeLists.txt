@@ -7,6 +7,7 @@
 
 qt_add_library(qcv_project STATIC
     media_item.h
+    media_extensions.h
     project_manager.h
     project_manager.cpp
     # Phase 7.6 — `.qcvproj` v2 save/load.

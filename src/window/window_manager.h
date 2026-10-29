@@ -1083,6 +1083,17 @@ public:
     // 0 = success, 1 = warning, 2 = error.
     Q_INVOKABLE void toast(const QString &message, int kind = 0);
 
+    // FileDialog.nameFilters for every media picker, generated from
+    // media_extensions.h so the dialogs match the gate.
+    Q_PROPERTY(QStringList mediaNameFilters READ mediaNameFilters CONSTANT)
+    QStringList mediaNameFilters() const;
+
+    // The gate's voice: splits `paths` into the ones media_extensions.h
+    // admits and the rest, toasts the refusals (one line for one file,
+    // a count with the suffixes for a batch) and returns the admitted
+    // ones. Live URLs pass through untouched.
+    QStringList admitMediaPaths(const QStringList &paths);
+
     // Toast with a single action button (currently: Undo on the
     // delete toasts). `actionId` names what the button does; the
     // Toast hands it back via invokeToastAction when clicked. Kept

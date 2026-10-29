@@ -60,6 +60,7 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QDir>
+#include "project/media_extensions.h"
 #include <QElapsedTimer>
 #include <QEvent>
 #include <QFileInfo>
@@ -3083,9 +3084,56 @@ void WindowManager::reconcileUnsupportedFor(const QString &mediaId)
 // drawing the spinner before the main thread blocks in the open call.
 static constexpr int kOpenDeferMs = 16;
 
-void WindowManager::openMediaPaths(const QStringList &paths)
+QStringList WindowManager::mediaNameFilters() const
 {
-    if (!m_project || paths.isEmpty()) return;
+    return qcv::mediaext::nameFilters();
+}
+
+QStringList WindowManager::admitMediaPaths(const QStringList &paths)
+{
+    QStringList admitted, refused;
+    for (const QString &p : paths) {
+        if (p.isEmpty()) continue;
+        if (p.contains(QLatin1String("://")) || qcv::mediaext::isSupportedMediaFile(p))
+            admitted << p;
+        else
+            refused << p;
+    }
+    if (refused.isEmpty()) return admitted;
+    if (refused.size() == 1 && paths.size() == 1) {
+        const QFileInfo fi(refused.first());
+        if (fi.isDir())
+            //: Toast after dropping or opening a folder. %1 = folder name
+            toast(tr("%1 is a folder — drop a file, or any frame of an image sequence.")
+                      .arg(fi.fileName()), 1);
+        else
+            //: Toast after dropping or opening a file type QCView does not open. %1 = file name
+            toast(tr("%1 isn’t a file type QCView opens.").arg(fi.fileName()), 1);
+        return admitted;
+    }
+    // A batch: one line, with what was skipped by suffix.
+    QStringList kinds;
+    for (const QString &p : refused) {
+        const QFileInfo fi(p);
+        //: Stands in for a suffix in the skipped-files toast
+        const QString k = fi.isDir() ? tr("folder")
+                        : fi.suffix().isEmpty() ? tr("no extension")
+                        : (QLatin1Char('.') + fi.suffix().toLower());
+        if (!kinds.contains(k)) kinds << k;
+    }
+    QString shown = kinds.mid(0, 4).join(QStringLiteral(", "));
+    if (kinds.size() > 4) shown += QStringLiteral(" …");
+    //: Toast after a batch drop/open; %1 = skipped count, %2 = total, %3 = the suffixes
+    toast(tr("%1 of %2 files skipped — not file types QCView opens (%3).")
+              .arg(refused.size()).arg(paths.size()).arg(shown), 1);
+    return admitted;
+}
+
+void WindowManager::openMediaPaths(const QStringList &rawPaths)
+{
+    if (!m_project || rawPaths.isEmpty()) return;
+    const QStringList paths = admitMediaPaths(rawPaths);
+    if (paths.isEmpty()) return;
     setLoadingActive(true);
     const QStringList ps = paths;
     QTimer::singleShot(kOpenDeferMs, this, [this, ps]() {
@@ -3135,9 +3183,11 @@ void WindowManager::dropMediaAt(const QStringList &paths, qreal nx, qreal ny)
                                                     : QStringLiteral("A"));
 }
 
-void WindowManager::dropMediaOnSide(const QStringList &paths, const QString &side)
+void WindowManager::dropMediaOnSide(const QStringList &rawPaths, const QString &side)
 {
-    if (!m_project || paths.isEmpty()) return;
+    if (!m_project || rawPaths.isEmpty()) return;
+    const QStringList paths = admitMediaPaths(rawPaths);
+    if (paths.isEmpty()) return;
     if (side == QLatin1String("B")) {
         // The first path becomes B (setBSource adds it to the bins and
         // rebuilds the dual island); the rest just join the bins.
@@ -3148,9 +3198,11 @@ void WindowManager::dropMediaOnSide(const QStringList &paths, const QString &sid
     openMediaPaths(paths);
 }
 
-void WindowManager::addMediaPaths(const QStringList &paths)
+void WindowManager::addMediaPaths(const QStringList &rawPaths)
 {
-    if (!m_project || paths.isEmpty()) return;
+    if (!m_project || rawPaths.isEmpty()) return;
+    const QStringList paths = admitMediaPaths(rawPaths);
+    if (paths.isEmpty()) return;
     setLoadingActive(true);
     const QStringList ps = paths;
     QTimer::singleShot(kOpenDeferMs, this, [this, ps]() {
