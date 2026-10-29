@@ -95,7 +95,8 @@ start with Qt's word for Config / Preference / Options / Setting / Setup.
 Qt's words: de Über · Einstellung — fr À propos · Réglage — es Acerca de ·
 Ajuste — pt_BR Sobre · Preferências — it Informazioni · Impostazione —
 pl Informacje o programie · Ustawienia — ja について · 設定 — ko 정보 ·
-설정 — zh_CN 关于 · 设置. Italian "Impostazioni…" cannot match
+설정 — zh_CN 关于 · 设置 — ru О ("О QCView") · Настройк / Параметры /
+Конфигурация — uk Про · Налаштування / Опції / Установки. Italian "Impostazioni…" cannot match
 "Impostazione" and stays in the Tools menu on macOS; that is accepted.
 
 ## Register
@@ -103,7 +104,8 @@ pl Informacje o programie · Ustawienia — ja について · 設定 — ko 정
 Address the user the way system software in the language normally does.
 Decisions already taken: German **Sie** · French **vous** · Spanish **usted**
 (neutral, no regional slang) · Portuguese (Brazil) **você** · Italian **tu**
-(as macOS and Windows do) · Polish impersonal / formal · Japanese ですます
+(as macOS and Windows do) · Polish impersonal / formal · Russian formal **вы**
+(lower case, as system software does) · Ukrainian formal **ви** · Japanese ですます
 · Korean 합니다체 · Chinese plain 您 where a pronoun is needed.
 
 Short labels stay short: German and French run a third longer than

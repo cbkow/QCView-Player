@@ -14,11 +14,13 @@ ColorPanel,Save,,,,保存,unfinished,src/ui/qml/ColorPanel.qml:182
 ColorPanel,Preset saved: %1,,,,プリセットを保存しました: %1,unfinished,src/ui/qml/ColorPanel.qml:205
 ColorPanel,Couldn't save preset “%1” — try another name,,,,プリセット“%1”を保存できませんでした — 別の名前をお試しください,unfinished,src/ui/qml/ColorPanel.qml:209
 ColorPanel,Color,,Panel title,,カラー,unfinished,src/ui/qml/ColorPanel.qml:250
-ColorPanel,"minColor · OpenDRT 1.1.0 rendering, AgX, no OCIO",,,,minColor · OpenDRT 1.1.0レンダリング、AgX、OCIOなし,unfinished,src/ui/qml/ColorPanel.qml:258
+ColorPanel,"minColor · OpenDRT 1.1.0 rendering, AgX, no OCIO",,,,minColor · OpenDRT 1.1.0レンダリング、AgX、OCIOなし,obsolete,
 ColorPanel,OCIO,,,,OCIO,unfinished,src/ui/qml/ColorPanel.qml:273
 ColorPanel,Colour through the OpenColorIO chain (Input · Look · LUTs · Output · View),,,,OpenColorIOチェーンで処理（入力 · ルック · LUT · 出力 · ビュー）,unfinished,src/ui/qml/ColorPanel.qml:274
 ColorPanel,minColor,,,,minColor,unfinished,src/ui/qml/ColorPanel.qml:282
-ColorPanel,"Colour through the minColor engine: Input → Knee → AgX → OpenDRT rendering → Display, no OCIO",,,,minColorエンジンで処理: 入力 → ニー → AgX → OpenDRTレンダリング → ディスプレイ、OCIOなし,unfinished,src/ui/qml/ColorPanel.qml:283
+ColorPanel,"Colour through the minColor engine: Input → Knee → AgX → OpenDRT rendering → Display, no OCIO",,,,minColorエンジンで処理: 入力 → ニー → AgX → OpenDRTレンダリング → ディスプレイ、OCIOなし,obsolete,
+ColorPanel,"minColor · linear conversions, AgX, no OCIO",,,,minColor · リニア変換、AgX、OCIOなし,unfinished,src/ui/qml/ColorPanel.qml:258
+ColorPanel,"Colour through the minColor engine: Input → Knee → AgX → Display, no OCIO",,,,minColorエンジンで処理: 入力 → ニー → AgX → ディスプレイ、OCIOなし,unfinished,src/ui/qml/ColorPanel.qml:283
 ColorPanel,Previous preset,,,,前のプリセット,unfinished,src/ui/qml/ColorPanel.qml:291
 ColorPanel,(no preset),,,,（プリセットなし）,unfinished,src/ui/qml/ColorPanel.qml:309
 ColorPanel,%1 — modified,,,,%1 — 変更あり,unfinished,src/ui/qml/ColorPanel.qml:313
@@ -35,141 +37,144 @@ ColorPanel,Presets,,Tab,,プリセット,unfinished,src/ui/qml/ColorPanel.qml:44
 ColorPanel,"A preset sets both groups: its clip half on the selected clip, its view half on the View",,,,プリセットは両方のグループを設定します: クリップ側は選択中のクリップに、ビュー側はビューに適用されます,unfinished,src/ui/qml/ColorPanel.qml:450
 ColorPanel,Config · %1,,,,コンフィグ · %1,unfinished,src/ui/qml/ColorPanel.qml:459
 ColorPanel,"The OCIO config — the colourspace, display and view names every column uses",,,,OCIOコンフィグ — すべての列で使われる色空間、ディスプレイ、ビューの名前,unfinished,src/ui/qml/ColorPanel.qml:461
-ColorPanel,Sets clip + view,,,,クリップ + ビューを設定,unfinished,src/ui/qml/ColorPanel.qml:476
-ColorPanel,Names every column uses,,,,すべての列で使う名前,unfinished,src/ui/qml/ColorPanel.qml:477
-ColorPanel,Filter…,,Placeholder of a filter field over a list,,フィルター…,unfinished,src/ui/qml/ColorPanel.qml:502
-ColorPanel,SDR,,Preset list badge: the preset's target,,SDR,unfinished,src/ui/qml/ColorPanel.qml:619
-ColorPanel,HDR,,Preset list badge: the preset's target,,HDR,unfinished,src/ui/qml/ColorPanel.qml:623
-ColorPanel,Clip,,"Column header: the per-clip half of the colour chain (Input, Look, LUTs)",,クリップ,unfinished,src/ui/qml/ColorPanel.qml:761
-ColorPanel,no clip,,,,クリップなし,unfinished,src/ui/qml/ColorPanel.qml:777
+ColorPanel,Host display: %1 · %2 (emulated),,Color panel caption: the clip follows the host Blender's display device and view,,ホストディスプレイ: %1 · %2（エミュレート中）,unfinished,src/ui/qml/ColorPanel.qml:488
+ColorPanel,Host display: %1 · %2 (off),,,,ホストディスプレイ: %1 · %2（オフ）,unfinished,src/ui/qml/ColorPanel.qml:488
+ColorPanel,Use my View instead of the host's display,,,,ホストのディスプレイではなく自分のビューを使用,unfinished,src/ui/qml/ColorPanel.qml:499
+ColorPanel,Sets clip + view,,,,クリップ + ビューを設定,unfinished,src/ui/qml/ColorPanel.qml:506
+ColorPanel,Names every column uses,,,,すべての列で使う名前,unfinished,src/ui/qml/ColorPanel.qml:507
+ColorPanel,Filter…,,Placeholder of a filter field over a list,,フィルター…,unfinished,src/ui/qml/ColorPanel.qml:532
+ColorPanel,SDR,,Preset list badge: the preset's target,,SDR,unfinished,src/ui/qml/ColorPanel.qml:649
+ColorPanel,HDR,,Preset list badge: the preset's target,,HDR,unfinished,src/ui/qml/ColorPanel.qml:653
+ColorPanel,Clip,,"Column header: the per-clip half of the colour chain (Input, Look, LUTs)",,クリップ,unfinished,src/ui/qml/ColorPanel.qml:791
+ColorPanel,no clip,,,,クリップなし,unfinished,src/ui/qml/ColorPanel.qml:807
 ColorPanel,"%1
 A's clip — changes stay with this clip",,,,"%1
-Aのクリップ — 変更はこのクリップに保持されます",unfinished,src/ui/qml/ColorPanel.qml:779
+Aのクリップ — 変更はこのクリップに保持されます",unfinished,src/ui/qml/ColorPanel.qml:809
 ColorPanel,"%1
 Changes here stay with this clip",,,,"%1
-ここでの変更はこのクリップに保持されます",unfinished,src/ui/qml/ColorPanel.qml:781
+ここでの変更はこのクリップに保持されます",unfinished,src/ui/qml/ColorPanel.qml:811
 ColorPanel,"%1
 B's clip — changes stay with this clip",,,,"%1
-Bのクリップ — 変更はこのクリップに保持されます",unfinished,src/ui/qml/ColorPanel.qml:797
-ColorPanel,Input gamut,,,,入力色域,unfinished,src/ui/qml/ColorPanel.qml:816
-ColorPanel,Input transfer,,,,入力伝達関数,unfinished,src/ui/qml/ColorPanel.qml:829
-ColorPanel,Input,,OCIO input: the clip's source colourspace,,入力,unfinished,src/ui/qml/ColorPanel.qml:854
-ColorPanel,Look,,OCIO look: a creative transform from the config,,ルック,unfinished,src/ui/qml/ColorPanel.qml:865
-ColorPanel,(none),,Picker entry: nothing selected,,（なし）,unfinished,src/ui/qml/ColorPanel.qml:872
-ColorPanel,Scene LUT,,"A LUT applied in scene-linear space, before the view",,シーンLUT,unfinished,src/ui/qml/ColorPanel.qml:891
-ColorPanel,View,,OCIO view: the display-side transform,,ビュー,unfinished,src/ui/qml/ColorPanel.qml:937
-ColorPanel,both sides,,Caption: the clip chain applies to both sides of the dual view,,両側,unfinished,src/ui/qml/ColorPanel.qml:947
-ColorPanel,everything,,,,すべて,unfinished,src/ui/qml/ColorPanel.qml:947
-ColorPanel,Rendering · AgX,,minColor's tone-mapping stage (OpenDRT),,レンダリング · AgX,unfinished,src/ui/qml/ColorPanel.qml:970
-ColorPanel,Rendering,,,,レンダリング,unfinished,src/ui/qml/ColorPanel.qml:970
-ColorPanel,Un-tone-mapped,,Rendering choice: no tone mapping applied,,トーンマップなし,unfinished,src/ui/qml/ColorPanel.qml:976
-ColorPanel,Display,,OCIO display: the target display,,ディスプレイ,unfinished,src/ui/qml/ColorPanel.qml:998
-ColorPanel,Output,,Column header: the output (display) half of the chain,,出力,unfinished,src/ui/qml/ColorPanel.qml:1011
-ColorPanel,Display LUT,,,,ディスプレイLUT,unfinished,src/ui/qml/ColorPanel.qml:1034
-ColorPanel,%1 On,,%1 is the engine name (OCIO or minColor),,%1 オン,unfinished,src/ui/qml/ColorPanel.qml:1092
-ColorPanel,%1 Off,,,,%1 オフ,unfinished,src/ui/qml/ColorPanel.qml:1092
-ColorPanel,Exposure,,"Viewer aid slider, in stops",,露出,unfinished,src/ui/qml/ColorPanel.qml:1116
-ColorPanel,Gamma,,Viewer aid slider,,ガンマ,unfinished,src/ui/qml/ColorPanel.qml:1160
-ColorPanel,RGB,,,,RGB,unfinished,src/ui/qml/ColorPanel.qml:1198
-ColorPanel,All channels,,,,全チャンネル,unfinished,src/ui/qml/ColorPanel.qml:1205
-ColorPanel,Red,,,,赤,unfinished,src/ui/qml/ColorPanel.qml:1205
-ColorPanel,Green,,,,緑,unfinished,src/ui/qml/ColorPanel.qml:1205
-ColorPanel,Blue,,,,青,unfinished,src/ui/qml/ColorPanel.qml:1205
-ColorPanel,Alpha matte,,Channel view: the alpha channel shown as a matte,,アルファマット,unfinished,src/ui/qml/ColorPanel.qml:1207
-ColorPanel,Luma (output primaries),,,,ルマ（出力原色）,unfinished,src/ui/qml/ColorPanel.qml:1208
-ColorPanel,"Reset exposure, gamma and channel",,,,露出、ガンマ、チャンネルをリセット,unfinished,src/ui/qml/ColorPanel.qml:1216
-ColorPanel,SDR — sRGB,,,,SDR — sRGB,unfinished,src/ui/qml/ColorPanel.qml:1260
-ColorPanel,SDR — Display P3,,,,SDR — Display P3,unfinished,src/ui/qml/ColorPanel.qml:1261
-ColorPanel,EDR — Linear sRGB,,,,EDR — リニアsRGB,unfinished,src/ui/qml/ColorPanel.qml:1262
-ColorPanel,EDR — Linear P3,,,,EDR — リニアP3,unfinished,src/ui/qml/ColorPanel.qml:1263
-ColorPanel,HDR10 PQ,,,,HDR10 PQ,unfinished,src/ui/qml/ColorPanel.qml:1264
-ColorPanel,Extended Linear sRGB,,,,拡張リニアsRGB,unfinished,src/ui/qml/ColorPanel.qml:1265
-ColorPanel,Bake the active OCIO chain to a 65³ .cube LUT,,,,アクティブなOCIOチェーンを65³の.cube LUTにベイク,unfinished,src/ui/qml/ColorPanel.qml:1323
-ColorPanel,Configure input / display / view first,,,,先に入力 / ディスプレイ / ビューを設定してください,unfinished,src/ui/qml/ColorPanel.qml:1324
-ColorPanel,Set on this clip — click to go back to the default,,,,このクリップに設定済み — クリックでデフォルトに戻す,unfinished,src/ui/qml/ColorPanel.qml:1362
-ColorPanel,Collapse,,Button: fold this section,,折りたたむ,unfinished,src/ui/qml/ColorPanel.qml:1459
-ColorPanel,%1 — click to expand,,,,%1 — クリックで展開,unfinished,src/ui/qml/ColorPanel.qml:1579
-ColorPanel,Highlight Knee,,Section title: the highlight compression stage,,ハイライトニー,unfinished,src/ui/qml/ColorPanel.qml:1684
-ColorPanel,On,,Toggle state,,オン,unfinished,src/ui/qml/ColorPanel.qml:1751
-ColorPanel,Off,,,,オフ,unfinished,src/ui/qml/ColorPanel.qml:1751
-ColorPanel,"Not available for this chain (data view, or the config has no interchange role).",,,,このチェーンでは使用できません（データビュー、またはコンフィグにinterchangeロールがありません）。,unfinished,src/ui/qml/ColorPanel.qml:1764
-ColorPanel,Source peak,,"Highlight Knee: the brightest level the source carries, in nits",,ソースピーク,unfinished,src/ui/qml/ColorPanel.qml:1775
-ColorPanel,nits,,Unit suffix,,nits,unfinished,src/ui/qml/ColorPanel.qml:1794
-ColorPanel,+%1 stops over SDR white,,,,SDR白から+%1ストップ,unfinished,src/ui/qml/ColorPanel.qml:1802
-ColorPanel,Use file MaxCLL (%1),,,,ファイルのMaxCLLを使用 (%1),unfinished,src/ui/qml/ColorPanel.qml:1814
-ColorPanel,Use mastering peak (%1),,,,マスタリングピークを使用 (%1),unfinished,src/ui/qml/ColorPanel.qml:1816
-ColorPanel,No MaxCLL in file,,,,ファイルにMaxCLLがありません,unfinished,src/ui/qml/ColorPanel.qml:1817
-ColorPanel,Set the source peak from the file's HDR10 metadata,,,,ファイルのHDR10メタデータからソースピークを設定,unfinished,src/ui/qml/ColorPanel.qml:1819
-ColorPanel,Target peak,,"Highlight Knee: the brightest level the display shows, in nits",,ターゲットピーク,unfinished,src/ui/qml/ColorPanel.qml:1827
-ColorPanel,100 nits · SDR display,,,,100 nits · SDRディスプレイ,unfinished,src/ui/qml/ColorPanel.qml:1836
-ColorPanel,Knee start,,Highlight Knee: the nits level where highlight compression begins,,ニー開始点,unfinished,src/ui/qml/ColorPanel.qml:1865
-ColorPanel,%1 nits,,,,%1 nits,unfinished,src/ui/qml/ColorPanel.qml:1902
-ColorPanel,BT.2390,,,,BT.2390,unfinished,src/ui/qml/ColorPanel.qml:1910
-ColorPanel,Reset knee start to BT.2390,,,,ニー開始点をBT.2390にリセット,unfinished,src/ui/qml/ColorPanel.qml:1918
-ColorPanel,"Highlight Knee — on, %1 → %2 nits",,,,ハイライトニー — オン、%1 → %2 nits,unfinished,src/ui/qml/ColorPanel.qml:1945
-ColorPanel,"Highlight Knee — off, click to expand",,,,ハイライトニー — オフ、クリックで展開,unfinished,src/ui/qml/ColorPanel.qml:1949
-ColorPanel,AgX,,,,AgX,unfinished,src/ui/qml/ColorPanel.qml:2014
-ColorPanel,Blender's AgX at the defaults; HDR above 100 nits.,,,,BlenderのAgXをデフォルト設定で使用。100 nits以上はHDR。,unfinished,src/ui/qml/ColorPanel.qml:2084
-ColorPanel,Target gamut,,,,ターゲット色域,unfinished,src/ui/qml/ColorPanel.qml:2093
-ColorPanel,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/ColorPanel.qml:2101
-ColorPanel,Rec.709,,,,Rec.709,unfinished,src/ui/qml/ColorPanel.qml:2101
-ColorPanel,P3-D65,,,,P3-D65,unfinished,src/ui/qml/ColorPanel.qml:2101
-ColorPanel,Peak luminance,,,,ピーク輝度,unfinished,src/ui/qml/ColorPanel.qml:2115
-ColorPanel,White (EV over grey),,,,白（グレーからのEV）,unfinished,src/ui/qml/ColorPanel.qml:2142
-ColorPanel,Black (EV under grey),,,,黒（グレーからのEV）,unfinished,src/ui/qml/ColorPanel.qml:2143
-ColorPanel,Contrast,,,,コントラスト,unfinished,src/ui/qml/ColorPanel.qml:2144
-ColorPanel,Toe power,,AgX curve control: the dark end of the tone curve,,トゥのパワー,unfinished,src/ui/qml/ColorPanel.qml:2146
-ColorPanel,Shoulder power,,AgX curve control: the bright end of the tone curve,,ショルダーのパワー,unfinished,src/ui/qml/ColorPanel.qml:2148
-ColorPanel,Hue restore,,AgX control: how much of the original hue is kept in bright areas,,色相の復元,unfinished,src/ui/qml/ColorPanel.qml:2150
-ColorPanel,HDR purity,,AgX control: saturation kept above SDR white,,HDR純度,unfinished,src/ui/qml/ColorPanel.qml:2152
-ColorPanel,"AgX — on, %1 nits",,,,AgX — オン、%1 nits,unfinished,src/ui/qml/ColorPanel.qml:2211
-ColorPanel,"AgX — off, click to expand",,,,AgX — オフ、クリックで展開,unfinished,src/ui/qml/ColorPanel.qml:2212
-ColorPanel,Replace LUT,,Button on a filled LUT slot,,LUTを置き換え,unfinished,src/ui/qml/ColorPanel.qml:2386
-ColorPanel,+ Add LUT,,Button on an empty LUT slot,,+ LUTを追加,unfinished,src/ui/qml/ColorPanel.qml:2388
-ColorPanel,Correction ID (first),,Field: the id of the first correction inside a CDL file,,補正ID（先頭）,unfinished,src/ui/qml/ColorPanel.qml:2416
-ColorPanel,click to choose,,Tooltip on an empty LUT slot,,クリックで選択,unfinished,src/ui/qml/ColorPanel.qml:2425
-ColorPanel,Clear LUT,,Button,,LUTをクリア,unfinished,src/ui/qml/ColorPanel.qml:2464
-ColorPanel,%1 — %2,,,,%1 — %2,unfinished,src/ui/qml/ColorPanel.qml:2491
-ColorPickerInline,Hex,,Colour as a hexadecimal code,,Hex,unfinished,src/ui/qml/ColorPickerInline.qml:260
-ColorPickerInline,R,,"Red channel field, one letter",,R,unfinished,src/ui/qml/ColorPickerInline.qml:301
-ColorPickerInline,G,,"Green channel field, one letter",,G,unfinished,src/ui/qml/ColorPickerInline.qml:321
-ColorPickerInline,B,,"Blue channel field, one letter",,B,unfinished,src/ui/qml/ColorPickerInline.qml:341
+Bのクリップ — 変更はこのクリップに保持されます",unfinished,src/ui/qml/ColorPanel.qml:827
+ColorPanel,Input gamut,,,,入力色域,unfinished,src/ui/qml/ColorPanel.qml:846
+ColorPanel,Input transfer,,,,入力伝達関数,unfinished,src/ui/qml/ColorPanel.qml:859
+ColorPanel,Input,,OCIO input: the clip's source colourspace,,入力,unfinished,src/ui/qml/ColorPanel.qml:884
+ColorPanel,Look,,OCIO look: a creative transform from the config,,ルック,unfinished,src/ui/qml/ColorPanel.qml:895
+ColorPanel,(none),,Picker entry: nothing selected,,（なし）,unfinished,src/ui/qml/ColorPanel.qml:902
+ColorPanel,Scene LUT,,"A LUT applied in scene-linear space, before the view",,シーンLUT,unfinished,src/ui/qml/ColorPanel.qml:921
+ColorPanel,View,,OCIO view: the display-side transform,,ビュー,unfinished,src/ui/qml/ColorPanel.qml:967
+ColorPanel,both sides,,Caption: the clip chain applies to both sides of the dual view,,両側,unfinished,src/ui/qml/ColorPanel.qml:977
+ColorPanel,everything,,,,すべて,unfinished,src/ui/qml/ColorPanel.qml:977
+ColorPanel,Rendering · AgX,,minColor's rendering stage,,レンダリング · AgX,unfinished,src/ui/qml/ColorPanel.qml:1000
+ColorPanel,Rendering,,,,レンダリング,unfinished,src/ui/qml/ColorPanel.qml:1000
+ColorPanel,Un-tone-mapped,,Rendering choice: no tone mapping applied,,トーンマップなし,unfinished,src/ui/qml/ColorPanel.qml:1010
+ColorPanel,Display,,OCIO display: the target display,,ディスプレイ,unfinished,src/ui/qml/ColorPanel.qml:1032
+ColorPanel,Output,,Column header: the output (display) half of the chain,,出力,unfinished,src/ui/qml/ColorPanel.qml:1045
+ColorPanel,Display LUT,,,,ディスプレイLUT,unfinished,src/ui/qml/ColorPanel.qml:1068
+ColorPanel,%1 On,,%1 is the engine name (OCIO or minColor),,%1 オン,unfinished,src/ui/qml/ColorPanel.qml:1126
+ColorPanel,%1 Off,,,,%1 オフ,unfinished,src/ui/qml/ColorPanel.qml:1126
+ColorPanel,Exposure,,"Viewer aid slider, in stops",,露出,unfinished,src/ui/qml/ColorPanel.qml:1150
+ColorPanel,Gamma,,Viewer aid slider,,ガンマ,unfinished,src/ui/qml/ColorPanel.qml:1194
+ColorPanel,RGB,,,,RGB,unfinished,src/ui/qml/ColorPanel.qml:1232
+ColorPanel,All channels,,,,全チャンネル,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Red,,,,赤,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Green,,,,緑,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Blue,,,,青,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Alpha matte,,Channel view: the alpha channel shown as a matte,,アルファマット,unfinished,src/ui/qml/ColorPanel.qml:1241
+ColorPanel,Luma (output primaries),,,,ルマ（出力原色）,unfinished,src/ui/qml/ColorPanel.qml:1242
+ColorPanel,"Reset exposure, gamma and channel",,,,露出、ガンマ、チャンネルをリセット,unfinished,src/ui/qml/ColorPanel.qml:1250
+ColorPanel,SDR — sRGB,,,,SDR — sRGB,unfinished,src/ui/qml/ColorPanel.qml:1294
+ColorPanel,SDR — Display P3,,,,SDR — Display P3,unfinished,src/ui/qml/ColorPanel.qml:1295
+ColorPanel,EDR — Linear sRGB,,,,EDR — リニアsRGB,unfinished,src/ui/qml/ColorPanel.qml:1296
+ColorPanel,EDR — Linear P3,,,,EDR — リニアP3,unfinished,src/ui/qml/ColorPanel.qml:1297
+ColorPanel,HDR10 PQ,,,,HDR10 PQ,unfinished,src/ui/qml/ColorPanel.qml:1298
+ColorPanel,Extended Linear sRGB,,,,拡張リニアsRGB,unfinished,src/ui/qml/ColorPanel.qml:1299
+ColorPanel,Bake the active OCIO chain to a 65³ .cube LUT,,,,アクティブなOCIOチェーンを65³の.cube LUTにベイク,unfinished,src/ui/qml/ColorPanel.qml:1357
+ColorPanel,Configure input / display / view first,,,,先に入力 / ディスプレイ / ビューを設定してください,unfinished,src/ui/qml/ColorPanel.qml:1358
+ColorPanel,Set on this clip — click to go back to the default,,,,このクリップに設定済み — クリックでデフォルトに戻す,unfinished,src/ui/qml/ColorPanel.qml:1397
+ColorPanel,Collapse,,Button: fold this section,,折りたたむ,unfinished,src/ui/qml/ColorPanel.qml:1495
+ColorPanel,%1 — click to expand,,,,%1 — クリックで展開,unfinished,src/ui/qml/ColorPanel.qml:1617
+ColorPanel,Highlight Knee,,Section title: the highlight compression stage,,ハイライトニー,unfinished,src/ui/qml/ColorPanel.qml:1723
+ColorPanel,On,,Toggle state,,オン,unfinished,src/ui/qml/ColorPanel.qml:1791
+ColorPanel,Off,,,,オフ,unfinished,src/ui/qml/ColorPanel.qml:1791
+ColorPanel,"Not available for this chain (data view, or the config has no interchange role).",,,,このチェーンでは使用できません（データビュー、またはコンフィグにinterchangeロールがありません）。,unfinished,src/ui/qml/ColorPanel.qml:1804
+ColorPanel,Source peak,,"Highlight Knee: the brightest level the source carries, in nits",,ソースピーク,unfinished,src/ui/qml/ColorPanel.qml:1815
+ColorPanel,nits,,Unit suffix,,nits,unfinished,src/ui/qml/ColorPanel.qml:1834
+ColorPanel,+%1 stops over SDR white,,,,SDR白から+%1ストップ,unfinished,src/ui/qml/ColorPanel.qml:1842
+ColorPanel,Use file MaxCLL (%1),,,,ファイルのMaxCLLを使用 (%1),unfinished,src/ui/qml/ColorPanel.qml:1854
+ColorPanel,Use mastering peak (%1),,,,マスタリングピークを使用 (%1),unfinished,src/ui/qml/ColorPanel.qml:1856
+ColorPanel,No MaxCLL in file,,,,ファイルにMaxCLLがありません,unfinished,src/ui/qml/ColorPanel.qml:1857
+ColorPanel,Set the source peak from the file's HDR10 metadata,,,,ファイルのHDR10メタデータからソースピークを設定,unfinished,src/ui/qml/ColorPanel.qml:1859
+ColorPanel,Target peak,,"Highlight Knee: the brightest level the display shows, in nits",,ターゲットピーク,unfinished,src/ui/qml/ColorPanel.qml:1867
+ColorPanel,100 nits · SDR display,,,,100 nits · SDRディスプレイ,unfinished,src/ui/qml/ColorPanel.qml:1876
+ColorPanel,Knee start,,Highlight Knee: the nits level where highlight compression begins,,ニー開始点,unfinished,src/ui/qml/ColorPanel.qml:1905
+ColorPanel,%1 nits,,,,%1 nits,unfinished,src/ui/qml/ColorPanel.qml:1942
+ColorPanel,BT.2390,,,,BT.2390,unfinished,src/ui/qml/ColorPanel.qml:1950
+ColorPanel,Reset knee start to BT.2390,,,,ニー開始点をBT.2390にリセット,unfinished,src/ui/qml/ColorPanel.qml:1958
+ColorPanel,"Highlight Knee — on, %1 → %2 nits",,,,ハイライトニー — オン、%1 → %2 nits,unfinished,src/ui/qml/ColorPanel.qml:1986
+ColorPanel,"Highlight Knee — off, click to expand",,,,ハイライトニー — オフ、クリックで展開,unfinished,src/ui/qml/ColorPanel.qml:1990
+ColorPanel,AgX,,,,AgX,unfinished,src/ui/qml/ColorPanel.qml:2056
+ColorPanel,Blender's AgX at the defaults; HDR above 100 nits.,,,,BlenderのAgXをデフォルト設定で使用。100 nits以上はHDR。,unfinished,src/ui/qml/ColorPanel.qml:2127
+ColorPanel,Target gamut,,,,ターゲット色域,unfinished,src/ui/qml/ColorPanel.qml:2136
+ColorPanel,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/ColorPanel.qml:2144
+ColorPanel,Rec.709,,,,Rec.709,unfinished,src/ui/qml/ColorPanel.qml:2144
+ColorPanel,P3-D65,,,,P3-D65,unfinished,src/ui/qml/ColorPanel.qml:2144
+ColorPanel,Peak luminance,,,,ピーク輝度,unfinished,src/ui/qml/ColorPanel.qml:2158
+ColorPanel,White (EV over grey),,,,白（グレーからのEV）,unfinished,src/ui/qml/ColorPanel.qml:2185
+ColorPanel,Black (EV under grey),,,,黒（グレーからのEV）,unfinished,src/ui/qml/ColorPanel.qml:2186
+ColorPanel,Contrast,,,,コントラスト,unfinished,src/ui/qml/ColorPanel.qml:2187
+ColorPanel,Toe power,,AgX curve control: the dark end of the tone curve,,トゥのパワー,unfinished,src/ui/qml/ColorPanel.qml:2189
+ColorPanel,Shoulder power,,AgX curve control: the bright end of the tone curve,,ショルダーのパワー,unfinished,src/ui/qml/ColorPanel.qml:2191
+ColorPanel,Hue restore,,AgX control: how much of the original hue is kept in bright areas,,色相の復元,unfinished,src/ui/qml/ColorPanel.qml:2193
+ColorPanel,HDR purity,,AgX control: saturation kept above SDR white,,HDR純度,unfinished,src/ui/qml/ColorPanel.qml:2195
+ColorPanel,"AgX — on, %1 nits",,,,AgX — オン、%1 nits,unfinished,src/ui/qml/ColorPanel.qml:2255
+ColorPanel,"AgX — off, click to expand",,,,AgX — オフ、クリックで展開,unfinished,src/ui/qml/ColorPanel.qml:2256
+ColorPanel,Replace LUT,,Button on a filled LUT slot,,LUTを置き換え,unfinished,src/ui/qml/ColorPanel.qml:2433
+ColorPanel,+ Add LUT,,Button on an empty LUT slot,,+ LUTを追加,unfinished,src/ui/qml/ColorPanel.qml:2435
+ColorPanel,Correction ID (first),,Field: the id of the first correction inside a CDL file,,補正ID（先頭）,unfinished,src/ui/qml/ColorPanel.qml:2464
+ColorPanel,click to choose,,Tooltip on an empty LUT slot,,クリックで選択,unfinished,src/ui/qml/ColorPanel.qml:2473
+ColorPanel,Clear LUT,,Button,,LUTをクリア,unfinished,src/ui/qml/ColorPanel.qml:2514
+ColorPanel,%1 — %2,,,,%1 — %2,unfinished,src/ui/qml/ColorPanel.qml:2542
+ColorPickerInline,Hex,,Colour as a hexadecimal code,,Hex,unfinished,src/ui/qml/ColorPickerInline.qml:261
+ColorPickerInline,R,,"Red channel field, one letter",,R,unfinished,src/ui/qml/ColorPickerInline.qml:303
+ColorPickerInline,G,,"Green channel field, one letter",,G,unfinished,src/ui/qml/ColorPickerInline.qml:323
+ColorPickerInline,B,,"Blue channel field, one letter",,B,unfinished,src/ui/qml/ColorPickerInline.qml:343
 CompactStrip,Pause (Space),,,,一時停止 (Space),unfinished,src/ui/qml/CompactStrip.qml:83
 CompactStrip,Play (Space),,,,再生 (Space),unfinished,src/ui/qml/CompactStrip.qml:83
 CompactStrip,Drag to move the window,,,,ドラッグでウィンドウを移動,unfinished,src/ui/qml/CompactStrip.qml:99
 CompactStrip,LIVE,,Badge: a live source is playing,,ライブ,unfinished,src/ui/qml/CompactStrip.qml:106
 CompactStrip,%1 / %2,,Current frame / total frames,,%1 / %2,unfinished,src/ui/qml/CompactStrip.qml:120
-CompactStrip,Always on Top — click to unpin (Ctrl+Alt+T),,,,常に手前に表示 — クリックで解除 (Ctrl+Alt+T),unfinished,src/ui/qml/CompactStrip.qml:213
-CompactStrip,Always on Top (Ctrl+Alt+T),,,,常に手前に表示 (Ctrl+Alt+T),unfinished,src/ui/qml/CompactStrip.qml:214
-CompactStrip,Exit Compact Mode (Esc),,,,コンパクトモードを終了 (Esc),unfinished,src/ui/qml/CompactStrip.qml:225
+CompactStrip,Always on Top — click to unpin (Ctrl+Alt+T),,,,常に手前に表示 — クリックで解除 (Ctrl+Alt+T),unfinished,src/ui/qml/CompactStrip.qml:214
+CompactStrip,Always on Top (Ctrl+Alt+T),,,,常に手前に表示 (Ctrl+Alt+T),unfinished,src/ui/qml/CompactStrip.qml:215
+CompactStrip,Exit Compact Mode (Esc),,,,コンパクトモードを終了 (Esc),unfinished,src/ui/qml/CompactStrip.qml:226
 FFmpegMetadataExtractor,Image sequence,,,,画像シーケンス,unfinished,src/project/ffmpeg_metadata_extractor.cpp:297
 FFmpegMetadataExtractor,Unknown,,Media kind,,不明,unfinished,src/project/ffmpeg_metadata_extractor.cpp:302
-ImageSequenceInspector,Image Sequence,,,,画像シーケンス,unfinished,src/ui/qml/ImageSequenceInspector.qml:103
-ImageSequenceInspector,Frame rate,,,,フレームレート,unfinished,src/ui/qml/ImageSequenceInspector.qml:143
-ImageSequenceInspector,Transfer,,"Transfer function (PQ, HLG, sRGB)",,伝達関数,unfinished,src/ui/qml/ImageSequenceInspector.qml:185
-ImageSequenceInspector,"Auto (Linear, EXR)",,,,自動（リニア、EXR）,unfinished,src/ui/qml/ImageSequenceInspector.qml:203
-ImageSequenceInspector,Auto (sRGB),,,,自動（sRGB）,unfinished,src/ui/qml/ImageSequenceInspector.qml:203
-ImageSequenceInspector,Auto,,Choice: decided from the file,,自動,unfinished,src/ui/qml/ImageSequenceInspector.qml:208
-ImageSequenceInspector,SDR 709,,,,SDR 709,unfinished,src/ui/qml/ImageSequenceInspector.qml:209
-ImageSequenceInspector,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/ImageSequenceInspector.qml:210
-ImageSequenceInspector,PQ P3,,,,PQ P3,unfinished,src/ui/qml/ImageSequenceInspector.qml:211
-ImageSequenceInspector,HLG,,,,HLG,unfinished,src/ui/qml/ImageSequenceInspector.qml:212
-ImageSequenceInspector,Linear,,,,リニア,unfinished,src/ui/qml/ImageSequenceInspector.qml:213
-ImageSequenceInspector,Range,,Frame number range,,範囲,unfinished,src/ui/qml/ImageSequenceInspector.qml:238
-ImageSequenceInspector,%1 – %2 (%3 frames),,,,%1 – %2（%3フレーム）,unfinished,src/ui/qml/ImageSequenceInspector.qml:239
-ImageSequenceInspector,Pattern,,The file name pattern of the sequence,,パターン,unfinished,src/ui/qml/ImageSequenceInspector.qml:247
-ImageSequenceInspector,Resolution,,,,解像度,unfinished,src/ui/qml/ImageSequenceInspector.qml:252
-ImageSequenceInspector,%1 × %2,,,,%1 × %2,unfinished,src/ui/qml/ImageSequenceInspector.qml:254
-ImageSequenceInspector,(probing…),,,,（解析中…）,unfinished,src/ui/qml/ImageSequenceInspector.qml:255
-ImageSequenceInspector,Compression,,EXR compression,,圧縮,unfinished,src/ui/qml/ImageSequenceInspector.qml:264
-ImageSequenceInspector,Duration,,,,デュレーション,unfinished,src/ui/qml/ImageSequenceInspector.qml:268
-ImageSequenceInspector,Cache stride,,,,キャッシュ間隔,unfinished,src/ui/qml/ImageSequenceInspector.qml:296
-ImageSequenceInspector,Every Frame (Full),,,,全フレーム（フル）,unfinished,src/ui/qml/ImageSequenceInspector.qml:321
-ImageSequenceInspector,Every %1 Frames,,,,%1フレームごと,unfinished,src/ui/qml/ImageSequenceInspector.qml:322
-ImageSequenceInspector,Cache ahead,,,,先読みキャッシュ,unfinished,src/ui/qml/ImageSequenceInspector.qml:349
-ImageSequenceInspector,%1 / %2 frames,,,,%1 / %2フレーム,unfinished,src/ui/qml/ImageSequenceInspector.qml:350
-ImageSequenceInspector,Cache behind,,,,後方キャッシュ,unfinished,src/ui/qml/ImageSequenceInspector.qml:356
-ImageSequenceInspector,Layer,,EXR layer,,レイヤー,unfinished,src/ui/qml/ImageSequenceInspector.qml:377
+ImageSequenceInspector,Image Sequence,,,,画像シーケンス,unfinished,src/ui/qml/ImageSequenceInspector.qml:104
+ImageSequenceInspector,Frame rate,,,,フレームレート,unfinished,src/ui/qml/ImageSequenceInspector.qml:144
+ImageSequenceInspector,Transfer,,"Transfer function (PQ, HLG, sRGB)",,伝達関数,unfinished,src/ui/qml/ImageSequenceInspector.qml:186
+ImageSequenceInspector,"Auto (Linear, EXR)",,,,自動（リニア、EXR）,unfinished,src/ui/qml/ImageSequenceInspector.qml:204
+ImageSequenceInspector,Auto (sRGB),,,,自動（sRGB）,unfinished,src/ui/qml/ImageSequenceInspector.qml:204
+ImageSequenceInspector,Auto,,Choice: decided from the file,,自動,unfinished,src/ui/qml/ImageSequenceInspector.qml:209
+ImageSequenceInspector,SDR 709,,,,SDR 709,unfinished,src/ui/qml/ImageSequenceInspector.qml:210
+ImageSequenceInspector,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/ImageSequenceInspector.qml:211
+ImageSequenceInspector,PQ P3,,,,PQ P3,unfinished,src/ui/qml/ImageSequenceInspector.qml:212
+ImageSequenceInspector,HLG,,,,HLG,unfinished,src/ui/qml/ImageSequenceInspector.qml:213
+ImageSequenceInspector,Linear,,,,リニア,unfinished,src/ui/qml/ImageSequenceInspector.qml:214
+ImageSequenceInspector,Range,,Frame number range,,範囲,unfinished,src/ui/qml/ImageSequenceInspector.qml:239
+ImageSequenceInspector,%1 – %2 (%3 frames),,,,%1 – %2（%3フレーム）,unfinished,src/ui/qml/ImageSequenceInspector.qml:240
+ImageSequenceInspector,Pattern,,The file name pattern of the sequence,,パターン,unfinished,src/ui/qml/ImageSequenceInspector.qml:248
+ImageSequenceInspector,Resolution,,,,解像度,unfinished,src/ui/qml/ImageSequenceInspector.qml:253
+ImageSequenceInspector,%1 × %2,,,,%1 × %2,unfinished,src/ui/qml/ImageSequenceInspector.qml:255
+ImageSequenceInspector,(probing…),,,,（解析中…）,unfinished,src/ui/qml/ImageSequenceInspector.qml:256
+ImageSequenceInspector,Compression,,EXR compression,,圧縮,unfinished,src/ui/qml/ImageSequenceInspector.qml:265
+ImageSequenceInspector,Duration,,,,デュレーション,unfinished,src/ui/qml/ImageSequenceInspector.qml:269
+ImageSequenceInspector,Cache stride,,,,キャッシュ間隔,unfinished,src/ui/qml/ImageSequenceInspector.qml:297
+ImageSequenceInspector,Every Frame (Full),,,,全フレーム（フル）,unfinished,src/ui/qml/ImageSequenceInspector.qml:322
+ImageSequenceInspector,Every %1 Frames,,,,%1フレームごと,unfinished,src/ui/qml/ImageSequenceInspector.qml:323
+ImageSequenceInspector,Cache ahead,,,,先読みキャッシュ,unfinished,src/ui/qml/ImageSequenceInspector.qml:350
+ImageSequenceInspector,%1 / %2 frames,,,,%1 / %2フレーム,unfinished,src/ui/qml/ImageSequenceInspector.qml:351
+ImageSequenceInspector,Cache behind,,,,後方キャッシュ,unfinished,src/ui/qml/ImageSequenceInspector.qml:357
+ImageSequenceInspector,Layer,,EXR layer,,レイヤー,unfinished,src/ui/qml/ImageSequenceInspector.qml:378
 InspectorPanel,Video,,Section title,,ビデオ,unfinished,src/ui/qml/InspectorPanel.qml:109
 InspectorPanel,Audio,,Section title,,オーディオ,unfinished,src/ui/qml/InspectorPanel.qml:111
 InspectorPanel,Image,,Media kind: a single still image,,画像,unfinished,src/ui/qml/InspectorPanel.qml:113
@@ -178,116 +183,116 @@ InspectorPanel,Playlist,,,,プレイリスト,unfinished,src/ui/qml/InspectorPan
 InspectorPanel,Dual View,,,,デュアルビュー,unfinished,src/ui/qml/InspectorPanel.qml:116
 InspectorPanel,Live,,Media kind: a live stream or bridge feed,,ライブ,unfinished,src/ui/qml/InspectorPanel.qml:118
 InspectorPanel,Media,,Media kind: generic,,メディア,unfinished,src/ui/qml/InspectorPanel.qml:121
-InspectorPanel,File,,Section title,,ファイル,unfinished,src/ui/qml/InspectorPanel.qml:280
-InspectorPanel,Colour,,Section title,,カラー,unfinished,src/ui/qml/InspectorPanel.qml:426
-InspectorPanel,Range,,"Section: video levels, full or limited",,レンジ,unfinished,src/ui/qml/InspectorPanel.qml:428
-InspectorPanel,Alpha,,Row: whether the file has an alpha channel,,アルファ,unfinished,src/ui/qml/InspectorPanel.qml:430
-InspectorPanel,Container,,"File container format (QuickTime, MXF)",,コンテナ,unfinished,src/ui/qml/InspectorPanel.qml:476
-InspectorPanel,Encoder,,,,エンコーダー,unfinished,src/ui/qml/InspectorPanel.qml:491
-InspectorPanel,Copy URL,,,,URLをコピー,unfinished,src/ui/qml/InspectorPanel.qml:509
-InspectorPanel,Copy path,,,,パスをコピー,unfinished,src/ui/qml/InspectorPanel.qml:509
-InspectorPanel,Reveal,,Button: show the file in Finder / Explorer,,場所を表示,unfinished,src/ui/qml/InspectorPanel.qml:526
-InspectorPanel,Reading metadata…,,,,メタデータを読み込み中…,unfinished,src/ui/qml/InspectorPanel.qml:553
-InspectorPanel,Resolution,,,,解像度,unfinished,src/ui/qml/InspectorPanel.qml:570
-InspectorPanel,Frame rate,,,,フレームレート,unfinished,src/ui/qml/InspectorPanel.qml:576
-InspectorPanel,Total frames,,,,総フレーム数,unfinished,src/ui/qml/InspectorPanel.qml:582
-InspectorPanel,Codec,,,,コーデック,unfinished,src/ui/qml/InspectorPanel.qml:586
-InspectorPanel,Profile,,Codec profile (e.g. ProRes 422 HQ),,プロファイル,unfinished,src/ui/qml/InspectorPanel.qml:597
-InspectorPanel,Bitrate,,,,ビットレート,unfinished,src/ui/qml/InspectorPanel.qml:610
-InspectorPanel,file avg %1,,,,ファイル平均 %1,unfinished,src/ui/qml/InspectorPanel.qml:614
-InspectorPanel,file avg,,,,ファイル平均,unfinished,src/ui/qml/InspectorPanel.qml:615
-InspectorPanel,Pixel format,,,,ピクセル形式,unfinished,src/ui/qml/InspectorPanel.qml:618
-InspectorPanel,RGB,,"Pixel format summary: the file is RGB, not YUV",,RGB,unfinished,src/ui/qml/InspectorPanel.qml:624
-InspectorPanel,Bit depth,,,,ビット深度,unfinished,src/ui/qml/InspectorPanel.qml:627
-InspectorPanel,%1 bit + alpha,,,,%1ビット + アルファ,unfinished,src/ui/qml/InspectorPanel.qml:629
-InspectorPanel,%1 bit,,,,%1ビット,unfinished,src/ui/qml/InspectorPanel.qml:629
-InspectorPanel,HDR,,,,HDR,unfinished,src/ui/qml/InspectorPanel.qml:635
-InspectorPanel,Yes — %1,,,,あり — %1,unfinished,src/ui/qml/InspectorPanel.qml:637
-InspectorPanel,Geometry,,"Section title: dimensions, aspect, rotation",,ジオメトリ,unfinished,src/ui/qml/InspectorPanel.qml:654
-InspectorPanel,Auto (%1°),,Choice: decided from the file,,自動 (%1°),unfinished,src/ui/qml/InspectorPanel.qml:722
-InspectorPanel,Auto,,Choice: decided from the file,,自動,unfinished,src/ui/qml/InspectorPanel.qml:722
-InspectorPanel,Aspect,,,,縦横比,unfinished,src/ui/qml/InspectorPanel.qml:726
-InspectorPanel,Square,,Pixel aspect choice: square pixels,,正方形,unfinished,src/ui/qml/InspectorPanel.qml:730
-InspectorPanel,Detected,,Pixel aspect choice: the aspect found in the file,,検出値,unfinished,src/ui/qml/InspectorPanel.qml:732
-InspectorPanel,Custom,,Pixel aspect choice: a value typed by the user,,カスタム,unfinished,src/ui/qml/InspectorPanel.qml:734
-InspectorPanel,Detected %1:%2,,,,検出値 %1:%2,unfinished,src/ui/qml/InspectorPanel.qml:746
-InspectorPanel,%1:%2 (non-square),,,,%1:%2（非正方形）,unfinished,src/ui/qml/InspectorPanel.qml:776
-InspectorPanel,1:1 (square),,,,1:1（正方形）,unfinished,src/ui/qml/InspectorPanel.qml:778
-InspectorPanel,Display,,Row: display aspect,,表示,unfinished,src/ui/qml/InspectorPanel.qml:782
-InspectorPanel,Rotation,,,,回転,unfinished,src/ui/qml/InspectorPanel.qml:802
-InspectorPanel,Pixel aspect,,,,ピクセル縦横比,unfinished,src/ui/qml/InspectorPanel.qml:843
-InspectorPanel,Display aspect,,,,表示縦横比,unfinished,src/ui/qml/InspectorPanel.qml:877
-InspectorPanel,Color,,Section title,,カラー,unfinished,src/ui/qml/InspectorPanel.qml:922
-InspectorPanel,Colorspace,,,,色空間,unfinished,src/ui/qml/InspectorPanel.qml:936
-InspectorPanel,Primaries,,Colour primaries,,原色,unfinished,src/ui/qml/InspectorPanel.qml:942
-InspectorPanel,Transfer,,"Transfer function (PQ, HLG, sRGB)",,伝達関数,unfinished,src/ui/qml/InspectorPanel.qml:948
-InspectorPanel,HDR metadata,,,,HDRメタデータ,unfinished,src/ui/qml/InspectorPanel.qml:958
-InspectorPanel,MaxCLL %1,,,,MaxCLL %1,unfinished,src/ui/qml/InspectorPanel.qml:961
-InspectorPanel,MaxFALL %1,,,,MaxFALL %1,unfinished,src/ui/qml/InspectorPanel.qml:962
-InspectorPanel,mastering %1 nits,,,,マスタリング %1 nits,unfinished,src/ui/qml/InspectorPanel.qml:964
-InspectorPanel,NCLC tag,,,,NCLCタグ,unfinished,src/ui/qml/InspectorPanel.qml:970
-InspectorPanel,Range tag,,,,レンジタグ,unfinished,src/ui/qml/InspectorPanel.qml:985
-InspectorPanel,untagged,,The file carries no range tag,,タグなし,unfinished,src/ui/qml/InspectorPanel.qml:990
-InspectorPanel,decoder: %1,,,,デコーダー: %1,unfinished,src/ui/qml/InspectorPanel.qml:997
-InspectorPanel,Auto assumes full,,,,自動はフルと推定,unfinished,src/ui/qml/InspectorPanel.qml:999
-InspectorPanel,Auto assumes limited,,,,自動はリミテッドと推定,unfinished,src/ui/qml/InspectorPanel.qml:1000
-InspectorPanel,Auto (Full),,,,自動（フル）,unfinished,src/ui/qml/InspectorPanel.qml:1065
-InspectorPanel,Auto (Limited),,,,自動（リミテッド）,unfinished,src/ui/qml/InspectorPanel.qml:1066
-InspectorPanel,"Auto (Full, assumed)",,,,自動（フル、推定）,unfinished,src/ui/qml/InspectorPanel.qml:1070
-InspectorPanel,"Auto (Limited, assumed)",,,,自動（リミテッド、推定）,unfinished,src/ui/qml/InspectorPanel.qml:1071
-InspectorPanel,Full,,Video levels,,フル,unfinished,src/ui/qml/InspectorPanel.qml:1079
-InspectorPanel,Limited,,Video levels,,リミテッド,unfinished,src/ui/qml/InspectorPanel.qml:1081
-InspectorPanel,Auto (PQ P3),,,,自動（PQ P3）,unfinished,src/ui/qml/InspectorPanel.qml:1144
-InspectorPanel,Auto (PQ 2020),,,,自動（PQ 2020）,unfinished,src/ui/qml/InspectorPanel.qml:1144
-InspectorPanel,Auto (HLG),,,,自動（HLG）,unfinished,src/ui/qml/InspectorPanel.qml:1146
-InspectorPanel,"Auto (SDR, untagged)",,,,自動（SDR、タグなし）,unfinished,src/ui/qml/InspectorPanel.qml:1148
-InspectorPanel,Auto (SDR),,,,自動（SDR）,unfinished,src/ui/qml/InspectorPanel.qml:1149
-InspectorPanel,SDR 709,,,,SDR 709,unfinished,src/ui/qml/InspectorPanel.qml:1156
-InspectorPanel,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/InspectorPanel.qml:1157
-InspectorPanel,PQ P3,,,,PQ P3,unfinished,src/ui/qml/InspectorPanel.qml:1158
-InspectorPanel,HLG,,,,HLG,unfinished,src/ui/qml/InspectorPanel.qml:1159
-InspectorPanel,Linear,,,,リニア,unfinished,src/ui/qml/InspectorPanel.qml:1160
-InspectorPanel,State,,Row: the bridge's current state,,状態,unfinished,src/ui/qml/InspectorPanel.qml:1220
-InspectorPanel,Off in the host,,Bridge state: the Transmit device is disabled in the host application,,ホスト側でオフ,unfinished,src/ui/qml/InspectorPanel.qml:1224
-InspectorPanel,Idle,,Bridge state: nothing is being sent,,アイドル,unfinished,src/ui/qml/InspectorPanel.qml:1226
-InspectorPanel,Pushing,,Bridge state: the host is sending frames,,送信中,unfinished,src/ui/qml/InspectorPanel.qml:1228
-InspectorPanel,Scrubbing,,Bridge state: the host is scrubbing,,スクラブ中,unfinished,src/ui/qml/InspectorPanel.qml:1230
-InspectorPanel,No audio,,,,オーディオなし,unfinished,src/ui/qml/InspectorPanel.qml:1231
-InspectorPanel,Sample rate,,,,サンプルレート,unfinished,src/ui/qml/InspectorPanel.qml:1236
-InspectorPanel,%1 Hz,,,,%1 Hz,unfinished,src/ui/qml/InspectorPanel.qml:1239
-InspectorPanel,Channels,,,,チャンネル,unfinished,src/ui/qml/InspectorPanel.qml:1244
-InspectorPanel,%1 (stereo),,,,%1（ステレオ）,unfinished,src/ui/qml/InspectorPanel.qml:1248
-InspectorPanel,%1 (mono),,,,%1（モノラル）,unfinished,src/ui/qml/InspectorPanel.qml:1249
-InspectorPanel,Layout,,"Audio channel layout (stereo, 5.1)",,レイアウト,unfinished,src/ui/qml/InspectorPanel.qml:1257
-InspectorPanel,Listen in QCView,,Toggle: play the bridge's audio in QCView,,QCViewで聴く,unfinished,src/ui/qml/InspectorPanel.qml:1273
-InspectorPanel,Audio Stream,,Row label for the bridge's audio,,オーディオストリーム,unfinished,src/ui/qml/InspectorPanel.qml:1299
-InspectorPanel,off: tick it in Premiere ▸ Preferences ▸ Playback,,,,オフ: Premiere ▸ 環境設定 ▸ 再生でオンにしてください,unfinished,src/ui/qml/InspectorPanel.qml:1300
-InspectorPanel,Mix,,Audio downmix choice,,ミックス,unfinished,src/ui/qml/InspectorPanel.qml:1351
-InspectorPanel,Auto — picks the right mix per source,,,,自動 — ソースごとに適切なミックスを選択,unfinished,src/ui/qml/InspectorPanel.qml:1372
-InspectorPanel,5.1 → Stereo (BS.775 downmix from channels 1-6),,,,5.1 → ステレオ（チャンネル1〜6をBS.775でダウンミックス）,unfinished,src/ui/qml/InspectorPanel.qml:1374
-InspectorPanel,Channels 7-8 (broadcast stereo bounce),,,,チャンネル7〜8（放送用ステレオバウンス）,unfinished,src/ui/qml/InspectorPanel.qml:1375
-InspectorPanel,Timecode,,Section title,,タイムコード,unfinished,src/ui/qml/InspectorPanel.qml:1490
-InspectorPanel,From start,,Timecode origin: counting from the start of the file,,先頭から,unfinished,src/ui/qml/InspectorPanel.qml:1515
-InspectorPanel,Embedded,,Timecode origin: the timecode track in the file,,埋め込み,unfinished,src/ui/qml/InspectorPanel.qml:1521
-InspectorPanel,QT Start,,Timecode origin: the QuickTime start timecode,,QT開始,unfinished,src/ui/qml/InspectorPanel.qml:1528
-InspectorPanel,QT TC,,,,QT TC,unfinished,src/ui/qml/InspectorPanel.qml:1536
-InspectorPanel,XMP Alt,,,,XMP Alt,unfinished,src/ui/qml/InspectorPanel.qml:1544
-InspectorPanel,Origin,,Row: where the timecode comes from,,起点,unfinished,src/ui/qml/InspectorPanel.qml:1552
-InspectorPanel,Source,,Row: which metadata the timecode was read from,,ソース,unfinished,src/ui/qml/InspectorPanel.qml:1585
-InspectorPanel,(frame %1),,,,（フレーム %1）,unfinished,src/ui/qml/InspectorPanel.qml:1588
-InspectorPanel,QT TimeCode,,,,QT TimeCode,unfinished,src/ui/qml/InspectorPanel.qml:1598
-InspectorPanel,Created,,Row: file creation date,,作成日,unfinished,src/ui/qml/InspectorPanel.qml:1615
-InspectorPanel,Media Created,,Row: the media's own creation date from its metadata,,メディア作成日,unfinished,src/ui/qml/InspectorPanel.qml:1618
-InspectorPanel,Linked Projects,,Section title: project files that reference this media,,リンクされたプロジェクト,unfinished,src/ui/qml/InspectorPanel.qml:1638
-InspectorPanel,After Effects,,,,After Effects,unfinished,src/ui/qml/InspectorPanel.qml:1644
-InspectorPanel,Premiere (Mac),,,,Premiere (Mac),unfinished,src/ui/qml/InspectorPanel.qml:1646
-InspectorPanel,Premiere (Windows),,,,Premiere (Windows),unfinished,src/ui/qml/InspectorPanel.qml:1648
-InspectorPanel,Open,,Button: open the linked project in its application,,開く,unfinished,src/ui/qml/InspectorPanel.qml:1681
-InspectorPanel,Copy,,Button: copy the project path,,コピー,unfinished,src/ui/qml/InspectorPanel.qml:1693
-InspectorPanel,Playlist Contents,,,,プレイリストの内容,unfinished,src/ui/qml/InspectorPanel.qml:1722
-InspectorPanel,%1 clips,,,,%1クリップ,unfinished,src/ui/qml/InspectorPanel.qml:1740
-InspectorPanel,(missing),,,,（見つかりません）,unfinished,src/ui/qml/InspectorPanel.qml:1816
-InspectorPanel,Open in single mode,,,,シングルモードで開く,unfinished,src/ui/qml/InspectorPanel.qml:1878
+InspectorPanel,File,,Section title,,ファイル,unfinished,src/ui/qml/InspectorPanel.qml:281
+InspectorPanel,Colour,,Section title,,カラー,unfinished,src/ui/qml/InspectorPanel.qml:427
+InspectorPanel,Range,,"Section: video levels, full or limited",,レンジ,unfinished,src/ui/qml/InspectorPanel.qml:429
+InspectorPanel,Alpha,,Row: whether the file has an alpha channel,,アルファ,unfinished,src/ui/qml/InspectorPanel.qml:431
+InspectorPanel,Container,,"File container format (QuickTime, MXF)",,コンテナ,unfinished,src/ui/qml/InspectorPanel.qml:477
+InspectorPanel,Encoder,,,,エンコーダー,unfinished,src/ui/qml/InspectorPanel.qml:492
+InspectorPanel,Copy URL,,,,URLをコピー,unfinished,src/ui/qml/InspectorPanel.qml:510
+InspectorPanel,Copy path,,,,パスをコピー,unfinished,src/ui/qml/InspectorPanel.qml:510
+InspectorPanel,Reveal,,Button: show the file in Finder / Explorer,,場所を表示,unfinished,src/ui/qml/InspectorPanel.qml:527
+InspectorPanel,Reading metadata…,,,,メタデータを読み込み中…,unfinished,src/ui/qml/InspectorPanel.qml:554
+InspectorPanel,Resolution,,,,解像度,unfinished,src/ui/qml/InspectorPanel.qml:571
+InspectorPanel,Frame rate,,,,フレームレート,unfinished,src/ui/qml/InspectorPanel.qml:577
+InspectorPanel,Total frames,,,,総フレーム数,unfinished,src/ui/qml/InspectorPanel.qml:583
+InspectorPanel,Codec,,,,コーデック,unfinished,src/ui/qml/InspectorPanel.qml:587
+InspectorPanel,Profile,,Codec profile (e.g. ProRes 422 HQ),,プロファイル,unfinished,src/ui/qml/InspectorPanel.qml:598
+InspectorPanel,Bitrate,,,,ビットレート,unfinished,src/ui/qml/InspectorPanel.qml:611
+InspectorPanel,file avg %1,,,,ファイル平均 %1,unfinished,src/ui/qml/InspectorPanel.qml:615
+InspectorPanel,file avg,,,,ファイル平均,unfinished,src/ui/qml/InspectorPanel.qml:616
+InspectorPanel,Pixel format,,,,ピクセル形式,unfinished,src/ui/qml/InspectorPanel.qml:619
+InspectorPanel,RGB,,"Pixel format summary: the file is RGB, not YUV",,RGB,unfinished,src/ui/qml/InspectorPanel.qml:625
+InspectorPanel,Bit depth,,,,ビット深度,unfinished,src/ui/qml/InspectorPanel.qml:628
+InspectorPanel,%1 bit + alpha,,,,%1ビット + アルファ,unfinished,src/ui/qml/InspectorPanel.qml:630
+InspectorPanel,%1 bit,,,,%1ビット,unfinished,src/ui/qml/InspectorPanel.qml:630
+InspectorPanel,HDR,,,,HDR,unfinished,src/ui/qml/InspectorPanel.qml:636
+InspectorPanel,Yes — %1,,,,あり — %1,unfinished,src/ui/qml/InspectorPanel.qml:638
+InspectorPanel,Geometry,,"Section title: dimensions, aspect, rotation",,ジオメトリ,unfinished,src/ui/qml/InspectorPanel.qml:655
+InspectorPanel,Auto (%1°),,Choice: decided from the file,,自動 (%1°),unfinished,src/ui/qml/InspectorPanel.qml:723
+InspectorPanel,Auto,,Choice: decided from the file,,自動,unfinished,src/ui/qml/InspectorPanel.qml:723
+InspectorPanel,Aspect,,,,縦横比,unfinished,src/ui/qml/InspectorPanel.qml:727
+InspectorPanel,Square,,Pixel aspect choice: square pixels,,正方形,unfinished,src/ui/qml/InspectorPanel.qml:731
+InspectorPanel,Detected,,Pixel aspect choice: the aspect found in the file,,検出値,unfinished,src/ui/qml/InspectorPanel.qml:733
+InspectorPanel,Custom,,Pixel aspect choice: a value typed by the user,,カスタム,unfinished,src/ui/qml/InspectorPanel.qml:735
+InspectorPanel,Detected %1:%2,,,,検出値 %1:%2,unfinished,src/ui/qml/InspectorPanel.qml:747
+InspectorPanel,%1:%2 (non-square),,,,%1:%2（非正方形）,unfinished,src/ui/qml/InspectorPanel.qml:777
+InspectorPanel,1:1 (square),,,,1:1（正方形）,unfinished,src/ui/qml/InspectorPanel.qml:779
+InspectorPanel,Display,,Row: display aspect,,表示,unfinished,src/ui/qml/InspectorPanel.qml:783
+InspectorPanel,Rotation,,,,回転,unfinished,src/ui/qml/InspectorPanel.qml:803
+InspectorPanel,Pixel aspect,,,,ピクセル縦横比,unfinished,src/ui/qml/InspectorPanel.qml:844
+InspectorPanel,Display aspect,,,,表示縦横比,unfinished,src/ui/qml/InspectorPanel.qml:878
+InspectorPanel,Color,,Section title,,カラー,unfinished,src/ui/qml/InspectorPanel.qml:923
+InspectorPanel,Colorspace,,,,色空間,unfinished,src/ui/qml/InspectorPanel.qml:937
+InspectorPanel,Primaries,,Colour primaries,,原色,unfinished,src/ui/qml/InspectorPanel.qml:943
+InspectorPanel,Transfer,,"Transfer function (PQ, HLG, sRGB)",,伝達関数,unfinished,src/ui/qml/InspectorPanel.qml:949
+InspectorPanel,HDR metadata,,,,HDRメタデータ,unfinished,src/ui/qml/InspectorPanel.qml:959
+InspectorPanel,MaxCLL %1,,,,MaxCLL %1,unfinished,src/ui/qml/InspectorPanel.qml:962
+InspectorPanel,MaxFALL %1,,,,MaxFALL %1,unfinished,src/ui/qml/InspectorPanel.qml:963
+InspectorPanel,mastering %1 nits,,,,マスタリング %1 nits,unfinished,src/ui/qml/InspectorPanel.qml:965
+InspectorPanel,NCLC tag,,,,NCLCタグ,unfinished,src/ui/qml/InspectorPanel.qml:971
+InspectorPanel,Range tag,,,,レンジタグ,unfinished,src/ui/qml/InspectorPanel.qml:986
+InspectorPanel,untagged,,The file carries no range tag,,タグなし,unfinished,src/ui/qml/InspectorPanel.qml:991
+InspectorPanel,decoder: %1,,,,デコーダー: %1,unfinished,src/ui/qml/InspectorPanel.qml:998
+InspectorPanel,Auto assumes full,,,,自動はフルと推定,unfinished,src/ui/qml/InspectorPanel.qml:1000
+InspectorPanel,Auto assumes limited,,,,自動はリミテッドと推定,unfinished,src/ui/qml/InspectorPanel.qml:1001
+InspectorPanel,Auto (Full),,,,自動（フル）,unfinished,src/ui/qml/InspectorPanel.qml:1066
+InspectorPanel,Auto (Limited),,,,自動（リミテッド）,unfinished,src/ui/qml/InspectorPanel.qml:1067
+InspectorPanel,"Auto (Full, assumed)",,,,自動（フル、推定）,unfinished,src/ui/qml/InspectorPanel.qml:1071
+InspectorPanel,"Auto (Limited, assumed)",,,,自動（リミテッド、推定）,unfinished,src/ui/qml/InspectorPanel.qml:1072
+InspectorPanel,Full,,Video levels,,フル,unfinished,src/ui/qml/InspectorPanel.qml:1080
+InspectorPanel,Limited,,Video levels,,リミテッド,unfinished,src/ui/qml/InspectorPanel.qml:1082
+InspectorPanel,Auto (PQ P3),,,,自動（PQ P3）,unfinished,src/ui/qml/InspectorPanel.qml:1145
+InspectorPanel,Auto (PQ 2020),,,,自動（PQ 2020）,unfinished,src/ui/qml/InspectorPanel.qml:1145
+InspectorPanel,Auto (HLG),,,,自動（HLG）,unfinished,src/ui/qml/InspectorPanel.qml:1147
+InspectorPanel,"Auto (SDR, untagged)",,,,自動（SDR、タグなし）,unfinished,src/ui/qml/InspectorPanel.qml:1149
+InspectorPanel,Auto (SDR),,,,自動（SDR）,unfinished,src/ui/qml/InspectorPanel.qml:1150
+InspectorPanel,SDR 709,,,,SDR 709,unfinished,src/ui/qml/InspectorPanel.qml:1157
+InspectorPanel,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/InspectorPanel.qml:1158
+InspectorPanel,PQ P3,,,,PQ P3,unfinished,src/ui/qml/InspectorPanel.qml:1159
+InspectorPanel,HLG,,,,HLG,unfinished,src/ui/qml/InspectorPanel.qml:1160
+InspectorPanel,Linear,,,,リニア,unfinished,src/ui/qml/InspectorPanel.qml:1161
+InspectorPanel,State,,Row: the bridge's current state,,状態,unfinished,src/ui/qml/InspectorPanel.qml:1221
+InspectorPanel,Off in the host,,Bridge state: the Transmit device is disabled in the host application,,ホスト側でオフ,unfinished,src/ui/qml/InspectorPanel.qml:1225
+InspectorPanel,Idle,,Bridge state: nothing is being sent,,アイドル,unfinished,src/ui/qml/InspectorPanel.qml:1227
+InspectorPanel,Pushing,,Bridge state: the host is sending frames,,送信中,unfinished,src/ui/qml/InspectorPanel.qml:1229
+InspectorPanel,Scrubbing,,Bridge state: the host is scrubbing,,スクラブ中,unfinished,src/ui/qml/InspectorPanel.qml:1231
+InspectorPanel,No audio,,,,オーディオなし,unfinished,src/ui/qml/InspectorPanel.qml:1232
+InspectorPanel,Sample rate,,,,サンプルレート,unfinished,src/ui/qml/InspectorPanel.qml:1237
+InspectorPanel,%1 Hz,,,,%1 Hz,unfinished,src/ui/qml/InspectorPanel.qml:1240
+InspectorPanel,Channels,,,,チャンネル,unfinished,src/ui/qml/InspectorPanel.qml:1245
+InspectorPanel,%1 (stereo),,,,%1（ステレオ）,unfinished,src/ui/qml/InspectorPanel.qml:1249
+InspectorPanel,%1 (mono),,,,%1（モノラル）,unfinished,src/ui/qml/InspectorPanel.qml:1250
+InspectorPanel,Layout,,"Audio channel layout (stereo, 5.1)",,レイアウト,unfinished,src/ui/qml/InspectorPanel.qml:1258
+InspectorPanel,Listen in QCView,,Toggle: play the bridge's audio in QCView,,QCViewで聴く,unfinished,src/ui/qml/InspectorPanel.qml:1274
+InspectorPanel,Audio Stream,,Row label for the bridge's audio,,オーディオストリーム,unfinished,src/ui/qml/InspectorPanel.qml:1300
+InspectorPanel,off: tick it in Premiere ▸ Preferences ▸ Playback,,,,オフ: Premiere ▸ 環境設定 ▸ 再生でオンにしてください,unfinished,src/ui/qml/InspectorPanel.qml:1301
+InspectorPanel,Mix,,Audio downmix choice,,ミックス,unfinished,src/ui/qml/InspectorPanel.qml:1352
+InspectorPanel,Auto — picks the right mix per source,,,,自動 — ソースごとに適切なミックスを選択,unfinished,src/ui/qml/InspectorPanel.qml:1373
+InspectorPanel,5.1 → Stereo (BS.775 downmix from channels 1-6),,,,5.1 → ステレオ（チャンネル1〜6をBS.775でダウンミックス）,unfinished,src/ui/qml/InspectorPanel.qml:1375
+InspectorPanel,Channels 7-8 (broadcast stereo bounce),,,,チャンネル7〜8（放送用ステレオバウンス）,unfinished,src/ui/qml/InspectorPanel.qml:1376
+InspectorPanel,Timecode,,Section title,,タイムコード,unfinished,src/ui/qml/InspectorPanel.qml:1491
+InspectorPanel,From start,,Timecode origin: counting from the start of the file,,先頭から,unfinished,src/ui/qml/InspectorPanel.qml:1516
+InspectorPanel,Embedded,,Timecode origin: the timecode track in the file,,埋め込み,unfinished,src/ui/qml/InspectorPanel.qml:1522
+InspectorPanel,QT Start,,Timecode origin: the QuickTime start timecode,,QT開始,unfinished,src/ui/qml/InspectorPanel.qml:1529
+InspectorPanel,QT TC,,,,QT TC,unfinished,src/ui/qml/InspectorPanel.qml:1537
+InspectorPanel,XMP Alt,,,,XMP Alt,unfinished,src/ui/qml/InspectorPanel.qml:1545
+InspectorPanel,Origin,,Row: where the timecode comes from,,起点,unfinished,src/ui/qml/InspectorPanel.qml:1553
+InspectorPanel,Source,,Row: which metadata the timecode was read from,,ソース,unfinished,src/ui/qml/InspectorPanel.qml:1586
+InspectorPanel,(frame %1),,,,（フレーム %1）,unfinished,src/ui/qml/InspectorPanel.qml:1589
+InspectorPanel,QT TimeCode,,,,QT TimeCode,unfinished,src/ui/qml/InspectorPanel.qml:1599
+InspectorPanel,Created,,Row: file creation date,,作成日,unfinished,src/ui/qml/InspectorPanel.qml:1616
+InspectorPanel,Media Created,,Row: the media's own creation date from its metadata,,メディア作成日,unfinished,src/ui/qml/InspectorPanel.qml:1619
+InspectorPanel,Linked Projects,,Section title: project files that reference this media,,リンクされたプロジェクト,unfinished,src/ui/qml/InspectorPanel.qml:1639
+InspectorPanel,After Effects,,,,After Effects,unfinished,src/ui/qml/InspectorPanel.qml:1645
+InspectorPanel,Premiere (Mac),,,,Premiere (Mac),unfinished,src/ui/qml/InspectorPanel.qml:1647
+InspectorPanel,Premiere (Windows),,,,Premiere (Windows),unfinished,src/ui/qml/InspectorPanel.qml:1649
+InspectorPanel,Open,,Button: open the linked project in its application,,開く,unfinished,src/ui/qml/InspectorPanel.qml:1682
+InspectorPanel,Copy,,Button: copy the project path,,コピー,unfinished,src/ui/qml/InspectorPanel.qml:1694
+InspectorPanel,Playlist Contents,,,,プレイリストの内容,unfinished,src/ui/qml/InspectorPanel.qml:1723
+InspectorPanel,%1 clips,,,,%1クリップ,unfinished,src/ui/qml/InspectorPanel.qml:1741
+InspectorPanel,(missing),,,,（見つかりません）,unfinished,src/ui/qml/InspectorPanel.qml:1818
+InspectorPanel,Open in single mode,,,,シングルモードで開く,unfinished,src/ui/qml/InspectorPanel.qml:1882
 LeftRail,Videos,,Media bin heading,,ビデオ,unfinished,src/ui/qml/LeftRail.qml:280
 LeftRail,Audio,,Media bin heading,,オーディオ,unfinished,src/ui/qml/LeftRail.qml:282
 LeftRail,Images,,Media bin heading,,画像,unfinished,src/ui/qml/LeftRail.qml:284
@@ -296,153 +301,161 @@ LeftRail,Playlists,,Media bin heading,,プレイリスト,unfinished,src/ui/qml/
 LeftRail,Dual Views,,Media bin heading,,デュアルビュー,unfinished,src/ui/qml/LeftRail.qml:290
 LeftRail,Live,,Media bin heading,,ライブ,unfinished,src/ui/qml/LeftRail.qml:292
 LeftRail,Add Media,,,,メディアを追加,unfinished,src/ui/qml/LeftRail.qml:299
-LeftRail,All media (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,すべてのメディア (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/LeftRail.qml:303
-LeftRail,Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif),,,,ビデオファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif),unfinished,src/ui/qml/LeftRail.qml:306
-LeftRail,Audio files (*.wav *.aif *.aiff *.mp3 *.flac *.m4a),,,,オーディオファイル (*.wav *.aif *.aiff *.mp3 *.flac *.m4a),unfinished,src/ui/qml/LeftRail.qml:307
-LeftRail,Image files (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp),,,,画像ファイル (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp),unfinished,src/ui/qml/LeftRail.qml:308
-LeftRail,All files (*),,,,すべてのファイル (*),unfinished,src/ui/qml/LeftRail.qml:309
-LeftRail,Create Playlist from Selection,,,,選択項目からプレイリストを作成,unfinished,src/ui/qml/LeftRail.qml:851
-LeftRail,Input,,Context menu: set the OCIO input colourspace of the selected clips,,入力,unfinished,src/ui/qml/LeftRail.qml:866
-LeftRail,In this project,,Picker group header: inputs already used in the project,,このプロジェクト内,unfinished,src/ui/qml/LeftRail.qml:891
-LeftRail,All,,Picker group header: every input in the config,,すべて,unfinished,src/ui/qml/LeftRail.qml:894
-LeftRail,Input for 1 clip,,,,1クリップの入力,unfinished,src/ui/qml/LeftRail.qml:910
-LeftRail,Input for %1 clips,,,,%1クリップの入力,unfinished,src/ui/qml/LeftRail.qml:911
-LeftRail,Filter…,,,,フィルター…,unfinished,src/ui/qml/LeftRail.qml:922
-LeftRail,default,,Picker entry: use the config's default input,,デフォルト,unfinished,src/ui/qml/LeftRail.qml:1008
-LeftRail,Use Clip Chain of “%1”,,,,“%1”のクリップチェーンを使用,unfinished,src/ui/qml/LeftRail.qml:1029
-LeftRail,Use Clip Chain of the Clip on Screen,,,,表示中のクリップのクリップチェーンを使用,unfinished,src/ui/qml/LeftRail.qml:1030
-LeftRail,Reset Clip Chain,,,,クリップチェーンをリセット,unfinished,src/ui/qml/LeftRail.qml:1037
-LeftRail,Delete,,,,削除,unfinished,src/ui/qml/LeftRail.qml:1048
-LeftRail,Expand panel,,Tooltip on the rail's edge button,,パネルを展開,unfinished,src/ui/qml/LeftRail.qml:1150
-LeftRail,Collapse panel,,Tooltip on the rail's edge button,,パネルを折りたたむ,unfinished,src/ui/qml/LeftRail.qml:1152
-LeftRail,Project,,Rail title,,プロジェクト,unfinished,src/ui/qml/LeftRail.qml:1173
-LeftRail,(%1),,"Count of items, in parentheses",,(%1),unfinished,src/ui/qml/LeftRail.qml:1184
-LeftRail,Media,,Section title: the project's media bins,,メディア,unfinished,src/ui/qml/LeftRail.qml:1310
-LeftRail,Drop media here to add to the project,,,,ここにメディアをドロップしてプロジェクトに追加,unfinished,src/ui/qml/LeftRail.qml:1453
-LeftRail,New playlist,,Default name of a new playlist,,新規プレイリスト,unfinished,src/ui/qml/LeftRail.qml:1693
-LeftRail,Safety Guides,,Section title,,セーフエリアガイド,unfinished,src/ui/qml/LeftRail.qml:1743
-LeftRail,Guide,,Row: which safety guide to show,,ガイド,unfinished,src/ui/qml/LeftRail.qml:1785
-LeftRail,(none),,,,（なし）,unfinished,src/ui/qml/LeftRail.qml:1794
-LeftRail,Opacity,,Row: guide opacity,,不透明度,unfinished,src/ui/qml/LeftRail.qml:1807
-LeftRail,Width,,Row: guide line width,,線幅,unfinished,src/ui/qml/LeftRail.qml:1825
-LeftRail,Color,,Row: guide line colour,,カラー,unfinished,src/ui/qml/LeftRail.qml:1848
-LeftRail,Background,,Section title,,背景,unfinished,src/ui/qml/LeftRail.qml:1892
-LeftRail,Black,,Background choice,,黒,unfinished,src/ui/qml/LeftRail.qml:1909
-LeftRail,Dark Gray,,Background choice,,ダークグレー,unfinished,src/ui/qml/LeftRail.qml:1912
-LeftRail,Dark Check,,Background choice: a dark checkerboard,,ダークチェッカー,unfinished,src/ui/qml/LeftRail.qml:1919
-LeftRail,Light Check,,Background choice: a light checkerboard,,ライトチェッカー,unfinished,src/ui/qml/LeftRail.qml:1926
-LeftRail,Output,,"Section: installed outputs (NDI, AJA, streaming)",,出力,unfinished,src/ui/qml/LeftRail.qml:2026
-LeftRail,Mute feed,,Chip: silence the audio sent to outputs,,フィードをミュート,unfinished,src/ui/qml/LeftRail.qml:2050
-LeftRail,Silence the audio sent to outputs while you keep listening. The master mute (M) silences both.,,,,自分は聴き続けたまま、出力へ送るオーディオだけを消音します。マスターミュート (M) は両方を消音します。,unfinished,src/ui/qml/LeftRail.qml:2051
-LeftRail,Guides,,Chip: send the safety guides to outputs,,ガイド,unfinished,src/ui/qml/LeftRail.qml:2061
-LeftRail,Draw the safety guides into the outputs that ask for them.,,,,要求のある出力にセーフエリアガイドを描き込みます。,unfinished,src/ui/qml/LeftRail.qml:2062
-LeftRail,Notes,,Chip: send note strokes to outputs,,ノート,unfinished,src/ui/qml/LeftRail.qml:2071
-LeftRail,Draw note strokes into the outputs that ask for them.,,,,要求のある出力にノートのストロークを描き込みます。,unfinished,src/ui/qml/LeftRail.qml:2072
-LeftRail,Stop,,Button on an output card,,停止,unfinished,src/ui/qml/LeftRail.qml:2126
-LeftRail,Start,,,,開始,unfinished,src/ui/qml/LeftRail.qml:2126
-LeftRail,PQ Rec.2100,,Output transfer choice,,PQ Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2154
-LeftRail,HLG Rec.2100,,,,HLG Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2154
-LeftRail,SDR Rec.709,,Output transfer choice,,SDR Rec.709,unfinished,src/ui/qml/LeftRail.qml:2154
-LeftRail,1080p,,Output resolution choice,,1080p,unfinished,src/ui/qml/LeftRail.qml:2157
-LeftRail,UHD,,,,UHD,unfinished,src/ui/qml/LeftRail.qml:2157
+LeftRail,All media (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,すべてのメディア (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),obsolete,
+LeftRail,Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif),,,,ビデオファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif),obsolete,
+LeftRail,Audio files (*.wav *.aif *.aiff *.mp3 *.flac *.m4a),,,,オーディオファイル (*.wav *.aif *.aiff *.mp3 *.flac *.m4a),obsolete,
+LeftRail,Image files (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp),,,,画像ファイル (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.webp),obsolete,
+LeftRail,All files (*),,,,すべてのファイル (*),obsolete,
+LeftRail,Can’t be played here: unsupported format or un-debayered camera raw,,Tooltip on the warning badge of a media row the player cannot decode,,ここでは再生できません: 未対応の形式、またはデベイヤー前のカメラRAWです,unfinished,src/ui/qml/LeftRail.qml:641
+LeftRail,Create Playlist from Selection,,,,選択項目からプレイリストを作成,unfinished,src/ui/qml/LeftRail.qml:863
+LeftRail,Input,,Context menu: set the OCIO input colourspace of the selected clips,,入力,unfinished,src/ui/qml/LeftRail.qml:878
+LeftRail,In this project,,Picker group header: inputs already used in the project,,このプロジェクト内,unfinished,src/ui/qml/LeftRail.qml:903
+LeftRail,All,,Picker group header: every input in the config,,すべて,unfinished,src/ui/qml/LeftRail.qml:906
+LeftRail,Input for 1 clip,,,,1クリップの入力,unfinished,src/ui/qml/LeftRail.qml:922
+LeftRail,Input for %1 clips,,,,%1クリップの入力,unfinished,src/ui/qml/LeftRail.qml:923
+LeftRail,Filter…,,,,フィルター…,unfinished,src/ui/qml/LeftRail.qml:934
+LeftRail,default,,Picker entry: use the config's default input,,デフォルト,unfinished,src/ui/qml/LeftRail.qml:1021
+LeftRail,Use Clip Chain of “%1”,,,,“%1”のクリップチェーンを使用,unfinished,src/ui/qml/LeftRail.qml:1042
+LeftRail,Use Clip Chain of the Clip on Screen,,,,表示中のクリップのクリップチェーンを使用,unfinished,src/ui/qml/LeftRail.qml:1043
+LeftRail,Reset Clip Chain,,,,クリップチェーンをリセット,unfinished,src/ui/qml/LeftRail.qml:1050
+LeftRail,Delete,,,,削除,unfinished,src/ui/qml/LeftRail.qml:1061
+LeftRail,Expand panel,,Tooltip on the rail's edge button,,パネルを展開,unfinished,src/ui/qml/LeftRail.qml:1164
+LeftRail,Collapse panel,,Tooltip on the rail's edge button,,パネルを折りたたむ,unfinished,src/ui/qml/LeftRail.qml:1166
+LeftRail,Project,,Rail title,,プロジェクト,unfinished,src/ui/qml/LeftRail.qml:1187
+LeftRail,(%1),,"Count of items, in parentheses",,(%1),unfinished,src/ui/qml/LeftRail.qml:1198
+LeftRail,Media,,Section title: the project's media bins,,メディア,unfinished,src/ui/qml/LeftRail.qml:1324
+LeftRail,Drop media here to add to the project,,,,ここにメディアをドロップしてプロジェクトに追加,unfinished,src/ui/qml/LeftRail.qml:1467
+LeftRail,New playlist,,Default name of a new playlist,,新規プレイリスト,unfinished,src/ui/qml/LeftRail.qml:1708
+LeftRail,Safety Guides,,Section title,,セーフエリアガイド,unfinished,src/ui/qml/LeftRail.qml:1758
+LeftRail,Guide,,Row: which safety guide to show,,ガイド,unfinished,src/ui/qml/LeftRail.qml:1800
+LeftRail,(none),,,,（なし）,unfinished,src/ui/qml/LeftRail.qml:1809
+LeftRail,Opacity,,Row: guide opacity,,不透明度,unfinished,src/ui/qml/LeftRail.qml:1822
+LeftRail,Width,,Row: guide line width,,線幅,unfinished,src/ui/qml/LeftRail.qml:1840
+LeftRail,Color,,Row: guide line colour,,カラー,unfinished,src/ui/qml/LeftRail.qml:1863
+LeftRail,Background,,Section title,,背景,unfinished,src/ui/qml/LeftRail.qml:1907
+LeftRail,Black,,Background choice,,黒,unfinished,src/ui/qml/LeftRail.qml:1924
+LeftRail,Dark Gray,,Background choice,,ダークグレー,unfinished,src/ui/qml/LeftRail.qml:1927
+LeftRail,Dark Check,,Background choice: a dark checkerboard,,ダークチェッカー,unfinished,src/ui/qml/LeftRail.qml:1934
+LeftRail,Light Check,,Background choice: a light checkerboard,,ライトチェッカー,unfinished,src/ui/qml/LeftRail.qml:1941
+LeftRail,Output,,"Section: installed outputs (NDI, AJA, streaming)",,出力,unfinished,src/ui/qml/LeftRail.qml:2042
+LeftRail,Mute feed,,Chip: silence the audio sent to outputs,,フィードをミュート,unfinished,src/ui/qml/LeftRail.qml:2066
+LeftRail,Silence the audio sent to outputs while you keep listening. The master mute (M) silences both.,,,,自分は聴き続けたまま、出力へ送るオーディオだけを消音します。マスターミュート (M) は両方を消音します。,unfinished,src/ui/qml/LeftRail.qml:2067
+LeftRail,Guides,,Chip: send the safety guides to outputs,,ガイド,unfinished,src/ui/qml/LeftRail.qml:2077
+LeftRail,Draw the safety guides into the outputs that ask for them.,,,,要求のある出力にセーフエリアガイドを描き込みます。,unfinished,src/ui/qml/LeftRail.qml:2078
+LeftRail,Notes,,Chip: send note strokes to outputs,,ノート,unfinished,src/ui/qml/LeftRail.qml:2087
+LeftRail,Draw note strokes into the outputs that ask for them.,,,,要求のある出力にノートのストロークを描き込みます。,unfinished,src/ui/qml/LeftRail.qml:2088
+LeftRail,Stop,,Button on an output card,,停止,unfinished,src/ui/qml/LeftRail.qml:2142
+LeftRail,Start,,,,開始,unfinished,src/ui/qml/LeftRail.qml:2142
+LeftRail,PQ Rec.2100,,Output transfer choice,,PQ Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2170
+LeftRail,HLG Rec.2100,,,,HLG Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2170
+LeftRail,SDR Rec.709,,Output transfer choice,,SDR Rec.709,unfinished,src/ui/qml/LeftRail.qml:2170
+LeftRail,1080p,,Output resolution choice,,1080p,unfinished,src/ui/qml/LeftRail.qml:2173
+LeftRail,UHD,,,,UHD,unfinished,src/ui/qml/LeftRail.qml:2173
 LeftRail,Auto,,"Output resolution choice
 ----------
-Choice: follow the source",,自動,unfinished,src/ui/qml/LeftRail.qml:2157
-LeftRail,attached,,Output state: the sink is receiving,,接続済み,unfinished,src/ui/qml/LeftRail.qml:2164
-LeftRail,waiting for the sink,,Output state,,出力先を待機中,unfinished,src/ui/qml/LeftRail.qml:2167
-LeftRail,P3-D65,,,,P3-D65,unfinished,src/ui/qml/LeftRail.qml:2171
-LeftRail,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/LeftRail.qml:2171
-LeftRail,%1 / %2 / %3 nits,,,,%1 / %2 / %3 nits,unfinished,src/ui/qml/LeftRail.qml:2172
-LeftRail,live,,Output state,,ライブ,unfinished,src/ui/qml/LeftRail.qml:2193
-LeftRail,refused,,Output state: the sink refused the connection,,接続拒否,unfinished,src/ui/qml/LeftRail.qml:2195
-LeftRail,starting,,Output state,,開始中,unfinished,src/ui/qml/LeftRail.qml:2197
-LeftRail,not installed,,Output state,,未インストール,unfinished,src/ui/qml/LeftRail.qml:2199
-LeftRail,Publish the viewport and the mixed audio to this output. The sink runs as its own application; QCView starts it with Start and stops it with Stop.,,,,ビューポートとミックス済みオーディオをこの出力に送出します。出力先は独立したアプリケーションとして動作し、QCViewが「開始」で起動し「停止」で終了します。,unfinished,src/ui/qml/LeftRail.qml:2200
-LeftRail,peak · MaxCLL · MaxFALL nits,,Caption under three number fields,,ピーク · MaxCLL · MaxFALL nits,unfinished,src/ui/qml/LeftRail.qml:2261
-LeftRail,No outputs installed. An output registers itself in Application Support/QCView/Outputs.,,,,出力がインストールされていません。出力はApplication Support/QCView/Outputsに自身を登録します。,unfinished,src/ui/qml/LeftRail.qml:2304
-LeftRail,streaming,,Output state,,配信中,unfinished,src/ui/qml/LeftRail.qml:2337
-LeftRail,reconnecting,,Output state,,再接続中,unfinished,src/ui/qml/LeftRail.qml:2339
-LeftRail,connecting,,Output state,,接続中,unfinished,src/ui/qml/LeftRail.qml:2341
-LeftRail,failed,,Output state,,失敗,unfinished,src/ui/qml/LeftRail.qml:2343
-LeftRail,%1 kbps,,,,%1 kbps,unfinished,src/ui/qml/LeftRail.qml:2350
-LeftRail,%1 fps,,,,%1 fps,unfinished,src/ui/qml/LeftRail.qml:2351
-LeftRail,%n encoded,,,0,エンコード %n,unfinished,src/ui/qml/LeftRail.qml:2352
-LeftRail,%n repeated,,,0,リピート %n,unfinished,src/ui/qml/LeftRail.qml:2353
-LeftRail,%n skipped,,,0,スキップ %n,unfinished,src/ui/qml/LeftRail.qml:2354
-LeftRail,%n dropped,,,0,ドロップ %n,unfinished,src/ui/qml/LeftRail.qml:2355
-LeftRail,%n send error(s),,,0,送信エラー %n,unfinished,src/ui/qml/LeftRail.qml:2356
-LeftRail,%n reconnect(s),,,0,再接続 %n,unfinished,src/ui/qml/LeftRail.qml:2357
-LeftRail,Auto fps,,Frame rate choice: follow the source,,自動fps,unfinished,src/ui/qml/LeftRail.qml:2368
-LeftRail,Main,,"H.264 profile name, keep in English",,Main,unfinished,src/ui/qml/LeftRail.qml:2370
-LeftRail,Baseline,,,,Baseline,unfinished,src/ui/qml/LeftRail.qml:2370
-LeftRail,no audio,,Summary: the stream sends video only,,オーディオなし,unfinished,src/ui/qml/LeftRail.qml:2372
-LeftRail,AAC %1,,,,AAC %1,unfinished,src/ui/qml/LeftRail.qml:2372
-LeftRail,SRT %1 ms,,,,SRT %1 ms,unfinished,src/ui/qml/LeftRail.qml:2373
-LeftRail,Stream,,Card title: the SRT / RTMP streaming output,,ストリーム,unfinished,src/ui/qml/LeftRail.qml:2381
-LeftRail,no hardware encoder,,Output state: this machine cannot encode,,ハードウェアエンコーダーなし,unfinished,src/ui/qml/LeftRail.qml:2388
-LeftRail,"Send the viewport and the mixed audio to a streaming server (Louper, or any SRT or RTMP server) as H.264 + AAC, encoded on the GPU. srt://host:port with the key as the stream id, or rtmp://host/app with the key as the stream name. A dropped connection reconnects on its own. The picture is the same Rec.709 SDR picture the output bus serves; the frame rate is fixed for the session (a paused viewport repeats its last frame).",,,,ビューポートとミックス済みオーディオを、GPUでエンコードしたH.264 + AACとしてストリーミングサーバー（Louper、または任意のSRT / RTMPサーバー）へ送信します。srt://host:portではキーがストリームIDに、rtmp://host/appではキーがストリーム名になります。接続が切れても自動的に再接続します。映像は出力バスが供給するものと同じRec.709 SDR映像で、フレームレートはセッション中固定です（一時停止中のビューポートは最後のフレームを繰り返します）。,unfinished,src/ui/qml/LeftRail.qml:2389
-LeftRail,srt://host:port,,,,srt://host:port,unfinished,src/ui/qml/LeftRail.qml:2411
-LeftRail,Stream key (SRT stream id),,,,ストリームキー（SRTストリームID）,unfinished,src/ui/qml/LeftRail.qml:2424
-LeftRail,Hide the key,,,,キーを隠す,unfinished,src/ui/qml/LeftRail.qml:2451
-LeftRail,Show the key,,,,キーを表示,unfinished,src/ui/qml/LeftRail.qml:2451
-LeftRail,Bitrate (kbps),,,,ビットレート (kbps),unfinished,src/ui/qml/LeftRail.qml:2465
-LeftRail,Constant-rate target. Louper suggests 2500–8000 at 1080p.,,,,固定レートの目標値。Louperは1080pで2500〜8000を推奨しています。,unfinished,src/ui/qml/LeftRail.qml:2466
-LeftRail,Resolution,,,,解像度,unfinished,src/ui/qml/LeftRail.qml:2487
-LeftRail,The stream's raster; the viewport is letterboxed into it like any output.,,,,ストリームのラスター。ビューポートは他の出力と同様にレターボックスで収められます。,unfinished,src/ui/qml/LeftRail.qml:2488
-LeftRail,Frame rate,,,,フレームレート,unfinished,src/ui/qml/LeftRail.qml:2510
-LeftRail,Auto takes the source's rate when the stream starts (30 when it has none) and keeps it for the session. A 23.976 source into a 30 fps clock repeats six frames a second.,,,,「自動」はストリーム開始時にソースのレートを採用し（ない場合は30）、セッション中はそれを維持します。23.976のソースを30 fpsのクロックに載せると、毎秒6フレームが繰り返されます。,unfinished,src/ui/qml/LeftRail.qml:2511
-LeftRail,H.264 profile,,,,H.264プロファイル,unfinished,src/ui/qml/LeftRail.qml:2535
-LeftRail,Baseline is what Louper's recipe asks for; Main gives better quality per bit where the service accepts it. Never B-frames.,,,,BaselineはLouperの推奨設定です。Mainはサービスが対応していればビットあたりの画質が向上します。Bフレームは使用しません。,unfinished,src/ui/qml/LeftRail.qml:2536
-LeftRail,Audio (kbps),,,,オーディオ (kbps),unfinished,src/ui/qml/LeftRail.qml:2559
-LeftRail,"AAC stereo at 48 kHz from the mixed audio, before Listen, mute and volume. Off sends video only.",,,,ミックス済みオーディオからの48 kHz AACステレオ。「聴く」、ミュート、音量の前段から取り出します。オフにするとビデオのみを送信します。,unfinished,src/ui/qml/LeftRail.qml:2560
-LeftRail,Off,,AAC bitrate choice: no audio in the stream,,オフ,unfinished,src/ui/qml/LeftRail.qml:2570
-LeftRail,SRT latency (ms),,,,SRTレイテンシ (ms),unfinished,src/ui/qml/LeftRail.qml:2584
-LeftRail,"The SRT retransmission window, both ends negotiate the larger. 120 ms suits a LAN or a good link; raise it on a lossy one.",,,,SRTの再送ウィンドウ。両端のうち大きい方の値で合意されます。LANや良好な回線なら120 ms、損失の多い回線では大きくしてください。,unfinished,src/ui/qml/LeftRail.qml:2585
-LeftRail,Settings,,Section title,,設定,unfinished,src/ui/qml/LeftRail.qml:2621
-LeftRail,Reset all preferences?,,,,すべての環境設定をリセットしますか？,unfinished,src/ui/qml/LeftRail.qml:2681
-LeftRail,"Every preference (recents, layout, settings, shortcuts) will be erased and the app will quit. Relaunch to continue.",,,,すべての環境設定（最近使った項目、レイアウト、設定、ショートカット）が消去され、アプリが終了します。続けるには再起動してください。,unfinished,src/ui/qml/LeftRail.qml:2682
-LeftRail,Performance,,Settings group header,,パフォーマンス,unfinished,src/ui/qml/LeftRail.qml:2830
-LeftRail,Image-seq decode threads,,Image-seq = image sequence,,画像シーケンスのデコードスレッド数,unfinished,src/ui/qml/LeftRail.qml:2841
-LeftRail,Applies on next sequence load.,,,,次回のシーケンス読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:2842
-LeftRail,Image-seq cache window,,Image-seq = image sequence,,画像シーケンスのキャッシュ範囲,unfinished,src/ui/qml/LeftRail.qml:2871
-LeftRail,Frames cached ahead of the playhead. Lower = less RAM.,,,,再生ヘッドの先にキャッシュするフレーム数。小さいほどRAM使用量が減ります。,unfinished,src/ui/qml/LeftRail.qml:2872
-LeftRail,Video decode threads,,,,ビデオのデコードスレッド数,unfinished,src/ui/qml/LeftRail.qml:2902
-LeftRail,0 = Auto. Single-video playback only; dual and scrub stay on Auto. Applies on next video load.,,,,0 = 自動。単一ビデオの再生のみに適用。デュアルとスクラブは自動のままです。次回のビデオ読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:2903
-LeftRail,Enable hardware decoding,,,,ハードウェアデコードを有効にする,unfinished,src/ui/qml/LeftRail.qml:2951
-LeftRail,GPU decode (Vulkan/D3D11VA) when available. Turn off if playback misbehaves — forces software decode everywhere. Applies on next file load.,,,,利用可能な場合はGPUデコード (Vulkan/D3D11VA) を使用します。再生に問題があればオフにしてください — すべてソフトウェアデコードになります。次回のファイル読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:2952
-LeftRail,Scrub cache size (MB),,,,スクラブキャッシュサイズ (MB),unfinished,src/ui/qml/LeftRail.qml:2982
-LeftRail,"Decoded frames kept near the playhead for instant backward scrub. Higher = smoother, more RAM/VRAM. Per decoder — dual uses 2x. Applies on next file load.",,,,逆方向スクラブを即座に行うため、再生ヘッド付近のデコード済みフレームを保持します。大きいほど滑らかになりますが、RAM/VRAMを多く使います。デコーダーごとの値で、デュアルでは2倍になります。次回のファイル読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:2983
-LeftRail,Hardware scrub for h264/h265 (experimental),,,,h264/h265のハードウェアスクラブ（実験的）,unfinished,src/ui/qml/LeftRail.qml:3015
-LeftRail,"GPU decode while scrubbing h264/h265, not just all-intra (ProRes). Experimental — turn off if scrubbed frames look wrong. Applies on next file load.",,,,オールイントラ (ProRes) だけでなく、h264/h265のスクラブ中もGPUでデコードします。実験的機能です — スクラブ中のフレームがおかしい場合はオフにしてください。次回のファイル読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:3016
-LeftRail,Interface,,Settings group header,,インターフェイス,unfinished,src/ui/qml/LeftRail.qml:3040
-LeftRail,Language,,,,言語,unfinished,src/ui/qml/LeftRail.qml:3053
-LeftRail,Language of the interface. System default follows the OS setting. Applies at once.,,,,インターフェイスの言語。「システムデフォルト」はOSの設定に従います。すぐに適用されます。,unfinished,src/ui/qml/LeftRail.qml:3054
+Choice: follow the source",,自動,unfinished,src/ui/qml/LeftRail.qml:2173
+LeftRail,attached,,Output state: the sink is receiving,,接続済み,unfinished,src/ui/qml/LeftRail.qml:2180
+LeftRail,waiting for the sink,,Output state,,出力先を待機中,unfinished,src/ui/qml/LeftRail.qml:2183
+LeftRail,P3-D65,,,,P3-D65,unfinished,src/ui/qml/LeftRail.qml:2187
+LeftRail,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/LeftRail.qml:2187
+LeftRail,%1 / %2 / %3 nits,,,,%1 / %2 / %3 nits,unfinished,src/ui/qml/LeftRail.qml:2188
+LeftRail,live,,Output state,,ライブ,unfinished,src/ui/qml/LeftRail.qml:2209
+LeftRail,refused,,Output state: the sink refused the connection,,接続拒否,unfinished,src/ui/qml/LeftRail.qml:2211
+LeftRail,starting,,Output state,,開始中,unfinished,src/ui/qml/LeftRail.qml:2213
+LeftRail,not installed,,Output state,,未インストール,unfinished,src/ui/qml/LeftRail.qml:2215
+LeftRail,Publish the viewport and the mixed audio to this output. The sink runs as its own application; QCView starts it with Start and stops it with Stop.,,,,ビューポートとミックス済みオーディオをこの出力に送出します。出力先は独立したアプリケーションとして動作し、QCViewが「開始」で起動し「停止」で終了します。,unfinished,src/ui/qml/LeftRail.qml:2216
+LeftRail,peak · MaxCLL · MaxFALL nits,,Caption under three number fields,,ピーク · MaxCLL · MaxFALL nits,unfinished,src/ui/qml/LeftRail.qml:2277
+LeftRail,No outputs installed. An output registers itself in Application Support/QCView/Outputs.,,,,出力がインストールされていません。出力はApplication Support/QCView/Outputsに自身を登録します。,unfinished,src/ui/qml/LeftRail.qml:2320
+LeftRail,streaming,,Output state,,配信中,unfinished,src/ui/qml/LeftRail.qml:2353
+LeftRail,reconnecting,,Output state,,再接続中,unfinished,src/ui/qml/LeftRail.qml:2355
+LeftRail,connecting,,Output state,,接続中,unfinished,src/ui/qml/LeftRail.qml:2357
+LeftRail,failed,,Output state,,失敗,unfinished,src/ui/qml/LeftRail.qml:2359
+LeftRail,%1 kbps,,,,%1 kbps,unfinished,src/ui/qml/LeftRail.qml:2366
+LeftRail,%1 fps,,,,%1 fps,unfinished,src/ui/qml/LeftRail.qml:2367
+LeftRail,%n encoded,,,0,エンコード %n,unfinished,src/ui/qml/LeftRail.qml:2368
+LeftRail,%n repeated,,,0,リピート %n,unfinished,src/ui/qml/LeftRail.qml:2369
+LeftRail,%n skipped,,,0,スキップ %n,unfinished,src/ui/qml/LeftRail.qml:2370
+LeftRail,%n dropped,,,0,ドロップ %n,unfinished,src/ui/qml/LeftRail.qml:2371
+LeftRail,%n send error(s),,,0,送信エラー %n,unfinished,src/ui/qml/LeftRail.qml:2372
+LeftRail,%n reconnect(s),,,0,再接続 %n,unfinished,src/ui/qml/LeftRail.qml:2373
+LeftRail,Auto fps,,Frame rate choice: follow the source,,自動fps,unfinished,src/ui/qml/LeftRail.qml:2384
+LeftRail,Main,,"H.264 profile name, keep in English",,Main,unfinished,src/ui/qml/LeftRail.qml:2386
+LeftRail,Baseline,,,,Baseline,unfinished,src/ui/qml/LeftRail.qml:2386
+LeftRail,no audio,,Summary: the stream sends video only,,オーディオなし,unfinished,src/ui/qml/LeftRail.qml:2388
+LeftRail,AAC %1,,,,AAC %1,unfinished,src/ui/qml/LeftRail.qml:2388
+LeftRail,SRT %1 ms,,,,SRT %1 ms,unfinished,src/ui/qml/LeftRail.qml:2389
+LeftRail,Stream,,Card title: the SRT / RTMP streaming output,,ストリーム,unfinished,src/ui/qml/LeftRail.qml:2397
+LeftRail,no hardware encoder,,Output state: this machine cannot encode,,ハードウェアエンコーダーなし,unfinished,src/ui/qml/LeftRail.qml:2404
+LeftRail,"Send the viewport and the mixed audio to a streaming server (Louper, or any SRT or RTMP server) as H.264 + AAC, encoded on the GPU. srt://host:port with the key as the stream id, or rtmp://host/app with the key as the stream name. A dropped connection reconnects on its own. The picture is the same Rec.709 SDR picture the output bus serves; the frame rate is fixed for the session (a paused viewport repeats its last frame).",,,,ビューポートとミックス済みオーディオを、GPUでエンコードしたH.264 + AACとしてストリーミングサーバー（Louper、または任意のSRT / RTMPサーバー）へ送信します。srt://host:portではキーがストリームIDに、rtmp://host/appではキーがストリーム名になります。接続が切れても自動的に再接続します。映像は出力バスが供給するものと同じRec.709 SDR映像で、フレームレートはセッション中固定です（一時停止中のビューポートは最後のフレームを繰り返します）。,unfinished,src/ui/qml/LeftRail.qml:2405
+LeftRail,srt://host:port,,,,srt://host:port,unfinished,src/ui/qml/LeftRail.qml:2427
+LeftRail,Stream key (SRT stream id),,,,ストリームキー（SRTストリームID）,unfinished,src/ui/qml/LeftRail.qml:2440
+LeftRail,Hide the key,,,,キーを隠す,unfinished,src/ui/qml/LeftRail.qml:2468
+LeftRail,Show the key,,,,キーを表示,unfinished,src/ui/qml/LeftRail.qml:2468
+LeftRail,Bitrate (kbps),,,,ビットレート (kbps),unfinished,src/ui/qml/LeftRail.qml:2482
+LeftRail,Constant-rate target. Louper suggests 2500–8000 at 1080p.,,,,固定レートの目標値。Louperは1080pで2500〜8000を推奨しています。,unfinished,src/ui/qml/LeftRail.qml:2483
+LeftRail,Resolution,,,,解像度,unfinished,src/ui/qml/LeftRail.qml:2504
+LeftRail,The stream's raster; the viewport is letterboxed into it like any output.,,,,ストリームのラスター。ビューポートは他の出力と同様にレターボックスで収められます。,unfinished,src/ui/qml/LeftRail.qml:2505
+LeftRail,Frame rate,,,,フレームレート,unfinished,src/ui/qml/LeftRail.qml:2527
+LeftRail,Auto takes the source's rate when the stream starts (30 when it has none) and keeps it for the session. A 23.976 source into a 30 fps clock repeats six frames a second.,,,,「自動」はストリーム開始時にソースのレートを採用し（ない場合は30）、セッション中はそれを維持します。23.976のソースを30 fpsのクロックに載せると、毎秒6フレームが繰り返されます。,unfinished,src/ui/qml/LeftRail.qml:2528
+LeftRail,H.264 profile,,,,H.264プロファイル,unfinished,src/ui/qml/LeftRail.qml:2552
+LeftRail,Baseline is what Louper's recipe asks for; Main gives better quality per bit where the service accepts it. Never B-frames.,,,,BaselineはLouperの推奨設定です。Mainはサービスが対応していればビットあたりの画質が向上します。Bフレームは使用しません。,unfinished,src/ui/qml/LeftRail.qml:2553
+LeftRail,Audio (kbps),,,,オーディオ (kbps),unfinished,src/ui/qml/LeftRail.qml:2576
+LeftRail,"AAC stereo at 48 kHz from the mixed audio, before Listen, mute and volume. Off sends video only.",,,,ミックス済みオーディオからの48 kHz AACステレオ。「聴く」、ミュート、音量の前段から取り出します。オフにするとビデオのみを送信します。,unfinished,src/ui/qml/LeftRail.qml:2577
+LeftRail,Off,,AAC bitrate choice: no audio in the stream,,オフ,unfinished,src/ui/qml/LeftRail.qml:2587
+LeftRail,SRT latency (ms),,,,SRTレイテンシ (ms),unfinished,src/ui/qml/LeftRail.qml:2601
+LeftRail,"The SRT retransmission window, both ends negotiate the larger. 120 ms suits a LAN or a good link; raise it on a lossy one.",,,,SRTの再送ウィンドウ。両端のうち大きい方の値で合意されます。LANや良好な回線なら120 ms、損失の多い回線では大きくしてください。,unfinished,src/ui/qml/LeftRail.qml:2602
+LeftRail,Settings,,Section title,,設定,unfinished,src/ui/qml/LeftRail.qml:2638
+LeftRail,Reset all preferences?,,,,すべての環境設定をリセットしますか？,unfinished,src/ui/qml/LeftRail.qml:2698
+LeftRail,"Every preference (recents, layout, settings, shortcuts) will be erased and the app will quit. Relaunch to continue.",,,,すべての環境設定（最近使った項目、レイアウト、設定、ショートカット）が消去され、アプリが終了します。続けるには再起動してください。,unfinished,src/ui/qml/LeftRail.qml:2699
+LeftRail,Performance,,Settings group header,,パフォーマンス,unfinished,src/ui/qml/LeftRail.qml:2848
+LeftRail,Image-seq decode threads,,Image-seq = image sequence,,画像シーケンスのデコードスレッド数,unfinished,src/ui/qml/LeftRail.qml:2859
+LeftRail,Applies on next sequence load.,,,,次回のシーケンス読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:2860
+LeftRail,Image-seq cache window,,Image-seq = image sequence,,画像シーケンスのキャッシュ範囲,unfinished,src/ui/qml/LeftRail.qml:2889
+LeftRail,Frames cached ahead of the playhead. Lower = less RAM.,,,,再生ヘッドの先にキャッシュするフレーム数。小さいほどRAM使用量が減ります。,unfinished,src/ui/qml/LeftRail.qml:2890
+LeftRail,Video decode threads,,,,ビデオのデコードスレッド数,unfinished,src/ui/qml/LeftRail.qml:2920
+LeftRail,0 = Auto. Single-video playback only; dual and scrub stay on Auto. Applies on next video load.,,,,0 = 自動。単一ビデオの再生のみに適用。デュアルとスクラブは自動のままです。次回のビデオ読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:2921
+LeftRail,Enable hardware decoding,,,,ハードウェアデコードを有効にする,unfinished,src/ui/qml/LeftRail.qml:2969
+LeftRail,GPU decode (Vulkan/D3D11VA) when available. Turn off if playback misbehaves — forces software decode everywhere. Applies on next file load.,,,,利用可能な場合はGPUデコード (Vulkan/D3D11VA) を使用します。再生に問題があればオフにしてください — すべてソフトウェアデコードになります。次回のファイル読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:2970
+LeftRail,Scrub cache size (MB),,,,スクラブキャッシュサイズ (MB),unfinished,src/ui/qml/LeftRail.qml:3000
+LeftRail,"Decoded frames kept near the playhead for instant backward scrub. Higher = smoother, more RAM/VRAM. Per decoder — dual uses 2x. Applies on next file load.",,,,逆方向スクラブを即座に行うため、再生ヘッド付近のデコード済みフレームを保持します。大きいほど滑らかになりますが、RAM/VRAMを多く使います。デコーダーごとの値で、デュアルでは2倍になります。次回のファイル読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:3001
+LeftRail,Hardware scrub for h264/h265 (experimental),,,,h264/h265のハードウェアスクラブ（実験的）,unfinished,src/ui/qml/LeftRail.qml:3033
+LeftRail,"GPU decode while scrubbing h264/h265, not just all-intra (ProRes). Experimental — turn off if scrubbed frames look wrong. Applies on next file load.",,,,オールイントラ (ProRes) だけでなく、h264/h265のスクラブ中もGPUでデコードします。実験的機能です — スクラブ中のフレームがおかしい場合はオフにしてください。次回のファイル読み込みから適用されます。,unfinished,src/ui/qml/LeftRail.qml:3034
+LeftRail,Interface,,Settings group header,,インターフェイス,unfinished,src/ui/qml/LeftRail.qml:3058
+LeftRail,Language,,,,言語,unfinished,src/ui/qml/LeftRail.qml:3071
+LeftRail,Language of the interface. System default follows the OS setting. Applies at once.,,,,インターフェイスの言語。「システムデフォルト」はOSの設定に従います。すぐに適用されます。,unfinished,src/ui/qml/LeftRail.qml:3072
 LeftRail,Language of the interface. System default follows the OS setting. Applies on next launch.,,,,インターフェイスの言語。「システムデフォルト」はOSの設定に従います。次回の起動から適用されます。,obsolete,
 LeftRail,Restart QCView to apply.,,Caption under the language picker,,適用するにはQCViewを再起動してください。,obsolete,
-LeftRail,Always open in minimal mode,,,,常にミニマルモードで開く,unfinished,src/ui/qml/LeftRail.qml:3086
-LeftRail,"Launch with the rails collapsed and the color panel hidden, ignoring the last-used layout. Applies on next launch.",,,,前回のレイアウトを無視して、左右のパネルを折りたたみ、カラーパネルを隠した状態で起動します。次回の起動から適用されます。,unfinished,src/ui/qml/LeftRail.qml:3087
-LeftRail,Timeline hover thumbnails,,,,タイムラインのホバーサムネイル,unfinished,src/ui/qml/LeftRail.qml:3114
-LeftRail,Drag viewport to move window,,,,ビューポートのドラッグでウィンドウを移動,unfinished,src/ui/qml/LeftRail.qml:3136
-LeftRail,Timeline audio waveforms,,,,タイムラインのオーディオ波形,unfinished,src/ui/qml/LeftRail.qml:3164
-LeftRail,Draw an audio waveform over timeline clips. Peaks decode lazily in the background for the visible range and pause during playback.,,,,タイムラインのクリップ上にオーディオ波形を描画します。ピークは表示範囲の分だけバックグラウンドで順次デコードされ、再生中は一時停止します。,unfinished,src/ui/qml/LeftRail.qml:3165
-LeftRail,Screenshot format,,,,スクリーンショット形式,unfinished,src/ui/qml/LeftRail.qml:3194
-LeftRail,Format for Desktop screenshots. JPEG is lossy; PNG/TIFF lossless. Notes always use PNG.,,,,デスクトップに保存するスクリーンショットの形式。JPEGは非可逆、PNG/TIFFは可逆です。ノートは常にPNGを使用します。,unfinished,src/ui/qml/LeftRail.qml:3195
-LeftRail,Updates,,Settings group header,,アップデート,unfinished,src/ui/qml/LeftRail.qml:3223
-LeftRail,Automatically check for updates,,,,アップデートを自動的に確認,unfinished,src/ui/qml/LeftRail.qml:3234
-LeftRail,"Checks daily for updates, sending only your IP and app/OS version. Update manually anytime from the About menu.",,,,毎日アップデートを確認します。送信されるのはIPアドレスとアプリ/OSのバージョンのみです。「情報」メニューからいつでも手動で確認できます。,unfinished,src/ui/qml/LeftRail.qml:3235
-LeftRail,A/V sync (Single),,Audio/video offset setting for single-clip playback,,A/V同期（シングル）,unfinished,src/ui/qml/LeftRail.qml:3274
-LeftRail,Positive values delay audio to offset pipeline/display lag. Tune by ear; applies on the next seek or play.,,,,正の値でオーディオを遅らせ、パイプライン/表示の遅延を補正します。耳で合わせてください。次回のシークまたは再生から適用されます。,unfinished,src/ui/qml/LeftRail.qml:3275
-LeftRail,A/V sync (Dual),,Audio/video offset setting for dual view,,A/V同期（デュアル）,unfinished,src/ui/qml/LeftRail.qml:3309
-LeftRail,Positive values delay audio to offset pipeline/display lag. Dual's latency runs deeper than single. Tune by ear; applies on the next seek or play.,,,,正の値でオーディオを遅らせ、パイプライン/表示の遅延を補正します。デュアルの遅延はシングルより大きくなります。耳で合わせてください。次回のシークまたは再生から適用されます。,unfinished,src/ui/qml/LeftRail.qml:3310
-LeftRail,Mute scrub audio,,,,スクラブ音声をミュート,unfinished,src/ui/qml/LeftRail.qml:3352
-LeftRail,Silence the audio feedback while dragging the timeline or holding fast-forward/rewind. Scrubbing itself is unaffected.,,,,タイムラインのドラッグ中や早送り/巻き戻しの長押し中の音声フィードバックを消音します。スクラブ自体には影響しません。,unfinished,src/ui/qml/LeftRail.qml:3353
-LeftRail,Listen to live audio,,,,ライブ音声を聴く,unfinished,src/ui/qml/LeftRail.qml:3383
-LeftRail,Play audio pushed by Premiere Pro over QCBridge in QCView. Off by default: Premiere is already playing it. Meters run either way.,,,,Premiere ProからQCBridge経由で送られるオーディオをQCViewで再生します。デフォルトはオフです: Premiere側ですでに再生されています。メーターはどちらでも動作します。,unfinished,src/ui/qml/LeftRail.qml:3384
-LeftRail,A/V sync (Live),,Audio/video offset setting for bridge feeds,,A/V同期（ライブ）,unfinished,src/ui/qml/LeftRail.qml:3407
-LeftRail,Positive values delay the bridge audio; negative values hold the picture. Kept per host application. Tune by ear.,,,,正の値でブリッジのオーディオを遅らせ、負の値で映像を遅らせます。ホストアプリケーションごとに記憶されます。耳で合わせてください。,unfinished,src/ui/qml/LeftRail.qml:3408
-LeftRail,Live audio buffer,,,,ライブ音声バッファ,unfinished,src/ui/qml/LeftRail.qml:3439
-LeftRail,How much bridge audio is queued before it plays. Raise it if live audio stutters; lower it for less delay.,,,,再生前にキューに溜めるブリッジ音声の量。ライブ音声が途切れる場合は増やし、遅延を減らすには減らしてください。,unfinished,src/ui/qml/LeftRail.qml:3440
-LeftRail,Reset all preferences…,,,,すべての環境設定をリセット…,unfinished,src/ui/qml/LeftRail.qml:3487
+LeftRail,Always open in minimal mode,,,,常にミニマルモードで開く,unfinished,src/ui/qml/LeftRail.qml:3105
+LeftRail,"Launch with the rails collapsed and the color panel hidden, ignoring the last-used layout. Applies on next launch.",,,,前回のレイアウトを無視して、左右のパネルを折りたたみ、カラーパネルを隠した状態で起動します。次回の起動から適用されます。,unfinished,src/ui/qml/LeftRail.qml:3106
+LeftRail,Timeline hover thumbnails,,,,タイムラインのホバーサムネイル,unfinished,src/ui/qml/LeftRail.qml:3133
+LeftRail,Drag viewport to move window,,,,ビューポートのドラッグでウィンドウを移動,unfinished,src/ui/qml/LeftRail.qml:3155
+LeftRail,Timeline audio waveforms,,,,タイムラインのオーディオ波形,unfinished,src/ui/qml/LeftRail.qml:3183
+LeftRail,Draw an audio waveform over timeline clips. Peaks decode lazily in the background for the visible range and pause during playback.,,,,タイムラインのクリップ上にオーディオ波形を描画します。ピークは表示範囲の分だけバックグラウンドで順次デコードされ、再生中は一時停止します。,unfinished,src/ui/qml/LeftRail.qml:3184
+LeftRail,Screenshot format,,,,スクリーンショット形式,unfinished,src/ui/qml/LeftRail.qml:3213
+LeftRail,Format for Desktop screenshots. JPEG is lossy; PNG/TIFF lossless. Notes always use PNG.,,,,デスクトップに保存するスクリーンショットの形式。JPEGは非可逆、PNG/TIFFは可逆です。ノートは常にPNGを使用します。,unfinished,src/ui/qml/LeftRail.qml:3214
+LeftRail,Updates,,Settings group header,,アップデート,unfinished,src/ui/qml/LeftRail.qml:3242
+LeftRail,Automatically check for updates,,,,アップデートを自動的に確認,unfinished,src/ui/qml/LeftRail.qml:3253
+LeftRail,"Checks daily for updates, sending only your IP and app/OS version. Update manually anytime from the About menu.",,,,毎日アップデートを確認します。送信されるのはIPアドレスとアプリ/OSのバージョンのみです。「情報」メニューからいつでも手動で確認できます。,unfinished,src/ui/qml/LeftRail.qml:3254
+LeftRail,A/V sync (Single),,Audio/video offset setting for single-clip playback,,A/V同期（シングル）,unfinished,src/ui/qml/LeftRail.qml:3293
+LeftRail,Positive values delay audio to offset pipeline/display lag. Tune by ear; applies on the next seek or play.,,,,正の値でオーディオを遅らせ、パイプライン/表示の遅延を補正します。耳で合わせてください。次回のシークまたは再生から適用されます。,unfinished,src/ui/qml/LeftRail.qml:3294
+LeftRail,A/V sync (Dual),,Audio/video offset setting for dual view,,A/V同期（デュアル）,unfinished,src/ui/qml/LeftRail.qml:3328
+LeftRail,Positive values delay audio to offset pipeline/display lag. Dual's latency runs deeper than single. Tune by ear; applies on the next seek or play.,,,,正の値でオーディオを遅らせ、パイプライン/表示の遅延を補正します。デュアルの遅延はシングルより大きくなります。耳で合わせてください。次回のシークまたは再生から適用されます。,unfinished,src/ui/qml/LeftRail.qml:3329
+LeftRail,Mute scrub audio,,,,スクラブ音声をミュート,unfinished,src/ui/qml/LeftRail.qml:3371
+LeftRail,Silence the audio feedback while dragging the timeline or holding fast-forward/rewind. Scrubbing itself is unaffected.,,,,タイムラインのドラッグ中や早送り/巻き戻しの長押し中の音声フィードバックを消音します。スクラブ自体には影響しません。,unfinished,src/ui/qml/LeftRail.qml:3372
+LeftRail,Listen to live audio,,,,ライブ音声を聴く,unfinished,src/ui/qml/LeftRail.qml:3402
+LeftRail,Play audio pushed by Premiere Pro over QCBridge in QCView. Off by default: Premiere is already playing it. Meters run either way.,,,,Premiere ProからQCBridge経由で送られるオーディオをQCViewで再生します。デフォルトはオフです: Premiere側ですでに再生されています。メーターはどちらでも動作します。,unfinished,src/ui/qml/LeftRail.qml:3403
+LeftRail,Blender sessions,,Setting: watch for a QCBridge (Blender) session on this machine,,Blenderセッション,unfinished,src/ui/qml/LeftRail.qml:3431
+LeftRail,"Off at every launch. On (also File ▸ Connect to Blender): QCView watches for the card the QCBridge host add-on on this machine writes when a session starts, listens on its port and shows the replica's stream. Off again stops listening.",,,,起動時は常にオフです。オンにすると（ファイル ▸ Blenderに接続でも可）、このマシンのQCBridgeホストアドオンがセッション開始時に書き出すセッションカードをQCViewが監視し、そのポートで待ち受けてレプリカのストリームを表示します。再びオフにすると待ち受けを停止します。,unfinished,src/ui/qml/LeftRail.qml:3432
+LeftRail,Live from %1 on port %2,,Blender input state,,%1からライブ受信中（ポート %2）,unfinished,src/ui/qml/LeftRail.qml:3453
+LeftRail,Listening for %1 on port %2,,Blender input state,,%1を待ち受け中（ポート %2）,unfinished,src/ui/qml/LeftRail.qml:3455
+LeftRail,%1 is streaming on port %2 — select the Blender clip,,Blender input state: a card exists but another clip is on screen,,%1がポート %2で配信中 — Blenderクリップを選択してください,unfinished,src/ui/qml/LeftRail.qml:3457
+LeftRail,Blender session ended,,Blender input state,,Blenderセッションが終了しました,unfinished,src/ui/qml/LeftRail.qml:3459
+LeftRail,No Blender session on this machine yet,,Blender input state: no card yet,,このマシンにはまだBlenderセッションがありません,unfinished,src/ui/qml/LeftRail.qml:3461
+LeftRail,A/V sync (Live),,Audio/video offset setting for bridge feeds,,A/V同期（ライブ）,unfinished,src/ui/qml/LeftRail.qml:3488
+LeftRail,Positive values delay the bridge audio; negative values hold the picture. Kept per host application. Tune by ear.,,,,正の値でブリッジのオーディオを遅らせ、負の値で映像を遅らせます。ホストアプリケーションごとに記憶されます。耳で合わせてください。,unfinished,src/ui/qml/LeftRail.qml:3489
+LeftRail,Live audio buffer,,,,ライブ音声バッファ,unfinished,src/ui/qml/LeftRail.qml:3520
+LeftRail,How much bridge audio is queued before it plays. Raise it if live audio stutters; lower it for less delay.,,,,再生前にキューに溜めるブリッジ音声の量。ライブ音声が途切れる場合は増やし、遅延を減らすには減らしてください。,unfinished,src/ui/qml/LeftRail.qml:3521
+LeftRail,Reset all preferences…,,,,すべての環境設定をリセット…,unfinished,src/ui/qml/LeftRail.qml:3568
 LiveStrip,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,レビュー · %1,unfinished,src/ui/qml/LiveStrip.qml:106
 LiveStrip,LIVE,,"Live feed state badge, upper case",,ライブ,unfinished,src/ui/qml/LiveStrip.qml:108
 LiveStrip,PAUSED,,"Live feed state badge, upper case",,一時停止,unfinished,src/ui/qml/LiveStrip.qml:110
@@ -466,119 +479,132 @@ LiveStrip,Auto · HLG,,,,自動 · HLG,unfinished,src/ui/qml/LiveStrip.qml:251
 LiveStrip,"Auto · SDR, untagged",,,,自動 · SDR、タグなし,unfinished,src/ui/qml/LiveStrip.qml:252
 LiveStrip,Auto · SDR,,,,自動 · SDR,unfinished,src/ui/qml/LiveStrip.qml:253
 LiveStrip,How the scopes read this feed (Transfer override),,,,スコープがこのフィードを解釈する方法（伝達関数の上書き）,unfinished,src/ui/qml/LiveStrip.qml:258
-LiveStrip,Color panel (⌃3),,,,カラーパネル (⌃3),unfinished,src/ui/qml/LiveStrip.qml:283
-LiveStrip,Notes panel (⌃4),,,,ノートパネル (⌃4),unfinished,src/ui/qml/LiveStrip.qml:291
-LiveStrip,Screenshot to clipboard (⌥T),,,,スクリーンショットをクリップボードへ (⌥T),unfinished,src/ui/qml/LiveStrip.qml:299
-LiveStrip,Screenshot to Desktop (T),,,,スクリーンショットをデスクトップへ (T),unfinished,src/ui/qml/LiveStrip.qml:305
+LiveStrip,Host display %1 · %2,,Live strip chip: the host Blender's display device and view are being emulated,,ホストディスプレイ %1 · %2,unfinished,src/ui/qml/LiveStrip.qml:311
+LiveStrip,Host display off,,Live strip chip: host-display emulation is pinned but switched off,,ホストディスプレイ: オフ,unfinished,src/ui/qml/LiveStrip.qml:313
+LiveStrip,View %1 not applied,,Live strip chip: the link named a view QCView could not apply,,ビュー %1 未適用,unfinished,src/ui/qml/LiveStrip.qml:315
+LiveStrip,"The Blender host's view, rendered for its display device, shown here (click for options)",,,,Blenderホストのビューを、そのディスプレイデバイス向けにレンダリングした状態でここに表示しています（クリックでオプション）,unfinished,src/ui/qml/LiveStrip.qml:316
+LiveStrip,Emulate the host display,,Menu: switch host-display emulation on or off for this stream,,ホストディスプレイをエミュレート,unfinished,src/ui/qml/LiveStrip.qml:322
+LiveStrip,True emulation (display to display),,Menu: convert the host display's colourspace to ours instead of showing its codes as sRGB,,忠実なエミュレーション（ディスプレイ → ディスプレイ）,unfinished,src/ui/qml/LiveStrip.qml:331
+LiveStrip,Use my View instead,,Menu: drop the host-display pin; this machine's own View applies,,代わりに自分のビューを使用,unfinished,src/ui/qml/LiveStrip.qml:340
+LiveStrip,Color panel (⌃3),,,,カラーパネル (⌃3),unfinished,src/ui/qml/LiveStrip.qml:366
+LiveStrip,Notes panel (⌃4),,,,ノートパネル (⌃4),unfinished,src/ui/qml/LiveStrip.qml:374
+LiveStrip,Screenshot to clipboard (⌥T),,,,スクリーンショットをクリップボードへ (⌥T),unfinished,src/ui/qml/LiveStrip.qml:382
+LiveStrip,Screenshot to Desktop (T),,,,スクリーンショットをデスクトップへ (T),unfinished,src/ui/qml/LiveStrip.qml:388
 Main,Open Media…,,,,メディアを開く…,unfinished,src/ui/qml/Main.qml:128
-Main,Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,メディアファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/Main.qml:131
-Main,All files (*),,,,すべてのファイル (*),unfinished,src/ui/qml/Main.qml:134
-Main,Open Project…,,,,プロジェクトを開く…,unfinished,src/ui/qml/Main.qml:145
-Main,QCView Project (*.qcvproj),,,,QCViewプロジェクト (*.qcvproj),unfinished,src/ui/qml/Main.qml:147
-Main,Save Project As…,,,,プロジェクトに名前を付けて保存…,unfinished,src/ui/qml/Main.qml:155
-Main,Project error,,,,プロジェクトエラー,unfinished,src/ui/qml/Main.qml:233
-Main,OK,,,,OK,unfinished,src/ui/qml/Main.qml:249
-Main,Open Stream,,,,ストリームを開く,unfinished,src/ui/qml/Main.qml:264
-Main,Stream URL,,,,ストリームURL,unfinished,src/ui/qml/Main.qml:309
-Main,Name (optional),,,,名前（省略可）,unfinished,src/ui/qml/Main.qml:318
-Main,defaults to host:port,,,,省略時はhost:port,unfinished,src/ui/qml/Main.qml:324
-Main,Passphrase (optional),,,,パスフレーズ（省略可）,unfinished,src/ui/qml/Main.qml:327
-Main,Cancel,,,,キャンセル,unfinished,src/ui/qml/Main.qml:342
-Main,Connect,,,,接続,unfinished,src/ui/qml/Main.qml:348
-Main,About QCView,,,,QCViewについて,unfinished,src/ui/qml/Main.qml:360
-Main,QCView,,,,QCView,unfinished,src/ui/qml/Main.qml:366
-Main,Version %1,,,,バージョン %1,unfinished,src/ui/qml/Main.qml:374
-Main,Color-accurate review player.,,,,色精度の高いレビュープレーヤー。,unfinished,src/ui/qml/Main.qml:381
-Main,Docs,,Button: open the documentation website,,ドキュメント,unfinished,src/ui/qml/Main.qml:392
-Main,Check for Updates…,,,,アップデートを確認…,unfinished,src/ui/qml/Main.qml:400
-Main,Close,,Button,,閉じる,unfinished,src/ui/qml/Main.qml:408
-Main,&File,,,,ファイル(&F),unfinished,src/ui/qml/Main.qml:456
-Main,Open Stream…,,,,ストリームを開く…,unfinished,src/ui/qml/Main.qml:463
-Main,Connect to After Effects,,,,After Effectsに接続,unfinished,src/ui/qml/Main.qml:469
-Main,Connect to Premiere Pro,,,,Premiere Proに接続,unfinished,src/ui/qml/Main.qml:474
-Main,Open Recent Media,,,,最近使ったメディアを開く,unfinished,src/ui/qml/Main.qml:480
-Main,(none),,,,（なし）,unfinished,src/ui/qml/Main.qml:525
-Main,Clear Menu,,,,メニューを消去,unfinished,src/ui/qml/Main.qml:532
-Main,New Project,,,,新規プロジェクト,unfinished,src/ui/qml/Main.qml:539
-Main,Open Recent Project,,,,最近使ったプロジェクトを開く,unfinished,src/ui/qml/Main.qml:549
-Main,Save Project,,,,プロジェクトを保存,unfinished,src/ui/qml/Main.qml:591
-Main,Copy Project Link,,,,プロジェクトリンクをコピー,unfinished,src/ui/qml/Main.qml:602
-Main,E&xit,,,,終了(&X),unfinished,src/ui/qml/Main.qml:622
-Main,&View,,,,表示(&V),unfinished,src/ui/qml/Main.qml:634
-Main,Minimal Mode,,View menu: a layout mode,,ミニマルモード,unfinished,src/ui/qml/Main.qml:637
-Main,Compact Mode,,View menu: a layout mode,,コンパクトモード,unfinished,src/ui/qml/Main.qml:647
-Main,Always on Top,,,,常に手前に表示,unfinished,src/ui/qml/Main.qml:659
-Main,Show All Panels,,View menu,,すべてのパネルを表示,unfinished,src/ui/qml/Main.qml:667
-Main,Zoom In Timeline,,,,タイムラインをズームイン,unfinished,src/ui/qml/Main.qml:676
-Main,Zoom Out Timeline,,,,タイムラインをズームアウト,unfinished,src/ui/qml/Main.qml:681
-Main,Fullscreen,,,,フルスクリーン,unfinished,src/ui/qml/Main.qml:690
-Main,Default Size && Position,,View menu: reset the window geometry; && is a literal ampersand,,デフォルトのサイズと位置,unfinished,src/ui/qml/Main.qml:699
-Main,Left Rail,,View menu: toggle the left side panel,,左パネル,unfinished,src/ui/qml/Main.qml:713
-Main,Right Rail,,View menu: toggle the right side panel,,右パネル,unfinished,src/ui/qml/Main.qml:719
-Main,Color Panel,,,,カラーパネル,unfinished,src/ui/qml/Main.qml:724
-Main,Timeline,,,,タイムライン,unfinished,src/ui/qml/Main.qml:729
-Main,Notes,,,,ノート,unfinished,src/ui/qml/Main.qml:733
-Main,Status Bar,,,,ステータスバー,unfinished,src/ui/qml/Main.qml:738
-Main,&Tools,,,,ツール(&T),unfinished,src/ui/qml/Main.qml:750
-Main,Background,,,,背景,unfinished,src/ui/qml/Main.qml:752
-Main,Safety Guides,,,,セーフエリアガイド,unfinished,src/ui/qml/Main.qml:760
-Main,Keyboard Shortcuts,,,,キーボードショートカット,unfinished,src/ui/qml/Main.qml:768
-Main,Settings…,,,,設定…,unfinished,src/ui/qml/Main.qml:780
-Main,&About,,,,情報(&A),unfinished,src/ui/qml/Main.qml:796
-Main,About QCView…,,,,QCViewについて,unfinished,src/ui/qml/Main.qml:798
-Main,Open media,,,,メディアを開く,unfinished,src/ui/qml/Main.qml:1224
-Main,Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,メディアファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/Main.qml:1229
-Main,Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),,,,ビデオファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),unfinished,src/ui/qml/Main.qml:1230
-Main,Image / sequence files (*.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,画像 / シーケンスファイル (*.png *.jpg *.jpeg *.tif *.tiff *.exr),unfinished,src/ui/qml/Main.qml:1231
-Main,Player detached,,Title of the separate player window,,プレーヤーは分離表示中,unfinished,src/ui/qml/Main.qml:1524
-Main,Click 'Reattach' to dock back,,,,「再ドッキング」をクリックすると元に戻ります,unfinished,src/ui/qml/Main.qml:1530
+Main,Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,メディアファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.webm *.webp *.gif *.wav *.aif *.aiff *.mp3 *.flac *.m4a *.png *.jpg *.jpeg *.tif *.tiff *.exr),obsolete,
+Main,All files (*),,,,すべてのファイル (*),obsolete,
+Main,Open Project…,,,,プロジェクトを開く…,unfinished,src/ui/qml/Main.qml:140
+Main,QCView Project (*.qcvproj),,,,QCViewプロジェクト (*.qcvproj),unfinished,src/ui/qml/Main.qml:142
+Main,Save Project As…,,,,プロジェクトに名前を付けて保存…,unfinished,src/ui/qml/Main.qml:150
+Main,Project error,,,,プロジェクトエラー,unfinished,src/ui/qml/Main.qml:228
+Main,OK,,,,OK,unfinished,src/ui/qml/Main.qml:244
+Main,Open Stream,,,,ストリームを開く,unfinished,src/ui/qml/Main.qml:259
+Main,Stream URL,,,,ストリームURL,unfinished,src/ui/qml/Main.qml:304
+Main,Name (optional),,,,名前（省略可）,unfinished,src/ui/qml/Main.qml:313
+Main,defaults to host:port,,,,省略時はhost:port,unfinished,src/ui/qml/Main.qml:319
+Main,Passphrase (optional),,,,パスフレーズ（省略可）,unfinished,src/ui/qml/Main.qml:322
+Main,Cancel,,,,キャンセル,unfinished,src/ui/qml/Main.qml:337
+Main,Connect,,,,接続,unfinished,src/ui/qml/Main.qml:343
+Main,About QCView,,,,QCViewについて,unfinished,src/ui/qml/Main.qml:355
+Main,QCView,,,,QCView,unfinished,src/ui/qml/Main.qml:361
+Main,Version %1,,,,バージョン %1,unfinished,src/ui/qml/Main.qml:369
+Main,Color-accurate review player.,,,,色精度の高いレビュープレーヤー。,unfinished,src/ui/qml/Main.qml:376
+Main,Docs,,Button: open the documentation website,,ドキュメント,unfinished,src/ui/qml/Main.qml:387
+Main,Check for Updates…,,,,アップデートを確認…,unfinished,src/ui/qml/Main.qml:395
+Main,Close,,Button,,閉じる,unfinished,src/ui/qml/Main.qml:403
+Main,&File,,,,ファイル(&F),unfinished,src/ui/qml/Main.qml:451
+Main,Open Stream…,,,,ストリームを開く…,unfinished,src/ui/qml/Main.qml:458
+Main,Connect to After Effects,,,,After Effectsに接続,unfinished,src/ui/qml/Main.qml:464
+Main,Connect to Premiere Pro,,,,Premiere Proに接続,unfinished,src/ui/qml/Main.qml:469
+Main,Connect to Blender,,,,Blenderに接続,unfinished,src/ui/qml/Main.qml:478
+Main,Open Recent Media,,,,最近使ったメディアを開く,unfinished,src/ui/qml/Main.qml:485
+Main,(none),,,,（なし）,unfinished,src/ui/qml/Main.qml:529
+Main,Clear Menu,,,,メニューを消去,unfinished,src/ui/qml/Main.qml:536
+Main,New Project,,,,新規プロジェクト,unfinished,src/ui/qml/Main.qml:543
+Main,Open Recent Project,,,,最近使ったプロジェクトを開く,unfinished,src/ui/qml/Main.qml:553
+Main,Save Project,,,,プロジェクトを保存,unfinished,src/ui/qml/Main.qml:595
+Main,Copy Project Link,,,,プロジェクトリンクをコピー,unfinished,src/ui/qml/Main.qml:606
+Main,E&xit,,,,終了(&X),unfinished,src/ui/qml/Main.qml:626
+Main,&View,,,,表示(&V),unfinished,src/ui/qml/Main.qml:638
+Main,Minimal Mode,,View menu: a layout mode,,ミニマルモード,unfinished,src/ui/qml/Main.qml:641
+Main,Compact Mode,,View menu: a layout mode,,コンパクトモード,unfinished,src/ui/qml/Main.qml:651
+Main,Always on Top,,,,常に手前に表示,unfinished,src/ui/qml/Main.qml:663
+Main,Show All Panels,,View menu,,すべてのパネルを表示,unfinished,src/ui/qml/Main.qml:671
+Main,Zoom In Timeline,,,,タイムラインをズームイン,unfinished,src/ui/qml/Main.qml:680
+Main,Zoom Out Timeline,,,,タイムラインをズームアウト,unfinished,src/ui/qml/Main.qml:685
+Main,Fullscreen,,,,フルスクリーン,unfinished,src/ui/qml/Main.qml:694
+Main,Default Size && Position,,View menu: reset the window geometry; && is a literal ampersand,,デフォルトのサイズと位置,unfinished,src/ui/qml/Main.qml:703
+Main,Left Rail,,View menu: toggle the left side panel,,左パネル,unfinished,src/ui/qml/Main.qml:717
+Main,Right Rail,,View menu: toggle the right side panel,,右パネル,unfinished,src/ui/qml/Main.qml:723
+Main,Color Panel,,,,カラーパネル,unfinished,src/ui/qml/Main.qml:728
+Main,Timeline,,,,タイムライン,unfinished,src/ui/qml/Main.qml:733
+Main,Notes,,,,ノート,unfinished,src/ui/qml/Main.qml:737
+Main,Status Bar,,,,ステータスバー,unfinished,src/ui/qml/Main.qml:742
+Main,&Tools,,,,ツール(&T),unfinished,src/ui/qml/Main.qml:754
+Main,Background,,,,背景,unfinished,src/ui/qml/Main.qml:756
+Main,Safety Guides,,,,セーフエリアガイド,unfinished,src/ui/qml/Main.qml:764
+Main,Keyboard Shortcuts,,,,キーボードショートカット,unfinished,src/ui/qml/Main.qml:772
+Main,Settings…,,,,設定…,unfinished,src/ui/qml/Main.qml:784
+Main,&About,,,,情報(&A),unfinished,src/ui/qml/Main.qml:800
+Main,About QCView…,,,,QCViewについて,unfinished,src/ui/qml/Main.qml:802
+Main,Open media,,,,メディアを開く,unfinished,src/ui/qml/Main.qml:1230
+Main,Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,メディアファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),obsolete,
+Main,Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),,,,ビデオファイル (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),obsolete,
+Main,Image / sequence files (*.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,画像 / シーケンスファイル (*.png *.jpg *.jpeg *.tif *.tiff *.exr),obsolete,
+Main,Player detached,,Title of the separate player window,,プレーヤーは分離表示中,unfinished,src/ui/qml/Main.qml:1520
+Main,Click 'Reattach' to dock back,,,,「再ドッキング」をクリックすると元に戻ります,unfinished,src/ui/qml/Main.qml:1526
+MediaFilters,All media (%1),,File dialog filter; %1 = the list of patterns,,すべてのメディア (%1),unfinished,src/project/media_extensions.h:107
+MediaFilters,Video files (%1),,,,ビデオファイル (%1),unfinished,src/project/media_extensions.h:108
+MediaFilters,Audio files (%1),,,,オーディオファイル (%1),unfinished,src/project/media_extensions.h:109
+MediaFilters,Image / sequence files (%1),,,,画像 / シーケンスファイル (%1),unfinished,src/project/media_extensions.h:110
+MediaFilters,All files (*),,,,すべてのファイル (*),unfinished,src/project/media_extensions.h:111
 MinColor,Use look,,Toggle: apply the look,,ルックを使用,unfinished,src/color/mincolor_chain.cpp:298
 ModalHost,Close,,Tooltip on a dialog's close button,,閉じる,unfinished,src/ui/qml/ModalHost.qml:109
-NotesPanel,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,レビュー · %1,unfinished,src/ui/qml/NotesPanel.qml:217
-NotesPanel,LIVE,,Badge: the feed is live,,ライブ,unfinished,src/ui/qml/NotesPanel.qml:219
-NotesPanel,back to live,,Hover hint on the review pill: a click returns to the live feed,,ライブに戻る,unfinished,src/ui/qml/NotesPanel.qml:231
-NotesPanel,freeze,,Hover hint on the review pill: a click holds the current frame,,フリーズ,unfinished,src/ui/qml/NotesPanel.qml:233
-NotesPanel,Save the project to keep notes for this stream,,,,このストリームのノートを保持するにはプロジェクトを保存してください,unfinished,src/ui/qml/NotesPanel.qml:283
-NotesPanel,Add note here,,The add-note tile's label,,ここにノートを追加,unfinished,src/ui/qml/NotesPanel.qml:285
-NotesPanel,Save…,,Add-note tile when the project must be saved first,,保存…,unfinished,src/ui/qml/NotesPanel.qml:296
-NotesPanel,on the frozen frame,,Caption under Add note: the note captures the frozen frame,,フリーズ中のフレームに,unfinished,src/ui/qml/NotesPanel.qml:298
-NotesPanel,freezes the feed,,Caption under Add note: adding a note freezes the live feed,,フィードをフリーズします,unfinished,src/ui/qml/NotesPanel.qml:300
-NotesPanel,captures current frame,,Caption under Add note,,現在のフレームをキャプチャ,unfinished,src/ui/qml/NotesPanel.qml:302
-NotesPanel,Export notes,,,,ノートを書き出し,unfinished,src/ui/qml/NotesPanel.qml:352
-NotesPanel,Export folder (Markdown),,,,書き出しフォルダー (Markdown),unfinished,src/ui/qml/NotesPanel.qml:390
-NotesPanel,Save HTML…,,,,HTMLを保存…,unfinished,src/ui/qml/NotesPanel.qml:418
-NotesPanel,HTML (*.html),,,,HTML (*.html),unfinished,src/ui/qml/NotesPanel.qml:420
-NotesPanel,Save PDF…,,,,PDFを保存…,unfinished,src/ui/qml/NotesPanel.qml:425
-NotesPanel,PDF (*.pdf),,,,PDF (*.pdf),unfinished,src/ui/qml/NotesPanel.qml:427
-NotesPanel,Save DOCX…,,,,DOCXを保存…,unfinished,src/ui/qml/NotesPanel.qml:432
-NotesPanel,Word document (*.docx),,,,Word文書 (*.docx),unfinished,src/ui/qml/NotesPanel.qml:434
-NotesPanel,%1 notes will be exported.,,,,%1件のノートを書き出します。,unfinished,src/ui/qml/NotesPanel.qml:450
-NotesPanel,No notes to export yet.,,,,書き出すノートはまだありません。,unfinished,src/ui/qml/NotesPanel.qml:452
-NotesPanel,Markdown folder…,,,,Markdownフォルダー…,unfinished,src/ui/qml/NotesPanel.qml:468
-NotesPanel,Folder + linked images.  Type any name to set the output dir; the export creates a timestamped subfolder there.,,,,フォルダー + リンク画像。任意の名前を入力して出力先を指定すると、そこにタイムスタンプ付きのサブフォルダーが作成されます。,unfinished,src/ui/qml/NotesPanel.qml:473
-NotesPanel,HTML (single file)…,,,,HTML（単一ファイル）…,unfinished,src/ui/qml/NotesPanel.qml:480
-NotesPanel,PDF…,,,,PDF…,unfinished,src/ui/qml/NotesPanel.qml:488
-NotesPanel,DOCX…,,,,DOCX…,unfinished,src/ui/qml/NotesPanel.qml:496
-NotesPanel,Open in minNotes,,,,minNotesで開く,unfinished,src/ui/qml/NotesPanel.qml:519
-NotesPanel,Open this stream's notes folder in minNotes,,,,このストリームのノートフォルダーをminNotesで開く,unfinished,src/ui/qml/NotesPanel.qml:525
-NotesPanel,minNotes is not installed,,,,minNotesがインストールされていません,unfinished,src/ui/qml/NotesPanel.qml:526
-NotesPanel,Cancel,,,,キャンセル,unfinished,src/ui/qml/NotesPanel.qml:532
-NotesPanel,(no thumb),,No thumbnail,,（サムネイルなし）,unfinished,src/ui/qml/NotesPanel.qml:736
-NotesPanel,VIEWER,,Badge: the note was captured with viewer aids active,,ビューア,unfinished,src/ui/qml/NotesPanel.qml:768
-NotesPanel,OCIO,,Badge: the note was captured through OCIO,,OCIO,unfinished,src/ui/qml/NotesPanel.qml:796
-NotesPanel,Mark addressed,,Button: mark this note as dealt with,,対応済みにする,unfinished,src/ui/qml/NotesPanel.qml:870
-NotesPanel,Delete note,,,,ノートを削除,unfinished,src/ui/qml/NotesPanel.qml:897
-NotesPanel,Note…,,Placeholder of the note text field,,ノート…,unfinished,src/ui/qml/NotesPanel.qml:910
-NotesPanel,"Select (drag to move, corners to scale, Del to remove; click again to exit)",,,,選択（ドラッグで移動、角でサイズ変更、Delで削除。もう一度クリックで終了）,unfinished,src/ui/qml/NotesPanel.qml:1021
-NotesPanel,Freehand,,,,フリーハンド,unfinished,src/ui/qml/NotesPanel.qml:1023
-NotesPanel,Rectangle,,,,長方形,unfinished,src/ui/qml/NotesPanel.qml:1025
-NotesPanel,Oval,,,,楕円,unfinished,src/ui/qml/NotesPanel.qml:1027
-NotesPanel,Arrow,,,,矢印,unfinished,src/ui/qml/NotesPanel.qml:1029
-NotesPanel,Line,,,,直線,unfinished,src/ui/qml/NotesPanel.qml:1031
-NotesPanel,Erase stroke (click strokes to remove),,,,ストロークを消去（ストロークをクリックで削除）,unfinished,src/ui/qml/NotesPanel.qml:1032
-NotesPanel,Width:,,Stroke width label,,線幅:,unfinished,src/ui/qml/NotesPanel.qml:1075
-PlayerWindow,Player — Phase 1.7 (compositor: %1),,,,プレーヤー — フェーズ1.7（コンポジター: %1）,unfinished,src/ui/qml/PlayerWindow.qml:106
-PlayerWindow,Window: %1×%2,,,,ウィンドウ: %1×%2,unfinished,src/ui/qml/PlayerWindow.qml:112
+NotesPanel,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,レビュー · %1,unfinished,src/ui/qml/NotesPanel.qml:218
+NotesPanel,LIVE,,Badge: the feed is live,,ライブ,unfinished,src/ui/qml/NotesPanel.qml:220
+NotesPanel,back to live,,Hover hint on the review pill: a click returns to the live feed,,ライブに戻る,unfinished,src/ui/qml/NotesPanel.qml:232
+NotesPanel,freeze,,Hover hint on the review pill: a click holds the current frame,,フリーズ,unfinished,src/ui/qml/NotesPanel.qml:234
+NotesPanel,Save the project to keep notes for this stream,,,,このストリームのノートを保持するにはプロジェクトを保存してください,unfinished,src/ui/qml/NotesPanel.qml:286
+NotesPanel,Add note here,,The add-note tile's label,,ここにノートを追加,unfinished,src/ui/qml/NotesPanel.qml:288
+NotesPanel,Save…,,Add-note tile when the project must be saved first,,保存…,unfinished,src/ui/qml/NotesPanel.qml:300
+NotesPanel,on the frozen frame,,Caption under Add note: the note captures the frozen frame,,フリーズ中のフレームに,unfinished,src/ui/qml/NotesPanel.qml:302
+NotesPanel,freezes the feed,,Caption under Add note: adding a note freezes the live feed,,フィードをフリーズします,unfinished,src/ui/qml/NotesPanel.qml:304
+NotesPanel,captures current frame,,Caption under Add note,,現在のフレームをキャプチャ,unfinished,src/ui/qml/NotesPanel.qml:306
+NotesPanel,Export notes,,,,ノートを書き出し,unfinished,src/ui/qml/NotesPanel.qml:358
+NotesPanel,Export folder (Markdown),,,,書き出しフォルダー (Markdown),unfinished,src/ui/qml/NotesPanel.qml:397
+NotesPanel,Save HTML…,,,,HTMLを保存…,unfinished,src/ui/qml/NotesPanel.qml:425
+NotesPanel,HTML (*.html),,,,HTML (*.html),unfinished,src/ui/qml/NotesPanel.qml:427
+NotesPanel,Save PDF…,,,,PDFを保存…,unfinished,src/ui/qml/NotesPanel.qml:432
+NotesPanel,PDF (*.pdf),,,,PDF (*.pdf),unfinished,src/ui/qml/NotesPanel.qml:434
+NotesPanel,Save DOCX…,,,,DOCXを保存…,unfinished,src/ui/qml/NotesPanel.qml:439
+NotesPanel,Word document (*.docx),,,,Word文書 (*.docx),unfinished,src/ui/qml/NotesPanel.qml:441
+NotesPanel,%1 notes will be exported.,,,,%1件のノートを書き出します。,unfinished,src/ui/qml/NotesPanel.qml:457
+NotesPanel,No notes to export yet.,,,,書き出すノートはまだありません。,unfinished,src/ui/qml/NotesPanel.qml:459
+NotesPanel,Markdown folder…,,,,Markdownフォルダー…,unfinished,src/ui/qml/NotesPanel.qml:475
+NotesPanel,Folder + linked images.  Type any name to set the output dir; the export creates a timestamped subfolder there.,,,,フォルダー + リンク画像。任意の名前を入力して出力先を指定すると、そこにタイムスタンプ付きのサブフォルダーが作成されます。,unfinished,src/ui/qml/NotesPanel.qml:480
+NotesPanel,HTML (single file)…,,,,HTML（単一ファイル）…,unfinished,src/ui/qml/NotesPanel.qml:487
+NotesPanel,PDF…,,,,PDF…,unfinished,src/ui/qml/NotesPanel.qml:495
+NotesPanel,DOCX…,,,,DOCX…,unfinished,src/ui/qml/NotesPanel.qml:503
+NotesPanel,Open in minNotes,,,,minNotesで開く,unfinished,src/ui/qml/NotesPanel.qml:526
+NotesPanel,Open this stream's notes folder in minNotes,,,,このストリームのノートフォルダーをminNotesで開く,unfinished,src/ui/qml/NotesPanel.qml:532
+NotesPanel,minNotes is not installed,,,,minNotesがインストールされていません,unfinished,src/ui/qml/NotesPanel.qml:533
+NotesPanel,Cancel,,,,キャンセル,unfinished,src/ui/qml/NotesPanel.qml:539
+NotesPanel,(no thumb),,No thumbnail,,（サムネイルなし）,unfinished,src/ui/qml/NotesPanel.qml:744
+NotesPanel,VIEWER,,Badge: the note was captured with viewer aids active,,ビューア,unfinished,src/ui/qml/NotesPanel.qml:776
+NotesPanel,OCIO,,Badge: the note was captured through OCIO,,OCIO,unfinished,src/ui/qml/NotesPanel.qml:804
+NotesPanel,Mark addressed,,Button: mark this note as dealt with,,対応済みにする,unfinished,src/ui/qml/NotesPanel.qml:878
+NotesPanel,Delete note,,,,ノートを削除,unfinished,src/ui/qml/NotesPanel.qml:907
+NotesPanel,Note…,,Placeholder of the note text field,,ノート…,unfinished,src/ui/qml/NotesPanel.qml:920
+NotesPanel,"Select (drag to move, corners to scale, Del to remove; click again to exit)",,,,選択（ドラッグで移動、角でサイズ変更、Delで削除。もう一度クリックで終了）,unfinished,src/ui/qml/NotesPanel.qml:1033
+NotesPanel,Freehand,,,,フリーハンド,unfinished,src/ui/qml/NotesPanel.qml:1035
+NotesPanel,Rectangle,,,,長方形,unfinished,src/ui/qml/NotesPanel.qml:1037
+NotesPanel,Oval,,,,楕円,unfinished,src/ui/qml/NotesPanel.qml:1039
+NotesPanel,Arrow,,,,矢印,unfinished,src/ui/qml/NotesPanel.qml:1041
+NotesPanel,Line,,,,直線,unfinished,src/ui/qml/NotesPanel.qml:1043
+NotesPanel,Erase stroke (click strokes to remove),,,,ストロークを消去（ストロークをクリックで削除）,unfinished,src/ui/qml/NotesPanel.qml:1044
+NotesPanel,Width:,,Stroke width label,,線幅:,unfinished,src/ui/qml/NotesPanel.qml:1087
+PlayerWindow,Player — Phase 1.7 (compositor: %1),,,,プレーヤー — フェーズ1.7（コンポジター: %1）,unfinished,src/ui/qml/PlayerWindow.qml:100
+PlayerWindow,Window: %1×%2,,,,ウィンドウ: %1×%2,unfinished,src/ui/qml/PlayerWindow.qml:106
 ProjectIo,Save: empty path.,,The prefix names the operation,,保存: パスが空です。,unfinished,src/project/project_io.cpp:542
 ProjectIo,Save: cannot open '%1' for write: %2,,,,保存: '%1'を書き込み用に開けません: %2,unfinished,src/project/project_io.cpp:587
 ProjectIo,Save: write to '%1' truncated: %2,,,,保存: '%1'への書き込みが途中で終わりました: %2,unfinished,src/project/project_io.cpp:594
@@ -594,11 +620,11 @@ QObject,Delete clip,,Undo action name,,クリップを削除,unfinished,src/time
 QObject,Add clip,,Undo action name,,クリップを追加,unfinished,src/timeline/timeline_edits.cpp:260
 QObject,Reorder clip,,Undo action name,,クリップを並べ替え,unfinished,src/timeline/timeline_edits.cpp:290
 RightRail,Inspector,,Panel title,,インスペクタ,unfinished,src/ui/qml/RightRail.qml:99
-RightRail,Expand panel,,,,パネルを展開,unfinished,src/ui/qml/RightRail.qml:147
-RightRail,Collapse panel,,,,パネルを折りたたむ,unfinished,src/ui/qml/RightRail.qml:148
-RightRail,Vectorscope,,Section title,,ベクトルスコープ,unfinished,src/ui/qml/RightRail.qml:171
-RightRail,Waveform,,Section title,,波形,unfinished,src/ui/qml/RightRail.qml:185
-RightRail,Keyboard Shortcuts,,,,キーボードショートカット,unfinished,src/ui/qml/RightRail.qml:324
+RightRail,Expand panel,,,,パネルを展開,unfinished,src/ui/qml/RightRail.qml:148
+RightRail,Collapse panel,,,,パネルを折りたたむ,unfinished,src/ui/qml/RightRail.qml:149
+RightRail,Vectorscope,,Section title,,ベクトルスコープ,unfinished,src/ui/qml/RightRail.qml:172
+RightRail,Waveform,,Section title,,波形,unfinished,src/ui/qml/RightRail.qml:186
+RightRail,Keyboard Shortcuts,,,,キーボードショートカット,unfinished,src/ui/qml/RightRail.qml:325
 ScopePanel,Zoom %1× — magnifies the centre,,,,ズーム %1× — 中心を拡大,unfinished,src/ui/qml/ScopePanel.qml:216
 ScopePanel,Color,,Toggle: colour the trace by hue,,カラー,unfinished,src/ui/qml/ScopePanel.qml:223
 ScopePanel,Colour the trace by hue,,,,トレースを色相で色付け,unfinished,src/ui/qml/ScopePanel.qml:227
@@ -625,27 +651,27 @@ TimelinePanel,tail %1,,Trim badge: the clip's tail was trimmed by %1 frames,,末
 TimelinePanel,start %1,,Badge: the clip's start moved by %1 frames,,開始 %1,unfinished,src/ui/qml/TimelinePanel.qml:504
 TimelinePanel,slip %1,,Badge: the clip's content slipped by %1 frames,,スリップ %1,unfinished,src/ui/qml/TimelinePanel.qml:528
 TimelinePanel,→ slot %1/%2,,Drag badge: the clip will move to playlist position %1 of %2,,→ スロット %1/%2,unfinished,src/ui/qml/TimelinePanel.qml:609
-TimelinePanel,Edit mode ON — click to disable,,,,編集モード オン — クリックで無効化,unfinished,src/ui/qml/TimelinePanel.qml:717
-TimelinePanel,Edit this track,,Tooltip on the track's edit toggle,,このトラックを編集,unfinished,src/ui/qml/TimelinePanel.qml:719
-TimelinePanel,Drop media here to add to the playlist,,,,ここにメディアをドロップしてプレイリストに追加,unfinished,src/ui/qml/TimelinePanel.qml:1376
-TimelinePanel,"Drop media onto a lane, or a side of the viewport, to compare",,,,レーンまたはビューポートの片側にメディアをドロップして比較,unfinished,src/ui/qml/TimelinePanel.qml:1378
-TimelinePanel,Open a video to enable the timeline.,,,,ビデオを開くとタイムラインが有効になります。,unfinished,src/ui/qml/TimelinePanel.qml:1379
-TimelinePanel,⇄,,"Swap glyph, do not translate",,⇄,unfinished,src/ui/qml/TimelinePanel.qml:1511
-TimelinePanel,Audio files can't be added to playlists — added to the Audio bin instead,,,,オーディオファイルはプレイリストに追加できません — 代わりにオーディオビンに追加しました,unfinished,src/ui/qml/TimelinePanel.qml:1742
-TimelinePanel,%1 audio files can't be added to playlists — added to the Audio bin instead,,,,%1個のオーディオファイルはプレイリストに追加できません — 代わりにオーディオビンに追加しました,unfinished,src/ui/qml/TimelinePanel.qml:1744
-TimelineStatus,Time —,,Status well with no value yet,,時間 —,unfinished,src/ui/qml/TimelineStatus.qml:123
-TimelineStatus,Frame —,,Status well with no value yet,,フレーム —,unfinished,src/ui/qml/TimelineStatus.qml:130
-TimelineStatus,Frame %1 / %2,,,,フレーム %1 / %2,unfinished,src/ui/qml/TimelineStatus.qml:137
-TimelineStatus,RANGE,,Badge: an in/out range is set,,範囲,unfinished,src/ui/qml/TimelineStatus.qml:217
-TimelineStatus,%1 fr,,"Range length in frames, abbreviated",,%1 fr,unfinished,src/ui/qml/TimelineStatus.qml:231
-TimelineStatus,%1 s,,Range length in seconds,,%1 s,unfinished,src/ui/qml/TimelineStatus.qml:276
-TimelineStatus,%1 fps,,,,%1 fps,unfinished,src/ui/qml/TimelineStatus.qml:308
-TimelineStatus,GO TO FRAME,,Popup title,,フレームへ移動,unfinished,src/ui/qml/TimelineStatus.qml:405
-TimelineStatus,GO TO TIMECODE,,Popup title,,タイムコードへ移動,unfinished,src/ui/qml/TimelineStatus.qml:408
-TimelineStatus,GO TO TIME,,Popup title,,時間へ移動,unfinished,src/ui/qml/TimelineStatus.qml:410
-TimelineStatus,frame number,,Field placeholder,,フレーム番号,unfinished,src/ui/qml/TimelineStatus.qml:426
-TimelineStatus,HH:MM:SS:FF,,Field placeholder: timecode,,HH:MM:SS:FF,unfinished,src/ui/qml/TimelineStatus.qml:429
-TimelineStatus,MM:SS.mmm,,Field placeholder: time,,MM:SS.mmm,unfinished,src/ui/qml/TimelineStatus.qml:431
+TimelinePanel,Edit mode ON — click to disable,,,,編集モード オン — クリックで無効化,unfinished,src/ui/qml/TimelinePanel.qml:718
+TimelinePanel,Edit this track,,Tooltip on the track's edit toggle,,このトラックを編集,unfinished,src/ui/qml/TimelinePanel.qml:720
+TimelinePanel,Drop media here to add to the playlist,,,,ここにメディアをドロップしてプレイリストに追加,unfinished,src/ui/qml/TimelinePanel.qml:1377
+TimelinePanel,"Drop media onto a lane, or a side of the viewport, to compare",,,,レーンまたはビューポートの片側にメディアをドロップして比較,unfinished,src/ui/qml/TimelinePanel.qml:1379
+TimelinePanel,Open a video to enable the timeline.,,,,ビデオを開くとタイムラインが有効になります。,unfinished,src/ui/qml/TimelinePanel.qml:1380
+TimelinePanel,⇄,,"Swap glyph, do not translate",,⇄,unfinished,src/ui/qml/TimelinePanel.qml:1512
+TimelinePanel,Audio files can't be added to playlists — added to the Audio bin instead,,,,オーディオファイルはプレイリストに追加できません — 代わりにオーディオビンに追加しました,unfinished,src/ui/qml/TimelinePanel.qml:1748
+TimelinePanel,%1 audio files can't be added to playlists — added to the Audio bin instead,,,,%1個のオーディオファイルはプレイリストに追加できません — 代わりにオーディオビンに追加しました,unfinished,src/ui/qml/TimelinePanel.qml:1750
+TimelineStatus,Time —,,Status well with no value yet,,時間 —,unfinished,src/ui/qml/TimelineStatus.qml:124
+TimelineStatus,Frame —,,Status well with no value yet,,フレーム —,unfinished,src/ui/qml/TimelineStatus.qml:131
+TimelineStatus,Frame %1 / %2,,,,フレーム %1 / %2,unfinished,src/ui/qml/TimelineStatus.qml:138
+TimelineStatus,RANGE,,Badge: an in/out range is set,,範囲,unfinished,src/ui/qml/TimelineStatus.qml:219
+TimelineStatus,%1 fr,,"Range length in frames, abbreviated",,%1 fr,unfinished,src/ui/qml/TimelineStatus.qml:233
+TimelineStatus,%1 s,,Range length in seconds,,%1 s,unfinished,src/ui/qml/TimelineStatus.qml:278
+TimelineStatus,%1 fps,,,,%1 fps,unfinished,src/ui/qml/TimelineStatus.qml:310
+TimelineStatus,GO TO FRAME,,Popup title,,フレームへ移動,unfinished,src/ui/qml/TimelineStatus.qml:407
+TimelineStatus,GO TO TIMECODE,,Popup title,,タイムコードへ移動,unfinished,src/ui/qml/TimelineStatus.qml:410
+TimelineStatus,GO TO TIME,,Popup title,,時間へ移動,unfinished,src/ui/qml/TimelineStatus.qml:412
+TimelineStatus,frame number,,Field placeholder,,フレーム番号,unfinished,src/ui/qml/TimelineStatus.qml:428
+TimelineStatus,HH:MM:SS:FF,,Field placeholder: timecode,,HH:MM:SS:FF,unfinished,src/ui/qml/TimelineStatus.qml:431
+TimelineStatus,MM:SS.mmm,,Field placeholder: time,,MM:SS.mmm,unfinished,src/ui/qml/TimelineStatus.qml:433
 TransportBar,Open media…,,,,メディアを開く…,unfinished,src/ui/qml/TransportBar.qml:142
 TransportBar,Previous clip,,,,前のクリップ,unfinished,src/ui/qml/TransportBar.qml:166
 TransportBar,Skip to start,,,,先頭へ移動,unfinished,src/ui/qml/TransportBar.qml:172
@@ -657,63 +683,63 @@ TransportBar,Step forward 1 frame,,,,1フレーム進む,unfinished,src/ui/qml/T
 TransportBar,Fast-forward (hold),,Tooltip: hold the button,,早送り（長押し）,unfinished,src/ui/qml/TransportBar.qml:210
 TransportBar,Skip to end,,,,末尾へ移動,unfinished,src/ui/qml/TransportBar.qml:220
 TransportBar,Next clip,,,,次のクリップ,unfinished,src/ui/qml/TransportBar.qml:230
-TransportBar,"Review speed — click to cycle (R), Shift+click for 1× (Shift+R)",,,,レビュー速度 — クリックで切り替え (R)、Shift+クリックで1× (Shift+R),unfinished,src/ui/qml/TransportBar.qml:273
-TransportBar,In point not available in playlist mode,,,,プレイリストモードではイン点を使用できません,unfinished,src/ui/qml/TransportBar.qml:296
-TransportBar,Set in point (I),,,,イン点を設定 (I),unfinished,src/ui/qml/TransportBar.qml:297
-TransportBar,Out point not available in playlist mode,,,,プレイリストモードではアウト点を使用できません,unfinished,src/ui/qml/TransportBar.qml:313
-TransportBar,Set out point (O),,,,アウト点を設定 (O),unfinished,src/ui/qml/TransportBar.qml:314
-TransportBar,Clear in/out points (Shift+I),,,,イン点/アウト点をクリア (Shift+I),unfinished,src/ui/qml/TransportBar.qml:328
-TransportBar,Loop (L),,,,ループ (L),unfinished,src/ui/qml/TransportBar.qml:346
-TransportBar,Fullscreen (F),,,,フルスクリーン (F),unfinished,src/ui/qml/TransportBar.qml:351
-TransportBar,Compact Mode (Ctrl+Shift+C),,,,コンパクトモード (Ctrl+Shift+C),unfinished,src/ui/qml/TransportBar.qml:358
-TransportBar,Screenshot to clipboard (⌥T),,,,スクリーンショットをクリップボードへ (⌥T),unfinished,src/ui/qml/TransportBar.qml:374
-TransportBar,Screenshot to Desktop (T),,,,スクリーンショットをデスクトップへ (T),unfinished,src/ui/qml/TransportBar.qml:380
-TransportBar,Safety guides,,Tooltip,,セーフエリアガイド,unfinished,src/ui/qml/TransportBar.qml:388
-TransportBar,Background,,Tooltip,,背景,unfinished,src/ui/qml/TransportBar.qml:394
-TransportBar,Timeline hover thumbnails (on),,,,タイムラインのホバーサムネイル（オン）,unfinished,src/ui/qml/TransportBar.qml:406
-TransportBar,Timeline hover thumbnails (off),,,,タイムラインのホバーサムネイル（オフ）,unfinished,src/ui/qml/TransportBar.qml:407
-TransportBar,Color panel (⌃3),,,,カラーパネル (⌃3),unfinished,src/ui/qml/TransportBar.qml:429
-TransportBar,Notes panel (⌃4),,,,ノートパネル (⌃4),unfinished,src/ui/qml/TransportBar.qml:437
-TransportBar,Unmute (M),,,,ミュート解除 (M),unfinished,src/ui/qml/TransportBar.qml:461
-TransportBar,Mute (M),,,,ミュート (M),unfinished,src/ui/qml/TransportBar.qml:461
-TransportBar,Volume — %1%,,,,音量 — %1%,unfinished,src/ui/qml/TransportBar.qml:482
-TransportBar,Always on Top — click to unpin (Ctrl+Alt+T),,,,常に手前に表示 — クリックで解除 (Ctrl+Alt+T),unfinished,src/ui/qml/TransportBar.qml:502
-TransportBar,Always on Top (Ctrl+Alt+T),,,,常に手前に表示 (Ctrl+Alt+T),unfinished,src/ui/qml/TransportBar.qml:503
+TransportBar,"Review speed — click to cycle (R), Shift+click for 1× (Shift+R)",,,,レビュー速度 — クリックで切り替え (R)、Shift+クリックで1× (Shift+R),unfinished,src/ui/qml/TransportBar.qml:275
+TransportBar,In point not available in playlist mode,,,,プレイリストモードではイン点を使用できません,unfinished,src/ui/qml/TransportBar.qml:298
+TransportBar,Set in point (I),,,,イン点を設定 (I),unfinished,src/ui/qml/TransportBar.qml:299
+TransportBar,Out point not available in playlist mode,,,,プレイリストモードではアウト点を使用できません,unfinished,src/ui/qml/TransportBar.qml:315
+TransportBar,Set out point (O),,,,アウト点を設定 (O),unfinished,src/ui/qml/TransportBar.qml:316
+TransportBar,Clear in/out points (Shift+I),,,,イン点/アウト点をクリア (Shift+I),unfinished,src/ui/qml/TransportBar.qml:330
+TransportBar,Loop (L),,,,ループ (L),unfinished,src/ui/qml/TransportBar.qml:348
+TransportBar,Fullscreen (F),,,,フルスクリーン (F),unfinished,src/ui/qml/TransportBar.qml:353
+TransportBar,Compact Mode (Ctrl+Shift+C),,,,コンパクトモード (Ctrl+Shift+C),unfinished,src/ui/qml/TransportBar.qml:360
+TransportBar,Screenshot to clipboard (⌥T),,,,スクリーンショットをクリップボードへ (⌥T),unfinished,src/ui/qml/TransportBar.qml:376
+TransportBar,Screenshot to Desktop (T),,,,スクリーンショットをデスクトップへ (T),unfinished,src/ui/qml/TransportBar.qml:382
+TransportBar,Safety guides,,Tooltip,,セーフエリアガイド,unfinished,src/ui/qml/TransportBar.qml:390
+TransportBar,Background,,Tooltip,,背景,unfinished,src/ui/qml/TransportBar.qml:396
+TransportBar,Timeline hover thumbnails (on),,,,タイムラインのホバーサムネイル（オン）,unfinished,src/ui/qml/TransportBar.qml:408
+TransportBar,Timeline hover thumbnails (off),,,,タイムラインのホバーサムネイル（オフ）,unfinished,src/ui/qml/TransportBar.qml:409
+TransportBar,Color panel (⌃3),,,,カラーパネル (⌃3),unfinished,src/ui/qml/TransportBar.qml:431
+TransportBar,Notes panel (⌃4),,,,ノートパネル (⌃4),unfinished,src/ui/qml/TransportBar.qml:439
+TransportBar,Unmute (M),,,,ミュート解除 (M),unfinished,src/ui/qml/TransportBar.qml:463
+TransportBar,Mute (M),,,,ミュート (M),unfinished,src/ui/qml/TransportBar.qml:463
+TransportBar,Volume — %1%,,,,音量 — %1%,unfinished,src/ui/qml/TransportBar.qml:484
+TransportBar,Always on Top — click to unpin (Ctrl+Alt+T),,,,常に手前に表示 — クリックで解除 (Ctrl+Alt+T),unfinished,src/ui/qml/TransportBar.qml:504
+TransportBar,Always on Top (Ctrl+Alt+T),,,,常に手前に表示 (Ctrl+Alt+T),unfinished,src/ui/qml/TransportBar.qml:505
 ViewportOverlay,Untitled Dual View,,,,名称未設定のデュアルビュー,unfinished,src/ui/qml/ViewportOverlay.qml:73
 ViewportOverlay,(none),,Picker entry: nothing selected,,（なし）,unfinished,src/ui/qml/ViewportOverlay.qml:76
 ViewportOverlay,Dual view saved: %1,,,,デュアルビューを保存しました: %1,unfinished,src/ui/qml/ViewportOverlay.qml:97
 ViewportOverlay,Couldn't save dual view,,,,デュアルビューを保存できませんでした,unfinished,src/ui/qml/ViewportOverlay.qml:100
 ViewportOverlay,Dual view updated,,,,デュアルビューを更新しました,unfinished,src/ui/qml/ViewportOverlay.qml:115
 ViewportOverlay,Couldn't update dual view,,,,デュアルビューを更新できませんでした,unfinished,src/ui/qml/ViewportOverlay.qml:118
-ViewportOverlay,Live source,,Chip label for a live source,,ライブソース,unfinished,src/ui/qml/ViewportOverlay.qml:192
-ViewportOverlay,A,,"Source letter, do not translate",,A,unfinished,src/ui/qml/ViewportOverlay.qml:196
-ViewportOverlay,(drop a file…),,Placeholder in the empty A chip,,（ファイルをドロップ…）,unfinished,src/ui/qml/ViewportOverlay.qml:216
-ViewportOverlay,A audio muted — click to unmute,,,,Aの音声はミュート中 — クリックで解除,unfinished,src/ui/qml/ViewportOverlay.qml:309
-ViewportOverlay,A audio on — click to mute,,,,Aの音声はオン — クリックでミュート,unfinished,src/ui/qml/ViewportOverlay.qml:310
-ViewportOverlay,Couldn't load that file,,,,そのファイルを読み込めませんでした,unfinished,src/ui/qml/ViewportOverlay.qml:334
-ViewportOverlay,Couldn't load that file as Source B,,,,そのファイルをソースBとして読み込めませんでした,unfinished,src/ui/qml/ViewportOverlay.qml:414
-ViewportOverlay,B,,"Source letter, do not translate",,B,unfinished,src/ui/qml/ViewportOverlay.qml:441
-ViewportOverlay,"(drop a video, sequence or stream…)",,,,（ビデオ、シーケンス、ストリームをドロップ…）,unfinished,src/ui/qml/ViewportOverlay.qml:451
-ViewportOverlay,B audio muted — click to unmute,,,,Bの音声はミュート中 — クリックで解除,unfinished,src/ui/qml/ViewportOverlay.qml:543
-ViewportOverlay,B audio on — click to mute,,,,Bの音声はオン — クリックでミュート,unfinished,src/ui/qml/ViewportOverlay.qml:544
-ViewportOverlay,Close source B,,,,ソースBを閉じる,unfinished,src/ui/qml/ViewportOverlay.qml:573
-ViewportOverlay,KNEE,,Pill: Highlight Knee is on,,ニー,unfinished,src/ui/qml/ViewportOverlay.qml:616
-ViewportOverlay,Highlight Knee on: %1 → %2 nits. Highlights are compressed — the picture is not 1:1.,,,,ハイライトニー オン: %1 → %2 nits。ハイライトが圧縮されているため、映像は1:1ではありません。,unfinished,src/ui/qml/ViewportOverlay.qml:629
-ViewportOverlay,VIEWER,,Pill: viewer aids are active,,ビューア,unfinished,src/ui/qml/ViewportOverlay.qml:657
-ViewportOverlay,%1 — click to reset,,,,%1 — クリックでリセット,unfinished,src/ui/qml/ViewportOverlay.qml:676
-ViewportOverlay,Single view,,Dual view mode,,シングルビュー,unfinished,src/ui/qml/ViewportOverlay.qml:692
-ViewportOverlay,Side-by-side,,Dual view mode,,並べて表示,unfinished,src/ui/qml/ViewportOverlay.qml:702
-ViewportOverlay,Split wipe,,Dual view mode,,スプリットワイプ,unfinished,src/ui/qml/ViewportOverlay.qml:712
-ViewportOverlay,Difference,,Dual view mode,,差分,unfinished,src/ui/qml/ViewportOverlay.qml:722
-ViewportOverlay,Update this saved dual view,,,,この保存済みデュアルビューを更新,unfinished,src/ui/qml/ViewportOverlay.qml:740
-ViewportOverlay,Save as a new dual view,,,,新しいデュアルビューとして保存,unfinished,src/ui/qml/ViewportOverlay.qml:761
-ViewportOverlay,Save dual view,,,,デュアルビューを保存,unfinished,src/ui/qml/ViewportOverlay.qml:762
-ViewportOverlay,Name,,Field label when saving a dual view,,名前,unfinished,src/ui/qml/ViewportOverlay.qml:835
-ViewportOverlay,e.g. ‘US30 v001 vs v002’,,,,例: ‘US30 v001 vs v002’,unfinished,src/ui/qml/ViewportOverlay.qml:847
-ViewportOverlay,Save,,,,保存,unfinished,src/ui/qml/ViewportOverlay.qml:854
-ViewportOverlay,Cancel,,,,キャンセル,unfinished,src/ui/qml/ViewportOverlay.qml:862
-ViewportOverlay,Show project panel,,,,プロジェクトパネルを表示,unfinished,src/ui/qml/ViewportOverlay.qml:911
-ViewportOverlay,Show inspector panel,,,,インスペクタパネルを表示,unfinished,src/ui/qml/ViewportOverlay.qml:949
+ViewportOverlay,Live source,,Chip label for a live source,,ライブソース,unfinished,src/ui/qml/ViewportOverlay.qml:193
+ViewportOverlay,A,,"Source letter, do not translate",,A,unfinished,src/ui/qml/ViewportOverlay.qml:197
+ViewportOverlay,(drop a file…),,Placeholder in the empty A chip,,（ファイルをドロップ…）,unfinished,src/ui/qml/ViewportOverlay.qml:217
+ViewportOverlay,A audio muted — click to unmute,,,,Aの音声はミュート中 — クリックで解除,unfinished,src/ui/qml/ViewportOverlay.qml:313
+ViewportOverlay,A audio on — click to mute,,,,Aの音声はオン — クリックでミュート,unfinished,src/ui/qml/ViewportOverlay.qml:314
+ViewportOverlay,Couldn't load that file,,,,そのファイルを読み込めませんでした,obsolete,
+ViewportOverlay,Couldn't load that file as Source B,,,,そのファイルをソースBとして読み込めませんでした,unfinished,src/ui/qml/ViewportOverlay.qml:417
+ViewportOverlay,B,,"Source letter, do not translate",,B,unfinished,src/ui/qml/ViewportOverlay.qml:444
+ViewportOverlay,"(drop a video, sequence or stream…)",,,,（ビデオ、シーケンス、ストリームをドロップ…）,unfinished,src/ui/qml/ViewportOverlay.qml:454
+ViewportOverlay,B audio muted — click to unmute,,,,Bの音声はミュート中 — クリックで解除,unfinished,src/ui/qml/ViewportOverlay.qml:549
+ViewportOverlay,B audio on — click to mute,,,,Bの音声はオン — クリックでミュート,unfinished,src/ui/qml/ViewportOverlay.qml:550
+ViewportOverlay,Close source B,,,,ソースBを閉じる,unfinished,src/ui/qml/ViewportOverlay.qml:580
+ViewportOverlay,KNEE,,Pill: Highlight Knee is on,,ニー,unfinished,src/ui/qml/ViewportOverlay.qml:623
+ViewportOverlay,Highlight Knee on: %1 → %2 nits. Highlights are compressed — the picture is not 1:1.,,,,ハイライトニー オン: %1 → %2 nits。ハイライトが圧縮されているため、映像は1:1ではありません。,unfinished,src/ui/qml/ViewportOverlay.qml:636
+ViewportOverlay,VIEWER,,Pill: viewer aids are active,,ビューア,unfinished,src/ui/qml/ViewportOverlay.qml:665
+ViewportOverlay,%1 — click to reset,,,,%1 — クリックでリセット,unfinished,src/ui/qml/ViewportOverlay.qml:684
+ViewportOverlay,Single view,,Dual view mode,,シングルビュー,unfinished,src/ui/qml/ViewportOverlay.qml:700
+ViewportOverlay,Side-by-side,,Dual view mode,,並べて表示,unfinished,src/ui/qml/ViewportOverlay.qml:710
+ViewportOverlay,Split wipe,,Dual view mode,,スプリットワイプ,unfinished,src/ui/qml/ViewportOverlay.qml:720
+ViewportOverlay,Difference,,Dual view mode,,差分,unfinished,src/ui/qml/ViewportOverlay.qml:730
+ViewportOverlay,Update this saved dual view,,,,この保存済みデュアルビューを更新,unfinished,src/ui/qml/ViewportOverlay.qml:748
+ViewportOverlay,Save as a new dual view,,,,新しいデュアルビューとして保存,unfinished,src/ui/qml/ViewportOverlay.qml:769
+ViewportOverlay,Save dual view,,,,デュアルビューを保存,unfinished,src/ui/qml/ViewportOverlay.qml:770
+ViewportOverlay,Name,,Field label when saving a dual view,,名前,unfinished,src/ui/qml/ViewportOverlay.qml:843
+ViewportOverlay,e.g. ‘US30 v001 vs v002’,,,,例: ‘US30 v001 vs v002’,unfinished,src/ui/qml/ViewportOverlay.qml:855
+ViewportOverlay,Save,,,,保存,unfinished,src/ui/qml/ViewportOverlay.qml:862
+ViewportOverlay,Cancel,,,,キャンセル,unfinished,src/ui/qml/ViewportOverlay.qml:870
+ViewportOverlay,Show project panel,,,,プロジェクトパネルを表示,unfinished,src/ui/qml/ViewportOverlay.qml:920
+ViewportOverlay,Show inspector panel,,,,インスペクタパネルを表示,unfinished,src/ui/qml/ViewportOverlay.qml:959
 WaveformPanel,nits · reference,,Scale mode: nits on a reference display,,nits · リファレンス,unfinished,src/ui/qml/WaveformPanel.qml:41
 WaveformPanel,% Y′,,,,% Y′,unfinished,src/ui/qml/WaveformPanel.qml:41
 WaveformPanel,"What the file encodes on a reference display, not what this screen emits. SDR white = 100 nits (BT.1886 reference).",,,,この画面の発光ではなく、ファイルがリファレンスディスプレイ上で表すはずの値です。SDR白 = 100 nits（BT.1886基準）。,unfinished,src/ui/qml/WaveformPanel.qml:48
@@ -731,33 +757,41 @@ WaveformPanel,Trace brightness,,,,トレースの明るさ,unfinished,src/ui/qml
 qcv::HostBridgeSource,Waiting for %1 (QCBridge Transmit device not publishing),,,,%1を待機中（QCBridge Transmitデバイスが送信していません）,unfinished,src/decode/host_bridge_source.cpp:108
 qcv::I18n,System default,,,,システムデフォルト,unfinished,src/app/i18n.cpp:137
 qcv::I18n,machine translation,,Suffix after a language name whose catalog is machine translated and not yet checked by a person,,機械翻訳,unfinished,src/app/i18n.cpp:146
-qcv::MinColorEngine,Knee,,Badge name in the viewport's chain summary,,ニー,unfinished,src/color/mincolor_engine.cpp:187
-qcv::MinColorEngine,Clip chain,,Badge name in the viewport's chain summary,,クリップチェーン,unfinished,src/color/mincolor_engine.cpp:189
-qcv::MinColorEngine,Set on this clip (minColor):,,,,このクリップの設定 (minColor):,unfinished,src/color/mincolor_engine.cpp:196
-qcv::MinColorEngine,Input: %1 · %2%3,,,,入力: %1 · %2%3,unfinished,src/color/mincolor_engine.cpp:198
-qcv::MinColorEngine, · limited range,,Suffix appended to the Input line,, · リミテッドレンジ,unfinished,src/color/mincolor_engine.cpp:202
-qcv::MinColorEngine,Highlight Knee: on · %1 → %2 nits,,,,ハイライトニー: オン · %1 → %2 nits,unfinished,src/color/mincolor_engine.cpp:206
-qcv::MinColorEngine,Highlight Knee: off,,,,ハイライトニー: オフ,unfinished,src/color/mincolor_engine.cpp:208
+qcv::LiveStreamDecoder,Waiting for a sender on port %1,,Live input state: an SRT listener with no sender yet,,ポート %1で送信元を待機中,unfinished,src/decode/live_stream_decoder.cpp:607
+qcv::LiveStreamDecoder,Waiting for a sender,,,,送信元を待機中,unfinished,src/decode/live_stream_decoder.cpp:607
+qcv::MinColorEngine,Knee,,Badge name in the viewport's chain summary,,ニー,unfinished,src/color/mincolor_engine.cpp:194
+qcv::MinColorEngine,Clip chain,,Badge name in the viewport's chain summary,,クリップチェーン,unfinished,src/color/mincolor_engine.cpp:196
+qcv::MinColorEngine,Set on this clip (minColor):,,,,このクリップの設定 (minColor):,unfinished,src/color/mincolor_engine.cpp:203
+qcv::MinColorEngine,Input: %1 · %2%3,,,,入力: %1 · %2%3,unfinished,src/color/mincolor_engine.cpp:205
+qcv::MinColorEngine, · limited range,,Suffix appended to the Input line,, · リミテッドレンジ,unfinished,src/color/mincolor_engine.cpp:209
+qcv::MinColorEngine,Highlight Knee: on · %1 → %2 nits,,,,ハイライトニー: オン · %1 → %2 nits,unfinished,src/color/mincolor_engine.cpp:213
+qcv::MinColorEngine,Highlight Knee: off,,,,ハイライトニー: オフ,unfinished,src/color/mincolor_engine.cpp:215
 qcv::OCIOConfigManager,Output path is empty,,,,出力パスが空です,unfinished,src/color/ocio_config_manager.cpp:486
 qcv::OCIOConfigManager,Cube size must be ≥ 2 (got %1),,,,キューブサイズは2以上が必要です（指定値 %1）,unfinished,src/color/ocio_config_manager.cpp:489
 qcv::OCIOConfigManager,No OCIO config loaded,,,,OCIOコンフィグが読み込まれていません,unfinished,src/color/ocio_config_manager.cpp:501
 qcv::OCIOConfigManager,Chain build failed,,,,チェーンの構築に失敗しました,unfinished,src/color/ocio_config_manager.cpp:540
-qcv::OCIOConfigManager,Look,,Badge name in the viewport's chain summary,,ルック,unfinished,src/color/ocio_config_manager.cpp:905
-qcv::OCIOConfigManager,CDL,,Badge name in the viewport's chain summary,,CDL,unfinished,src/color/ocio_config_manager.cpp:910
-qcv::OCIOConfigManager,LUT,,,,LUT,unfinished,src/color/ocio_config_manager.cpp:910
-qcv::OCIOConfigManager,Knee,,Badge name in the viewport's chain summary,,ニー,unfinished,src/color/ocio_config_manager.cpp:913
-qcv::OCIOConfigManager,Clip chain,,Badge name in the viewport's chain summary,,クリップチェーン,unfinished,src/color/ocio_config_manager.cpp:916
-qcv::OCIOConfigManager,Set on this clip:,,,,このクリップの設定:,unfinished,src/color/ocio_config_manager.cpp:924
-qcv::OCIOConfigManager,Input: %1,,No input set,,入力: %1,unfinished,src/color/ocio_config_manager.cpp:926
-qcv::OCIOConfigManager,(none),,No input set,,（なし）,unfinished,src/color/ocio_config_manager.cpp:926
-qcv::OCIOConfigManager,Look: %1,,No input set,,ルック: %1,unfinished,src/color/ocio_config_manager.cpp:928
-qcv::OCIOConfigManager,Scene LUT: %1,,,,シーンLUT: %1,unfinished,src/color/ocio_config_manager.cpp:930
-qcv::OCIOConfigManager,Highlight Knee: on · %1 → %2 nits,,,,ハイライトニー: オン · %1 → %2 nits,unfinished,src/color/ocio_config_manager.cpp:937
-qcv::OCIOConfigManager,Highlight Knee: off,,,,ハイライトニー: オフ,unfinished,src/color/ocio_config_manager.cpp:939
-qcv::ProjectManager,Save failed: no path provided.,,,,保存に失敗しました: パスが指定されていません。,unfinished,src/project/project_manager.cpp:141
-qcv::ProjectManager,Save failed.,,,,保存に失敗しました。,unfinished,src/project/project_manager.cpp:147
-qcv::ProjectManager,Open failed: no path provided.,,,,開けませんでした: パスが指定されていません。,unfinished,src/project/project_manager.cpp:164
-qcv::ProjectManager,Open failed.,,,,開けませんでした。,unfinished,src/project/project_manager.cpp:170
+qcv::OCIOConfigManager,nearest display %1 (transfer %2 vs %3),,,,最も近いディスプレイ %1（伝達関数 %2 vs %3）,unfinished,src/color/ocio_config_manager.cpp:977
+qcv::OCIOConfigManager,nearest display %1,,,,最も近いディスプレイ %1,unfinished,src/color/ocio_config_manager.cpp:982
+qcv::OCIOConfigManager,Look,,Badge name in the viewport's chain summary,,ルック,unfinished,src/color/ocio_config_manager.cpp:1016
+qcv::OCIOConfigManager,CDL,,Badge name in the viewport's chain summary,,CDL,unfinished,src/color/ocio_config_manager.cpp:1021
+qcv::OCIOConfigManager,LUT,,,,LUT,unfinished,src/color/ocio_config_manager.cpp:1021
+qcv::OCIOConfigManager,Knee,,Badge name in the viewport's chain summary,,ニー,unfinished,src/color/ocio_config_manager.cpp:1024
+qcv::OCIOConfigManager,Host display,,Badge name in the viewport's chain summary: the host Blender's display device is emulated,,ホストディスプレイ,unfinished,src/color/ocio_config_manager.cpp:1026
+qcv::OCIOConfigManager,Clip chain,,Badge name in the viewport's chain summary,,クリップチェーン,unfinished,src/color/ocio_config_manager.cpp:1029
+qcv::OCIOConfigManager,Set on this clip:,,,,このクリップの設定:,unfinished,src/color/ocio_config_manager.cpp:1037
+qcv::OCIOConfigManager,Input: %1,,No input set,,入力: %1,unfinished,src/color/ocio_config_manager.cpp:1039
+qcv::OCIOConfigManager,(none),,No input set,,（なし）,unfinished,src/color/ocio_config_manager.cpp:1039
+qcv::OCIOConfigManager,Look: %1,,No input set,,ルック: %1,unfinished,src/color/ocio_config_manager.cpp:1041
+qcv::OCIOConfigManager,Scene LUT: %1,,,,シーンLUT: %1,unfinished,src/color/ocio_config_manager.cpp:1043
+qcv::OCIOConfigManager,Highlight Knee: on · %1 → %2 nits,,,,ハイライトニー: オン · %1 → %2 nits,unfinished,src/color/ocio_config_manager.cpp:1050
+qcv::OCIOConfigManager,Highlight Knee: off,,,,ハイライトニー: オフ,unfinished,src/color/ocio_config_manager.cpp:1052
+qcv::OCIOConfigManager,Host display: %1 · %2 (emulated%3),,,,ホストディスプレイ: %1 · %2（エミュレート中%3）,unfinished,src/color/ocio_config_manager.cpp:1056
+qcv::OCIOConfigManager,", display to display",,,,、ディスプレイ → ディスプレイ,unfinished,src/color/ocio_config_manager.cpp:1058
+qcv::OCIOConfigManager,Host display: %1 · %2 (off),,,,ホストディスプレイ: %1 · %2（オフ）,unfinished,src/color/ocio_config_manager.cpp:1059
+qcv::ProjectManager,Save failed: no path provided.,,,,保存に失敗しました: パスが指定されていません。,unfinished,src/project/project_manager.cpp:135
+qcv::ProjectManager,Save failed.,,,,保存に失敗しました。,unfinished,src/project/project_manager.cpp:141
+qcv::ProjectManager,Open failed: no path provided.,,,,開けませんでした: パスが指定されていません。,unfinished,src/project/project_manager.cpp:158
+qcv::ProjectManager,Open failed.,,,,開けませんでした。,unfinished,src/project/project_manager.cpp:164
 qcv::ScopeController,Brightest channel (linear Rec.2020): frame %1 · max %2 nits,,,,最も明るいチャンネル（リニアRec.2020）: フレーム %1 · 最大 %2 nits,unfinished,src/window/scope_controller.cpp:249
 qcv::ScopeController,Brightest channel (code value): frame %1 · max %2,,,,最も明るいチャンネル（コード値）: フレーム %1 · 最大 %2,unfinished,src/window/scope_controller.cpp:251
 qcv::ScopeController,set,,Why the scopes assume this colourspace: the user set it,,手動設定,unfinished,src/window/scope_controller.cpp:384
@@ -793,31 +827,65 @@ qcv::VideoDecoder,avcodec_alloc_context3 failed,,"FFmpeg function name, keep as 
 qcv::VideoDecoder,avcodec_open2 failed: %1,,"FFmpeg function name, keep as written",,avcodec_open2に失敗: %1,unfinished,src/decode/video_decoder.cpp:957
 qcv::VideoDecoder,swscale context init failed,,"FFmpeg library name, keep as written",,swscaleコンテキストの初期化に失敗,unfinished,src/decode/video_decoder.cpp:1091
 qcv::VideoDecoder,Vulkan device lost — restart to recover hardware decode,,,,Vulkanデバイスが失われました — ハードウェアデコードを復旧するには再起動してください,unfinished,src/decode/video_decoder.cpp:1475
-qcv::VideoDecoder,av_read_frame error: %1,,"FFmpeg function name, keep as written",,av_read_frameエラー: %1,unfinished,src/decode/video_decoder.cpp:1551
-qcv::VideoDecoder,send_packet: %1,,"FFmpeg function name, keep as written",,send_packet: %1,unfinished,src/decode/video_decoder.cpp:1558
-qcv::VideoDecoder,avcodec_receive_frame: %1,,"FFmpeg function name, keep as written",,avcodec_receive_frame: %1,unfinished,src/decode/video_decoder.cpp:1576
-qcv::VideoDecoder,hwframe_transfer_data fallback failed,,"FFmpeg function name, keep as written",,hwframe_transfer_dataのフォールバックに失敗,unfinished,src/decode/video_decoder.cpp:1618
-qcv::VideoDecoder,hwframe_transfer_data: %1,,"FFmpeg function name, keep as written",,hwframe_transfer_data: %1,unfinished,src/decode/video_decoder.cpp:1641
-qcv::VideoDecoder,av_seek_frame failed for frame %1,,"FFmpeg function name, keep as written",,フレーム %1のav_seek_frameに失敗,unfinished,src/decode/video_decoder.cpp:1685
-qcv::VideoDecoder,read_frame after seek: %1,,"FFmpeg function name, keep as written",,シーク後のread_frame: %1,unfinished,src/decode/video_decoder.cpp:1713
-qcv::WindowManager,No clip under the playhead to compare,,,,再生ヘッドの位置に比較するクリップがありません,unfinished,src/window/window_manager.cpp:2173
-qcv::WindowManager,After Effects / Premiere live view is not available on this platform yet,,,,After Effects / Premiereのライブビューは、このプラットフォームではまだ利用できません,unfinished,src/window/window_manager.cpp:4338
+qcv::VideoDecoder,av_read_frame error: %1,,"FFmpeg function name, keep as written",,av_read_frameエラー: %1,unfinished,src/decode/video_decoder.cpp:1552
+qcv::VideoDecoder,send_packet: %1,,"FFmpeg function name, keep as written",,send_packet: %1,unfinished,src/decode/video_decoder.cpp:1559
+qcv::VideoDecoder,avcodec_receive_frame: %1,,"FFmpeg function name, keep as written",,avcodec_receive_frame: %1,unfinished,src/decode/video_decoder.cpp:1577
+qcv::VideoDecoder,hwframe_transfer_data fallback failed,,"FFmpeg function name, keep as written",,hwframe_transfer_dataのフォールバックに失敗,unfinished,src/decode/video_decoder.cpp:1619
+qcv::VideoDecoder,hwframe_transfer_data: %1,,"FFmpeg function name, keep as written",,hwframe_transfer_data: %1,unfinished,src/decode/video_decoder.cpp:1642
+qcv::VideoDecoder,av_seek_frame failed for frame %1,,"FFmpeg function name, keep as written",,フレーム %1のav_seek_frameに失敗,unfinished,src/decode/video_decoder.cpp:1686
+qcv::VideoDecoder,read_frame after seek: %1,,"FFmpeg function name, keep as written",,シーク後のread_frame: %1,unfinished,src/decode/video_decoder.cpp:1714
+qcv::WindowManager,No clip under the playhead to compare,,,,再生ヘッドの位置に比較するクリップがありません,unfinished,src/window/window_manager.cpp:2242
+qcv::WindowManager,"%1 — %2 can’t be played here: un-debayered camera raw. Review the ProRes / dailies, or convert in DaVinci Resolve or the ARRI Reference Tool.",,"Toast after opening an ARRIRAW file. %1 = camera + ""ARRIRAW"" (""ALEXA 35 ARRIRAW""), %2 = file name",,%1 — %2はここでは再生できません: デベイヤー前のカメラRAWです。ProRes / デイリーで確認するか、DaVinci ResolveまたはARRI Reference Toolで変換してください。,unfinished,src/window/window_manager.cpp:3037
+qcv::WindowManager,%1 can’t be played here: unsupported format.,,Toast after opening a file no decoder can play. %1 = file name,,%1はここでは再生できません: 未対応の形式です。,unfinished,src/window/window_manager.cpp:3042
+qcv::WindowManager,"%1 is a folder — drop a file, or any frame of an image sequence.",,Toast after dropping or opening a folder. %1 = folder name,,%1はフォルダーです — ファイル、または画像シーケンスの任意のフレームをドロップしてください。,unfinished,src/window/window_manager.cpp:3107
+qcv::WindowManager,%1 isn’t a file type QCView opens.,,Toast after dropping or opening a file type QCView does not open. %1 = file name,,%1はQCViewが開けるファイル形式ではありません。,unfinished,src/window/window_manager.cpp:3111
+qcv::WindowManager,folder,,Stands in for a suffix in the skipped-files toast,,フォルダー,unfinished,src/window/window_manager.cpp:3119
+qcv::WindowManager,no extension,,,,拡張子なし,unfinished,src/window/window_manager.cpp:3120
+qcv::WindowManager,%1 of %2 files skipped — not file types QCView opens (%3).,,"Toast after a batch drop/open; %1 = skipped count, %2 = total, %3 = the suffixes",,%2個中%1個のファイルをスキップしました — QCViewが開けるファイル形式ではありません (%3)。,unfinished,src/window/window_manager.cpp:3127
+qcv::WindowManager,Blender: not listening,,,,Blender: 待ち受けていません,unfinished,src/window/window_manager.cpp:3302
+qcv::WindowManager,Listening for a Blender session on this machine: start one from the QCBridge host panel,,,,このマシンのBlenderセッションを待ち受け中: QCBridgeホストパネルからセッションを開始してください,unfinished,src/window/window_manager.cpp:3307
+qcv::WindowManager,Blender,,,,Blender,unfinished,src/window/window_manager.cpp:3321
+qcv::WindowManager,Blender session ended,,,,Blenderセッションが終了しました,unfinished,src/window/window_manager.cpp:3368
+qcv::WindowManager,After Effects / Premiere live view is not available on this platform yet,,,,After Effects / Premiereのライブビューは、このプラットフォームではまだ利用できません,unfinished,src/window/window_manager.cpp:4597
 qcv::WindowManager,"Could not open stream
 %1",,,,"ストリームを開けませんでした
-%1",unfinished,src/window/window_manager.cpp:4356
-qcv::WindowManager,This note has no captured frame,,,,このノートにはキャプチャしたフレームがありません,unfinished,src/window/window_manager.cpp:4494
-qcv::WindowManager,No frame to freeze yet,,,,フリーズできるフレームがまだありません,unfinished,src/window/window_manager.cpp:4517
-qcv::WindowManager,Removed %1,,,,%1を削除しました,unfinished,src/window/window_manager.cpp:5989
-qcv::WindowManager,Removed %1 items,,,,%1個の項目を削除しました,unfinished,src/window/window_manager.cpp:5990
-qcv::WindowManager,Undo,,Toast button,,元に戻す,unfinished,src/window/window_manager.cpp:5992
-qcv::WindowManager,Nothing to capture — load media first,,,,キャプチャするものがありません — 先にメディアを読み込んでください,unfinished,src/window/window_manager.cpp:6109
-qcv::WindowManager,Screenshot copied to clipboard,,,,スクリーンショットをクリップボードにコピーしました,unfinished,src/window/window_manager.cpp:6116
-qcv::WindowManager,Couldn't resolve the Desktop folder,,,,デスクトップフォルダーを特定できませんでした,unfinished,src/window/window_manager.cpp:6147
-qcv::WindowManager,Saving screenshot…,,,,スクリーンショットを保存中…,unfinished,src/window/window_manager.cpp:6189
-qcv::WindowManager,Screenshot saved (%1),,,,スクリーンショットを保存しました (%1),unfinished,src/window/window_manager.cpp:6206
-qcv::WindowManager,Screenshot export failed,,,,スクリーンショットの書き出しに失敗しました,unfinished,src/window/window_manager.cpp:6207
-qcv::WindowManager,Nothing to restore,,,,復元するものがありません,unfinished,src/window/window_manager.cpp:7836
-qcv::WindowManager,Restored %1,,,,%1を復元しました,unfinished,src/window/window_manager.cpp:7838
-qcv::WindowManager,Restored %1 items,,,,%1個の項目を復元しました,unfinished,src/window/window_manager.cpp:7840
-qcv::WindowManager,Preset restored: %1,,,,プリセットを復元しました: %1,unfinished,src/window/window_manager.cpp:7848
-qcv::WindowManager,minNotes is not installed,,,,minNotesがインストールされていません,unfinished,src/window/window_manager.cpp:8962
+%1",obsolete,
+qcv::WindowManager,Could not open stream: %1,,Toast; %1 = the stream URL,,ストリームを開けませんでした: %1,unfinished,src/window/window_manager.cpp:4616
+qcv::WindowManager,This note has no captured frame,,,,このノートにはキャプチャしたフレームがありません,unfinished,src/window/window_manager.cpp:4758
+qcv::WindowManager,No frame to freeze yet,,,,フリーズできるフレームがまだありません,unfinished,src/window/window_manager.cpp:4781
+qcv::WindowManager,Removed %1,,,,%1を削除しました,unfinished,src/window/window_manager.cpp:6257
+qcv::WindowManager,Removed %1 items,,,,%1個の項目を削除しました,unfinished,src/window/window_manager.cpp:6258
+qcv::WindowManager,Undo,,Toast button,,元に戻す,unfinished,src/window/window_manager.cpp:6260
+qcv::WindowManager,Nothing to capture — load media first,,,,キャプチャするものがありません — 先にメディアを読み込んでください,unfinished,src/window/window_manager.cpp:6377
+qcv::WindowManager,Screenshot copied to clipboard,,,,スクリーンショットをクリップボードにコピーしました,unfinished,src/window/window_manager.cpp:6384
+qcv::WindowManager,Couldn't resolve the Desktop folder,,,,デスクトップフォルダーを特定できませんでした,unfinished,src/window/window_manager.cpp:6415
+qcv::WindowManager,Saving screenshot…,,,,スクリーンショットを保存中…,unfinished,src/window/window_manager.cpp:6457
+qcv::WindowManager,Screenshot saved (%1),,,,スクリーンショットを保存しました (%1),unfinished,src/window/window_manager.cpp:6474
+qcv::WindowManager,Screenshot export failed,,,,スクリーンショットの書き出しに失敗しました,unfinished,src/window/window_manager.cpp:6475
+qcv::WindowManager,Nothing to restore,,,,復元するものがありません,unfinished,src/window/window_manager.cpp:8124
+qcv::WindowManager,Restored %1,,,,%1を復元しました,unfinished,src/window/window_manager.cpp:8126
+qcv::WindowManager,Restored %1 items,,,,%1個の項目を復元しました,unfinished,src/window/window_manager.cpp:8128
+qcv::WindowManager,Preset restored: %1,,,,プリセットを復元しました: %1,unfinished,src/window/window_manager.cpp:8155
+qcv::WindowManager,minNotes is not installed,,,,minNotesがインストールされていません,unfinished,src/window/window_manager.cpp:9273
+qcv::WindowManager,The stream names a wire this QCView does not know (%1); set the Input yourself,,,,ストリームが指定する伝送エンコーディング (%1) はこのQCViewでは不明です。入力を手動で設定してください,unfinished,src/window/window_manager.cpp:9936
+qcv::WindowManager,unknown wire %1,,,,不明な伝送エンコーディング %1,unfinished,src/window/window_manager.cpp:9938
+qcv::WindowManager,Colour management turned on for the Blender stream,,,,Blenderストリームのカラーマネジメントをオンにしました,unfinished,src/window/window_manager.cpp:9962
+qcv::WindowManager,Blender stream: its view and display resolve in the Blender 5.2 config,,,,Blenderストリーム: そのビューとディスプレイはBlender 5.2コンフィグにあります,unfinished,src/window/window_manager.cpp:9976
+qcv::WindowManager,Switch,,,,切り替え,unfinished,src/window/window_manager.cpp:9977
+qcv::WindowManager,view not applied: active config is %1,,,,ビュー未適用: アクティブなコンフィグは%1,unfinished,src/window/window_manager.cpp:9978
+qcv::WindowManager,The host runs a non-Blender OCIO config (%1): its view cannot be reproduced; Input pinned only,,,,ホストはBlender以外のOCIOコンフィグ (%1) を使用しています: そのビューは再現できません。入力のみ固定します,unfinished,src/window/window_manager.cpp:9983
+qcv::WindowManager,host config %1: view not reproduced,,,,ホストコンフィグ %1: ビュー未再現,unfinished,src/window/window_manager.cpp:9986
+qcv::WindowManager,Blender stream: the active OCIO config has no %1 input; the Blender config does,,,,Blenderストリーム: アクティブなOCIOコンフィグに%1入力がありません。Blenderコンフィグにはあります,unfinished,src/window/window_manager.cpp:9992
+qcv::WindowManager,no %1 input in this config,,,,このコンフィグに%1入力なし,unfinished,src/window/window_manager.cpp:9993
+qcv::WindowManager,host display %1 → %2,,,,ホストディスプレイ %1 → %2,unfinished,src/window/window_manager.cpp:10016
+qcv::WindowManager,Blender stream: view '%1' is not on display '%2' in the Blender config; view left as is,,,,Blenderストリーム: Blenderコンフィグではビュー「%1」はディスプレイ「%2」上にありません。ビューはそのままにします,unfinished,src/window/window_manager.cpp:10024
+qcv::WindowManager,view %1 not on %2,,,,ビュー %1は%2上にありません,unfinished,src/window/window_manager.cpp:10026
+qcv::WindowManager,look %1 not in this config,,,,ルック %1はこのコンフィグにありません,unfinished,src/window/window_manager.cpp:10038
+qcv::WindowManager,Blender stream: the host's view (%1 for %2) is not reproduced on minColor; switch to the OCIO engine to match it,,,,Blenderストリーム: ホストのビュー（%2向けの%1）はminColorでは再現されません。一致させるにはOCIOエンジンに切り替えてください,unfinished,src/window/window_manager.cpp:10042
+qcv::WindowManager,minColor on screen: host view not reproduced,,,,minColor表示中: ホストビュー未再現,unfinished,src/window/window_manager.cpp:10044
+qcv::WindowManager,host white balance not reproduced,,,,ホストのホワイトバランス未再現,unfinished,src/window/window_manager.cpp:10057
+qcv::WindowManager,host curves not reproduced,,,,ホストのカーブ未再現,unfinished,src/window/window_manager.cpp:10058
+qcv::WindowManager,host HDR view: shown SDR,,,,ホストのHDRビュー: SDRで表示,unfinished,src/window/window_manager.cpp:10059
+qcv::WindowManager,working space assumed Linear Rec.709,,,,作業色空間をLinear Rec.709と推定,unfinished,src/window/window_manager.cpp:10060
+qcv::WindowManager,host and replica colour setups differ (%1),,,,ホストとレプリカのカラー設定が異なります (%1),unfinished,src/window/window_manager.cpp:10061
+qcv::WindowManager,Blender stream: %1,,,,Blenderストリーム: %1,unfinished,src/window/window_manager.cpp:10062

@@ -54,7 +54,7 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 What's new in 2.7.2
 
-- **Languages** — the Blender session strings from 2.7.0 and the file-type and unsupported-media messages from 2.7.1 are now in all nine languages. Machine translated and reviewed, as before; corrections are welcome through the translations folder.
+- **Languages** — Russian and Ukrainian join the nine: pick either in Settings ▸ Interface ▸ Language. The Blender session strings from 2.7.0 and the file-type and unsupported-media messages from 2.7.1 are now in every language. All of it machine translated and reviewed by a second pass, not yet read by native speakers; corrections are welcome through the translations folder.
 
 What's new in 2.7.1
 

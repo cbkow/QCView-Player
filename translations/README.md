@@ -70,7 +70,7 @@ products. `translations/sheets/` holds an exported sheet per language
 for translators; regenerate them after any import or extraction:
 
 ```sh
-for l in en zh_CN ja ko de fr es pt_BR it pl; do
+for l in en zh_CN ja ko de fr es pt_BR it pl ru uk; do
   scripts/i18n_csv.py export translations/qcview_$l.ts translations/sheets/qcview_$l.csv --all
 done
 ```

@@ -1,0 +1,889 @@
+﻿context,source,disambiguation,developer_comment,form,translation,status,location
+ColorPanel,Choose LUT,,,,Выбрать LUT,unfinished,src/ui/qml/ColorPanel.qml:88
+ColorPanel,LUT / CDL files (*.cube *.3dl *.csp *.cc *.ccc *.cdl),,,,Файлы LUT / CDL (*.cube *.3dl *.csp *.cc *.ccc *.cdl),unfinished,src/ui/qml/ColorPanel.qml:91
+ColorPanel,All files (*),,,,Все файлы (*),unfinished,src/ui/qml/ColorPanel.qml:92
+ColorPanel,LUT files (*.cube *.3dl *.csp),,,,Файлы LUT (*.cube *.3dl *.csp),unfinished,src/ui/qml/ColorPanel.qml:93
+ColorPanel,Export LUT…,,,,Экспорт LUT…,unfinished,src/ui/qml/ColorPanel.qml:116
+ColorPanel,3D LUT (*.cube),,,,3D LUT (*.cube),unfinished,src/ui/qml/ColorPanel.qml:119
+ColorPanel,Export LUT failed — %1,,,,Экспорт LUT не удался — %1,unfinished,src/ui/qml/ColorPanel.qml:125
+ColorPanel,LUT exported: %1,,,,LUT экспортирован: %1,unfinished,src/ui/qml/ColorPanel.qml:128
+ColorPanel,Save preset as…,,,,Сохранить пресет как…,unfinished,src/ui/qml/ColorPanel.qml:149
+ColorPanel,Preset name,,,,Имя пресета,unfinished,src/ui/qml/ColorPanel.qml:169
+ColorPanel,Cancel,,,,Отмена,unfinished,src/ui/qml/ColorPanel.qml:178
+ColorPanel,Save,,,,Сохранить,unfinished,src/ui/qml/ColorPanel.qml:182
+ColorPanel,Preset saved: %1,,,,Пресет сохранён: %1,unfinished,src/ui/qml/ColorPanel.qml:205
+ColorPanel,Couldn't save preset “%1” — try another name,,,,Не удалось сохранить пресет «%1» — попробуйте другое имя,unfinished,src/ui/qml/ColorPanel.qml:209
+ColorPanel,Color,,Panel title,,Цвет,unfinished,src/ui/qml/ColorPanel.qml:250
+ColorPanel,"minColor · linear conversions, AgX, no OCIO",,,,"minColor · линейные преобразования, AgX, без OCIO",unfinished,src/ui/qml/ColorPanel.qml:258
+ColorPanel,OCIO,,,,OCIO,unfinished,src/ui/qml/ColorPanel.qml:273
+ColorPanel,Colour through the OpenColorIO chain (Input · Look · LUTs · Output · View),,,,Цвет через цепочку OpenColorIO (Input · Look · LUT · Вывод · View),unfinished,src/ui/qml/ColorPanel.qml:274
+ColorPanel,minColor,,,,minColor,unfinished,src/ui/qml/ColorPanel.qml:282
+ColorPanel,"Colour through the minColor engine: Input → Knee → AgX → Display, no OCIO",,,,"Цвет через движок minColor: Input → Knee → AgX → Display, без OCIO",unfinished,src/ui/qml/ColorPanel.qml:283
+ColorPanel,Previous preset,,,,Предыдущий пресет,unfinished,src/ui/qml/ColorPanel.qml:291
+ColorPanel,(no preset),,,,(нет пресета),unfinished,src/ui/qml/ColorPanel.qml:309
+ColorPanel,%1 — modified,,,,%1 — изменён,unfinished,src/ui/qml/ColorPanel.qml:313
+ColorPanel,Next preset,,,,Следующий пресет,unfinished,src/ui/qml/ColorPanel.qml:332
+ColorPanel,Overwrite the active user preset,,,,Перезаписать активный пользовательский пресет,unfinished,src/ui/qml/ColorPanel.qml:341
+ColorPanel,Save as…,,,,Сохранить как…,unfinished,src/ui/qml/ColorPanel.qml:358
+ColorPanel,Delete,,,,Удалить,unfinished,src/ui/qml/ColorPanel.qml:370
+ColorPanel,Delete the active user preset,,,,Удалить активный пользовательский пресет,unfinished,src/ui/qml/ColorPanel.qml:377
+ColorPanel,Select a user preset to delete,,,,Выберите пользовательский пресет для удаления,unfinished,src/ui/qml/ColorPanel.qml:378
+ColorPanel,Preset deleted: %1,,,,Пресет удалён: %1,unfinished,src/ui/qml/ColorPanel.qml:383
+ColorPanel,Undo,,Button in the toast after deleting a preset,,Отменить,unfinished,src/ui/qml/ColorPanel.qml:385
+ColorPanel,Setup,,Tab: the Color panel's setup column (presets and config),,Настройка,unfinished,src/ui/qml/ColorPanel.qml:434
+ColorPanel,Presets,,Tab,,Пресеты,unfinished,src/ui/qml/ColorPanel.qml:449
+ColorPanel,"A preset sets both groups: its clip half on the selected clip, its view half on the View",,,,"Пресет задаёт обе группы: клиповую половину — выбранному клипу, половину View — текущему View",unfinished,src/ui/qml/ColorPanel.qml:450
+ColorPanel,Config · %1,,,,Конфиг · %1,unfinished,src/ui/qml/ColorPanel.qml:459
+ColorPanel,"The OCIO config — the colourspace, display and view names every column uses",,,,"Конфиг OCIO — имена цветовых пространств, дисплеев и View, которые используют все колонки",unfinished,src/ui/qml/ColorPanel.qml:461
+ColorPanel,Host display: %1 · %2 (emulated),,Color panel caption: the clip follows the host Blender's display device and view,,Дисплей хоста: %1 · %2 (эмуляция),unfinished,src/ui/qml/ColorPanel.qml:488
+ColorPanel,Host display: %1 · %2 (off),,,,Дисплей хоста: %1 · %2 (выкл),unfinished,src/ui/qml/ColorPanel.qml:488
+ColorPanel,Use my View instead of the host's display,,,,Использовать мой View вместо дисплея хоста,unfinished,src/ui/qml/ColorPanel.qml:499
+ColorPanel,Sets clip + view,,,,Задаёт клип + View,unfinished,src/ui/qml/ColorPanel.qml:506
+ColorPanel,Names every column uses,,,,Имена для всех колонок,unfinished,src/ui/qml/ColorPanel.qml:507
+ColorPanel,Filter…,,Placeholder of a filter field over a list,,Фильтр…,unfinished,src/ui/qml/ColorPanel.qml:532
+ColorPanel,SDR,,Preset list badge: the preset's target,,SDR,unfinished,src/ui/qml/ColorPanel.qml:649
+ColorPanel,HDR,,Preset list badge: the preset's target,,HDR,unfinished,src/ui/qml/ColorPanel.qml:653
+ColorPanel,Clip,,"Column header: the per-clip half of the colour chain (Input, Look, LUTs)",,Клип,unfinished,src/ui/qml/ColorPanel.qml:791
+ColorPanel,no clip,,,,нет клипа,unfinished,src/ui/qml/ColorPanel.qml:807
+ColorPanel,"%1
+A's clip — changes stay with this clip",,,,"%1
+Клип A — изменения остаются с этим клипом",unfinished,src/ui/qml/ColorPanel.qml:809
+ColorPanel,"%1
+Changes here stay with this clip",,,,"%1
+Изменения здесь остаются с этим клипом",unfinished,src/ui/qml/ColorPanel.qml:811
+ColorPanel,"%1
+B's clip — changes stay with this clip",,,,"%1
+Клип B — изменения остаются с этим клипом",unfinished,src/ui/qml/ColorPanel.qml:827
+ColorPanel,Input gamut,,,,Гамут входа,unfinished,src/ui/qml/ColorPanel.qml:846
+ColorPanel,Input transfer,,,,Трансфер входа,unfinished,src/ui/qml/ColorPanel.qml:859
+ColorPanel,Input,,OCIO input: the clip's source colourspace,,Input,unfinished,src/ui/qml/ColorPanel.qml:884
+ColorPanel,Look,,OCIO look: a creative transform from the config,,Look,unfinished,src/ui/qml/ColorPanel.qml:895
+ColorPanel,(none),,Picker entry: nothing selected,,(нет),unfinished,src/ui/qml/ColorPanel.qml:902
+ColorPanel,Scene LUT,,"A LUT applied in scene-linear space, before the view",,LUT сцены,unfinished,src/ui/qml/ColorPanel.qml:921
+ColorPanel,View,,OCIO view: the display-side transform,,View,unfinished,src/ui/qml/ColorPanel.qml:967
+ColorPanel,both sides,,Caption: the clip chain applies to both sides of the dual view,,обе стороны,unfinished,src/ui/qml/ColorPanel.qml:977
+ColorPanel,everything,,,,всё,unfinished,src/ui/qml/ColorPanel.qml:977
+ColorPanel,Rendering · AgX,,minColor's rendering stage,,Рендеринг · AgX,unfinished,src/ui/qml/ColorPanel.qml:1000
+ColorPanel,Rendering,,,,Рендеринг,unfinished,src/ui/qml/ColorPanel.qml:1000
+ColorPanel,Un-tone-mapped,,Rendering choice: no tone mapping applied,,Без тонмаппинга,unfinished,src/ui/qml/ColorPanel.qml:1010
+ColorPanel,Display,,OCIO display: the target display,,Display,unfinished,src/ui/qml/ColorPanel.qml:1032
+ColorPanel,Output,,Column header: the output (display) half of the chain,,Вывод,unfinished,src/ui/qml/ColorPanel.qml:1045
+ColorPanel,Display LUT,,,,LUT дисплея,unfinished,src/ui/qml/ColorPanel.qml:1068
+ColorPanel,%1 On,,%1 is the engine name (OCIO or minColor),,%1 вкл,unfinished,src/ui/qml/ColorPanel.qml:1126
+ColorPanel,%1 Off,,,,%1 выкл,unfinished,src/ui/qml/ColorPanel.qml:1126
+ColorPanel,Exposure,,"Viewer aid slider, in stops",,Экспозиция,unfinished,src/ui/qml/ColorPanel.qml:1150
+ColorPanel,Gamma,,Viewer aid slider,,Гамма,unfinished,src/ui/qml/ColorPanel.qml:1194
+ColorPanel,RGB,,,,RGB,unfinished,src/ui/qml/ColorPanel.qml:1232
+ColorPanel,All channels,,,,Все каналы,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Red,,,,Красный,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Green,,,,Зелёный,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Blue,,,,Синий,unfinished,src/ui/qml/ColorPanel.qml:1239
+ColorPanel,Alpha matte,,Channel view: the alpha channel shown as a matte,,Альфа как маска,unfinished,src/ui/qml/ColorPanel.qml:1241
+ColorPanel,Luma (output primaries),,,,Luma (праймериз вывода),unfinished,src/ui/qml/ColorPanel.qml:1242
+ColorPanel,"Reset exposure, gamma and channel",,,,"Сбросить экспозицию, гамму и канал",unfinished,src/ui/qml/ColorPanel.qml:1250
+ColorPanel,SDR — sRGB,,,,SDR — sRGB,unfinished,src/ui/qml/ColorPanel.qml:1294
+ColorPanel,SDR — Display P3,,,,SDR — Display P3,unfinished,src/ui/qml/ColorPanel.qml:1295
+ColorPanel,EDR — Linear sRGB,,,,EDR — линейный sRGB,unfinished,src/ui/qml/ColorPanel.qml:1296
+ColorPanel,EDR — Linear P3,,,,EDR — линейный P3,unfinished,src/ui/qml/ColorPanel.qml:1297
+ColorPanel,HDR10 PQ,,,,HDR10 PQ,unfinished,src/ui/qml/ColorPanel.qml:1298
+ColorPanel,Extended Linear sRGB,,,,Расширенный линейный sRGB,unfinished,src/ui/qml/ColorPanel.qml:1299
+ColorPanel,Bake the active OCIO chain to a 65³ .cube LUT,,,,Запечь активную цепочку OCIO в .cube LUT 65³,unfinished,src/ui/qml/ColorPanel.qml:1357
+ColorPanel,Configure input / display / view first,,,,Сначала настройте Input / Display / View,unfinished,src/ui/qml/ColorPanel.qml:1358
+ColorPanel,Set on this clip — click to go back to the default,,,,"Задано для этого клипа — нажмите, чтобы вернуть значение по умолчанию",unfinished,src/ui/qml/ColorPanel.qml:1397
+ColorPanel,Collapse,,Button: fold this section,,Свернуть,unfinished,src/ui/qml/ColorPanel.qml:1495
+ColorPanel,%1 — click to expand,,,,"%1 — нажмите, чтобы развернуть",unfinished,src/ui/qml/ColorPanel.qml:1617
+ColorPanel,Highlight Knee,,Section title: the highlight compression stage,,Highlight Knee,unfinished,src/ui/qml/ColorPanel.qml:1723
+ColorPanel,On,,Toggle state,,Вкл,unfinished,src/ui/qml/ColorPanel.qml:1791
+ColorPanel,Off,,,,Выкл,unfinished,src/ui/qml/ColorPanel.qml:1791
+ColorPanel,"Not available for this chain (data view, or the config has no interchange role).",,,,Недоступно для этой цепочки (View для данных или в конфиге нет роли interchange).,unfinished,src/ui/qml/ColorPanel.qml:1804
+ColorPanel,Source peak,,"Highlight Knee: the brightest level the source carries, in nits",,Пик источника,unfinished,src/ui/qml/ColorPanel.qml:1815
+ColorPanel,nits,,Unit suffix,,nits,unfinished,src/ui/qml/ColorPanel.qml:1834
+ColorPanel,+%1 stops over SDR white,,,,+%1 EV над белым SDR,unfinished,src/ui/qml/ColorPanel.qml:1842
+ColorPanel,Use file MaxCLL (%1),,,,Взять MaxCLL файла (%1),unfinished,src/ui/qml/ColorPanel.qml:1854
+ColorPanel,Use mastering peak (%1),,,,Взять пик мастеринга (%1),unfinished,src/ui/qml/ColorPanel.qml:1856
+ColorPanel,No MaxCLL in file,,,,В файле нет MaxCLL,unfinished,src/ui/qml/ColorPanel.qml:1857
+ColorPanel,Set the source peak from the file's HDR10 metadata,,,,Задать пик источника из метаданных HDR10 файла,unfinished,src/ui/qml/ColorPanel.qml:1859
+ColorPanel,Target peak,,"Highlight Knee: the brightest level the display shows, in nits",,Целевой пик,unfinished,src/ui/qml/ColorPanel.qml:1867
+ColorPanel,100 nits · SDR display,,,,100 nits · SDR-дисплей,unfinished,src/ui/qml/ColorPanel.qml:1876
+ColorPanel,Knee start,,Highlight Knee: the nits level where highlight compression begins,,Начало Knee,unfinished,src/ui/qml/ColorPanel.qml:1905
+ColorPanel,%1 nits,,,,%1 nits,unfinished,src/ui/qml/ColorPanel.qml:1942
+ColorPanel,BT.2390,,,,BT.2390,unfinished,src/ui/qml/ColorPanel.qml:1950
+ColorPanel,Reset knee start to BT.2390,,,,Сбросить начало Knee к BT.2390,unfinished,src/ui/qml/ColorPanel.qml:1958
+ColorPanel,"Highlight Knee — on, %1 → %2 nits",,,,"Highlight Knee — вкл, %1 → %2 nits",unfinished,src/ui/qml/ColorPanel.qml:1986
+ColorPanel,"Highlight Knee — off, click to expand",,,,"Highlight Knee — выкл, нажмите, чтобы развернуть",unfinished,src/ui/qml/ColorPanel.qml:1990
+ColorPanel,AgX,,,,AgX,unfinished,src/ui/qml/ColorPanel.qml:2056
+ColorPanel,Blender's AgX at the defaults; HDR above 100 nits.,,,,AgX из Blender с настройками по умолчанию; HDR выше 100 nits.,unfinished,src/ui/qml/ColorPanel.qml:2127
+ColorPanel,Target gamut,,,,Целевой гамут,unfinished,src/ui/qml/ColorPanel.qml:2136
+ColorPanel,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/ColorPanel.qml:2144
+ColorPanel,Rec.709,,,,Rec.709,unfinished,src/ui/qml/ColorPanel.qml:2144
+ColorPanel,P3-D65,,,,P3-D65,unfinished,src/ui/qml/ColorPanel.qml:2144
+ColorPanel,Peak luminance,,,,Пиковая яркость,unfinished,src/ui/qml/ColorPanel.qml:2158
+ColorPanel,White (EV over grey),,,,Белый (EV над серым),unfinished,src/ui/qml/ColorPanel.qml:2185
+ColorPanel,Black (EV under grey),,,,Чёрный (EV под серым),unfinished,src/ui/qml/ColorPanel.qml:2186
+ColorPanel,Contrast,,,,Контраст,unfinished,src/ui/qml/ColorPanel.qml:2187
+ColorPanel,Toe power,,AgX curve control: the dark end of the tone curve,,Степень носка,unfinished,src/ui/qml/ColorPanel.qml:2189
+ColorPanel,Shoulder power,,AgX curve control: the bright end of the tone curve,,Степень плеча,unfinished,src/ui/qml/ColorPanel.qml:2191
+ColorPanel,Hue restore,,AgX control: how much of the original hue is kept in bright areas,,Сохранение оттенка,unfinished,src/ui/qml/ColorPanel.qml:2193
+ColorPanel,HDR purity,,AgX control: saturation kept above SDR white,,Чистота HDR,unfinished,src/ui/qml/ColorPanel.qml:2195
+ColorPanel,"AgX — on, %1 nits",,,,"AgX — вкл, %1 nits",unfinished,src/ui/qml/ColorPanel.qml:2255
+ColorPanel,"AgX — off, click to expand",,,,"AgX — выкл, нажмите, чтобы развернуть",unfinished,src/ui/qml/ColorPanel.qml:2256
+ColorPanel,Replace LUT,,Button on a filled LUT slot,,Заменить LUT,unfinished,src/ui/qml/ColorPanel.qml:2433
+ColorPanel,+ Add LUT,,Button on an empty LUT slot,,+ Добавить LUT,unfinished,src/ui/qml/ColorPanel.qml:2435
+ColorPanel,Correction ID (first),,Field: the id of the first correction inside a CDL file,,ID коррекции (первая),unfinished,src/ui/qml/ColorPanel.qml:2464
+ColorPanel,click to choose,,Tooltip on an empty LUT slot,,"нажмите, чтобы выбрать",unfinished,src/ui/qml/ColorPanel.qml:2473
+ColorPanel,Clear LUT,,Button,,Убрать LUT,unfinished,src/ui/qml/ColorPanel.qml:2514
+ColorPanel,%1 — %2,,,,%1 — %2,unfinished,src/ui/qml/ColorPanel.qml:2542
+ColorPickerInline,Hex,,Colour as a hexadecimal code,,Hex,unfinished,src/ui/qml/ColorPickerInline.qml:261
+ColorPickerInline,R,,"Red channel field, one letter",,R,unfinished,src/ui/qml/ColorPickerInline.qml:303
+ColorPickerInline,G,,"Green channel field, one letter",,G,unfinished,src/ui/qml/ColorPickerInline.qml:323
+ColorPickerInline,B,,"Blue channel field, one letter",,B,unfinished,src/ui/qml/ColorPickerInline.qml:343
+CompactStrip,Pause (Space),,,,Пауза (Space),unfinished,src/ui/qml/CompactStrip.qml:83
+CompactStrip,Play (Space),,,,Воспроизвести (Space),unfinished,src/ui/qml/CompactStrip.qml:83
+CompactStrip,Drag to move the window,,,,"Перетащите, чтобы переместить окно",unfinished,src/ui/qml/CompactStrip.qml:99
+CompactStrip,LIVE,,Badge: a live source is playing,,LIVE,unfinished,src/ui/qml/CompactStrip.qml:106
+CompactStrip,%1 / %2,,Current frame / total frames,,%1 / %2,unfinished,src/ui/qml/CompactStrip.qml:120
+CompactStrip,Always on Top — click to unpin (Ctrl+Alt+T),,,,"Поверх всех окон — нажмите, чтобы открепить (Ctrl+Alt+T)",unfinished,src/ui/qml/CompactStrip.qml:214
+CompactStrip,Always on Top (Ctrl+Alt+T),,,,Поверх всех окон (Ctrl+Alt+T),unfinished,src/ui/qml/CompactStrip.qml:215
+CompactStrip,Exit Compact Mode (Esc),,,,Выйти из компактного режима (Esc),unfinished,src/ui/qml/CompactStrip.qml:226
+FFmpegMetadataExtractor,Image sequence,,,,Секвенция кадров,unfinished,src/project/ffmpeg_metadata_extractor.cpp:297
+FFmpegMetadataExtractor,Unknown,,Media kind,,Неизвестно,unfinished,src/project/ffmpeg_metadata_extractor.cpp:302
+ImageSequenceInspector,Image Sequence,,,,Секвенция кадров,unfinished,src/ui/qml/ImageSequenceInspector.qml:104
+ImageSequenceInspector,Frame rate,,,,Частота кадров,unfinished,src/ui/qml/ImageSequenceInspector.qml:144
+ImageSequenceInspector,Transfer,,"Transfer function (PQ, HLG, sRGB)",,Трансфер,unfinished,src/ui/qml/ImageSequenceInspector.qml:186
+ImageSequenceInspector,"Auto (Linear, EXR)",,,,"Авто (линейный, EXR)",unfinished,src/ui/qml/ImageSequenceInspector.qml:204
+ImageSequenceInspector,Auto (sRGB),,,,Авто (sRGB),unfinished,src/ui/qml/ImageSequenceInspector.qml:204
+ImageSequenceInspector,Auto,,Choice: decided from the file,,Авто,unfinished,src/ui/qml/ImageSequenceInspector.qml:209
+ImageSequenceInspector,SDR 709,,,,SDR 709,unfinished,src/ui/qml/ImageSequenceInspector.qml:210
+ImageSequenceInspector,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/ImageSequenceInspector.qml:211
+ImageSequenceInspector,PQ P3,,,,PQ P3,unfinished,src/ui/qml/ImageSequenceInspector.qml:212
+ImageSequenceInspector,HLG,,,,HLG,unfinished,src/ui/qml/ImageSequenceInspector.qml:213
+ImageSequenceInspector,Linear,,,,Линейный,unfinished,src/ui/qml/ImageSequenceInspector.qml:214
+ImageSequenceInspector,Range,,Frame number range,,Диапазон,unfinished,src/ui/qml/ImageSequenceInspector.qml:239
+ImageSequenceInspector,%1 – %2 (%3 frames),,,,%1 – %2 (кадров: %3),unfinished,src/ui/qml/ImageSequenceInspector.qml:240
+ImageSequenceInspector,Pattern,,The file name pattern of the sequence,,Шаблон,unfinished,src/ui/qml/ImageSequenceInspector.qml:248
+ImageSequenceInspector,Resolution,,,,Разрешение,unfinished,src/ui/qml/ImageSequenceInspector.qml:253
+ImageSequenceInspector,%1 × %2,,,,%1 × %2,unfinished,src/ui/qml/ImageSequenceInspector.qml:255
+ImageSequenceInspector,(probing…),,,,(чтение…),unfinished,src/ui/qml/ImageSequenceInspector.qml:256
+ImageSequenceInspector,Compression,,EXR compression,,Сжатие,unfinished,src/ui/qml/ImageSequenceInspector.qml:265
+ImageSequenceInspector,Duration,,,,Длительность,unfinished,src/ui/qml/ImageSequenceInspector.qml:269
+ImageSequenceInspector,Cache stride,,,,Шаг кэша,unfinished,src/ui/qml/ImageSequenceInspector.qml:297
+ImageSequenceInspector,Every Frame (Full),,,,Каждый кадр (полностью),unfinished,src/ui/qml/ImageSequenceInspector.qml:322
+ImageSequenceInspector,Every %1 Frames,,,,Каждый %1-й кадр,unfinished,src/ui/qml/ImageSequenceInspector.qml:323
+ImageSequenceInspector,Cache ahead,,,,Кэш вперёд,unfinished,src/ui/qml/ImageSequenceInspector.qml:350
+ImageSequenceInspector,%1 / %2 frames,,,,%1 / %2 кадров,unfinished,src/ui/qml/ImageSequenceInspector.qml:351
+ImageSequenceInspector,Cache behind,,,,Кэш назад,unfinished,src/ui/qml/ImageSequenceInspector.qml:357
+ImageSequenceInspector,Layer,,EXR layer,,Слой,unfinished,src/ui/qml/ImageSequenceInspector.qml:378
+InspectorPanel,Video,,Section title,,Видео,unfinished,src/ui/qml/InspectorPanel.qml:109
+InspectorPanel,Audio,,Section title,,Аудио,unfinished,src/ui/qml/InspectorPanel.qml:111
+InspectorPanel,Image,,Media kind: a single still image,,Изображение,unfinished,src/ui/qml/InspectorPanel.qml:113
+InspectorPanel,Image Sequence,,,,Секвенция кадров,unfinished,src/ui/qml/InspectorPanel.qml:114
+InspectorPanel,Playlist,,,,Плейлист,unfinished,src/ui/qml/InspectorPanel.qml:115
+InspectorPanel,Dual View,,,,Двойной просмотр,unfinished,src/ui/qml/InspectorPanel.qml:116
+InspectorPanel,Live,,Media kind: a live stream or bridge feed,,Live,unfinished,src/ui/qml/InspectorPanel.qml:118
+InspectorPanel,Media,,Media kind: generic,,Медиа,unfinished,src/ui/qml/InspectorPanel.qml:121
+InspectorPanel,File,,Section title,,Файл,unfinished,src/ui/qml/InspectorPanel.qml:281
+InspectorPanel,Colour,,Section title,,Цвет,unfinished,src/ui/qml/InspectorPanel.qml:427
+InspectorPanel,Range,,"Section: video levels, full or limited",,Диапазон,unfinished,src/ui/qml/InspectorPanel.qml:429
+InspectorPanel,Alpha,,Row: whether the file has an alpha channel,,Альфа,unfinished,src/ui/qml/InspectorPanel.qml:431
+InspectorPanel,Container,,"File container format (QuickTime, MXF)",,Контейнер,unfinished,src/ui/qml/InspectorPanel.qml:477
+InspectorPanel,Encoder,,,,Кодировщик,unfinished,src/ui/qml/InspectorPanel.qml:492
+InspectorPanel,Copy URL,,,,Копировать URL,unfinished,src/ui/qml/InspectorPanel.qml:510
+InspectorPanel,Copy path,,,,Копировать путь,unfinished,src/ui/qml/InspectorPanel.qml:510
+InspectorPanel,Reveal,,Button: show the file in Finder / Explorer,,Показать в папке,unfinished,src/ui/qml/InspectorPanel.qml:527
+InspectorPanel,Reading metadata…,,,,Чтение метаданных…,unfinished,src/ui/qml/InspectorPanel.qml:554
+InspectorPanel,Resolution,,,,Разрешение,unfinished,src/ui/qml/InspectorPanel.qml:571
+InspectorPanel,Frame rate,,,,Частота кадров,unfinished,src/ui/qml/InspectorPanel.qml:577
+InspectorPanel,Total frames,,,,Всего кадров,unfinished,src/ui/qml/InspectorPanel.qml:583
+InspectorPanel,Codec,,,,Кодек,unfinished,src/ui/qml/InspectorPanel.qml:587
+InspectorPanel,Profile,,Codec profile (e.g. ProRes 422 HQ),,Профиль,unfinished,src/ui/qml/InspectorPanel.qml:598
+InspectorPanel,Bitrate,,,,Битрейт,unfinished,src/ui/qml/InspectorPanel.qml:611
+InspectorPanel,file avg %1,,,,ср. по файлу %1,unfinished,src/ui/qml/InspectorPanel.qml:615
+InspectorPanel,file avg,,,,ср. по файлу,unfinished,src/ui/qml/InspectorPanel.qml:616
+InspectorPanel,Pixel format,,,,Формат пикселей,unfinished,src/ui/qml/InspectorPanel.qml:619
+InspectorPanel,RGB,,"Pixel format summary: the file is RGB, not YUV",,RGB,unfinished,src/ui/qml/InspectorPanel.qml:625
+InspectorPanel,Bit depth,,,,Разрядность,unfinished,src/ui/qml/InspectorPanel.qml:628
+InspectorPanel,%1 bit + alpha,,,,%1 бит + альфа,unfinished,src/ui/qml/InspectorPanel.qml:630
+InspectorPanel,%1 bit,,,,%1 бит,unfinished,src/ui/qml/InspectorPanel.qml:630
+InspectorPanel,HDR,,,,HDR,unfinished,src/ui/qml/InspectorPanel.qml:636
+InspectorPanel,Yes — %1,,,,Да — %1,unfinished,src/ui/qml/InspectorPanel.qml:638
+InspectorPanel,Geometry,,"Section title: dimensions, aspect, rotation",,Геометрия,unfinished,src/ui/qml/InspectorPanel.qml:655
+InspectorPanel,Auto (%1°),,Choice: decided from the file,,Авто (%1°),unfinished,src/ui/qml/InspectorPanel.qml:723
+InspectorPanel,Auto,,Choice: decided from the file,,Авто,unfinished,src/ui/qml/InspectorPanel.qml:723
+InspectorPanel,Aspect,,,,Пропорции,unfinished,src/ui/qml/InspectorPanel.qml:727
+InspectorPanel,Square,,Pixel aspect choice: square pixels,,Квадратные,unfinished,src/ui/qml/InspectorPanel.qml:731
+InspectorPanel,Detected,,Pixel aspect choice: the aspect found in the file,,Определено,unfinished,src/ui/qml/InspectorPanel.qml:733
+InspectorPanel,Custom,,Pixel aspect choice: a value typed by the user,,Вручную,unfinished,src/ui/qml/InspectorPanel.qml:735
+InspectorPanel,Detected %1:%2,,,,Определено %1:%2,unfinished,src/ui/qml/InspectorPanel.qml:747
+InspectorPanel,%1:%2 (non-square),,,,%1:%2 (неквадратные),unfinished,src/ui/qml/InspectorPanel.qml:777
+InspectorPanel,1:1 (square),,,,1:1 (квадратные),unfinished,src/ui/qml/InspectorPanel.qml:779
+InspectorPanel,Display,,Row: display aspect,,На экране,unfinished,src/ui/qml/InspectorPanel.qml:783
+InspectorPanel,Rotation,,,,Поворот,unfinished,src/ui/qml/InspectorPanel.qml:803
+InspectorPanel,Pixel aspect,,,,Пропорции пикселя,unfinished,src/ui/qml/InspectorPanel.qml:844
+InspectorPanel,Display aspect,,,,Пропорции кадра,unfinished,src/ui/qml/InspectorPanel.qml:878
+InspectorPanel,Color,,Section title,,Цвет,unfinished,src/ui/qml/InspectorPanel.qml:923
+InspectorPanel,Colorspace,,,,Пространство,unfinished,src/ui/qml/InspectorPanel.qml:937
+InspectorPanel,Primaries,,Colour primaries,,Праймериз,unfinished,src/ui/qml/InspectorPanel.qml:943
+InspectorPanel,Transfer,,"Transfer function (PQ, HLG, sRGB)",,Трансфер,unfinished,src/ui/qml/InspectorPanel.qml:949
+InspectorPanel,HDR metadata,,,,Метаданные HDR,unfinished,src/ui/qml/InspectorPanel.qml:959
+InspectorPanel,MaxCLL %1,,,,MaxCLL %1,unfinished,src/ui/qml/InspectorPanel.qml:962
+InspectorPanel,MaxFALL %1,,,,MaxFALL %1,unfinished,src/ui/qml/InspectorPanel.qml:963
+InspectorPanel,mastering %1 nits,,,,мастеринг %1 nits,unfinished,src/ui/qml/InspectorPanel.qml:965
+InspectorPanel,NCLC tag,,,,Тег NCLC,unfinished,src/ui/qml/InspectorPanel.qml:971
+InspectorPanel,Range tag,,,,Тег диапазона,unfinished,src/ui/qml/InspectorPanel.qml:986
+InspectorPanel,untagged,,The file carries no range tag,,без тега,unfinished,src/ui/qml/InspectorPanel.qml:991
+InspectorPanel,decoder: %1,,,,декодер: %1,unfinished,src/ui/qml/InspectorPanel.qml:998
+InspectorPanel,Auto assumes full,,,,Авто: считается полным,unfinished,src/ui/qml/InspectorPanel.qml:1000
+InspectorPanel,Auto assumes limited,,,,Авто: считается ограниченным,unfinished,src/ui/qml/InspectorPanel.qml:1001
+InspectorPanel,Auto (Full),,,,Авто (полный),unfinished,src/ui/qml/InspectorPanel.qml:1066
+InspectorPanel,Auto (Limited),,,,Авто (ограниченный),unfinished,src/ui/qml/InspectorPanel.qml:1067
+InspectorPanel,"Auto (Full, assumed)",,,,"Авто (полный, предположительно)",unfinished,src/ui/qml/InspectorPanel.qml:1071
+InspectorPanel,"Auto (Limited, assumed)",,,,"Авто (ограниченный, предположительно)",unfinished,src/ui/qml/InspectorPanel.qml:1072
+InspectorPanel,Full,,Video levels,,Полный,unfinished,src/ui/qml/InspectorPanel.qml:1080
+InspectorPanel,Limited,,Video levels,,Ограниченный,unfinished,src/ui/qml/InspectorPanel.qml:1082
+InspectorPanel,Auto (PQ P3),,,,Авто (PQ P3),unfinished,src/ui/qml/InspectorPanel.qml:1145
+InspectorPanel,Auto (PQ 2020),,,,Авто (PQ 2020),unfinished,src/ui/qml/InspectorPanel.qml:1145
+InspectorPanel,Auto (HLG),,,,Авто (HLG),unfinished,src/ui/qml/InspectorPanel.qml:1147
+InspectorPanel,"Auto (SDR, untagged)",,,,"Авто (SDR, без тега)",unfinished,src/ui/qml/InspectorPanel.qml:1149
+InspectorPanel,Auto (SDR),,,,Авто (SDR),unfinished,src/ui/qml/InspectorPanel.qml:1150
+InspectorPanel,SDR 709,,,,SDR 709,unfinished,src/ui/qml/InspectorPanel.qml:1157
+InspectorPanel,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/InspectorPanel.qml:1158
+InspectorPanel,PQ P3,,,,PQ P3,unfinished,src/ui/qml/InspectorPanel.qml:1159
+InspectorPanel,HLG,,,,HLG,unfinished,src/ui/qml/InspectorPanel.qml:1160
+InspectorPanel,Linear,,,,Линейный,unfinished,src/ui/qml/InspectorPanel.qml:1161
+InspectorPanel,State,,Row: the bridge's current state,,Состояние,unfinished,src/ui/qml/InspectorPanel.qml:1221
+InspectorPanel,Off in the host,,Bridge state: the Transmit device is disabled in the host application,,Выключено в хосте,unfinished,src/ui/qml/InspectorPanel.qml:1225
+InspectorPanel,Idle,,Bridge state: nothing is being sent,,Ожидание,unfinished,src/ui/qml/InspectorPanel.qml:1227
+InspectorPanel,Pushing,,Bridge state: the host is sending frames,,Передача,unfinished,src/ui/qml/InspectorPanel.qml:1229
+InspectorPanel,Scrubbing,,Bridge state: the host is scrubbing,,Скраббинг,unfinished,src/ui/qml/InspectorPanel.qml:1231
+InspectorPanel,No audio,,,,Нет звука,unfinished,src/ui/qml/InspectorPanel.qml:1232
+InspectorPanel,Sample rate,,,,Дискретизация,unfinished,src/ui/qml/InspectorPanel.qml:1237
+InspectorPanel,%1 Hz,,,,%1 Hz,unfinished,src/ui/qml/InspectorPanel.qml:1240
+InspectorPanel,Channels,,,,Каналы,unfinished,src/ui/qml/InspectorPanel.qml:1245
+InspectorPanel,%1 (stereo),,,,%1 (стерео),unfinished,src/ui/qml/InspectorPanel.qml:1249
+InspectorPanel,%1 (mono),,,,%1 (моно),unfinished,src/ui/qml/InspectorPanel.qml:1250
+InspectorPanel,Layout,,"Audio channel layout (stereo, 5.1)",,Раскладка,unfinished,src/ui/qml/InspectorPanel.qml:1258
+InspectorPanel,Listen in QCView,,Toggle: play the bridge's audio in QCView,,Слушать в QCView,unfinished,src/ui/qml/InspectorPanel.qml:1274
+InspectorPanel,Audio Stream,,Row label for the bridge's audio,,Аудиопоток,unfinished,src/ui/qml/InspectorPanel.qml:1300
+InspectorPanel,off: tick it in Premiere ▸ Preferences ▸ Playback,,,,выкл: включите в Premiere ▸ Установки ▸ Воспроизведение,unfinished,src/ui/qml/InspectorPanel.qml:1301
+InspectorPanel,Mix,,Audio downmix choice,,Микс,unfinished,src/ui/qml/InspectorPanel.qml:1352
+InspectorPanel,Auto — picks the right mix per source,,,,Авто — подбирает микс под каждый источник,unfinished,src/ui/qml/InspectorPanel.qml:1373
+InspectorPanel,5.1 → Stereo (BS.775 downmix from channels 1-6),,,,5.1 → стерео (даунмикс BS.775 из каналов 1-6),unfinished,src/ui/qml/InspectorPanel.qml:1375
+InspectorPanel,Channels 7-8 (broadcast stereo bounce),,,,Каналы 7-8 (эфирный стереомикс),unfinished,src/ui/qml/InspectorPanel.qml:1376
+InspectorPanel,Timecode,,Section title,,Таймкод,unfinished,src/ui/qml/InspectorPanel.qml:1491
+InspectorPanel,From start,,Timecode origin: counting from the start of the file,,С начала файла,unfinished,src/ui/qml/InspectorPanel.qml:1516
+InspectorPanel,Embedded,,Timecode origin: the timecode track in the file,,Встроенный,unfinished,src/ui/qml/InspectorPanel.qml:1522
+InspectorPanel,QT Start,,Timecode origin: the QuickTime start timecode,,QT Start,unfinished,src/ui/qml/InspectorPanel.qml:1529
+InspectorPanel,QT TC,,,,QT TC,unfinished,src/ui/qml/InspectorPanel.qml:1537
+InspectorPanel,XMP Alt,,,,XMP Alt,unfinished,src/ui/qml/InspectorPanel.qml:1545
+InspectorPanel,Origin,,Row: where the timecode comes from,,Отсчёт,unfinished,src/ui/qml/InspectorPanel.qml:1553
+InspectorPanel,Source,,Row: which metadata the timecode was read from,,Источник,unfinished,src/ui/qml/InspectorPanel.qml:1586
+InspectorPanel,(frame %1),,,,(кадр %1),unfinished,src/ui/qml/InspectorPanel.qml:1589
+InspectorPanel,QT TimeCode,,,,QT TimeCode,unfinished,src/ui/qml/InspectorPanel.qml:1599
+InspectorPanel,Created,,Row: file creation date,,Создан,unfinished,src/ui/qml/InspectorPanel.qml:1616
+InspectorPanel,Media Created,,Row: the media's own creation date from its metadata,,Создание медиа,unfinished,src/ui/qml/InspectorPanel.qml:1619
+InspectorPanel,Linked Projects,,Section title: project files that reference this media,,Связанные проекты,unfinished,src/ui/qml/InspectorPanel.qml:1639
+InspectorPanel,After Effects,,,,After Effects,unfinished,src/ui/qml/InspectorPanel.qml:1645
+InspectorPanel,Premiere (Mac),,,,Premiere (Mac),unfinished,src/ui/qml/InspectorPanel.qml:1647
+InspectorPanel,Premiere (Windows),,,,Premiere (Windows),unfinished,src/ui/qml/InspectorPanel.qml:1649
+InspectorPanel,Open,,Button: open the linked project in its application,,Открыть,unfinished,src/ui/qml/InspectorPanel.qml:1682
+InspectorPanel,Copy,,Button: copy the project path,,Копировать,unfinished,src/ui/qml/InspectorPanel.qml:1694
+InspectorPanel,Playlist Contents,,,,Содержимое плейлиста,unfinished,src/ui/qml/InspectorPanel.qml:1723
+InspectorPanel,%1 clips,,,,Клипов: %1,unfinished,src/ui/qml/InspectorPanel.qml:1741
+InspectorPanel,(missing),,,,(отсутствует),unfinished,src/ui/qml/InspectorPanel.qml:1818
+InspectorPanel,Open in single mode,,,,Открыть в одиночном режиме,unfinished,src/ui/qml/InspectorPanel.qml:1882
+LeftRail,Videos,,Media bin heading,,Видео,unfinished,src/ui/qml/LeftRail.qml:280
+LeftRail,Audio,,Media bin heading,,Аудио,unfinished,src/ui/qml/LeftRail.qml:282
+LeftRail,Images,,Media bin heading,,Изображения,unfinished,src/ui/qml/LeftRail.qml:284
+LeftRail,Image Sequences,,Media bin heading,,Секвенции,unfinished,src/ui/qml/LeftRail.qml:286
+LeftRail,Playlists,,Media bin heading,,Плейлисты,unfinished,src/ui/qml/LeftRail.qml:288
+LeftRail,Dual Views,,Media bin heading,,Двойные просмотры,unfinished,src/ui/qml/LeftRail.qml:290
+LeftRail,Live,,Media bin heading,,Live,unfinished,src/ui/qml/LeftRail.qml:292
+LeftRail,Add Media,,,,Добавить медиа,unfinished,src/ui/qml/LeftRail.qml:299
+LeftRail,Can’t be played here: unsupported format or un-debayered camera raw,,Tooltip on the warning badge of a media row the player cannot decode,,Здесь не воспроизводится: неподдерживаемый формат или камерный RAW без дебайеризации,unfinished,src/ui/qml/LeftRail.qml:641
+LeftRail,Create Playlist from Selection,,,,Создать плейлист из выбранного,unfinished,src/ui/qml/LeftRail.qml:863
+LeftRail,Input,,Context menu: set the OCIO input colourspace of the selected clips,,Input,unfinished,src/ui/qml/LeftRail.qml:878
+LeftRail,In this project,,Picker group header: inputs already used in the project,,В этом проекте,unfinished,src/ui/qml/LeftRail.qml:903
+LeftRail,All,,Picker group header: every input in the config,,Все,unfinished,src/ui/qml/LeftRail.qml:906
+LeftRail,Input for 1 clip,,,,Input для 1 клипа,unfinished,src/ui/qml/LeftRail.qml:922
+LeftRail,Input for %1 clips,,,,Input для клипов: %1,unfinished,src/ui/qml/LeftRail.qml:923
+LeftRail,Filter…,,,,Фильтр…,unfinished,src/ui/qml/LeftRail.qml:934
+LeftRail,default,,Picker entry: use the config's default input,,по умолчанию,unfinished,src/ui/qml/LeftRail.qml:1021
+LeftRail,Use Clip Chain of “%1”,,,,Взять цепочку клипа «%1»,unfinished,src/ui/qml/LeftRail.qml:1042
+LeftRail,Use Clip Chain of the Clip on Screen,,,,Взять цепочку клипа на экране,unfinished,src/ui/qml/LeftRail.qml:1043
+LeftRail,Reset Clip Chain,,,,Сбросить цепочку клипа,unfinished,src/ui/qml/LeftRail.qml:1050
+LeftRail,Delete,,,,Удалить,unfinished,src/ui/qml/LeftRail.qml:1061
+LeftRail,Expand panel,,Tooltip on the rail's edge button,,Развернуть панель,unfinished,src/ui/qml/LeftRail.qml:1164
+LeftRail,Collapse panel,,Tooltip on the rail's edge button,,Свернуть панель,unfinished,src/ui/qml/LeftRail.qml:1166
+LeftRail,Project,,Rail title,,Проект,unfinished,src/ui/qml/LeftRail.qml:1187
+LeftRail,(%1),,"Count of items, in parentheses",,(%1),unfinished,src/ui/qml/LeftRail.qml:1198
+LeftRail,Media,,Section title: the project's media bins,,Медиа,unfinished,src/ui/qml/LeftRail.qml:1324
+LeftRail,Drop media here to add to the project,,,,"Перетащите медиа сюда, чтобы добавить в проект",unfinished,src/ui/qml/LeftRail.qml:1467
+LeftRail,New playlist,,Default name of a new playlist,,Новый плейлист,unfinished,src/ui/qml/LeftRail.qml:1708
+LeftRail,Safety Guides,,Section title,,Безопасные зоны,unfinished,src/ui/qml/LeftRail.qml:1758
+LeftRail,Guide,,Row: which safety guide to show,,Разметка,unfinished,src/ui/qml/LeftRail.qml:1800
+LeftRail,(none),,,,(нет),unfinished,src/ui/qml/LeftRail.qml:1809
+LeftRail,Opacity,,Row: guide opacity,,Непрозрачность,unfinished,src/ui/qml/LeftRail.qml:1822
+LeftRail,Width,,Row: guide line width,,Толщина,unfinished,src/ui/qml/LeftRail.qml:1840
+LeftRail,Color,,Row: guide line colour,,Цвет,unfinished,src/ui/qml/LeftRail.qml:1863
+LeftRail,Background,,Section title,,Фон,unfinished,src/ui/qml/LeftRail.qml:1907
+LeftRail,Black,,Background choice,,Чёрный,unfinished,src/ui/qml/LeftRail.qml:1924
+LeftRail,Dark Gray,,Background choice,,Тёмно-серый,unfinished,src/ui/qml/LeftRail.qml:1927
+LeftRail,Dark Check,,Background choice: a dark checkerboard,,Тёмная клетка,unfinished,src/ui/qml/LeftRail.qml:1934
+LeftRail,Light Check,,Background choice: a light checkerboard,,Светлая клетка,unfinished,src/ui/qml/LeftRail.qml:1941
+LeftRail,Output,,"Section: installed outputs (NDI, AJA, streaming)",,Вывод,unfinished,src/ui/qml/LeftRail.qml:2042
+LeftRail,Mute feed,,Chip: silence the audio sent to outputs,,Выходы без звука,unfinished,src/ui/qml/LeftRail.qml:2066
+LeftRail,Silence the audio sent to outputs while you keep listening. The master mute (M) silences both.,,,,"Отключить звук, отправляемый на выходы, — сами вы продолжаете его слышать. Общее отключение звука (M) глушит и то, и другое.",unfinished,src/ui/qml/LeftRail.qml:2067
+LeftRail,Guides,,Chip: send the safety guides to outputs,,Разметка,unfinished,src/ui/qml/LeftRail.qml:2077
+LeftRail,Draw the safety guides into the outputs that ask for them.,,,,"Рисовать безопасные зоны в выходах, которые их запрашивают.",unfinished,src/ui/qml/LeftRail.qml:2078
+LeftRail,Notes,,Chip: send note strokes to outputs,,Заметки,unfinished,src/ui/qml/LeftRail.qml:2087
+LeftRail,Draw note strokes into the outputs that ask for them.,,,,"Рисовать штрихи заметок в выходах, которые их запрашивают.",unfinished,src/ui/qml/LeftRail.qml:2088
+LeftRail,Stop,,Button on an output card,,Стоп,unfinished,src/ui/qml/LeftRail.qml:2142
+LeftRail,Start,,,,Старт,unfinished,src/ui/qml/LeftRail.qml:2142
+LeftRail,PQ Rec.2100,,Output transfer choice,,PQ Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2170
+LeftRail,HLG Rec.2100,,,,HLG Rec.2100,unfinished,src/ui/qml/LeftRail.qml:2170
+LeftRail,SDR Rec.709,,Output transfer choice,,SDR Rec.709,unfinished,src/ui/qml/LeftRail.qml:2170
+LeftRail,1080p,,Output resolution choice,,1080p,unfinished,src/ui/qml/LeftRail.qml:2173
+LeftRail,UHD,,,,UHD,unfinished,src/ui/qml/LeftRail.qml:2173
+LeftRail,Auto,,"Output resolution choice
+----------
+Choice: follow the source",,Авто,unfinished,src/ui/qml/LeftRail.qml:2173
+LeftRail,attached,,Output state: the sink is receiving,,подключён,unfinished,src/ui/qml/LeftRail.qml:2180
+LeftRail,waiting for the sink,,Output state,,ожидание приёмника,unfinished,src/ui/qml/LeftRail.qml:2183
+LeftRail,P3-D65,,,,P3-D65,unfinished,src/ui/qml/LeftRail.qml:2187
+LeftRail,Rec.2020,,,,Rec.2020,unfinished,src/ui/qml/LeftRail.qml:2187
+LeftRail,%1 / %2 / %3 nits,,,,%1 / %2 / %3 nits,unfinished,src/ui/qml/LeftRail.qml:2188
+LeftRail,live,,Output state,,в эфире,unfinished,src/ui/qml/LeftRail.qml:2209
+LeftRail,refused,,Output state: the sink refused the connection,,отклонено,unfinished,src/ui/qml/LeftRail.qml:2211
+LeftRail,starting,,Output state,,запуск,unfinished,src/ui/qml/LeftRail.qml:2213
+LeftRail,not installed,,Output state,,не установлен,unfinished,src/ui/qml/LeftRail.qml:2215
+LeftRail,Publish the viewport and the mixed audio to this output. The sink runs as its own application; QCView starts it with Start and stops it with Stop.,,,,Передавать вьюпорт и сведённый звук на этот выход. Приёмник работает как отдельное приложение; QCView запускает его кнопкой «Старт» и останавливает кнопкой «Стоп».,unfinished,src/ui/qml/LeftRail.qml:2216
+LeftRail,peak · MaxCLL · MaxFALL nits,,Caption under three number fields,,"пик · MaxCLL · MaxFALL, nits",unfinished,src/ui/qml/LeftRail.qml:2277
+LeftRail,No outputs installed. An output registers itself in Application Support/QCView/Outputs.,,,,Выходы не установлены. Выход регистрируется в Application Support/QCView/Outputs.,unfinished,src/ui/qml/LeftRail.qml:2320
+LeftRail,streaming,,Output state,,трансляция,unfinished,src/ui/qml/LeftRail.qml:2353
+LeftRail,reconnecting,,Output state,,переподключение,unfinished,src/ui/qml/LeftRail.qml:2355
+LeftRail,connecting,,Output state,,подключение,unfinished,src/ui/qml/LeftRail.qml:2357
+LeftRail,failed,,Output state,,ошибка,unfinished,src/ui/qml/LeftRail.qml:2359
+LeftRail,%1 kbps,,,,%1 kbps,unfinished,src/ui/qml/LeftRail.qml:2366
+LeftRail,%1 fps,,,,%1 fps,unfinished,src/ui/qml/LeftRail.qml:2367
+LeftRail,%n encoded,,,0,%n закодирован,unfinished,src/ui/qml/LeftRail.qml:2368
+LeftRail,%n encoded,,,1,%n закодировано,unfinished,src/ui/qml/LeftRail.qml:2368
+LeftRail,%n encoded,,,2,%n закодировано,unfinished,src/ui/qml/LeftRail.qml:2368
+LeftRail,%n repeated,,,0,%n повторён,unfinished,src/ui/qml/LeftRail.qml:2369
+LeftRail,%n repeated,,,1,%n повторено,unfinished,src/ui/qml/LeftRail.qml:2369
+LeftRail,%n repeated,,,2,%n повторено,unfinished,src/ui/qml/LeftRail.qml:2369
+LeftRail,%n skipped,,,0,%n пропущен,unfinished,src/ui/qml/LeftRail.qml:2370
+LeftRail,%n skipped,,,1,%n пропущено,unfinished,src/ui/qml/LeftRail.qml:2370
+LeftRail,%n skipped,,,2,%n пропущено,unfinished,src/ui/qml/LeftRail.qml:2370
+LeftRail,%n dropped,,,0,%n потерян,unfinished,src/ui/qml/LeftRail.qml:2371
+LeftRail,%n dropped,,,1,%n потеряно,unfinished,src/ui/qml/LeftRail.qml:2371
+LeftRail,%n dropped,,,2,%n потеряно,unfinished,src/ui/qml/LeftRail.qml:2371
+LeftRail,%n send error(s),,,0,%n ошибка отправки,unfinished,src/ui/qml/LeftRail.qml:2372
+LeftRail,%n send error(s),,,1,%n ошибки отправки,unfinished,src/ui/qml/LeftRail.qml:2372
+LeftRail,%n send error(s),,,2,%n ошибок отправки,unfinished,src/ui/qml/LeftRail.qml:2372
+LeftRail,%n reconnect(s),,,0,%n переподключение,unfinished,src/ui/qml/LeftRail.qml:2373
+LeftRail,%n reconnect(s),,,1,%n переподключения,unfinished,src/ui/qml/LeftRail.qml:2373
+LeftRail,%n reconnect(s),,,2,%n переподключений,unfinished,src/ui/qml/LeftRail.qml:2373
+LeftRail,Auto fps,,Frame rate choice: follow the source,,Авто fps,unfinished,src/ui/qml/LeftRail.qml:2384
+LeftRail,Main,,"H.264 profile name, keep in English",,Main,unfinished,src/ui/qml/LeftRail.qml:2386
+LeftRail,Baseline,,,,Baseline,unfinished,src/ui/qml/LeftRail.qml:2386
+LeftRail,no audio,,Summary: the stream sends video only,,без звука,unfinished,src/ui/qml/LeftRail.qml:2388
+LeftRail,AAC %1,,,,AAC %1,unfinished,src/ui/qml/LeftRail.qml:2388
+LeftRail,SRT %1 ms,,,,SRT %1 ms,unfinished,src/ui/qml/LeftRail.qml:2389
+LeftRail,Stream,,Card title: the SRT / RTMP streaming output,,Трансляция,unfinished,src/ui/qml/LeftRail.qml:2397
+LeftRail,no hardware encoder,,Output state: this machine cannot encode,,нет аппаратного кодировщика,unfinished,src/ui/qml/LeftRail.qml:2404
+LeftRail,"Send the viewport and the mixed audio to a streaming server (Louper, or any SRT or RTMP server) as H.264 + AAC, encoded on the GPU. srt://host:port with the key as the stream id, or rtmp://host/app with the key as the stream name. A dropped connection reconnects on its own. The picture is the same Rec.709 SDR picture the output bus serves; the frame rate is fixed for the session (a paused viewport repeats its last frame).",,,,"Отправлять вьюпорт и сведённый звук на сервер трансляции (Louper или любой сервер SRT/RTMP) как H.264 + AAC, кодируя на GPU. srt://host:port с ключом в качестве stream id или rtmp://host/app с ключом в качестве имени потока. Оборванное соединение восстанавливается само. Картинка — тот же Rec.709 SDR, что отдаёт шина вывода; частота кадров фиксируется на весь сеанс (вьюпорт на паузе повторяет последний кадр).",unfinished,src/ui/qml/LeftRail.qml:2405
+LeftRail,srt://host:port,,,,srt://host:port,unfinished,src/ui/qml/LeftRail.qml:2427
+LeftRail,Stream key (SRT stream id),,,,Ключ потока (SRT stream id),unfinished,src/ui/qml/LeftRail.qml:2440
+LeftRail,Hide the key,,,,Скрыть ключ,unfinished,src/ui/qml/LeftRail.qml:2468
+LeftRail,Show the key,,,,Показать ключ,unfinished,src/ui/qml/LeftRail.qml:2468
+LeftRail,Bitrate (kbps),,,,Битрейт (kbps),unfinished,src/ui/qml/LeftRail.qml:2482
+LeftRail,Constant-rate target. Louper suggests 2500–8000 at 1080p.,,,,Целевой постоянный битрейт. Louper рекомендует 2500–8000 для 1080p.,unfinished,src/ui/qml/LeftRail.qml:2483
+LeftRail,Resolution,,,,Разрешение,unfinished,src/ui/qml/LeftRail.qml:2504
+LeftRail,The stream's raster; the viewport is letterboxed into it like any output.,,,,"Растр трансляции; вьюпорт вписывается в него с полями, как в любой выход.",unfinished,src/ui/qml/LeftRail.qml:2505
+LeftRail,Frame rate,,,,Частота кадров,unfinished,src/ui/qml/LeftRail.qml:2527
+LeftRail,Auto takes the source's rate when the stream starts (30 when it has none) and keeps it for the session. A 23.976 source into a 30 fps clock repeats six frames a second.,,,,"Авто берёт частоту источника при старте трансляции (30, если её нет) и держит её весь сеанс. Источник 23,976 в такте 30 fps повторяет шесть кадров в секунду.",unfinished,src/ui/qml/LeftRail.qml:2528
+LeftRail,H.264 profile,,,,Профиль H.264,unfinished,src/ui/qml/LeftRail.qml:2552
+LeftRail,Baseline is what Louper's recipe asks for; Main gives better quality per bit where the service accepts it. Never B-frames.,,,,"Baseline — то, чего требует инструкция Louper; Main даёт лучшее качество на бит там, где сервис его принимает. B-кадров нет никогда.",unfinished,src/ui/qml/LeftRail.qml:2553
+LeftRail,Audio (kbps),,,,Аудио (kbps),unfinished,src/ui/qml/LeftRail.qml:2576
+LeftRail,"AAC stereo at 48 kHz from the mixed audio, before Listen, mute and volume. Off sends video only.",,,,"AAC стерео 48 kHz из сведённого звука — до «Слушать», отключения звука и громкости. «Выкл» отправляет только видео.",unfinished,src/ui/qml/LeftRail.qml:2577
+LeftRail,Off,,AAC bitrate choice: no audio in the stream,,Выкл,unfinished,src/ui/qml/LeftRail.qml:2587
+LeftRail,SRT latency (ms),,,,Задержка SRT (ms),unfinished,src/ui/qml/LeftRail.qml:2601
+LeftRail,"The SRT retransmission window, both ends negotiate the larger. 120 ms suits a LAN or a good link; raise it on a lossy one.",,,,Окно повторной передачи SRT; обе стороны берут большее значение. 120 ms хватает для LAN или хорошего канала; на канале с потерями увеличьте.,unfinished,src/ui/qml/LeftRail.qml:2602
+LeftRail,Settings,,Section title,,Настройки,unfinished,src/ui/qml/LeftRail.qml:2638
+LeftRail,Reset all preferences?,,,,Сбросить все настройки?,unfinished,src/ui/qml/LeftRail.qml:2698
+LeftRail,"Every preference (recents, layout, settings, shortcuts) will be erased and the app will quit. Relaunch to continue.",,,,"Все настройки (недавние, раскладка, параметры, сочетания клавиш) будут стёрты, и приложение закроется. Запустите его снова, чтобы продолжить.",unfinished,src/ui/qml/LeftRail.qml:2699
+LeftRail,Performance,,Settings group header,,Производительность,unfinished,src/ui/qml/LeftRail.qml:2848
+LeftRail,Image-seq decode threads,,Image-seq = image sequence,,Потоки декодирования секв.,unfinished,src/ui/qml/LeftRail.qml:2859
+LeftRail,Applies on next sequence load.,,,,Применяется при следующей загрузке секвенции.,unfinished,src/ui/qml/LeftRail.qml:2860
+LeftRail,Image-seq cache window,,Image-seq = image sequence,,Окно кэша секв.,unfinished,src/ui/qml/LeftRail.qml:2889
+LeftRail,Frames cached ahead of the playhead. Lower = less RAM.,,,,Сколько кадров кэшируется впереди курсора воспроизведения. Меньше = меньше ОЗУ.,unfinished,src/ui/qml/LeftRail.qml:2890
+LeftRail,Video decode threads,,,,Потоки декодирования видео,unfinished,src/ui/qml/LeftRail.qml:2920
+LeftRail,0 = Auto. Single-video playback only; dual and scrub stay on Auto. Applies on next video load.,,,,0 = авто. Только для одиночного видео; двойной просмотр и скраббинг остаются на авто. Применяется при следующей загрузке видео.,unfinished,src/ui/qml/LeftRail.qml:2921
+LeftRail,Enable hardware decoding,,,,Аппаратное декодирование,unfinished,src/ui/qml/LeftRail.qml:2969
+LeftRail,GPU decode (Vulkan/D3D11VA) when available. Turn off if playback misbehaves — forces software decode everywhere. Applies on next file load.,,,,"Декодирование на GPU (Vulkan/D3D11VA), когда доступно. Выключите, если воспроизведение сбоит — везде будет программное декодирование. Применяется при следующей загрузке файла.",unfinished,src/ui/qml/LeftRail.qml:2970
+LeftRail,Scrub cache size (MB),,,,Размер кэша скраббинга (МБ),unfinished,src/ui/qml/LeftRail.qml:3000
+LeftRail,"Decoded frames kept near the playhead for instant backward scrub. Higher = smoother, more RAM/VRAM. Per decoder — dual uses 2x. Applies on next file load.",,,,"Декодированные кадры около курсора воспроизведения для мгновенного скраббинга назад. Больше = плавнее, но больше ОЗУ/VRAM. На каждый декодер — двойной просмотр берёт 2x. Применяется при следующей загрузке файла.",unfinished,src/ui/qml/LeftRail.qml:3001
+LeftRail,Hardware scrub for h264/h265 (experimental),,,,Аппаратный скраббинг h264/h265 (экспериментально),unfinished,src/ui/qml/LeftRail.qml:3033
+LeftRail,"GPU decode while scrubbing h264/h265, not just all-intra (ProRes). Experimental — turn off if scrubbed frames look wrong. Applies on next file load.",,,,"Декодирование на GPU при скраббинге h264/h265, а не только all-intra (ProRes). Экспериментально — выключите, если кадры при скраббинге выглядят неверно. Применяется при следующей загрузке файла.",unfinished,src/ui/qml/LeftRail.qml:3034
+LeftRail,Interface,,Settings group header,,Интерфейс,unfinished,src/ui/qml/LeftRail.qml:3058
+LeftRail,Language,,,,Язык,unfinished,src/ui/qml/LeftRail.qml:3071
+LeftRail,Language of the interface. System default follows the OS setting. Applies at once.,,,,Язык интерфейса. «Системный» следует настройке ОС. Применяется сразу.,unfinished,src/ui/qml/LeftRail.qml:3072
+LeftRail,Always open in minimal mode,,,,Всегда открывать в минимальном режиме,unfinished,src/ui/qml/LeftRail.qml:3105
+LeftRail,"Launch with the rails collapsed and the color panel hidden, ignoring the last-used layout. Applies on next launch.",,,,"Запускать со свёрнутыми боковыми панелями и скрытой панелью цвета, не учитывая последнюю раскладку. Применяется при следующем запуске.",unfinished,src/ui/qml/LeftRail.qml:3106
+LeftRail,Timeline hover thumbnails,,,,Миниатюры при наведении на таймлайн,unfinished,src/ui/qml/LeftRail.qml:3133
+LeftRail,Drag viewport to move window,,,,Перемещать окно за вьюпорт,unfinished,src/ui/qml/LeftRail.qml:3155
+LeftRail,Timeline audio waveforms,,,,Форма волны звука на таймлайне,unfinished,src/ui/qml/LeftRail.qml:3183
+LeftRail,Draw an audio waveform over timeline clips. Peaks decode lazily in the background for the visible range and pause during playback.,,,,Рисовать форму волны звука поверх клипов на таймлайне. Пики декодируются в фоне по мере надобности для видимого участка и приостанавливаются во время воспроизведения.,unfinished,src/ui/qml/LeftRail.qml:3184
+LeftRail,Screenshot format,,,,Формат скриншота,unfinished,src/ui/qml/LeftRail.qml:3213
+LeftRail,Format for Desktop screenshots. JPEG is lossy; PNG/TIFF lossless. Notes always use PNG.,,,,Формат скриншотов на рабочий стол. JPEG — с потерями; PNG/TIFF — без потерь. Заметки всегда используют PNG.,unfinished,src/ui/qml/LeftRail.qml:3214
+LeftRail,Updates,,Settings group header,,Обновления,unfinished,src/ui/qml/LeftRail.qml:3242
+LeftRail,Automatically check for updates,,,,Проверять обновления автоматически,unfinished,src/ui/qml/LeftRail.qml:3253
+LeftRail,"Checks daily for updates, sending only your IP and app/OS version. Update manually anytime from the About menu.",,,,"Проверяет обновления раз в день, передавая только ваш IP и версии приложения/ОС. Проверить вручную можно в любой момент через меню «О программе».",unfinished,src/ui/qml/LeftRail.qml:3254
+LeftRail,A/V sync (Single),,Audio/video offset setting for single-clip playback,,Синхронизация A/V (одиночный),unfinished,src/ui/qml/LeftRail.qml:3293
+LeftRail,Positive values delay audio to offset pipeline/display lag. Tune by ear; applies on the next seek or play.,,,,"Положительные значения задерживают звук, компенсируя задержку конвейера/дисплея. Подбирайте на слух; применяется при следующем переходе или воспроизведении.",unfinished,src/ui/qml/LeftRail.qml:3294
+LeftRail,A/V sync (Dual),,Audio/video offset setting for dual view,,Синхронизация A/V (двойной),unfinished,src/ui/qml/LeftRail.qml:3328
+LeftRail,Positive values delay audio to offset pipeline/display lag. Dual's latency runs deeper than single. Tune by ear; applies on the next seek or play.,,,,"Положительные значения задерживают звук, компенсируя задержку конвейера/дисплея. В двойном просмотре задержка больше, чем в одиночном. Подбирайте на слух; применяется при следующем переходе или воспроизведении.",unfinished,src/ui/qml/LeftRail.qml:3329
+LeftRail,Mute scrub audio,,,,Без звука при скраббинге,unfinished,src/ui/qml/LeftRail.qml:3371
+LeftRail,Silence the audio feedback while dragging the timeline or holding fast-forward/rewind. Scrubbing itself is unaffected.,,,,Отключить звуковой отклик при перетаскивании по таймлайну и удержании перемотки. Сам скраббинг не меняется.,unfinished,src/ui/qml/LeftRail.qml:3372
+LeftRail,Listen to live audio,,,,Слушать live-звук,unfinished,src/ui/qml/LeftRail.qml:3402
+LeftRail,Play audio pushed by Premiere Pro over QCBridge in QCView. Off by default: Premiere is already playing it. Meters run either way.,,,,"Воспроизводить в QCView звук, который Premiere Pro передаёт через QCBridge. По умолчанию выключено: Premiere уже его воспроизводит. Индикаторы уровня работают в любом случае.",unfinished,src/ui/qml/LeftRail.qml:3403
+LeftRail,Blender sessions,,Setting: watch for a QCBridge (Blender) session on this machine,,Сеансы Blender,unfinished,src/ui/qml/LeftRail.qml:3431
+LeftRail,"Off at every launch. On (also File ▸ Connect to Blender): QCView watches for the card the QCBridge host add-on on this machine writes when a session starts, listens on its port and shows the replica's stream. Off again stops listening.",,,,"При каждом запуске выключено. Вкл (также Файл ▸ Подключиться к Blender): QCView следит за карточкой, которую хост-аддон QCBridge на этом компьютере пишет при старте сеанса, слушает её порт и показывает поток реплики. Выкл снова прекращает прослушивание.",unfinished,src/ui/qml/LeftRail.qml:3432
+LeftRail,Live from %1 on port %2,,Blender input state,,Live от %1 на порту %2,unfinished,src/ui/qml/LeftRail.qml:3453
+LeftRail,Listening for %1 on port %2,,Blender input state,,Ожидание %1 на порту %2,unfinished,src/ui/qml/LeftRail.qml:3455
+LeftRail,%1 is streaming on port %2 — select the Blender clip,,Blender input state: a card exists but another clip is on screen,,%1 транслирует на порту %2 — выберите клип Blender,unfinished,src/ui/qml/LeftRail.qml:3457
+LeftRail,Blender session ended,,Blender input state,,Сеанс Blender завершён,unfinished,src/ui/qml/LeftRail.qml:3459
+LeftRail,No Blender session on this machine yet,,Blender input state: no card yet,,На этом компьютере пока нет сеанса Blender,unfinished,src/ui/qml/LeftRail.qml:3461
+LeftRail,A/V sync (Live),,Audio/video offset setting for bridge feeds,,Синхронизация A/V (live),unfinished,src/ui/qml/LeftRail.qml:3488
+LeftRail,Positive values delay the bridge audio; negative values hold the picture. Kept per host application. Tune by ear.,,,,Положительные значения задерживают звук QCBridge; отрицательные придерживают картинку. Хранится отдельно для каждого хост-приложения. Подбирайте на слух.,unfinished,src/ui/qml/LeftRail.qml:3489
+LeftRail,Live audio buffer,,,,Буфер live-звука,unfinished,src/ui/qml/LeftRail.qml:3520
+LeftRail,How much bridge audio is queued before it plays. Raise it if live audio stutters; lower it for less delay.,,,,"Сколько звука QCBridge накапливается перед воспроизведением. Увеличьте, если live-звук заикается; уменьшите ради меньшей задержки.",unfinished,src/ui/qml/LeftRail.qml:3521
+LeftRail,Reset all preferences…,,,,Сбросить все настройки…,unfinished,src/ui/qml/LeftRail.qml:3568
+LiveStrip,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,СТОП-КАДР · %1,unfinished,src/ui/qml/LiveStrip.qml:106
+LiveStrip,LIVE,,"Live feed state badge, upper case",,LIVE,unfinished,src/ui/qml/LiveStrip.qml:108
+LiveStrip,PAUSED,,"Live feed state badge, upper case",,ПАУЗА,unfinished,src/ui/qml/LiveStrip.qml:110
+LiveStrip,WAITING,,"Live feed state badge, upper case",,ОЖИДАНИЕ,unfinished,src/ui/qml/LiveStrip.qml:112
+LiveStrip,RECONNECTING,,"Live feed state badge, upper case",,ПЕРЕПОДКЛЮЧЕНИЕ,unfinished,src/ui/qml/LiveStrip.qml:114
+LiveStrip,CONNECTING,,"Live feed state badge, upper case",,ПОДКЛЮЧЕНИЕ,unfinished,src/ui/qml/LiveStrip.qml:116
+LiveStrip,OFFLINE,,"Live feed state badge, upper case",,ОФЛАЙН,unfinished,src/ui/qml/LiveStrip.qml:118
+LiveStrip,shared memory,,Transport of a bridge feed,,общая память,unfinished,src/ui/qml/LiveStrip.qml:162
+LiveStrip,inf/NaN in frame,,Warning: the frame contains non-finite pixel values,,inf/NaN в кадре,unfinished,src/ui/qml/LiveStrip.qml:178
+LiveStrip,%n restart(s),,Count of times the host application went away and came back,0,%n перезапуск,unfinished,src/ui/qml/LiveStrip.qml:202
+LiveStrip,%n restart(s),,Count of times the host application went away and came back,1,%n перезапуска,unfinished,src/ui/qml/LiveStrip.qml:202
+LiveStrip,%n restart(s),,Count of times the host application went away and came back,2,%n перезапусков,unfinished,src/ui/qml/LiveStrip.qml:202
+LiveStrip,%n drop(s),,Count of stream drops followed by a reconnect,0,%n обрыв,unfinished,src/ui/qml/LiveStrip.qml:204
+LiveStrip,%n drop(s),,Count of stream drops followed by a reconnect,1,%n обрыва,unfinished,src/ui/qml/LiveStrip.qml:204
+LiveStrip,%n drop(s),,Count of stream drops followed by a reconnect,2,%n обрывов,unfinished,src/ui/qml/LiveStrip.qml:204
+LiveStrip,Auto,,Transfer override choice: follow the feed's tags,,Авто,unfinished,src/ui/qml/LiveStrip.qml:242
+LiveStrip,SDR 709,,,,SDR 709,unfinished,src/ui/qml/LiveStrip.qml:242
+LiveStrip,PQ 2020,,,,PQ 2020,unfinished,src/ui/qml/LiveStrip.qml:242
+LiveStrip,PQ P3,,,,PQ P3,unfinished,src/ui/qml/LiveStrip.qml:243
+LiveStrip,HLG,,,,HLG,unfinished,src/ui/qml/LiveStrip.qml:243
+LiveStrip,Linear,,,,Линейный,unfinished,src/ui/qml/LiveStrip.qml:243
+LiveStrip,Auto · PQ P3,,,,Авто · PQ P3,unfinished,src/ui/qml/LiveStrip.qml:250
+LiveStrip,Auto · PQ 2020,,,,Авто · PQ 2020,unfinished,src/ui/qml/LiveStrip.qml:250
+LiveStrip,Auto · HLG,,,,Авто · HLG,unfinished,src/ui/qml/LiveStrip.qml:251
+LiveStrip,"Auto · SDR, untagged",,,,"Авто · SDR, без тега",unfinished,src/ui/qml/LiveStrip.qml:252
+LiveStrip,Auto · SDR,,,,Авто · SDR,unfinished,src/ui/qml/LiveStrip.qml:253
+LiveStrip,How the scopes read this feed (Transfer override),,,,Как скопы читают этот поток (переопределение трансфера),unfinished,src/ui/qml/LiveStrip.qml:258
+LiveStrip,Host display %1 · %2,,Live strip chip: the host Blender's display device and view are being emulated,,Дисплей хоста %1 · %2,unfinished,src/ui/qml/LiveStrip.qml:311
+LiveStrip,Host display off,,Live strip chip: host-display emulation is pinned but switched off,,Дисплей хоста выкл,unfinished,src/ui/qml/LiveStrip.qml:313
+LiveStrip,View %1 not applied,,Live strip chip: the link named a view QCView could not apply,,View %1 не применён,unfinished,src/ui/qml/LiveStrip.qml:315
+LiveStrip,"The Blender host's view, rendered for its display device, shown here (click for options)",,,,"View хоста Blender, отрендеренный для его дисплея, показан здесь (нажмите для параметров)",unfinished,src/ui/qml/LiveStrip.qml:316
+LiveStrip,Emulate the host display,,Menu: switch host-display emulation on or off for this stream,,Эмулировать дисплей хоста,unfinished,src/ui/qml/LiveStrip.qml:322
+LiveStrip,True emulation (display to display),,Menu: convert the host display's colourspace to ours instead of showing its codes as sRGB,,Точная эмуляция (с дисплея на дисплей),unfinished,src/ui/qml/LiveStrip.qml:331
+LiveStrip,Use my View instead,,Menu: drop the host-display pin; this machine's own View applies,,Использовать мой View,unfinished,src/ui/qml/LiveStrip.qml:340
+LiveStrip,Color panel (⌃3),,,,Панель цвета (⌃3),unfinished,src/ui/qml/LiveStrip.qml:366
+LiveStrip,Notes panel (⌃4),,,,Панель заметок (⌃4),unfinished,src/ui/qml/LiveStrip.qml:374
+LiveStrip,Screenshot to clipboard (⌥T),,,,Скриншот в буфер обмена (⌥T),unfinished,src/ui/qml/LiveStrip.qml:382
+LiveStrip,Screenshot to Desktop (T),,,,Скриншот на рабочий стол (T),unfinished,src/ui/qml/LiveStrip.qml:388
+Main,Open Media…,,,,Открыть медиа…,unfinished,src/ui/qml/Main.qml:128
+Main,Open Project…,,,,Открыть проект…,unfinished,src/ui/qml/Main.qml:140
+Main,QCView Project (*.qcvproj),,,,Проект QCView (*.qcvproj),unfinished,src/ui/qml/Main.qml:142
+Main,Save Project As…,,,,Сохранить проект как…,unfinished,src/ui/qml/Main.qml:150
+Main,Project error,,,,Ошибка проекта,unfinished,src/ui/qml/Main.qml:228
+Main,OK,,,,ОК,unfinished,src/ui/qml/Main.qml:244
+Main,Open Stream,,,,Открыть поток,unfinished,src/ui/qml/Main.qml:259
+Main,Stream URL,,,,URL потока,unfinished,src/ui/qml/Main.qml:304
+Main,Name (optional),,,,Имя (необязательно),unfinished,src/ui/qml/Main.qml:313
+Main,defaults to host:port,,,,по умолчанию host:port,unfinished,src/ui/qml/Main.qml:319
+Main,Passphrase (optional),,,,Парольная фраза (необязательно),unfinished,src/ui/qml/Main.qml:322
+Main,Cancel,,,,Отмена,unfinished,src/ui/qml/Main.qml:337
+Main,Connect,,,,Подключиться,unfinished,src/ui/qml/Main.qml:343
+Main,About QCView,,,,О QCView,unfinished,src/ui/qml/Main.qml:355
+Main,QCView,,,,QCView,unfinished,src/ui/qml/Main.qml:361
+Main,Version %1,,,,Версия %1,unfinished,src/ui/qml/Main.qml:369
+Main,Color-accurate review player.,,,,Плеер для ревью с точной цветопередачей.,unfinished,src/ui/qml/Main.qml:376
+Main,Docs,,Button: open the documentation website,,Документация,unfinished,src/ui/qml/Main.qml:387
+Main,Check for Updates…,,,,Проверить обновления…,unfinished,src/ui/qml/Main.qml:395
+Main,Close,,Button,,Закрыть,unfinished,src/ui/qml/Main.qml:403
+Main,&File,,,,&Файл,unfinished,src/ui/qml/Main.qml:451
+Main,Open Stream…,,,,Открыть поток…,unfinished,src/ui/qml/Main.qml:458
+Main,Connect to After Effects,,,,Подключиться к After Effects,unfinished,src/ui/qml/Main.qml:464
+Main,Connect to Premiere Pro,,,,Подключиться к Premiere Pro,unfinished,src/ui/qml/Main.qml:469
+Main,Connect to Blender,,,,Подключиться к Blender,unfinished,src/ui/qml/Main.qml:478
+Main,Open Recent Media,,,,Недавние медиа,unfinished,src/ui/qml/Main.qml:485
+Main,(none),,,,(нет),unfinished,src/ui/qml/Main.qml:529
+Main,Clear Menu,,,,Очистить список,unfinished,src/ui/qml/Main.qml:536
+Main,New Project,,,,Новый проект,unfinished,src/ui/qml/Main.qml:543
+Main,Open Recent Project,,,,Недавние проекты,unfinished,src/ui/qml/Main.qml:553
+Main,Save Project,,,,Сохранить проект,unfinished,src/ui/qml/Main.qml:595
+Main,Copy Project Link,,,,Копировать ссылку на проект,unfinished,src/ui/qml/Main.qml:606
+Main,E&xit,,,,В&ыход,unfinished,src/ui/qml/Main.qml:626
+Main,&View,,,,&Вид,unfinished,src/ui/qml/Main.qml:638
+Main,Minimal Mode,,View menu: a layout mode,,Минимальный режим,unfinished,src/ui/qml/Main.qml:641
+Main,Compact Mode,,View menu: a layout mode,,Компактный режим,unfinished,src/ui/qml/Main.qml:651
+Main,Always on Top,,,,Поверх всех окон,unfinished,src/ui/qml/Main.qml:663
+Main,Show All Panels,,View menu,,Показать все панели,unfinished,src/ui/qml/Main.qml:671
+Main,Zoom In Timeline,,,,Увеличить таймлайн,unfinished,src/ui/qml/Main.qml:680
+Main,Zoom Out Timeline,,,,Уменьшить таймлайн,unfinished,src/ui/qml/Main.qml:685
+Main,Fullscreen,,,,Во весь экран,unfinished,src/ui/qml/Main.qml:694
+Main,Default Size && Position,,View menu: reset the window geometry; && is a literal ampersand,,Размер && положение по умолчанию,unfinished,src/ui/qml/Main.qml:703
+Main,Left Rail,,View menu: toggle the left side panel,,Левая панель,unfinished,src/ui/qml/Main.qml:717
+Main,Right Rail,,View menu: toggle the right side panel,,Правая панель,unfinished,src/ui/qml/Main.qml:723
+Main,Color Panel,,,,Панель цвета,unfinished,src/ui/qml/Main.qml:728
+Main,Timeline,,,,Таймлайн,unfinished,src/ui/qml/Main.qml:733
+Main,Notes,,,,Заметки,unfinished,src/ui/qml/Main.qml:737
+Main,Status Bar,,,,Строка состояния,unfinished,src/ui/qml/Main.qml:742
+Main,&Tools,,,,&Инструменты,unfinished,src/ui/qml/Main.qml:754
+Main,Background,,,,Фон,unfinished,src/ui/qml/Main.qml:756
+Main,Safety Guides,,,,Безопасные зоны,unfinished,src/ui/qml/Main.qml:764
+Main,Keyboard Shortcuts,,,,Сочетания клавиш,unfinished,src/ui/qml/Main.qml:772
+Main,Settings…,,,,Настройки…,unfinished,src/ui/qml/Main.qml:784
+Main,&About,,,,&О программе,unfinished,src/ui/qml/Main.qml:800
+Main,About QCView…,,,,О QCView…,unfinished,src/ui/qml/Main.qml:802
+Main,Open media,,,,Открыть медиа,unfinished,src/ui/qml/Main.qml:1230
+Main,Player detached,,Title of the separate player window,,Плеер откреплён,unfinished,src/ui/qml/Main.qml:1520
+Main,Click 'Reattach' to dock back,,,,"Нажмите «Reattach», чтобы вернуть его на место",unfinished,src/ui/qml/Main.qml:1526
+MediaFilters,All media (%1),,File dialog filter; %1 = the list of patterns,,Все медиа (%1),unfinished,src/project/media_extensions.h:107
+MediaFilters,Video files (%1),,,,Видеофайлы (%1),unfinished,src/project/media_extensions.h:108
+MediaFilters,Audio files (%1),,,,Аудиофайлы (%1),unfinished,src/project/media_extensions.h:109
+MediaFilters,Image / sequence files (%1),,,,Изображения / секвенции (%1),unfinished,src/project/media_extensions.h:110
+MediaFilters,All files (*),,,,Все файлы (*),unfinished,src/project/media_extensions.h:111
+MinColor,Use look,,Toggle: apply the look,,Применять Look,unfinished,src/color/mincolor_chain.cpp:298
+ModalHost,Close,,Tooltip on a dialog's close button,,Закрыть,unfinished,src/ui/qml/ModalHost.qml:109
+NotesPanel,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,СТОП-КАДР · %1,unfinished,src/ui/qml/NotesPanel.qml:218
+NotesPanel,LIVE,,Badge: the feed is live,,LIVE,unfinished,src/ui/qml/NotesPanel.qml:220
+NotesPanel,back to live,,Hover hint on the review pill: a click returns to the live feed,,обратно в эфир,unfinished,src/ui/qml/NotesPanel.qml:232
+NotesPanel,freeze,,Hover hint on the review pill: a click holds the current frame,,стоп-кадр,unfinished,src/ui/qml/NotesPanel.qml:234
+NotesPanel,Save the project to keep notes for this stream,,,,"Сохраните проект, чтобы заметки к этому потоку сохранились",unfinished,src/ui/qml/NotesPanel.qml:286
+NotesPanel,Add note here,,The add-note tile's label,,Добавить заметку здесь,unfinished,src/ui/qml/NotesPanel.qml:288
+NotesPanel,Save…,,Add-note tile when the project must be saved first,,Сохранить…,unfinished,src/ui/qml/NotesPanel.qml:300
+NotesPanel,on the frozen frame,,Caption under Add note: the note captures the frozen frame,,на стоп-кадре,unfinished,src/ui/qml/NotesPanel.qml:302
+NotesPanel,freezes the feed,,Caption under Add note: adding a note freezes the live feed,,остановит эфир,unfinished,src/ui/qml/NotesPanel.qml:304
+NotesPanel,captures current frame,,Caption under Add note,,снимет текущий кадр,unfinished,src/ui/qml/NotesPanel.qml:306
+NotesPanel,Export notes,,,,Экспорт заметок,unfinished,src/ui/qml/NotesPanel.qml:358
+NotesPanel,Export folder (Markdown),,,,Папка экспорта (Markdown),unfinished,src/ui/qml/NotesPanel.qml:397
+NotesPanel,Save HTML…,,,,Сохранить HTML…,unfinished,src/ui/qml/NotesPanel.qml:425
+NotesPanel,HTML (*.html),,,,HTML (*.html),unfinished,src/ui/qml/NotesPanel.qml:427
+NotesPanel,Save PDF…,,,,Сохранить PDF…,unfinished,src/ui/qml/NotesPanel.qml:432
+NotesPanel,PDF (*.pdf),,,,PDF (*.pdf),unfinished,src/ui/qml/NotesPanel.qml:434
+NotesPanel,Save DOCX…,,,,Сохранить DOCX…,unfinished,src/ui/qml/NotesPanel.qml:439
+NotesPanel,Word document (*.docx),,,,Документ Word (*.docx),unfinished,src/ui/qml/NotesPanel.qml:441
+NotesPanel,%1 notes will be exported.,,,,Будет экспортировано заметок: %1.,unfinished,src/ui/qml/NotesPanel.qml:457
+NotesPanel,No notes to export yet.,,,,Пока нет заметок для экспорта.,unfinished,src/ui/qml/NotesPanel.qml:459
+NotesPanel,Markdown folder…,,,,Папка Markdown…,unfinished,src/ui/qml/NotesPanel.qml:475
+NotesPanel,Folder + linked images.  Type any name to set the output dir; the export creates a timestamped subfolder there.,,,,"Папка + связанные изображения.  Введите любое имя, чтобы задать папку вывода; экспорт создаст в ней подпапку с меткой времени.",unfinished,src/ui/qml/NotesPanel.qml:480
+NotesPanel,HTML (single file)…,,,,HTML (один файл)…,unfinished,src/ui/qml/NotesPanel.qml:487
+NotesPanel,PDF…,,,,PDF…,unfinished,src/ui/qml/NotesPanel.qml:495
+NotesPanel,DOCX…,,,,DOCX…,unfinished,src/ui/qml/NotesPanel.qml:503
+NotesPanel,Open in minNotes,,,,Открыть в minNotes,unfinished,src/ui/qml/NotesPanel.qml:526
+NotesPanel,Open this stream's notes folder in minNotes,,,,Открыть папку заметок этого потока в minNotes,unfinished,src/ui/qml/NotesPanel.qml:532
+NotesPanel,minNotes is not installed,,,,minNotes не установлен,unfinished,src/ui/qml/NotesPanel.qml:533
+NotesPanel,Cancel,,,,Отмена,unfinished,src/ui/qml/NotesPanel.qml:539
+NotesPanel,(no thumb),,No thumbnail,,(нет миниатюры),unfinished,src/ui/qml/NotesPanel.qml:744
+NotesPanel,VIEWER,,Badge: the note was captured with viewer aids active,,VIEWER,unfinished,src/ui/qml/NotesPanel.qml:776
+NotesPanel,OCIO,,Badge: the note was captured through OCIO,,OCIO,unfinished,src/ui/qml/NotesPanel.qml:804
+NotesPanel,Mark addressed,,Button: mark this note as dealt with,,Отметить как решённую,unfinished,src/ui/qml/NotesPanel.qml:878
+NotesPanel,Delete note,,,,Удалить заметку,unfinished,src/ui/qml/NotesPanel.qml:907
+NotesPanel,Note…,,Placeholder of the note text field,,Заметка…,unfinished,src/ui/qml/NotesPanel.qml:920
+NotesPanel,"Select (drag to move, corners to scale, Del to remove; click again to exit)",,,,"Выбор (тяните для перемещения, за углы — масштаб, Del — удалить; нажмите ещё раз для выхода)",unfinished,src/ui/qml/NotesPanel.qml:1033
+NotesPanel,Freehand,,,,От руки,unfinished,src/ui/qml/NotesPanel.qml:1035
+NotesPanel,Rectangle,,,,Прямоугольник,unfinished,src/ui/qml/NotesPanel.qml:1037
+NotesPanel,Oval,,,,Овал,unfinished,src/ui/qml/NotesPanel.qml:1039
+NotesPanel,Arrow,,,,Стрелка,unfinished,src/ui/qml/NotesPanel.qml:1041
+NotesPanel,Line,,,,Линия,unfinished,src/ui/qml/NotesPanel.qml:1043
+NotesPanel,Erase stroke (click strokes to remove),,,,"Стереть штрих (нажимайте на штрихи, чтобы убрать)",unfinished,src/ui/qml/NotesPanel.qml:1044
+NotesPanel,Width:,,Stroke width label,,Толщина:,unfinished,src/ui/qml/NotesPanel.qml:1087
+PlayerWindow,Player — Phase 1.7 (compositor: %1),,,,Плеер — фаза 1.7 (композитор: %1),unfinished,src/ui/qml/PlayerWindow.qml:100
+PlayerWindow,Window: %1×%2,,,,Окно: %1×%2,unfinished,src/ui/qml/PlayerWindow.qml:106
+ProjectIo,Save: empty path.,,The prefix names the operation,,Сохранение: пустой путь.,unfinished,src/project/project_io.cpp:542
+ProjectIo,Save: cannot open '%1' for write: %2,,,,Сохранение: не удалось открыть «%1» для записи: %2,unfinished,src/project/project_io.cpp:587
+ProjectIo,Save: write to '%1' truncated: %2,,,,Сохранение: запись в «%1» оборвана: %2,unfinished,src/project/project_io.cpp:594
+ProjectIo,Save: commit to '%1' failed: %2,,,,Сохранение: не удалось зафиксировать «%1»: %2,unfinished,src/project/project_io.cpp:602
+ProjectIo,Open: cannot read '%1': %2,,The prefix names the operation,,Открытие: не удалось прочитать «%1»: %2,unfinished,src/project/project_io.cpp:627
+ProjectIo,Open: parse error in '%1': %2,,,,Открытие: ошибка разбора «%1»: %2,unfinished,src/project/project_io.cpp:636
+QObject,Trim head,,Undo action name: trim the clip's start,,Подрезать начало,unfinished,src/timeline/timeline_edits.cpp:72
+QObject,Trim tail,,Undo action name: trim the clip's end,,Подрезать конец,unfinished,src/timeline/timeline_edits.cpp:97
+QObject,Slide clip,,Undo action name: move the clip without changing its content,,Сдвинуть клип (slide),unfinished,src/timeline/timeline_edits.cpp:117
+QObject,Slip clip,,Undo action name: shift the clip's content without moving it,,Сместить содержимое клипа (slip),unfinished,src/timeline/timeline_edits.cpp:138
+QObject,Cut clip,,Undo action name,,Разрезать клип,unfinished,src/timeline/timeline_edits.cpp:158
+QObject,Delete clip,,Undo action name,,Удалить клип,unfinished,src/timeline/timeline_edits.cpp:220
+QObject,Add clip,,Undo action name,,Добавить клип,unfinished,src/timeline/timeline_edits.cpp:260
+QObject,Reorder clip,,Undo action name,,Переставить клип,unfinished,src/timeline/timeline_edits.cpp:290
+RightRail,Inspector,,Panel title,,Инспектор,unfinished,src/ui/qml/RightRail.qml:99
+RightRail,Expand panel,,,,Развернуть панель,unfinished,src/ui/qml/RightRail.qml:148
+RightRail,Collapse panel,,,,Свернуть панель,unfinished,src/ui/qml/RightRail.qml:149
+RightRail,Vectorscope,,Section title,,Вектороскоп,unfinished,src/ui/qml/RightRail.qml:172
+RightRail,Waveform,,Section title,,Осциллограмма,unfinished,src/ui/qml/RightRail.qml:186
+RightRail,Keyboard Shortcuts,,,,Сочетания клавиш,unfinished,src/ui/qml/RightRail.qml:325
+ScopePanel,Zoom %1× — magnifies the centre,,,,Зум %1× — увеличивает центр,unfinished,src/ui/qml/ScopePanel.qml:216
+ScopePanel,Color,,Toggle: colour the trace by hue,,Цвет,unfinished,src/ui/qml/ScopePanel.qml:223
+ScopePanel,Colour the trace by hue,,,,Окрашивать след по оттенку,unfinished,src/ui/qml/ScopePanel.qml:227
+ScopePanel,Signal tier draws mono — the colour space isn't known,,,,В режиме «Сигнал» след монохромный — цветовое пространство неизвестно,unfinished,src/ui/qml/ScopePanel.qml:228
+ScopePanel,Trace brightness,,,,Яркость следа,unfinished,src/ui/qml/ScopePanel.qml:239
+StatusStrip,DUAL,,"Status bar mode badge, upper case, keep short",,ДВОЙНОЙ,unfinished,src/ui/qml/StatusStrip.qml:47
+StatusStrip,PLAYLIST,,"Status bar mode badge, upper case, keep short",,ПЛЕЙЛИСТ,unfinished,src/ui/qml/StatusStrip.qml:49
+StatusStrip,IMAGE SEQ,,"Status bar mode badge, upper case, keep short",,СЕКВЕНЦИЯ,unfinished,src/ui/qml/StatusStrip.qml:51
+StatusStrip,SINGLE,,"Status bar mode badge, upper case, keep short",,ОДИНОЧНЫЙ,unfinished,src/ui/qml/StatusStrip.qml:53
+StatusStrip,idle,,Decoder state,,ожидание,unfinished,src/ui/qml/StatusStrip.qml:60
+StatusStrip,opening…,,Decoder state,,открытие…,unfinished,src/ui/qml/StatusStrip.qml:62
+StatusStrip,decoding,,Decoder state,,декодирование,unfinished,src/ui/qml/StatusStrip.qml:64
+StatusStrip,EOF,,Decoder state: end of file,,EOF,unfinished,src/ui/qml/StatusStrip.qml:66
+StatusStrip,ERROR,,Decoder state,,ОШИБКА,unfinished,src/ui/qml/StatusStrip.qml:68
+StatusStrip,%1  %2  %3,,,,%1  %2  %3,unfinished,src/ui/qml/StatusStrip.qml:116
+StatusStrip,HW: %1,,Hardware decoder in use,,HW: %1,unfinished,src/ui/qml/StatusStrip.qml:188
+StatusStrip,HW: software,,No hardware decoder,,HW: программно,unfinished,src/ui/qml/StatusStrip.qml:195
+StatusStrip,OCIO: %1,,,,OCIO: %1,unfinished,src/ui/qml/StatusStrip.qml:216
+StatusStrip,TC: %1 DF,,"Timecode, drop frame",,TC: %1 DF,unfinished,src/ui/qml/StatusStrip.qml:229
+StatusStrip,TC: %1,,,,TC: %1,unfinished,src/ui/qml/StatusStrip.qml:229
+StatusStrip,%1 errors,,Decoder error count,,ошибок: %1,unfinished,src/ui/qml/StatusStrip.qml:241
+TimelinePanel,head %1,,Trim badge: the clip's head was trimmed by %1 frames,,начало %1,unfinished,src/ui/qml/TimelinePanel.qml:479
+TimelinePanel,tail %1,,Trim badge: the clip's tail was trimmed by %1 frames,,конец %1,unfinished,src/ui/qml/TimelinePanel.qml:493
+TimelinePanel,start %1,,Badge: the clip's start moved by %1 frames,,сдвиг %1,unfinished,src/ui/qml/TimelinePanel.qml:504
+TimelinePanel,slip %1,,Badge: the clip's content slipped by %1 frames,,slip %1,unfinished,src/ui/qml/TimelinePanel.qml:528
+TimelinePanel,→ slot %1/%2,,Drag badge: the clip will move to playlist position %1 of %2,,→ позиция %1/%2,unfinished,src/ui/qml/TimelinePanel.qml:609
+TimelinePanel,Edit mode ON — click to disable,,,,"Режим правки ВКЛ — нажмите, чтобы выключить",unfinished,src/ui/qml/TimelinePanel.qml:718
+TimelinePanel,Edit this track,,Tooltip on the track's edit toggle,,Редактировать эту дорожку,unfinished,src/ui/qml/TimelinePanel.qml:720
+TimelinePanel,Drop media here to add to the playlist,,,,"Перетащите медиа сюда, чтобы добавить в плейлист",unfinished,src/ui/qml/TimelinePanel.qml:1377
+TimelinePanel,"Drop media onto a lane, or a side of the viewport, to compare",,,,"Перетащите медиа на дорожку или на сторону вьюпорта, чтобы сравнить",unfinished,src/ui/qml/TimelinePanel.qml:1379
+TimelinePanel,Open a video to enable the timeline.,,,,"Откройте видео, чтобы включить таймлайн.",unfinished,src/ui/qml/TimelinePanel.qml:1380
+TimelinePanel,⇄,,"Swap glyph, do not translate",,⇄,unfinished,src/ui/qml/TimelinePanel.qml:1512
+TimelinePanel,Audio files can't be added to playlists — added to the Audio bin instead,,,,Аудиофайлы нельзя добавить в плейлист — добавлены в раздел «Аудио»,unfinished,src/ui/qml/TimelinePanel.qml:1748
+TimelinePanel,%1 audio files can't be added to playlists — added to the Audio bin instead,,,,Аудиофайлы (%1) нельзя добавить в плейлист — добавлены в раздел «Аудио»,unfinished,src/ui/qml/TimelinePanel.qml:1750
+TimelineStatus,Time —,,Status well with no value yet,,Время —,unfinished,src/ui/qml/TimelineStatus.qml:124
+TimelineStatus,Frame —,,Status well with no value yet,,Кадр —,unfinished,src/ui/qml/TimelineStatus.qml:131
+TimelineStatus,Frame %1 / %2,,,,Кадр %1 / %2,unfinished,src/ui/qml/TimelineStatus.qml:138
+TimelineStatus,RANGE,,Badge: an in/out range is set,,ДИАПАЗОН,unfinished,src/ui/qml/TimelineStatus.qml:219
+TimelineStatus,%1 fr,,"Range length in frames, abbreviated",,%1 кадр.,unfinished,src/ui/qml/TimelineStatus.qml:233
+TimelineStatus,%1 s,,Range length in seconds,,%1 с,unfinished,src/ui/qml/TimelineStatus.qml:278
+TimelineStatus,%1 fps,,,,%1 fps,unfinished,src/ui/qml/TimelineStatus.qml:310
+TimelineStatus,GO TO FRAME,,Popup title,,ПЕРЕЙТИ К КАДРУ,unfinished,src/ui/qml/TimelineStatus.qml:407
+TimelineStatus,GO TO TIMECODE,,Popup title,,ПЕРЕЙТИ К ТАЙМКОДУ,unfinished,src/ui/qml/TimelineStatus.qml:410
+TimelineStatus,GO TO TIME,,Popup title,,ПЕРЕЙТИ КО ВРЕМЕНИ,unfinished,src/ui/qml/TimelineStatus.qml:412
+TimelineStatus,frame number,,Field placeholder,,номер кадра,unfinished,src/ui/qml/TimelineStatus.qml:428
+TimelineStatus,HH:MM:SS:FF,,Field placeholder: timecode,,HH:MM:SS:FF,unfinished,src/ui/qml/TimelineStatus.qml:431
+TimelineStatus,MM:SS.mmm,,Field placeholder: time,,MM:SS.mmm,unfinished,src/ui/qml/TimelineStatus.qml:433
+TransportBar,Open media…,,,,Открыть медиа…,unfinished,src/ui/qml/TransportBar.qml:142
+TransportBar,Previous clip,,,,Предыдущий клип,unfinished,src/ui/qml/TransportBar.qml:166
+TransportBar,Skip to start,,,,В начало,unfinished,src/ui/qml/TransportBar.qml:172
+TransportBar,Rewind (hold),,Tooltip: hold the button,,Перемотка назад (удерживать),unfinished,src/ui/qml/TransportBar.qml:180
+TransportBar,Step back 1 frame,,,,На кадр назад,unfinished,src/ui/qml/TransportBar.qml:190
+TransportBar,Pause,,,,Пауза,unfinished,src/ui/qml/TransportBar.qml:197
+TransportBar,Play,,,,Воспроизвести,unfinished,src/ui/qml/TransportBar.qml:197
+TransportBar,Step forward 1 frame,,,,На кадр вперёд,unfinished,src/ui/qml/TransportBar.qml:203
+TransportBar,Fast-forward (hold),,Tooltip: hold the button,,Перемотка вперёд (удерживать),unfinished,src/ui/qml/TransportBar.qml:210
+TransportBar,Skip to end,,,,В конец,unfinished,src/ui/qml/TransportBar.qml:220
+TransportBar,Next clip,,,,Следующий клип,unfinished,src/ui/qml/TransportBar.qml:230
+TransportBar,"Review speed — click to cycle (R), Shift+click for 1× (Shift+R)",,,,"Скорость просмотра — нажатие переключает (R), Shift+нажатие — 1× (Shift+R)",unfinished,src/ui/qml/TransportBar.qml:275
+TransportBar,In point not available in playlist mode,,,,Точка входа недоступна в режиме плейлиста,unfinished,src/ui/qml/TransportBar.qml:298
+TransportBar,Set in point (I),,,,Поставить точку входа (I),unfinished,src/ui/qml/TransportBar.qml:299
+TransportBar,Out point not available in playlist mode,,,,Точка выхода недоступна в режиме плейлиста,unfinished,src/ui/qml/TransportBar.qml:315
+TransportBar,Set out point (O),,,,Поставить точку выхода (O),unfinished,src/ui/qml/TransportBar.qml:316
+TransportBar,Clear in/out points (Shift+I),,,,Снять точки входа/выхода (Shift+I),unfinished,src/ui/qml/TransportBar.qml:330
+TransportBar,Loop (L),,,,Цикл (L),unfinished,src/ui/qml/TransportBar.qml:348
+TransportBar,Fullscreen (F),,,,Во весь экран (F),unfinished,src/ui/qml/TransportBar.qml:353
+TransportBar,Compact Mode (Ctrl+Shift+C),,,,Компактный режим (Ctrl+Shift+C),unfinished,src/ui/qml/TransportBar.qml:360
+TransportBar,Screenshot to clipboard (⌥T),,,,Скриншот в буфер обмена (⌥T),unfinished,src/ui/qml/TransportBar.qml:376
+TransportBar,Screenshot to Desktop (T),,,,Скриншот на рабочий стол (T),unfinished,src/ui/qml/TransportBar.qml:382
+TransportBar,Safety guides,,Tooltip,,Безопасные зоны,unfinished,src/ui/qml/TransportBar.qml:390
+TransportBar,Background,,Tooltip,,Фон,unfinished,src/ui/qml/TransportBar.qml:396
+TransportBar,Timeline hover thumbnails (on),,,,Миниатюры на таймлайне (вкл),unfinished,src/ui/qml/TransportBar.qml:408
+TransportBar,Timeline hover thumbnails (off),,,,Миниатюры на таймлайне (выкл),unfinished,src/ui/qml/TransportBar.qml:409
+TransportBar,Color panel (⌃3),,,,Панель цвета (⌃3),unfinished,src/ui/qml/TransportBar.qml:431
+TransportBar,Notes panel (⌃4),,,,Панель заметок (⌃4),unfinished,src/ui/qml/TransportBar.qml:439
+TransportBar,Unmute (M),,,,Включить звук (M),unfinished,src/ui/qml/TransportBar.qml:463
+TransportBar,Mute (M),,,,Без звука (M),unfinished,src/ui/qml/TransportBar.qml:463
+TransportBar,Volume — %1%,,,,Громкость — %1%,unfinished,src/ui/qml/TransportBar.qml:484
+TransportBar,Always on Top — click to unpin (Ctrl+Alt+T),,,,"Поверх всех окон — нажмите, чтобы открепить (Ctrl+Alt+T)",unfinished,src/ui/qml/TransportBar.qml:504
+TransportBar,Always on Top (Ctrl+Alt+T),,,,Поверх всех окон (Ctrl+Alt+T),unfinished,src/ui/qml/TransportBar.qml:505
+ViewportOverlay,Untitled Dual View,,,,Безымянный двойной просмотр,unfinished,src/ui/qml/ViewportOverlay.qml:73
+ViewportOverlay,(none),,Picker entry: nothing selected,,(нет),unfinished,src/ui/qml/ViewportOverlay.qml:76
+ViewportOverlay,Dual view saved: %1,,,,Двойной просмотр сохранён: %1,unfinished,src/ui/qml/ViewportOverlay.qml:97
+ViewportOverlay,Couldn't save dual view,,,,Не удалось сохранить двойной просмотр,unfinished,src/ui/qml/ViewportOverlay.qml:100
+ViewportOverlay,Dual view updated,,,,Двойной просмотр обновлён,unfinished,src/ui/qml/ViewportOverlay.qml:115
+ViewportOverlay,Couldn't update dual view,,,,Не удалось обновить двойной просмотр,unfinished,src/ui/qml/ViewportOverlay.qml:118
+ViewportOverlay,Live source,,Chip label for a live source,,Live-источник,unfinished,src/ui/qml/ViewportOverlay.qml:193
+ViewportOverlay,A,,"Source letter, do not translate",,A,unfinished,src/ui/qml/ViewportOverlay.qml:197
+ViewportOverlay,(drop a file…),,Placeholder in the empty A chip,,(перетащите файл…),unfinished,src/ui/qml/ViewportOverlay.qml:217
+ViewportOverlay,A audio muted — click to unmute,,,,"Звук A выключен — нажмите, чтобы включить",unfinished,src/ui/qml/ViewportOverlay.qml:313
+ViewportOverlay,A audio on — click to mute,,,,"Звук A включён — нажмите, чтобы выключить",unfinished,src/ui/qml/ViewportOverlay.qml:314
+ViewportOverlay,Couldn't load that file as Source B,,,,Не удалось загрузить этот файл как источник B,unfinished,src/ui/qml/ViewportOverlay.qml:417
+ViewportOverlay,B,,"Source letter, do not translate",,B,unfinished,src/ui/qml/ViewportOverlay.qml:444
+ViewportOverlay,"(drop a video, sequence or stream…)",,,,"(перетащите видео, секвенцию или поток…)",unfinished,src/ui/qml/ViewportOverlay.qml:454
+ViewportOverlay,B audio muted — click to unmute,,,,"Звук B выключен — нажмите, чтобы включить",unfinished,src/ui/qml/ViewportOverlay.qml:549
+ViewportOverlay,B audio on — click to mute,,,,"Звук B включён — нажмите, чтобы выключить",unfinished,src/ui/qml/ViewportOverlay.qml:550
+ViewportOverlay,Close source B,,,,Закрыть источник B,unfinished,src/ui/qml/ViewportOverlay.qml:580
+ViewportOverlay,KNEE,,Pill: Highlight Knee is on,,KNEE,unfinished,src/ui/qml/ViewportOverlay.qml:623
+ViewportOverlay,Highlight Knee on: %1 → %2 nits. Highlights are compressed — the picture is not 1:1.,,,,Highlight Knee вкл: %1 → %2 nits. Света сжаты — картинка не 1:1.,unfinished,src/ui/qml/ViewportOverlay.qml:636
+ViewportOverlay,VIEWER,,Pill: viewer aids are active,,VIEWER,unfinished,src/ui/qml/ViewportOverlay.qml:665
+ViewportOverlay,%1 — click to reset,,,,"%1 — нажмите, чтобы сбросить",unfinished,src/ui/qml/ViewportOverlay.qml:684
+ViewportOverlay,Single view,,Dual view mode,,Один источник,unfinished,src/ui/qml/ViewportOverlay.qml:700
+ViewportOverlay,Side-by-side,,Dual view mode,,Рядом,unfinished,src/ui/qml/ViewportOverlay.qml:710
+ViewportOverlay,Split wipe,,Dual view mode,,Шторка,unfinished,src/ui/qml/ViewportOverlay.qml:720
+ViewportOverlay,Difference,,Dual view mode,,Разница,unfinished,src/ui/qml/ViewportOverlay.qml:730
+ViewportOverlay,Update this saved dual view,,,,Обновить этот сохранённый двойной просмотр,unfinished,src/ui/qml/ViewportOverlay.qml:748
+ViewportOverlay,Save as a new dual view,,,,Сохранить как новый двойной просмотр,unfinished,src/ui/qml/ViewportOverlay.qml:769
+ViewportOverlay,Save dual view,,,,Сохранить двойной просмотр,unfinished,src/ui/qml/ViewportOverlay.qml:770
+ViewportOverlay,Name,,Field label when saving a dual view,,Имя,unfinished,src/ui/qml/ViewportOverlay.qml:843
+ViewportOverlay,e.g. ‘US30 v001 vs v002’,,,,напр. «US30 v001 vs v002»,unfinished,src/ui/qml/ViewportOverlay.qml:855
+ViewportOverlay,Save,,,,Сохранить,unfinished,src/ui/qml/ViewportOverlay.qml:862
+ViewportOverlay,Cancel,,,,Отмена,unfinished,src/ui/qml/ViewportOverlay.qml:870
+ViewportOverlay,Show project panel,,,,Показать панель проекта,unfinished,src/ui/qml/ViewportOverlay.qml:920
+ViewportOverlay,Show inspector panel,,,,Показать панель инспектора,unfinished,src/ui/qml/ViewportOverlay.qml:959
+WaveformPanel,nits · reference,,Scale mode: nits on a reference display,,nits · референс,unfinished,src/ui/qml/WaveformPanel.qml:41
+WaveformPanel,% Y′,,,,% Y′,unfinished,src/ui/qml/WaveformPanel.qml:41
+WaveformPanel,"What the file encodes on a reference display, not what this screen emits. SDR white = 100 nits (BT.1886 reference).",,,,"Что файл кодирует на референсном дисплее, а не что излучает этот экран. Белый SDR = 100 nits (референс BT.1886).",unfinished,src/ui/qml/WaveformPanel.qml:48
+WaveformPanel,Frame <b>%1</b>  ·  Max <b>%2</b> nits,,,,Кадр <b>%1</b>  ·  Макс <b>%2</b> nits,unfinished,src/ui/qml/WaveformPanel.qml:136
+WaveformPanel,Frame <b>%1</b>  ·  Max <b>%2</b>,,,,Кадр <b>%1</b>  ·  Макс <b>%2</b>,unfinished,src/ui/qml/WaveformPanel.qml:137
+WaveformPanel,Reset,,Button: reset the running maximum,,Сброс,unfinished,src/ui/qml/WaveformPanel.qml:153
+WaveformPanel,Start Max over,,Tooltip on Reset: restart the running maximum,,Начать отсчёт Макс заново,unfinished,src/ui/qml/WaveformPanel.qml:155
+WaveformPanel,Auto,,Scale choice,,Авто,unfinished,src/ui/qml/WaveformPanel.qml:169
+WaveformPanel,Scale from the interpretation,,,,Шкала по интерпретации,unfinished,src/ui/qml/WaveformPanel.qml:169
+WaveformPanel,Force the SDR percent scale (the signal's own Y′),,,,Принудительно процентная шкала SDR (собственный Y′ сигнала),unfinished,src/ui/qml/WaveformPanel.qml:170
+WaveformPanel,nits,,Scale choice button,,nits,unfinished,src/ui/qml/WaveformPanel.qml:172
+WaveformPanel,Force the nits scale (SDR white at 100),,,,Принудительно шкала в nits (белый SDR на 100),unfinished,src/ui/qml/WaveformPanel.qml:172
+WaveformPanel,Top of scale %1 nits,,,,Верх шкалы %1 nits,unfinished,src/ui/qml/WaveformPanel.qml:198
+WaveformPanel,Trace brightness,,,,Яркость следа,unfinished,src/ui/qml/WaveformPanel.qml:210
+qcv::HostBridgeSource,Waiting for %1 (QCBridge Transmit device not publishing),,,,Ожидание %1 (устройство QCBridge Transmit не передаёт),unfinished,src/decode/host_bridge_source.cpp:108
+qcv::I18n,System default,,,,Системный,unfinished,src/app/i18n.cpp:137
+qcv::I18n,machine translation,,Suffix after a language name whose catalog is machine translated and not yet checked by a person,,машинный перевод,unfinished,src/app/i18n.cpp:146
+qcv::LiveStreamDecoder,Waiting for a sender on port %1,,Live input state: an SRT listener with no sender yet,,Ожидание отправителя на порту %1,unfinished,src/decode/live_stream_decoder.cpp:607
+qcv::LiveStreamDecoder,Waiting for a sender,,,,Ожидание отправителя,unfinished,src/decode/live_stream_decoder.cpp:607
+qcv::MinColorEngine,Knee,,Badge name in the viewport's chain summary,,Knee,unfinished,src/color/mincolor_engine.cpp:194
+qcv::MinColorEngine,Clip chain,,Badge name in the viewport's chain summary,,Цепочка клипа,unfinished,src/color/mincolor_engine.cpp:196
+qcv::MinColorEngine,Set on this clip (minColor):,,,,Задано для этого клипа (minColor):,unfinished,src/color/mincolor_engine.cpp:203
+qcv::MinColorEngine,Input: %1 · %2%3,,,,Input: %1 · %2%3,unfinished,src/color/mincolor_engine.cpp:205
+qcv::MinColorEngine, · limited range,,Suffix appended to the Input line,, · ограниченный диапазон,unfinished,src/color/mincolor_engine.cpp:209
+qcv::MinColorEngine,Highlight Knee: on · %1 → %2 nits,,,,Highlight Knee: вкл · %1 → %2 nits,unfinished,src/color/mincolor_engine.cpp:213
+qcv::MinColorEngine,Highlight Knee: off,,,,Highlight Knee: выкл,unfinished,src/color/mincolor_engine.cpp:215
+qcv::OCIOConfigManager,Output path is empty,,,,Путь вывода пуст,unfinished,src/color/ocio_config_manager.cpp:486
+qcv::OCIOConfigManager,Cube size must be ≥ 2 (got %1),,,,Размер куба должен быть ≥ 2 (получено %1),unfinished,src/color/ocio_config_manager.cpp:489
+qcv::OCIOConfigManager,No OCIO config loaded,,,,Конфиг OCIO не загружен,unfinished,src/color/ocio_config_manager.cpp:501
+qcv::OCIOConfigManager,Chain build failed,,,,Не удалось собрать цепочку,unfinished,src/color/ocio_config_manager.cpp:540
+qcv::OCIOConfigManager,nearest display %1 (transfer %2 vs %3),,,,ближайший дисплей %1 (трансфер %2 vs %3),unfinished,src/color/ocio_config_manager.cpp:977
+qcv::OCIOConfigManager,nearest display %1,,,,ближайший дисплей %1,unfinished,src/color/ocio_config_manager.cpp:982
+qcv::OCIOConfigManager,Look,,Badge name in the viewport's chain summary,,Look,unfinished,src/color/ocio_config_manager.cpp:1016
+qcv::OCIOConfigManager,CDL,,Badge name in the viewport's chain summary,,CDL,unfinished,src/color/ocio_config_manager.cpp:1021
+qcv::OCIOConfigManager,LUT,,,,LUT,unfinished,src/color/ocio_config_manager.cpp:1021
+qcv::OCIOConfigManager,Knee,,Badge name in the viewport's chain summary,,Knee,unfinished,src/color/ocio_config_manager.cpp:1024
+qcv::OCIOConfigManager,Host display,,Badge name in the viewport's chain summary: the host Blender's display device is emulated,,Дисплей хоста,unfinished,src/color/ocio_config_manager.cpp:1026
+qcv::OCIOConfigManager,Clip chain,,Badge name in the viewport's chain summary,,Цепочка клипа,unfinished,src/color/ocio_config_manager.cpp:1029
+qcv::OCIOConfigManager,Set on this clip:,,,,Задано для этого клипа:,unfinished,src/color/ocio_config_manager.cpp:1037
+qcv::OCIOConfigManager,Input: %1,,No input set,,Input: %1,unfinished,src/color/ocio_config_manager.cpp:1039
+qcv::OCIOConfigManager,(none),,No input set,,(нет),unfinished,src/color/ocio_config_manager.cpp:1039
+qcv::OCIOConfigManager,Look: %1,,No input set,,Look: %1,unfinished,src/color/ocio_config_manager.cpp:1041
+qcv::OCIOConfigManager,Scene LUT: %1,,,,LUT сцены: %1,unfinished,src/color/ocio_config_manager.cpp:1043
+qcv::OCIOConfigManager,Highlight Knee: on · %1 → %2 nits,,,,Highlight Knee: вкл · %1 → %2 nits,unfinished,src/color/ocio_config_manager.cpp:1050
+qcv::OCIOConfigManager,Highlight Knee: off,,,,Highlight Knee: выкл,unfinished,src/color/ocio_config_manager.cpp:1052
+qcv::OCIOConfigManager,Host display: %1 · %2 (emulated%3),,,,Дисплей хоста: %1 · %2 (эмуляция%3),unfinished,src/color/ocio_config_manager.cpp:1056
+qcv::OCIOConfigManager,", display to display",,,,", с дисплея на дисплей",unfinished,src/color/ocio_config_manager.cpp:1058
+qcv::OCIOConfigManager,Host display: %1 · %2 (off),,,,Дисплей хоста: %1 · %2 (выкл),unfinished,src/color/ocio_config_manager.cpp:1059
+qcv::ProjectManager,Save failed: no path provided.,,,,Сохранение не удалось: путь не указан.,unfinished,src/project/project_manager.cpp:135
+qcv::ProjectManager,Save failed.,,,,Сохранение не удалось.,unfinished,src/project/project_manager.cpp:141
+qcv::ProjectManager,Open failed: no path provided.,,,,Открытие не удалось: путь не указан.,unfinished,src/project/project_manager.cpp:158
+qcv::ProjectManager,Open failed.,,,,Открытие не удалось.,unfinished,src/project/project_manager.cpp:164
+qcv::ScopeController,Brightest channel (linear Rec.2020): frame %1 · max %2 nits,,,,Самый яркий канал (линейный Rec.2020): кадр %1 · макс %2 nits,unfinished,src/window/scope_controller.cpp:249
+qcv::ScopeController,Brightest channel (code value): frame %1 · max %2,,,,Самый яркий канал (кодовое значение): кадр %1 · макс %2,unfinished,src/window/scope_controller.cpp:251
+qcv::ScopeController,set,,Why the scopes assume this colourspace: the user set it,,задано,unfinished,src/window/scope_controller.cpp:384
+qcv::ScopeController,EXR default,,Why the scopes assume this colourspace: the EXR default (linear),,по умолчанию EXR,unfinished,src/window/scope_controller.cpp:392
+qcv::ScopeController,still,,Why the scopes assume this colourspace: it is a still image,,изображение,unfinished,src/window/scope_controller.cpp:396
+qcv::ScopeController,tags,,Why the scopes assume this colourspace: the file's colour tags,,теги,unfinished,src/window/scope_controller.cpp:412
+qcv::ScopeController,untagged,,,,без тегов,unfinished,src/window/scope_controller.cpp:412
+qcv::ScopeController,Input · minColor %1,,,,Input · minColor %1,unfinished,src/window/scope_controller.cpp:532
+qcv::ScopeController,Input · minColor %1 (built-in config),,,,Input · minColor %1 (встроенный конфиг),unfinished,src/window/scope_controller.cpp:540
+qcv::ScopeController,Signal · minColor Input not convertible,,,,Сигнал · Input minColor не конвертируется,unfinished,src/window/scope_controller.cpp:542
+qcv::ScopeController,Input · %1,,,,Input · %1,unfinished,src/window/scope_controller.cpp:551
+qcv::ScopeController,⚠ Set to %1 · Input: %2,,,,⚠ Задано %1 · Input: %2,unfinished,src/window/scope_controller.cpp:554
+qcv::ScopeController,⚠ File tagged %1 · Input: %2,,,,⚠ Тег файла %1 · Input: %2,unfinished,src/window/scope_controller.cpp:555
+qcv::ScopeController,⚠ Set to %1 — not in this config · Input: %2,,,,⚠ Задано %1 — нет в этом конфиге · Input: %2,unfinished,src/window/scope_controller.cpp:558
+qcv::ScopeController,⚠ File tagged %1 — not in this config · Input: %2,,,,⚠ Тег файла %1 — нет в этом конфиге · Input: %2,unfinished,src/window/scope_controller.cpp:559
+qcv::ScopeController,Assumed · %1 (%2),,,,Предположительно · %1 (%2),unfinished,src/window/scope_controller.cpp:567
+qcv::ScopeController,"Assumed · %1 (%2, built-in config)",,,,"Предположительно · %1 (%2, встроенный конфиг)",unfinished,src/window/scope_controller.cpp:574
+qcv::ScopeController,"Signal · RGB, nominal curve",,,,"Сигнал · RGB, номинальная кривая",unfinished,src/window/scope_controller.cpp:576
+qcv::ScopeController,Signal · YUV,,,,Сигнал · YUV,unfinished,src/window/scope_controller.cpp:577
+qcv::ScopeController,A %1  ·  B %2,,,,A %1  ·  B %2,unfinished,src/window/scope_controller.cpp:613
+qcv::ScopeController,SDR · Rec.709,,,,SDR · Rec.709,unfinished,src/window/scope_controller.cpp:632
+qcv::ScopeController,HDR · PQ Rec.2020,,,,HDR · PQ Rec.2020,unfinished,src/window/scope_controller.cpp:633
+qcv::ScopeController, (manual),,,, (вручную),unfinished,src/window/scope_controller.cpp:634
+qcv::ScopeController,%1 matrix,,,,матрица %1,unfinished,src/window/scope_controller.cpp:637
+qcv::ScopeController,Signal Y′ · %1 matrix,,,,Сигнал Y′ · матрица %1,unfinished,src/window/scope_controller.cpp:663
+qcv::ScopeController, · luminance,,,, · яркость,unfinished,src/window/scope_controller.cpp:666
+qcv::VideoDecoder,File not found: %1,,,,Файл не найден: %1,unfinished,src/decode/video_decoder.cpp:262
+qcv::VideoDecoder,avformat_open_input failed: %1,,"FFmpeg function name, keep as written",,сбой avformat_open_input: %1,unfinished,src/decode/video_decoder.cpp:650
+qcv::VideoDecoder,avformat_find_stream_info failed: %1,,"FFmpeg function name, keep as written",,сбой avformat_find_stream_info: %1,unfinished,src/decode/video_decoder.cpp:656
+qcv::VideoDecoder,No video stream found,,,,Видеопоток не найден,unfinished,src/decode/video_decoder.cpp:668
+qcv::VideoDecoder,No decoder available for codec id %1,,,,Нет декодера для кодека с id %1,unfinished,src/decode/video_decoder.cpp:676
+qcv::VideoDecoder,avcodec_alloc_context3 failed,,"FFmpeg function name, keep as written",,сбой avcodec_alloc_context3,unfinished,src/decode/video_decoder.cpp:683
+qcv::VideoDecoder,avcodec_open2 failed: %1,,"FFmpeg function name, keep as written",,сбой avcodec_open2: %1,unfinished,src/decode/video_decoder.cpp:957
+qcv::VideoDecoder,swscale context init failed,,"FFmpeg library name, keep as written",,не удалось инициализировать контекст swscale,unfinished,src/decode/video_decoder.cpp:1091
+qcv::VideoDecoder,Vulkan device lost — restart to recover hardware decode,,,,"Устройство Vulkan потеряно — перезапустите, чтобы вернуть аппаратное декодирование",unfinished,src/decode/video_decoder.cpp:1475
+qcv::VideoDecoder,av_read_frame error: %1,,"FFmpeg function name, keep as written",,ошибка av_read_frame: %1,unfinished,src/decode/video_decoder.cpp:1552
+qcv::VideoDecoder,send_packet: %1,,"FFmpeg function name, keep as written",,send_packet: %1,unfinished,src/decode/video_decoder.cpp:1559
+qcv::VideoDecoder,avcodec_receive_frame: %1,,"FFmpeg function name, keep as written",,avcodec_receive_frame: %1,unfinished,src/decode/video_decoder.cpp:1577
+qcv::VideoDecoder,hwframe_transfer_data fallback failed,,"FFmpeg function name, keep as written",,резервный hwframe_transfer_data не удался,unfinished,src/decode/video_decoder.cpp:1619
+qcv::VideoDecoder,hwframe_transfer_data: %1,,"FFmpeg function name, keep as written",,hwframe_transfer_data: %1,unfinished,src/decode/video_decoder.cpp:1642
+qcv::VideoDecoder,av_seek_frame failed for frame %1,,"FFmpeg function name, keep as written",,сбой av_seek_frame для кадра %1,unfinished,src/decode/video_decoder.cpp:1686
+qcv::VideoDecoder,read_frame after seek: %1,,"FFmpeg function name, keep as written",,read_frame после перехода: %1,unfinished,src/decode/video_decoder.cpp:1714
+qcv::WindowManager,No clip under the playhead to compare,,,,Под курсором воспроизведения нет клипа для сравнения,unfinished,src/window/window_manager.cpp:2242
+qcv::WindowManager,"%1 — %2 can’t be played here: un-debayered camera raw. Review the ProRes / dailies, or convert in DaVinci Resolve or the ARRI Reference Tool.",,"Toast after opening an ARRIRAW file. %1 = camera + ""ARRIRAW"" (""ALEXA 35 ARRIRAW""), %2 = file name",,%1 — %2 здесь не воспроизводится: камерный RAW без дебайеризации. Смотрите ProRes / дейлизы или конвертируйте в DaVinci Resolve или ARRI Reference Tool.,unfinished,src/window/window_manager.cpp:3037
+qcv::WindowManager,%1 can’t be played here: unsupported format.,,Toast after opening a file no decoder can play. %1 = file name,,%1 здесь не воспроизводится: неподдерживаемый формат.,unfinished,src/window/window_manager.cpp:3042
+qcv::WindowManager,"%1 is a folder — drop a file, or any frame of an image sequence.",,Toast after dropping or opening a folder. %1 = folder name,,%1 — это папка; перетащите файл или любой кадр секвенции.,unfinished,src/window/window_manager.cpp:3107
+qcv::WindowManager,%1 isn’t a file type QCView opens.,,Toast after dropping or opening a file type QCView does not open. %1 = file name,,"%1 — не тот тип файла, который открывает QCView.",unfinished,src/window/window_manager.cpp:3111
+qcv::WindowManager,folder,,Stands in for a suffix in the skipped-files toast,,папка,unfinished,src/window/window_manager.cpp:3119
+qcv::WindowManager,no extension,,,,без расширения,unfinished,src/window/window_manager.cpp:3120
+qcv::WindowManager,%1 of %2 files skipped — not file types QCView opens (%3).,,"Toast after a batch drop/open; %1 = skipped count, %2 = total, %3 = the suffixes",,Пропущено %1 из %2 файлов — QCView не открывает такие типы (%3).,unfinished,src/window/window_manager.cpp:3127
+qcv::WindowManager,Blender: not listening,,,,Blender: прослушивание выключено,unfinished,src/window/window_manager.cpp:3302
+qcv::WindowManager,Listening for a Blender session on this machine: start one from the QCBridge host panel,,,,Ожидание сеанса Blender на этом компьютере: запустите его из панели хоста QCBridge,unfinished,src/window/window_manager.cpp:3307
+qcv::WindowManager,Blender,,,,Blender,unfinished,src/window/window_manager.cpp:3321
+qcv::WindowManager,Blender session ended,,,,Сеанс Blender завершён,unfinished,src/window/window_manager.cpp:3368
+qcv::WindowManager,After Effects / Premiere live view is not available on this platform yet,,,,Live-просмотр After Effects / Premiere на этой платформе пока недоступен,unfinished,src/window/window_manager.cpp:4597
+qcv::WindowManager,Could not open stream: %1,,Toast; %1 = the stream URL,,Не удалось открыть поток: %1,unfinished,src/window/window_manager.cpp:4616
+qcv::WindowManager,This note has no captured frame,,,,У этой заметки нет снятого кадра,unfinished,src/window/window_manager.cpp:4758
+qcv::WindowManager,No frame to freeze yet,,,,"Пока нет кадра, который можно остановить",unfinished,src/window/window_manager.cpp:4781
+qcv::WindowManager,Removed %1,,,,Удалено: %1,unfinished,src/window/window_manager.cpp:6257
+qcv::WindowManager,Removed %1 items,,,,Удалено элементов: %1,unfinished,src/window/window_manager.cpp:6258
+qcv::WindowManager,Undo,,Toast button,,Отменить,unfinished,src/window/window_manager.cpp:6260
+qcv::WindowManager,Nothing to capture — load media first,,,,Нечего снимать — сначала загрузите медиа,unfinished,src/window/window_manager.cpp:6377
+qcv::WindowManager,Screenshot copied to clipboard,,,,Скриншот скопирован в буфер обмена,unfinished,src/window/window_manager.cpp:6384
+qcv::WindowManager,Couldn't resolve the Desktop folder,,,,Не удалось найти папку рабочего стола,unfinished,src/window/window_manager.cpp:6415
+qcv::WindowManager,Saving screenshot…,,,,Сохранение скриншота…,unfinished,src/window/window_manager.cpp:6457
+qcv::WindowManager,Screenshot saved (%1),,,,Скриншот сохранён (%1),unfinished,src/window/window_manager.cpp:6474
+qcv::WindowManager,Screenshot export failed,,,,Не удалось сохранить скриншот,unfinished,src/window/window_manager.cpp:6475
+qcv::WindowManager,Nothing to restore,,,,Нечего восстанавливать,unfinished,src/window/window_manager.cpp:8124
+qcv::WindowManager,Restored %1,,,,Восстановлено: %1,unfinished,src/window/window_manager.cpp:8126
+qcv::WindowManager,Restored %1 items,,,,Восстановлено элементов: %1,unfinished,src/window/window_manager.cpp:8128
+qcv::WindowManager,Preset restored: %1,,,,Пресет восстановлен: %1,unfinished,src/window/window_manager.cpp:8155
+qcv::WindowManager,minNotes is not installed,,,,minNotes не установлен,unfinished,src/window/window_manager.cpp:9273
+qcv::WindowManager,The stream names a wire this QCView does not know (%1); set the Input yourself,,,,"Поток сообщает кодировку сигнала (wire), которую этот QCView не знает (%1); задайте Input вручную",unfinished,src/window/window_manager.cpp:9936
+qcv::WindowManager,unknown wire %1,,,,неизвестный wire %1,unfinished,src/window/window_manager.cpp:9938
+qcv::WindowManager,Colour management turned on for the Blender stream,,,,Управление цветом включено для потока Blender,unfinished,src/window/window_manager.cpp:9962
+qcv::WindowManager,Blender stream: its view and display resolve in the Blender 5.2 config,,,,Поток Blender: его View и Display разрешаются в конфиге Blender 5.2,unfinished,src/window/window_manager.cpp:9976
+qcv::WindowManager,Switch,,,,Переключить,unfinished,src/window/window_manager.cpp:9977
+qcv::WindowManager,view not applied: active config is %1,,,,View не применён: активный конфиг — %1,unfinished,src/window/window_manager.cpp:9978
+qcv::WindowManager,The host runs a non-Blender OCIO config (%1): its view cannot be reproduced; Input pinned only,,,,Хост использует OCIO-конфиг не из Blender (%1): его View воспроизвести нельзя; закреплён только Input,unfinished,src/window/window_manager.cpp:9983
+qcv::WindowManager,host config %1: view not reproduced,,,,конфиг хоста %1: View не воспроизведён,unfinished,src/window/window_manager.cpp:9986
+qcv::WindowManager,Blender stream: the active OCIO config has no %1 input; the Blender config does,,,,Поток Blender: в активном OCIO-конфиге нет Input %1; в конфиге Blender он есть,unfinished,src/window/window_manager.cpp:9992
+qcv::WindowManager,no %1 input in this config,,,,в этом конфиге нет Input %1,unfinished,src/window/window_manager.cpp:9993
+qcv::WindowManager,host display %1 → %2,,,,дисплей хоста %1 → %2,unfinished,src/window/window_manager.cpp:10016
+qcv::WindowManager,Blender stream: view '%1' is not on display '%2' in the Blender config; view left as is,,,,Поток Blender: View «%1» нет на Display «%2» в конфиге Blender; View оставлен как есть,unfinished,src/window/window_manager.cpp:10024
+qcv::WindowManager,view %1 not on %2,,,,View %1 нет на %2,unfinished,src/window/window_manager.cpp:10026
+qcv::WindowManager,look %1 not in this config,,,,Look %1 нет в этом конфиге,unfinished,src/window/window_manager.cpp:10038
+qcv::WindowManager,Blender stream: the host's view (%1 for %2) is not reproduced on minColor; switch to the OCIO engine to match it,,,,"Поток Blender: View хоста (%1 для %2) не воспроизводится в minColor; переключитесь на движок OCIO, чтобы совпасть с ним",unfinished,src/window/window_manager.cpp:10042
+qcv::WindowManager,minColor on screen: host view not reproduced,,,,на экране minColor: View хоста не воспроизведён,unfinished,src/window/window_manager.cpp:10044
+qcv::WindowManager,host white balance not reproduced,,,,баланс белого хоста не воспроизведён,unfinished,src/window/window_manager.cpp:10057
+qcv::WindowManager,host curves not reproduced,,,,кривые хоста не воспроизведены,unfinished,src/window/window_manager.cpp:10058
+qcv::WindowManager,host HDR view: shown SDR,,,,HDR-View хоста: показан как SDR,unfinished,src/window/window_manager.cpp:10059
+qcv::WindowManager,working space assumed Linear Rec.709,,,,рабочее пространство принято за Linear Rec.709,unfinished,src/window/window_manager.cpp:10060
+qcv::WindowManager,host and replica colour setups differ (%1),,,,настройки цвета хоста и реплики различаются (%1),unfinished,src/window/window_manager.cpp:10061
+qcv::WindowManager,Blender stream: %1,,,,Поток Blender: %1,unfinished,src/window/window_manager.cpp:10062

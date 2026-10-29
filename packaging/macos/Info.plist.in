@@ -16,6 +16,8 @@
         <string>pt-BR</string>
         <string>it</string>
         <string>pl</string>
+        <string>ru</string>
+        <string>uk</string>
     </array>
     <key>CFBundleExecutable</key>
     <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>

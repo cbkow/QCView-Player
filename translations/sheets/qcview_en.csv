@@ -1,16 +1,16 @@
 ﻿context,source,disambiguation,developer_comment,form,translation,status,location
-LeftRail,%n encoded,,,0,%n encoded,done,src/ui/qml/LeftRail.qml:2352
-LeftRail,%n encoded,,,1,%n encoded,done,src/ui/qml/LeftRail.qml:2352
-LeftRail,%n repeated,,,0,%n repeated,done,src/ui/qml/LeftRail.qml:2353
-LeftRail,%n repeated,,,1,%n repeated,done,src/ui/qml/LeftRail.qml:2353
-LeftRail,%n skipped,,,0,%n skipped,done,src/ui/qml/LeftRail.qml:2354
-LeftRail,%n skipped,,,1,%n skipped,done,src/ui/qml/LeftRail.qml:2354
-LeftRail,%n dropped,,,0,%n dropped,done,src/ui/qml/LeftRail.qml:2355
-LeftRail,%n dropped,,,1,%n dropped,done,src/ui/qml/LeftRail.qml:2355
-LeftRail,%n send error(s),,,0,%n send error,done,src/ui/qml/LeftRail.qml:2356
-LeftRail,%n send error(s),,,1,%n send errors,done,src/ui/qml/LeftRail.qml:2356
-LeftRail,%n reconnect(s),,,0,%n reconnect,done,src/ui/qml/LeftRail.qml:2357
-LeftRail,%n reconnect(s),,,1,%n reconnects,done,src/ui/qml/LeftRail.qml:2357
+LeftRail,%n encoded,,,0,%n encoded,done,src/ui/qml/LeftRail.qml:2368
+LeftRail,%n encoded,,,1,%n encoded,done,src/ui/qml/LeftRail.qml:2368
+LeftRail,%n repeated,,,0,%n repeated,done,src/ui/qml/LeftRail.qml:2369
+LeftRail,%n repeated,,,1,%n repeated,done,src/ui/qml/LeftRail.qml:2369
+LeftRail,%n skipped,,,0,%n skipped,done,src/ui/qml/LeftRail.qml:2370
+LeftRail,%n skipped,,,1,%n skipped,done,src/ui/qml/LeftRail.qml:2370
+LeftRail,%n dropped,,,0,%n dropped,done,src/ui/qml/LeftRail.qml:2371
+LeftRail,%n dropped,,,1,%n dropped,done,src/ui/qml/LeftRail.qml:2371
+LeftRail,%n send error(s),,,0,%n send error,done,src/ui/qml/LeftRail.qml:2372
+LeftRail,%n send error(s),,,1,%n send errors,done,src/ui/qml/LeftRail.qml:2372
+LeftRail,%n reconnect(s),,,0,%n reconnect,done,src/ui/qml/LeftRail.qml:2373
+LeftRail,%n reconnect(s),,,1,%n reconnects,done,src/ui/qml/LeftRail.qml:2373
 LiveStrip,%n restart(s),,Count of times the host application went away and came back,0,%n restart,done,src/ui/qml/LiveStrip.qml:202
 LiveStrip,%n restart(s),,Count of times the host application went away and came back,1,%n restarts,done,src/ui/qml/LiveStrip.qml:202
 LiveStrip,%n drop(s),,Count of stream drops followed by a reconnect,0,%n drop,done,src/ui/qml/LiveStrip.qml:204
