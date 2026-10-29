@@ -1126,6 +1126,14 @@ WindowManager::WindowManager(QQmlApplicationEngine *engine, QObject *parent)
         // Any new load forgets the last unsupported-media toast, so the
         // undecodable path below (and the metadata reconciliation) can
         // report this item afresh — even the same file opened again.
+        // Clicking another file while the warning is up takes it down at
+        // once (chris, 2026-10-29). Only for a DIFFERENT item: re-opening
+        // the same unsupported file restarts its toast instead of
+        // blinking it.
+        if (m_unsupportedToastShown && item.id != m_unsupportedToastId) {
+            m_unsupportedToastShown = false;
+            emit toastDismissRequested();
+        }
         m_unsupportedToastId.clear();
         m_unsupportedToastNamed = false;
 
@@ -3033,6 +3041,7 @@ void WindowManager::reportUnsupportedMedia(const MediaItem &item)
         text = tr("%1 can’t be played here: unsupported format.").arg(name);
     }
     toast(text, 1);
+    m_unsupportedToastShown = true;
 }
 
 void WindowManager::applyPixelAspectToRenderer()

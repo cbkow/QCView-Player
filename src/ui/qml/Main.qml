@@ -1725,6 +1725,7 @@ ApplicationWindow {
         function onToastActionRequested(message, kind, actionLabel, actionId) {
             outcomeToast.showAction(message, kind, actionLabel, actionId);
         }
+        function onToastDismissRequested() { outcomeToast.close(); }
         // The async export pipeline (screenshot save) reported to the
         // StatusStrip's chip; the strip is opt-in now, so mirror its
         // completion into the toast. Start events are short-lived —

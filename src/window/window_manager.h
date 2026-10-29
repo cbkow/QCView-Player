@@ -1306,6 +1306,10 @@ signals:
     // (the StatusStrip chip it used to drive is hidden by default
     // now that the strip is an opt-in panel).
     void toastRequested(const QString &message, int kind);
+    // Take the current toast down now. Emitted when a different item is
+    // loaded while the unsupported-media toast is up: the warning is
+    // about a file the user has just moved away from.
+    void toastDismissRequested();
     // A stream link's colour info for `itemId` changed (streamColorInfo).
     void streamColorInfoChanged(const QString &itemId);
     // Action-carrying variant (undo toasts) — see toastAction().
@@ -1775,6 +1779,7 @@ private:
     void reportUnsupportedMedia(const MediaItem &item);
     QString m_unsupportedToastId;
     bool    m_unsupportedToastNamed = false;
+    bool    m_unsupportedToastShown = false;   // taken down by the next other load
 
     // ---- Shared "viewport cover" primitive (modal + notice) ----
     // recomputeViewportCover() derives whether the native surface must
