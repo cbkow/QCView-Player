@@ -4,6 +4,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <windowsx.h>   // GET_X_LPARAM / GET_Y_LPARAM
 #include <dwmapi.h>
 
 #include <QAbstractNativeEventFilter>
@@ -102,18 +103,44 @@ bool compactFullClient()
     return v;
 }
 
+// The hit test is ours too (2026-10-29, chris: the Compact strip's
+// pin "sometimes needs two clicks", its state out of step with the
+// button). Qt's WM_NCHITTEST for ExpandedClientAreaHint treats the top
+// title-bar height of the client (31 px at 96 dpi, more scaled: the
+// whole 22 px strip and a slice of the viewport) as a would-be caption.
+// Inside the hit test it polls GetAsyncKeyState, and whenever the button
+// state differs from the previous hit test it delivers a SYNTHETIC
+// synchronous mouse press or release to the Quick scene; only when the
+// scene refuses the press does the point become HTCAPTION. So a click on
+// a strip button arrives as a synthetic press from the hit test plus the
+// real WM_LBUTTONDOWN, and the release likewise — a toggle can fire
+// twice (pin on then off 23 ms apart in the box log) or, when the probe
+// press goes unaccepted (first click into an inactive window, the async
+// state read late), not at all: Windows treats the click as a caption
+// press and the button never sees it. Qt's own layered title-bar child
+// is what that code serves; Compact Mode has nothing in that band but
+// the strip, and moves the window through startSystemMove from the
+// timecode cell. Here every point inside the Compact window is HTCLIENT
+// except the resize band: left, right and bottom at the system
+// thickness, as Qt measures them; the top band is half that so the
+// strip's buttons (22 px, flush with the top edge) keep most of their
+// height. Maximized, there is no band, as in Qt. Returned before Qt's
+// handler runs, so none of the synthetic events are generated.
 class CompactFullClientFilter : public QAbstractNativeEventFilter {
 public:
     QSet<HWND> hwnds;
     bool nativeEventFilter(const QByteArray &, void *message, qintptr *result) override
     {
         auto *msg = static_cast<MSG *>(message);
+        if (msg->message == WM_NCHITTEST) {
+            if (!hwnds.contains(msg->hwnd)) return false;
+            *result = hitTest(msg->hwnd, msg->lParam);
+            return true;
+        }
         if (msg->message != WM_NCCALCSIZE || !msg->wParam) return false;
-        if (!hwnds.contains(msg->hwnd)) return false;
+        if (!hwnds.contains(msg->hwnd) || !compactFullClient()) return false;
         if (IsZoomed(msg->hwnd)) {
-            const UINT dpi = GetDpiForWindow(msg->hwnd);
-            const int border = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi)
-                             + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+            const int border = resizeBorder(msg->hwnd);
             auto *ncp = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam);
             ncp->rgrc[0].left   += border;
             ncp->rgrc[0].top    += border;
@@ -122,6 +149,33 @@ public:
         }
         *result = 0;
         return true;
+    }
+
+private:
+    static int resizeBorder(HWND hwnd)
+    {
+        const UINT dpi = GetDpiForWindow(hwnd);
+        return GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi)
+             + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+    }
+    static LRESULT hitTest(HWND hwnd, LPARAM lParam)
+    {
+        RECT r{};
+        if (!GetWindowRect(hwnd, &r)) return HTCLIENT;
+        const POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        if (!PtInRect(&r, pt)) return HTNOWHERE;
+        if (IsZoomed(hwnd)) return HTCLIENT;
+        const int border = resizeBorder(hwnd);
+        const int topBand = qMax(1, border / 2);
+        const bool left   = pt.x <  r.left + border;
+        const bool right  = pt.x >= r.right - border;
+        const bool top    = pt.y <  r.top + topBand;
+        const bool bottom = pt.y >= r.bottom - border;
+        if (left)   return top ? HTTOPLEFT  : (bottom ? HTBOTTOMLEFT  : HTLEFT);
+        if (right)  return top ? HTTOPRIGHT : (bottom ? HTBOTTOMRIGHT : HTRIGHT);
+        if (top)    return HTTOP;
+        if (bottom) return HTBOTTOM;
+        return HTCLIENT;
     }
 };
 
@@ -181,8 +235,10 @@ bool applyCompactFlags(QWindow *window, HWND hwnd, bool on)
         if (map.contains(hwnd)) return true;
         map.insert(hwnd, window->flags());
         // Registered BEFORE setFlags: the SWP_FRAMECHANGED inside it is
-        // what sends the WM_NCCALCSIZE the filter must answer.
-        if (compactFullClient()) fullClientFilter().hwnds.insert(hwnd);
+        // what sends the WM_NCCALCSIZE the filter must answer. The hit
+        // test is answered for every Compact window; the WM_NCCALCSIZE
+        // part is gated by compactFullClient() inside the filter.
+        fullClientFilter().hwnds.insert(hwnd);
         window->setFlags(kCompactFlags);
         setCompactBorderLine(hwnd, true);
     } else {
@@ -190,7 +246,7 @@ bool applyCompactFlags(QWindow *window, HWND hwnd, bool on)
         if (it == map.end()) return true;
         const Qt::WindowFlags saved = it.value();
         map.erase(it);
-        if (compactFullClient()) fullClientFilter().hwnds.remove(hwnd);
+        fullClientFilter().hwnds.remove(hwnd);
         window->setFlags(saved);
         setCompactBorderLine(hwnd, false);
     }
