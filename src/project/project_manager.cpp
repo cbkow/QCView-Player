@@ -562,12 +562,18 @@ void ProjectManager::clearBSource()
     emit bSourceChanged();
 }
 
-QString ProjectManager::addMediaFile(const QString &path)
+QString ProjectManager::addMediaFile(const QString &rawPath)
 {
+    // A Windows shortcut (.lnk) opens its target; the shortcut itself
+    // is never a bin entry. WindowManager::admitMediaPaths resolves
+    // (and toasts) ahead of this for dialogs and drops; this covers
+    // the command line, the single-instance handoff and recents.
+    const QString path = mediaext::resolveShortcut(rawPath);
     QFileInfo fi(path);
-    if (!fi.exists()) {
-        qWarning("ProjectManager: addMediaFile — '%s' does not exist",
-                 qPrintable(path));
+    if (path.isEmpty() || !fi.exists()) {
+        qWarning("ProjectManager: addMediaFile — '%s' does not exist%s",
+                 qPrintable(rawPath),
+                 path.isEmpty() ? " (shortcut target missing)" : "");
         return {};
     }
     // The gate (2026-10-29): only a regular file with a suffix from

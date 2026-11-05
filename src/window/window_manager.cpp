@@ -3091,18 +3091,36 @@ QStringList WindowManager::mediaNameFilters() const
 
 QStringList WindowManager::admitMediaPaths(const QStringList &paths)
 {
-    QStringList admitted, refused;
-    for (const QString &p : paths) {
-        if (p.isEmpty()) continue;
+    struct Refusal { QString shown; bool deadShortcut; };
+    QStringList admitted;
+    QList<Refusal> refused;
+    for (const QString &raw : paths) {
+        if (raw.isEmpty()) continue;
+        QString p = raw;
+        // A Windows shortcut stands in for its target (the admitted
+        // list carries the target, so setBSource / addMediaFile see a
+        // real file). A shortcut whose target is gone gets its own
+        // toast; one to an unsupported type is reported by the
+        // target's name, which is what the user would recognise.
+        if (!p.contains(QLatin1String("://")) && qcv::mediaext::isShortcut(p)) {
+            p = qcv::mediaext::resolveShortcut(p);
+            if (p.isEmpty()) {
+                refused.append({raw, true});
+                continue;
+            }
+        }
         if (p.contains(QLatin1String("://")) || qcv::mediaext::isSupportedMediaFile(p))
             admitted << p;
         else
-            refused << p;
+            refused.append({p, false});
     }
     if (refused.isEmpty()) return admitted;
     if (refused.size() == 1 && paths.size() == 1) {
-        const QFileInfo fi(refused.first());
-        if (fi.isDir())
+        const QFileInfo fi(refused.first().shown);
+        if (refused.first().deadShortcut)
+            //: Toast after opening or dropping a Windows shortcut (.lnk) whose target no longer exists. %1 = the shortcut's file name
+            toast(tr("%1 points to a file that isn’t there any more.").arg(fi.fileName()), 1);
+        else if (fi.isDir())
             //: Toast after dropping or opening a folder. %1 = folder name
             toast(tr("%1 is a folder — drop a file, or any frame of an image sequence.")
                       .arg(fi.fileName()), 1);
@@ -3113,10 +3131,11 @@ QStringList WindowManager::admitMediaPaths(const QStringList &paths)
     }
     // A batch: one line, with what was skipped by suffix.
     QStringList kinds;
-    for (const QString &p : refused) {
-        const QFileInfo fi(p);
+    for (const Refusal &r : refused) {
+        const QFileInfo fi(r.shown);
         //: Stands in for a suffix in the skipped-files toast
-        const QString k = fi.isDir() ? tr("folder")
+        const QString k = r.deadShortcut ? tr("broken shortcut")
+                        : fi.isDir() ? tr("folder")
                         : fi.suffix().isEmpty() ? tr("no extension")
                         : (QLatin1Char('.') + fi.suffix().toLower());
         if (!kinds.contains(k)) kinds << k;

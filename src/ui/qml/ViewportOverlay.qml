@@ -406,13 +406,17 @@ Pane {
                     const u = WindowManager.urlToOsPath(drop.urls[0]);
                     if (!u) return;
                     // The file-type gate first: a refused file gets its
-                    // toast here and never reaches setBSource.
-                    if (WindowManager.admitMediaPaths([u]).length === 0) {
+                    // toast here and never reaches setBSource. The
+                    // admitted path is the one to load (a Windows
+                    // shortcut comes back as its target).
+                    const admitted = WindowManager.admitMediaPaths([u]);
+                    if (admitted.length === 0) {
                         drop.accept();
                         return;
                     }
-                    if (!WindowManager.setBSource(u)) {
-                        console.warn("ViewportOverlay: setBSource failed:", u);
+                    const b = admitted[0];
+                    if (!WindowManager.setBSource(b)) {
+                        console.warn("ViewportOverlay: setBSource failed:", b);
                         WindowManager.toast(
                             qsTr("Couldn't load that file as Source B"), 1);
                     }

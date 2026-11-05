@@ -555,17 +555,17 @@ Main,Keyboard Shortcuts,,,,Scorciatoie da tastiera,unfinished,src/ui/qml/Main.qm
 Main,Settings…,,,,Impostazioni…,unfinished,src/ui/qml/Main.qml:784
 Main,&About,,,,&Informazioni,unfinished,src/ui/qml/Main.qml:800
 Main,About QCView…,,,,Informazioni su QCView…,unfinished,src/ui/qml/Main.qml:802
-Main,Open media,,,,Apri media,unfinished,src/ui/qml/Main.qml:1230
+Main,Open media,,,,Apri media,unfinished,src/ui/qml/Main.qml:1240
 Main,Media files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,File multimediali (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi *.png *.jpg *.jpeg *.tif *.tiff *.exr),obsolete,
 Main,Video files (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),,,,File video (*.mov *.mp4 *.m4v *.mxf *.mkv *.avi),obsolete,
 Main,Image / sequence files (*.png *.jpg *.jpeg *.tif *.tiff *.exr),,,,File immagine / sequenza (*.png *.jpg *.jpeg *.tif *.tiff *.exr),obsolete,
-Main,Player detached,,Title of the separate player window,,Player staccato,unfinished,src/ui/qml/Main.qml:1520
-Main,Click 'Reattach' to dock back,,,,Clicca 'Reattach' per riagganciarlo,unfinished,src/ui/qml/Main.qml:1526
-MediaFilters,All media (%1),,File dialog filter; %1 = the list of patterns,,Tutti i media (%1),unfinished,src/project/media_extensions.h:107
-MediaFilters,Video files (%1),,,,File video (%1),unfinished,src/project/media_extensions.h:108
-MediaFilters,Audio files (%1),,,,File audio (%1),unfinished,src/project/media_extensions.h:109
-MediaFilters,Image / sequence files (%1),,,,File immagine / sequenza (%1),unfinished,src/project/media_extensions.h:110
-MediaFilters,All files (*),,,,Tutti i file (*),unfinished,src/project/media_extensions.h:111
+Main,Player detached,,Title of the separate player window,,Player staccato,unfinished,src/ui/qml/Main.qml:1530
+Main,Click 'Reattach' to dock back,,,,Clicca 'Reattach' per riagganciarlo,unfinished,src/ui/qml/Main.qml:1536
+MediaFilters,All media (%1),,File dialog filter; %1 = the list of patterns,,Tutti i media (%1),unfinished,src/project/media_extensions.h:131
+MediaFilters,Video files (%1),,,,File video (%1),unfinished,src/project/media_extensions.h:132
+MediaFilters,Audio files (%1),,,,File audio (%1),unfinished,src/project/media_extensions.h:133
+MediaFilters,Image / sequence files (%1),,,,File immagine / sequenza (%1),unfinished,src/project/media_extensions.h:134
+MediaFilters,All files (*),,,,Tutti i file (*),unfinished,src/project/media_extensions.h:135
 MinColor,Use look,,Toggle: apply the look,,Usa look,unfinished,src/color/mincolor_chain.cpp:298
 ModalHost,Close,,Tooltip on a dialog's close button,,Chiudi,unfinished,src/ui/qml/ModalHost.qml:109
 NotesPanel,REVIEW · %1,,Badge: the feed is frozen for review; %1 is the frame or time,,REVIEW · %1,unfinished,src/ui/qml/NotesPanel.qml:218
@@ -725,29 +725,29 @@ ViewportOverlay,(drop a file…),,Placeholder in the empty A chip,,(trascina un 
 ViewportOverlay,A audio muted — click to unmute,,,,Audio A silenziato — clicca per riattivare,unfinished,src/ui/qml/ViewportOverlay.qml:313
 ViewportOverlay,A audio on — click to mute,,,,Audio A attivo — clicca per silenziare,unfinished,src/ui/qml/ViewportOverlay.qml:314
 ViewportOverlay,Couldn't load that file,,,,Impossibile caricare il file,obsolete,
-ViewportOverlay,Couldn't load that file as Source B,,,,Impossibile caricare il file come sorgente B,unfinished,src/ui/qml/ViewportOverlay.qml:417
-ViewportOverlay,B,,"Source letter, do not translate",,B,unfinished,src/ui/qml/ViewportOverlay.qml:444
-ViewportOverlay,"(drop a video, sequence or stream…)",,,,"(trascina un video, una sequenza o uno stream…)",unfinished,src/ui/qml/ViewportOverlay.qml:454
-ViewportOverlay,B audio muted — click to unmute,,,,Audio B silenziato — clicca per riattivare,unfinished,src/ui/qml/ViewportOverlay.qml:549
-ViewportOverlay,B audio on — click to mute,,,,Audio B attivo — clicca per silenziare,unfinished,src/ui/qml/ViewportOverlay.qml:550
-ViewportOverlay,Close source B,,,,Chiudi sorgente B,unfinished,src/ui/qml/ViewportOverlay.qml:580
-ViewportOverlay,KNEE,,Pill: Highlight Knee is on,,KNEE,unfinished,src/ui/qml/ViewportOverlay.qml:623
-ViewportOverlay,Highlight Knee on: %1 → %2 nits. Highlights are compressed — the picture is not 1:1.,,,,Knee alte luci attivo: %1 → %2 nits. Le alte luci sono compresse — l'immagine non è 1:1.,unfinished,src/ui/qml/ViewportOverlay.qml:636
-ViewportOverlay,VIEWER,,Pill: viewer aids are active,,VIEWER,unfinished,src/ui/qml/ViewportOverlay.qml:665
-ViewportOverlay,%1 — click to reset,,,,%1 — clicca per ripristinare,unfinished,src/ui/qml/ViewportOverlay.qml:684
-ViewportOverlay,Single view,,Dual view mode,,Vista singola,unfinished,src/ui/qml/ViewportOverlay.qml:700
-ViewportOverlay,Side-by-side,,Dual view mode,,Affiancate,unfinished,src/ui/qml/ViewportOverlay.qml:710
-ViewportOverlay,Split wipe,,Dual view mode,,Tendina,unfinished,src/ui/qml/ViewportOverlay.qml:720
-ViewportOverlay,Difference,,Dual view mode,,Differenza,unfinished,src/ui/qml/ViewportOverlay.qml:730
-ViewportOverlay,Update this saved dual view,,,,Aggiorna questa vista doppia salvata,unfinished,src/ui/qml/ViewportOverlay.qml:748
-ViewportOverlay,Save as a new dual view,,,,Salva come nuova vista doppia,unfinished,src/ui/qml/ViewportOverlay.qml:769
-ViewportOverlay,Save dual view,,,,Salva vista doppia,unfinished,src/ui/qml/ViewportOverlay.qml:770
-ViewportOverlay,Name,,Field label when saving a dual view,,Nome,unfinished,src/ui/qml/ViewportOverlay.qml:843
-ViewportOverlay,e.g. ‘US30 v001 vs v002’,,,,es. ‘US30 v001 vs v002’,unfinished,src/ui/qml/ViewportOverlay.qml:855
-ViewportOverlay,Save,,,,Salva,unfinished,src/ui/qml/ViewportOverlay.qml:862
-ViewportOverlay,Cancel,,,,Annulla,unfinished,src/ui/qml/ViewportOverlay.qml:870
-ViewportOverlay,Show project panel,,,,Mostra pannello progetto,unfinished,src/ui/qml/ViewportOverlay.qml:920
-ViewportOverlay,Show inspector panel,,,,Mostra pannello Inspector,unfinished,src/ui/qml/ViewportOverlay.qml:959
+ViewportOverlay,Couldn't load that file as Source B,,,,Impossibile caricare il file come sorgente B,unfinished,src/ui/qml/ViewportOverlay.qml:421
+ViewportOverlay,B,,"Source letter, do not translate",,B,unfinished,src/ui/qml/ViewportOverlay.qml:448
+ViewportOverlay,"(drop a video, sequence or stream…)",,,,"(trascina un video, una sequenza o uno stream…)",unfinished,src/ui/qml/ViewportOverlay.qml:458
+ViewportOverlay,B audio muted — click to unmute,,,,Audio B silenziato — clicca per riattivare,unfinished,src/ui/qml/ViewportOverlay.qml:553
+ViewportOverlay,B audio on — click to mute,,,,Audio B attivo — clicca per silenziare,unfinished,src/ui/qml/ViewportOverlay.qml:554
+ViewportOverlay,Close source B,,,,Chiudi sorgente B,unfinished,src/ui/qml/ViewportOverlay.qml:584
+ViewportOverlay,KNEE,,Pill: Highlight Knee is on,,KNEE,unfinished,src/ui/qml/ViewportOverlay.qml:627
+ViewportOverlay,Highlight Knee on: %1 → %2 nits. Highlights are compressed — the picture is not 1:1.,,,,Knee alte luci attivo: %1 → %2 nits. Le alte luci sono compresse — l'immagine non è 1:1.,unfinished,src/ui/qml/ViewportOverlay.qml:640
+ViewportOverlay,VIEWER,,Pill: viewer aids are active,,VIEWER,unfinished,src/ui/qml/ViewportOverlay.qml:669
+ViewportOverlay,%1 — click to reset,,,,%1 — clicca per ripristinare,unfinished,src/ui/qml/ViewportOverlay.qml:688
+ViewportOverlay,Single view,,Dual view mode,,Vista singola,unfinished,src/ui/qml/ViewportOverlay.qml:704
+ViewportOverlay,Side-by-side,,Dual view mode,,Affiancate,unfinished,src/ui/qml/ViewportOverlay.qml:714
+ViewportOverlay,Split wipe,,Dual view mode,,Tendina,unfinished,src/ui/qml/ViewportOverlay.qml:724
+ViewportOverlay,Difference,,Dual view mode,,Differenza,unfinished,src/ui/qml/ViewportOverlay.qml:734
+ViewportOverlay,Update this saved dual view,,,,Aggiorna questa vista doppia salvata,unfinished,src/ui/qml/ViewportOverlay.qml:752
+ViewportOverlay,Save as a new dual view,,,,Salva come nuova vista doppia,unfinished,src/ui/qml/ViewportOverlay.qml:773
+ViewportOverlay,Save dual view,,,,Salva vista doppia,unfinished,src/ui/qml/ViewportOverlay.qml:774
+ViewportOverlay,Name,,Field label when saving a dual view,,Nome,unfinished,src/ui/qml/ViewportOverlay.qml:847
+ViewportOverlay,e.g. ‘US30 v001 vs v002’,,,,es. ‘US30 v001 vs v002’,unfinished,src/ui/qml/ViewportOverlay.qml:859
+ViewportOverlay,Save,,,,Salva,unfinished,src/ui/qml/ViewportOverlay.qml:866
+ViewportOverlay,Cancel,,,,Annulla,unfinished,src/ui/qml/ViewportOverlay.qml:874
+ViewportOverlay,Show project panel,,,,Mostra pannello progetto,unfinished,src/ui/qml/ViewportOverlay.qml:924
+ViewportOverlay,Show inspector panel,,,,Mostra pannello Inspector,unfinished,src/ui/qml/ViewportOverlay.qml:963
 WaveformPanel,nits · reference,,Scale mode: nits on a reference display,,nits · riferimento,unfinished,src/ui/qml/WaveformPanel.qml:41
 WaveformPanel,% Y′,,,,% Y′,unfinished,src/ui/qml/WaveformPanel.qml:41
 WaveformPanel,"What the file encodes on a reference display, not what this screen emits. SDR white = 100 nits (BT.1886 reference).",,,,"Ciò che il file codifica su un display di riferimento, non ciò che emette questo schermo. Bianco SDR = 100 nits (riferimento BT.1886).",unfinished,src/ui/qml/WaveformPanel.qml:48
@@ -845,55 +845,57 @@ qcv::VideoDecoder,read_frame after seek: %1,,"FFmpeg function name, keep as writ
 qcv::WindowManager,No clip under the playhead to compare,,,,Nessuna clip sotto l'indicatore di riproduzione da confrontare,unfinished,src/window/window_manager.cpp:2242
 qcv::WindowManager,"%1 — %2 can’t be played here: un-debayered camera raw. Review the ProRes / dailies, or convert in DaVinci Resolve or the ARRI Reference Tool.",,"Toast after opening an ARRIRAW file. %1 = camera + ""ARRIRAW"" (""ALEXA 35 ARRIRAW""), %2 = file name",,"%1 — %2 non riproducibile qui: raw di camera non debayerizzato. Rivedi i ProRes / dailies, oppure converti in DaVinci Resolve o nell'ARRI Reference Tool.",unfinished,src/window/window_manager.cpp:3037
 qcv::WindowManager,%1 can’t be played here: unsupported format.,,Toast after opening a file no decoder can play. %1 = file name,,%1 non riproducibile qui: formato non supportato.,unfinished,src/window/window_manager.cpp:3042
-qcv::WindowManager,"%1 is a folder — drop a file, or any frame of an image sequence.",,Toast after dropping or opening a folder. %1 = folder name,,"%1 è una cartella — trascina un file, o un fotogramma qualsiasi di una sequenza di immagini.",unfinished,src/window/window_manager.cpp:3107
-qcv::WindowManager,%1 isn’t a file type QCView opens.,,Toast after dropping or opening a file type QCView does not open. %1 = file name,,%1 non è un tipo di file che QCView apre.,unfinished,src/window/window_manager.cpp:3111
-qcv::WindowManager,folder,,Stands in for a suffix in the skipped-files toast,,cartella,unfinished,src/window/window_manager.cpp:3119
-qcv::WindowManager,no extension,,,,senza estensione,unfinished,src/window/window_manager.cpp:3120
-qcv::WindowManager,%1 of %2 files skipped — not file types QCView opens (%3).,,"Toast after a batch drop/open; %1 = skipped count, %2 = total, %3 = the suffixes",,%1 file su %2 saltati — tipi di file che QCView non apre (%3).,unfinished,src/window/window_manager.cpp:3127
-qcv::WindowManager,Blender: not listening,,,,Blender: non in ascolto,unfinished,src/window/window_manager.cpp:3302
-qcv::WindowManager,Listening for a Blender session on this machine: start one from the QCBridge host panel,,,,In ascolto di una sessione Blender su questa macchina: avviane una dal pannello host di QCBridge,unfinished,src/window/window_manager.cpp:3307
-qcv::WindowManager,Blender,,,,Blender,unfinished,src/window/window_manager.cpp:3321
-qcv::WindowManager,Blender session ended,,,,Sessione Blender terminata,unfinished,src/window/window_manager.cpp:3368
-qcv::WindowManager,After Effects / Premiere live view is not available on this platform yet,,,,La vista live di After Effects / Premiere non è ancora disponibile su questa piattaforma,unfinished,src/window/window_manager.cpp:4597
+qcv::WindowManager,%1 points to a file that isn’t there any more.,,Toast after opening or dropping a Windows shortcut (.lnk) whose target no longer exists. %1 = the shortcut's file name,,%1 punta a un file che non esiste più.,unfinished,src/window/window_manager.cpp:3122
+qcv::WindowManager,"%1 is a folder — drop a file, or any frame of an image sequence.",,Toast after dropping or opening a folder. %1 = folder name,,"%1 è una cartella — trascina un file, o un fotogramma qualsiasi di una sequenza di immagini.",unfinished,src/window/window_manager.cpp:3125
+qcv::WindowManager,%1 isn’t a file type QCView opens.,,Toast after dropping or opening a file type QCView does not open. %1 = file name,,%1 non è un tipo di file che QCView apre.,unfinished,src/window/window_manager.cpp:3129
+qcv::WindowManager,broken shortcut,,Stands in for a suffix in the skipped-files toast,,collegamento interrotto,unfinished,src/window/window_manager.cpp:3137
+qcv::WindowManager,folder,,,,cartella,unfinished,src/window/window_manager.cpp:3138
+qcv::WindowManager,no extension,,,,senza estensione,unfinished,src/window/window_manager.cpp:3139
+qcv::WindowManager,%1 of %2 files skipped — not file types QCView opens (%3).,,"Toast after a batch drop/open; %1 = skipped count, %2 = total, %3 = the suffixes",,%1 file su %2 saltati — tipi di file che QCView non apre (%3).,unfinished,src/window/window_manager.cpp:3146
+qcv::WindowManager,Blender: not listening,,,,Blender: non in ascolto,unfinished,src/window/window_manager.cpp:3321
+qcv::WindowManager,Listening for a Blender session on this machine: start one from the QCBridge host panel,,,,In ascolto di una sessione Blender su questa macchina: avviane una dal pannello host di QCBridge,unfinished,src/window/window_manager.cpp:3326
+qcv::WindowManager,Blender,,,,Blender,unfinished,src/window/window_manager.cpp:3340
+qcv::WindowManager,Blender session ended,,,,Sessione Blender terminata,unfinished,src/window/window_manager.cpp:3387
+qcv::WindowManager,After Effects / Premiere live view is not available on this platform yet,,,,La vista live di After Effects / Premiere non è ancora disponibile su questa piattaforma,unfinished,src/window/window_manager.cpp:4616
 qcv::WindowManager,"Could not open stream
 %1",,,,"Impossibile aprire lo stream
 %1",obsolete,
-qcv::WindowManager,Could not open stream: %1,,Toast; %1 = the stream URL,,Impossibile aprire lo stream: %1,unfinished,src/window/window_manager.cpp:4616
-qcv::WindowManager,This note has no captured frame,,,,Questa nota non ha un fotogramma catturato,unfinished,src/window/window_manager.cpp:4758
-qcv::WindowManager,No frame to freeze yet,,,,Nessun fotogramma da bloccare,unfinished,src/window/window_manager.cpp:4781
-qcv::WindowManager,Removed %1,,,,Rimosso %1,unfinished,src/window/window_manager.cpp:6257
-qcv::WindowManager,Removed %1 items,,,,Rimossi %1 elementi,unfinished,src/window/window_manager.cpp:6258
-qcv::WindowManager,Undo,,Toast button,,Annulla,unfinished,src/window/window_manager.cpp:6260
-qcv::WindowManager,Nothing to capture — load media first,,,,Niente da catturare — carica prima un media,unfinished,src/window/window_manager.cpp:6377
-qcv::WindowManager,Screenshot copied to clipboard,,,,Screenshot copiato negli appunti,unfinished,src/window/window_manager.cpp:6384
-qcv::WindowManager,Couldn't resolve the Desktop folder,,,,Impossibile trovare la cartella Desktop,unfinished,src/window/window_manager.cpp:6415
-qcv::WindowManager,Saving screenshot…,,,,Salvataggio screenshot…,unfinished,src/window/window_manager.cpp:6457
-qcv::WindowManager,Screenshot saved (%1),,,,Screenshot salvato (%1),unfinished,src/window/window_manager.cpp:6474
-qcv::WindowManager,Screenshot export failed,,,,Esportazione screenshot non riuscita,unfinished,src/window/window_manager.cpp:6475
-qcv::WindowManager,Nothing to restore,,,,Niente da ripristinare,unfinished,src/window/window_manager.cpp:8124
-qcv::WindowManager,Restored %1,,,,Ripristinato %1,unfinished,src/window/window_manager.cpp:8126
-qcv::WindowManager,Restored %1 items,,,,Ripristinati %1 elementi,unfinished,src/window/window_manager.cpp:8128
-qcv::WindowManager,Preset restored: %1,,,,Preset ripristinato: %1,unfinished,src/window/window_manager.cpp:8155
-qcv::WindowManager,minNotes is not installed,,,,minNotes non è installato,unfinished,src/window/window_manager.cpp:9273
-qcv::WindowManager,The stream names a wire this QCView does not know (%1); set the Input yourself,,,,Lo stream dichiara una codifica (wire) che questo QCView non conosce (%1); imposta l'Input manualmente,unfinished,src/window/window_manager.cpp:9936
-qcv::WindowManager,unknown wire %1,,,,wire sconosciuto %1,unfinished,src/window/window_manager.cpp:9938
-qcv::WindowManager,Colour management turned on for the Blender stream,,,,Gestione del colore attivata per lo stream Blender,unfinished,src/window/window_manager.cpp:9962
-qcv::WindowManager,Blender stream: its view and display resolve in the Blender 5.2 config,,,,Stream Blender: la sua view e il suo display si risolvono nella config Blender 5.2,unfinished,src/window/window_manager.cpp:9976
-qcv::WindowManager,Switch,,,,Cambia,unfinished,src/window/window_manager.cpp:9977
-qcv::WindowManager,view not applied: active config is %1,,,,view non applicata: la config attiva è %1,unfinished,src/window/window_manager.cpp:9978
-qcv::WindowManager,The host runs a non-Blender OCIO config (%1): its view cannot be reproduced; Input pinned only,,,,L'host usa una config OCIO non Blender (%1): la sua view non può essere riprodotta; solo l'Input è fissato,unfinished,src/window/window_manager.cpp:9983
-qcv::WindowManager,host config %1: view not reproduced,,,,config host %1: view non riprodotta,unfinished,src/window/window_manager.cpp:9986
-qcv::WindowManager,Blender stream: the active OCIO config has no %1 input; the Blender config does,,,,Stream Blender: la config OCIO attiva non ha l'input %1; la config Blender sì,unfinished,src/window/window_manager.cpp:9992
-qcv::WindowManager,no %1 input in this config,,,,nessun input %1 in questa config,unfinished,src/window/window_manager.cpp:9993
-qcv::WindowManager,host display %1 → %2,,,,display host %1 → %2,unfinished,src/window/window_manager.cpp:10016
-qcv::WindowManager,Blender stream: view '%1' is not on display '%2' in the Blender config; view left as is,,,,Stream Blender: la view '%1' non è sul display '%2' nella config Blender; view lasciata com'è,unfinished,src/window/window_manager.cpp:10024
-qcv::WindowManager,view %1 not on %2,,,,view %1 non su %2,unfinished,src/window/window_manager.cpp:10026
-qcv::WindowManager,look %1 not in this config,,,,look %1 non in questa config,unfinished,src/window/window_manager.cpp:10038
-qcv::WindowManager,Blender stream: the host's view (%1 for %2) is not reproduced on minColor; switch to the OCIO engine to match it,,,,Stream Blender: la view dell'host (%1 per %2) non è riprodotta su minColor; passa al motore OCIO per riprodurla,unfinished,src/window/window_manager.cpp:10042
-qcv::WindowManager,minColor on screen: host view not reproduced,,,,minColor a schermo: view host non riprodotta,unfinished,src/window/window_manager.cpp:10044
-qcv::WindowManager,host white balance not reproduced,,,,bilanciamento del bianco dell'host non riprodotto,unfinished,src/window/window_manager.cpp:10057
-qcv::WindowManager,host curves not reproduced,,,,curve dell'host non riprodotte,unfinished,src/window/window_manager.cpp:10058
-qcv::WindowManager,host HDR view: shown SDR,,,,view HDR dell'host: mostrata in SDR,unfinished,src/window/window_manager.cpp:10059
-qcv::WindowManager,working space assumed Linear Rec.709,,,,spazio di lavoro presunto Linear Rec.709,unfinished,src/window/window_manager.cpp:10060
-qcv::WindowManager,host and replica colour setups differ (%1),,,,le impostazioni colore di host e replica differiscono (%1),unfinished,src/window/window_manager.cpp:10061
-qcv::WindowManager,Blender stream: %1,,,,Stream Blender: %1,unfinished,src/window/window_manager.cpp:10062
+qcv::WindowManager,Could not open stream: %1,,Toast; %1 = the stream URL,,Impossibile aprire lo stream: %1,unfinished,src/window/window_manager.cpp:4635
+qcv::WindowManager,This note has no captured frame,,,,Questa nota non ha un fotogramma catturato,unfinished,src/window/window_manager.cpp:4777
+qcv::WindowManager,No frame to freeze yet,,,,Nessun fotogramma da bloccare,unfinished,src/window/window_manager.cpp:4800
+qcv::WindowManager,Removed %1,,,,Rimosso %1,unfinished,src/window/window_manager.cpp:6276
+qcv::WindowManager,Removed %1 items,,,,Rimossi %1 elementi,unfinished,src/window/window_manager.cpp:6277
+qcv::WindowManager,Undo,,Toast button,,Annulla,unfinished,src/window/window_manager.cpp:6279
+qcv::WindowManager,Nothing to capture — load media first,,,,Niente da catturare — carica prima un media,unfinished,src/window/window_manager.cpp:6396
+qcv::WindowManager,Screenshot copied to clipboard,,,,Screenshot copiato negli appunti,unfinished,src/window/window_manager.cpp:6403
+qcv::WindowManager,Couldn't resolve the Desktop folder,,,,Impossibile trovare la cartella Desktop,unfinished,src/window/window_manager.cpp:6434
+qcv::WindowManager,Saving screenshot…,,,,Salvataggio screenshot…,unfinished,src/window/window_manager.cpp:6476
+qcv::WindowManager,Screenshot saved (%1),,,,Screenshot salvato (%1),unfinished,src/window/window_manager.cpp:6493
+qcv::WindowManager,Screenshot export failed,,,,Esportazione screenshot non riuscita,unfinished,src/window/window_manager.cpp:6494
+qcv::WindowManager,Nothing to restore,,,,Niente da ripristinare,unfinished,src/window/window_manager.cpp:8143
+qcv::WindowManager,Restored %1,,,,Ripristinato %1,unfinished,src/window/window_manager.cpp:8145
+qcv::WindowManager,Restored %1 items,,,,Ripristinati %1 elementi,unfinished,src/window/window_manager.cpp:8147
+qcv::WindowManager,Preset restored: %1,,,,Preset ripristinato: %1,unfinished,src/window/window_manager.cpp:8174
+qcv::WindowManager,minNotes is not installed,,,,minNotes non è installato,unfinished,src/window/window_manager.cpp:9292
+qcv::WindowManager,The stream names a wire this QCView does not know (%1); set the Input yourself,,,,Lo stream dichiara una codifica (wire) che questo QCView non conosce (%1); imposta l'Input manualmente,unfinished,src/window/window_manager.cpp:9955
+qcv::WindowManager,unknown wire %1,,,,wire sconosciuto %1,unfinished,src/window/window_manager.cpp:9957
+qcv::WindowManager,Colour management turned on for the Blender stream,,,,Gestione del colore attivata per lo stream Blender,unfinished,src/window/window_manager.cpp:9981
+qcv::WindowManager,Blender stream: its view and display resolve in the Blender 5.2 config,,,,Stream Blender: la sua view e il suo display si risolvono nella config Blender 5.2,unfinished,src/window/window_manager.cpp:9995
+qcv::WindowManager,Switch,,,,Cambia,unfinished,src/window/window_manager.cpp:9996
+qcv::WindowManager,view not applied: active config is %1,,,,view non applicata: la config attiva è %1,unfinished,src/window/window_manager.cpp:9997
+qcv::WindowManager,The host runs a non-Blender OCIO config (%1): its view cannot be reproduced; Input pinned only,,,,L'host usa una config OCIO non Blender (%1): la sua view non può essere riprodotta; solo l'Input è fissato,unfinished,src/window/window_manager.cpp:10002
+qcv::WindowManager,host config %1: view not reproduced,,,,config host %1: view non riprodotta,unfinished,src/window/window_manager.cpp:10005
+qcv::WindowManager,Blender stream: the active OCIO config has no %1 input; the Blender config does,,,,Stream Blender: la config OCIO attiva non ha l'input %1; la config Blender sì,unfinished,src/window/window_manager.cpp:10011
+qcv::WindowManager,no %1 input in this config,,,,nessun input %1 in questa config,unfinished,src/window/window_manager.cpp:10012
+qcv::WindowManager,host display %1 → %2,,,,display host %1 → %2,unfinished,src/window/window_manager.cpp:10035
+qcv::WindowManager,Blender stream: view '%1' is not on display '%2' in the Blender config; view left as is,,,,Stream Blender: la view '%1' non è sul display '%2' nella config Blender; view lasciata com'è,unfinished,src/window/window_manager.cpp:10043
+qcv::WindowManager,view %1 not on %2,,,,view %1 non su %2,unfinished,src/window/window_manager.cpp:10045
+qcv::WindowManager,look %1 not in this config,,,,look %1 non in questa config,unfinished,src/window/window_manager.cpp:10057
+qcv::WindowManager,Blender stream: the host's view (%1 for %2) is not reproduced on minColor; switch to the OCIO engine to match it,,,,Stream Blender: la view dell'host (%1 per %2) non è riprodotta su minColor; passa al motore OCIO per riprodurla,unfinished,src/window/window_manager.cpp:10061
+qcv::WindowManager,minColor on screen: host view not reproduced,,,,minColor a schermo: view host non riprodotta,unfinished,src/window/window_manager.cpp:10063
+qcv::WindowManager,host white balance not reproduced,,,,bilanciamento del bianco dell'host non riprodotto,unfinished,src/window/window_manager.cpp:10076
+qcv::WindowManager,host curves not reproduced,,,,curve dell'host non riprodotte,unfinished,src/window/window_manager.cpp:10077
+qcv::WindowManager,host HDR view: shown SDR,,,,view HDR dell'host: mostrata in SDR,unfinished,src/window/window_manager.cpp:10078
+qcv::WindowManager,working space assumed Linear Rec.709,,,,spazio di lavoro presunto Linear Rec.709,unfinished,src/window/window_manager.cpp:10079
+qcv::WindowManager,host and replica colour setups differ (%1),,,,le impostazioni colore di host e replica differiscono (%1),unfinished,src/window/window_manager.cpp:10080
+qcv::WindowManager,Blender stream: %1,,,,Stream Blender: %1,unfinished,src/window/window_manager.cpp:10081

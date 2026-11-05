@@ -3022,7 +3022,7 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">Informazioni su QCView…</translation>
     </message>
     <message>
-        <location line="+428"/>
+        <location line="+438"/>
         <source>Open media</source>
         <translation type="unfinished">Apri media</translation>
     </message>
@@ -3053,7 +3053,7 @@ Choice: follow the source</extracomment>
 <context>
     <name>MediaFilters</name>
     <message>
-        <location filename="../src/project/media_extensions.h" line="+107"/>
+        <location filename="../src/project/media_extensions.h" line="+131"/>
         <source>All media (%1)</source>
         <extracomment>File dialog filter; %1 = the list of patterns</extracomment>
         <translation type="unfinished">Tutti i media (%1)</translation>
@@ -3956,13 +3956,13 @@ Choice: follow the source</extracomment>
     </message>
     <message>
         <location line="+75"/>
-        <location line="+247"/>
+        <location line="+251"/>
         <source>Live source</source>
         <extracomment>Chip label for a live source</extracomment>
         <translation type="unfinished">Sorgente live</translation>
     </message>
     <message>
-        <location line="-243"/>
+        <location line="-247"/>
         <source>A</source>
         <extracomment>Source letter, do not translate</extracomment>
         <translation type="unfinished">A</translation>
@@ -3988,7 +3988,7 @@ Choice: follow the source</extracomment>
         <translation type="obsolete">Impossibile caricare il file</translation>
     </message>
     <message>
-        <location line="+103"/>
+        <location line="+107"/>
         <source>Couldn&apos;t load that file as Source B</source>
         <translation type="unfinished">Impossibile caricare il file come sorgente B</translation>
     </message>
@@ -4664,7 +4664,13 @@ Choice: follow the source</extracomment>
         <translation type="unfinished">%1 non riproducibile qui: formato non supportato.</translation>
     </message>
     <message>
-        <location line="+65"/>
+        <location line="+80"/>
+        <source>%1 points to a file that isn’t there any more.</source>
+        <extracomment>Toast after opening or dropping a Windows shortcut (.lnk) whose target no longer exists. %1 = the shortcut&apos;s file name</extracomment>
+        <translation type="unfinished">%1 punta a un file che non esiste più.</translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>%1 is a folder — drop a file, or any frame of an image sequence.</source>
         <extracomment>Toast after dropping or opening a folder. %1 = folder name</extracomment>
         <translation type="unfinished">%1 è una cartella — trascina un file, o un fotogramma qualsiasi di una sequenza di immagini.</translation>
@@ -4677,8 +4683,13 @@ Choice: follow the source</extracomment>
     </message>
     <message>
         <location line="+8"/>
-        <source>folder</source>
+        <source>broken shortcut</source>
         <extracomment>Stands in for a suffix in the skipped-files toast</extracomment>
+        <translation type="unfinished">collegamento interrotto</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>folder</source>
         <translation type="unfinished">cartella</translation>
     </message>
     <message>

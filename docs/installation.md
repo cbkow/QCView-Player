@@ -52,6 +52,11 @@ See the [QCViewBridge](/qcbridge/) page for installation and usage guides for th
 
 ## Version History
 
+What's new in 2.7.3
+
+- **Shortcuts on Windows** — a `.lnk` shortcut to a clip, a still or any frame of an image sequence opens the clip it points to, from the Open and Add dialogs, a drop onto the viewport, a rail or the timeline, the command line and Explorer. The project lists the target, so recents and sidecars follow the real file. A shortcut whose target is gone says so in a toast.
+- **Right rail** — the seam between the viewport and the right rail can be grabbed again. Its grab zone had shrunk to the one-pixel line itself (the rail was sitting on top of the rest), so a near miss landed on the viewport and dragged the window instead. Both rail seams and the Color panel's now take the press on either side of the line.
+
 What's new in 2.7.2
 
 - **Languages** — Russian and Ukrainian join the nine: pick either in Settings ▸ Interface ▸ Language. The Blender session strings from 2.7.0 and the file-type and unsupported-media messages from 2.7.1 are now in every language. All of it machine translated and reviewed by a second pass, not yet read by native speakers; corrections are welcome through the translations folder.

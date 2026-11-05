@@ -1016,6 +1016,15 @@ ApplicationWindow {
         Layout.preferredWidth: 1
         Layout.fillHeight: true
         signal dragged(real dx)
+        // Above both neighbours. The MouseArea below overshoots the
+        // 1-px slot by 3 px each side; without this the LATER sibling
+        // (RightRail, a Pane — Controls accept presses) sat on top of
+        // that overshoot and swallowed it, so the right seam could
+        // only be grabbed on the one pixel itself (the left rail is a
+        // Rectangle and an earlier sibling, hence it never showed).
+        // On macOS the native player surface still owns the viewport
+        // side, so this is the seam plus the rail side.
+        z: 1
         Rectangle {
             // Exactly one DEVICE pixel wide. At fractional display
             // scales (125% = 1 logical px → 1.25 physical) a
@@ -1057,6 +1066,7 @@ ApplicationWindow {
         Layout.fillWidth: true
         Layout.preferredHeight: 1
         signal dragged(real dy)
+        z: 1   // see HResizeHandle — ColorPanel below it is a Pane too
         Rectangle {
             // One device pixel — see HResizeHandle.
             anchors.left: parent.left

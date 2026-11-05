@@ -35,6 +35,8 @@ You can drag files directly into the app. Drag one or more files to the viewport
 
 To load files already in your project, double-click them in the media panel or drag them into the viewport.
 
+On Windows, a shortcut (`.lnk`) to a clip works wherever the clip itself would: dropping it, opening it from a dialog or the command line all load the file it points to, and the project lists that file.
+
 ---
 
 ## Layout

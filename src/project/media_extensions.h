@@ -87,6 +87,30 @@ inline bool isSupportedMediaFile(const QString &path)
     return kindForSuffix(fi.suffix().toLower()) != Kind::Unknown;
 }
 
+// Windows shortcuts (.lnk). A user who drops or opens a shortcut to a
+// clip means the clip (2026-11-05, user request), so every entry point
+// swaps the shortcut for its target before the gate: admitMediaPaths
+// (dialogs, drops, QML callers) and ProjectManager::addMediaFile (the
+// backstop: command line, handoff, recents). Qt reads the target with
+// IShellLink::GetPath and does not search for a moved one, so import
+// stays instant. Elsewhere isShortcut() is false and nothing changes.
+inline bool isShortcut(const QString &path)
+{
+    return QFileInfo(path).isShortcut();
+}
+
+// The target of a shortcut, or an empty string when the shortcut is
+// unreadable or its target is gone (callers say so). A non-shortcut
+// comes back as itself.
+inline QString resolveShortcut(const QString &path)
+{
+    const QFileInfo fi(path);
+    if (!fi.isShortcut()) return path;
+    const QString target = fi.symLinkTarget();
+    if (target.isEmpty() || !QFileInfo::exists(target)) return {};
+    return target;
+}
+
 inline QString globPattern(const QStringList &exts)
 {
     QStringList g;
