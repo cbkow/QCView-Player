@@ -123,7 +123,12 @@ Write-Host "Staging files into $staging ..."
 
 # Executable, every DLL next to it, the assets/ tree, and Qt plugin subfolders.
 Copy-Item -Path $exe -Destination $staging
-Get-ChildItem -Path $BuildDir -Filter "*.dll" | Copy-Item -Destination $staging
+# vulkan-1.dll is the Khronos loader that vcpkg's vulkan-loader port drops next
+# to the exe. It stays out of the package on purpose: the loader belongs to
+# the GPU driver (every Vulkan-capable Windows install has it in System32),
+# and QCView has always used that one -- 2.7.2 and earlier linked against
+# the LunarG SDK import library and shipped no loader at all.
+Get-ChildItem -Path $BuildDir -Filter "*.dll" | Where-Object { $_.Name -ne "vulkan-1.dll" } | Copy-Item -Destination $staging
 
 # FFmpeg CLI helpers (v2.2.3 live-SRT toolbox): staged next to qcview.exe
 # by src/app/CMakeLists.txt; writeToolboxManifest() resolves them at

@@ -114,6 +114,9 @@ external/ffmpeg-win64-*/
 installer/msix/staging/
 installer/msix/dist/
 
+# vcpkg manifest-mode install tree (Windows; see vcpkg.json)
+vcpkg_installed/
+
 # Sideload signing assets — private dev cert (.pfx) and its public .cer.
 # Kept locally; never committed. Each developer / build machine copies
 # these in from secure storage. The build script reads QCV_SIGNING_PFX

@@ -642,6 +642,25 @@ which is gitignored and was lost with the old dev machine (2026-09-21). The
 recipe, as rebuilt then — run from repo root, same `PREFIX`/`CM`/SDK setup as
 "macOS: static codec libraries":
 
+**How the build actually gets it (Windows):** vcpkg in **manifest mode**
+— `vcpkg.json` at the repo root lists the packages and pins the ones whose
+version shows in the picture to the macOS line: `opencolorio` **2.5.2**,
+`openexr` **3.4.15**, `imath` **3.2.3** (plus libpng, tiff, libjpeg-turbo,
+zlib, vulkan-headers, vulkan-loader, shaderc and pkgconf, unpinned; the
+`builtin-baseline` fixes those). They install into `<source>/vcpkg_installed`
+on the first configure (gitignored; ~15 min cold, cached after), and the
+`windows-release` preset points `CMAKE_PREFIX_PATH`, `PKG_CONFIG_EXECUTABLE`
+and `PKG_CONFIG_PATH` there. Before 2026-11-05 the preset used whatever the
+machine's classic `vcpkg install` had put in `$VCPKG_ROOT/installed`, which
+is how the first 2.7.3 Windows build came out with OCIO 2.6 / OpenEXR 3.5
+while macOS shipped 2.5 / 3.4 (caught before Store upload, rebuilt). The
+vcpkg checkout must have full history (`git fetch --unshallow`), or the
+pinned versions fail with "failed to unpack tree object". Bump the pins and
+the macOS recipes together. The vcpkg `vulkan-loader` port drops
+`vulkan-1.dll` next to the exe; `build_msix.ps1` leaves it out of the
+package on purpose (the loader belongs to the GPU driver; 2.7.2 and earlier
+used the system one).
+
 ```bash
 SH=(-DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_NAME_DIR="$PREFIX/lib")   # absolute ids, like FFmpeg's
 # Imath — not pinned before 2026-09-21; latest 3.x then
@@ -1055,5 +1074,6 @@ If the bump touches OCIO's profile version, update Guide 05 §12's
 | 2026-09-09 | **FFmpeg `n8.1.2` → `n9.0.1` on both platforms** (Windows 2.3.0 shipped 2026-09-08 on the BtbN-recipe 9.0.1 build with patches 0001–0003; macOS `external/install/` rebuilt 2026-09-09, 8.1.2 parked). All sonames/DLL majors change (63/61/63/12/63/7/10). New patch 0003 (ProRes RAW Bayer patterns). See §2 "FFmpeg 9.0 — migration status" and `dependencies-changelog.md`. | Chris (Win) / Claude (mac) |
 | 2026-09-22 | **Image libraries vendored, FFmpeg rebuilt without X11, Qt Multimedia dropped.** libpng 1.6.55 / libjpeg-turbo 3.1.3 / libtiff 4.7.1 now built from source into `external/install`, static, arm64, minos 13.0 (§3) — Homebrew's are built for a far newer minimum macOS than QCView targets, and the old release script rewrote their load commands to hide it. FFmpeg n9.0.1 reconfigured with `--disable-libxcb --disable-xlib`: `libavdevice` was pulling Homebrew's X11/xcb (also minos 26.0) into the helper CLIs for a screen-capture device that is meaningless on macOS. `find_package(... Multimedia)` removed — nothing used it, and it made macdeployqt ship Qt's media stack plus a second FFmpeg. | Claude |
 | 2026-09-21 | **macOS `external/install/` rebuilt from source on a new dev machine** (the old one, and its pre-built codec archives, are gone). Static codec libs now have pins and a recipe for the first time — x264 stable@b35605ac, x265 4.2, dav1d 1.5.4, libvpx v1.17.0, LAME 3.100, opus v1.6.1, SVT-AV1 v4.2.0 (§2 "macOS: static codec libraries"); mbedTLS 3.6.7 + libsrt 1.5.6 and FFmpeg `n9.0.1` + patches 0001–0003 per the existing recipes. Also rebuilt from new recipes: OCIO v2.5.0, OpenEXR v3.4.7, Imath v3.2.3 (dylibs; the docs had said FetchContent — the build finds them installed) and Sparkle 2.9.2 (SHA-256 verified); both had been produced by gitignored scripts. Toolchain note for a CLT whose newest SDK outruns its linker. Patch *decode* verification (CW ACT clip framemd5) pending — clip not on this machine. | Claude |
+| 2026-11-05 | **Windows dependencies pinned in `vcpkg.json` (manifest mode)**: opencolorio 2.5.2, openexr 3.4.15, imath 3.2.3 at vcpkg baseline 29718cfe, matching the macOS `external/install` line (OCIO 2.5.0, OpenEXR 3.4.7, Imath 3.2.3). Trigger: the first 2.7.3 Windows build on the new box picked up OCIO 2.6.0 / OpenEXR 3.5.3 from a fresh classic vcpkg tree. `windows-release` preset now reads `<source>/vcpkg_installed`; `vulkan-1.dll` from the vulkan-loader port is excluded from the MSIX (system loader, as before). | Claude |
 
 (Append future bumps here.)
