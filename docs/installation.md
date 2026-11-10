@@ -68,7 +68,6 @@ See the [QCBridge](/qcbridge/) page for installation and usage guides for the ad
 
 ## Version History
 
-<!-- DRAFT for the owner: What's new in 3.0 -->
 What's new in 3.0
 
 - **Rebuilt** — QCView 3 is a new application under the same name: rewritten in Rust, with the picture and the interface both drawn on the GPU. It installs over 2.x through the same channels. 2.x projects and notes open as they are; settings start from their defaults.
