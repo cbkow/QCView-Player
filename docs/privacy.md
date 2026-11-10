@@ -6,7 +6,7 @@ nav_order: 16
 
 # Privacy Policy
 
-**QCView** — Last updated: May 2026
+**QCView 3** — Last updated: November 2026
 
 ## Summary
 
@@ -20,15 +20,14 @@ QCView does not collect analytics, telemetry, crash reports, or usage statistics
 
 QCView stores the following data locally on your device:
 
-- **Windows**: `%LOCALAPPDATA%\QCView\`
-- **macOS**: `~/Library/Application Support/QCView/`
+- **macOS**: `~/Library/Application Support/QCView/` (settings), `~/Library/Logs/QCView/` (logs)
+- **Windows**: `%APPDATA%\QCView\` (settings), `%LOCALAPPDATA%\QCView\` (logs, and a copy of the bundled FFmpeg tools for the QCBridge add-ons)
 
 Stored data includes:
 
-- Application settings and preferences
-- Project files and timeline data
-- Frame cache and temporary render files
-- Annotation notes, strokes, and exports
+- Application settings and preferences, including the lists of recent media and projects
+- A log of the current and the previous session, for troubleshooting. It can contain the paths of files you opened. It is never sent anywhere
+- Project files, annotation notes, strokes and exports, wherever you choose to save them
 
 This data never leaves your device unless you explicitly choose to share it (for example, by exporting an annotation report or copying a project file to a shared drive).
 
@@ -36,7 +35,15 @@ This data never leaves your device unless you explicitly choose to share it (for
 
 The only automatic network connection QCView makes is the software-update check described below. It does not send analytics, telemetry, usage data, or any of your media or project content.
 
-The Help menu contains links to documentation and license information. Selecting these opens your default web browser. QCView itself does not fetch or transmit any data through these links.
+The **About** menu's **Docs** item opens this site in your default web browser; **Licenses…** opens a page stored inside the app. QCView itself does not fetch or transmit any data through these items.
+
+### Connections you start
+
+Some features use the network because that is what they are for. They do nothing until you turn them on, and they carry only the picture and sound involved:
+
+- **File ▸ Open Stream…** connects to, or listens at, the stream address you enter.
+- **File ▸ Connect to Blender** listens for a QCBridge session on this machine while it is switched on. It is off at every launch.
+- **The NDI output** announces itself and sends the viewer's picture and sound on your local network while it is enabled.
 
 ## Software Updates (macOS)
 
