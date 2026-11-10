@@ -43,7 +43,7 @@ Some features use the network because that is what they are for. They do nothing
 
 - **File ▸ Open Stream…** connects to, or listens at, the stream address you enter.
 - **File ▸ Connect to Blender** listens for a QCBridge session on this machine while it is switched on. It is off at every launch.
-- **The NDI output** announces itself and sends the viewer's picture and sound on your local network while it is enabled.
+- **The NDI output** (the separate QCBridge NDI companion, if you have installed it) announces itself and sends the viewer's picture and sound on your local network while it is enabled.
 
 ## Software Updates (macOS)
 
