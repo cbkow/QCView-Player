@@ -1,7 +1,7 @@
 ---
 title: LLM Transparency
 permalink: /llm/
-nav_order: 17
+nav_order: 18
 ---
 
 ## Full Disclosure:

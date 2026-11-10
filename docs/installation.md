@@ -17,8 +17,8 @@ Download QCView from the [Microsoft Store](https://apps.microsoft.com/detail/9p4
 ### Requirements
 
 - Windows 10 version 1809 or later (10.0.17763.0), x64.
-- Vulkan-capable GPU with up-to-date drivers (FFmpeg software fallback when unavailable).
-- HDR-capable display + Windows HDR mode enabled for HDR10 output.
+- A graphics card with DirectX 12 support and a current driver. Without one, QCView shows a "No compatible graphics card" message and exits; this can also happen in a virtual machine or a remote session with no GPU behind it.
+- For HDR: an HDR monitor with Windows HDR turned on. QCView switches to its HDR surface by itself when the window is on that monitor; there is no mode to pick.
 
 ---
 
@@ -44,13 +44,62 @@ Once installed in **Applications**, QCView keeps itself up to date — it checks
 - Apple Silicon (arm64) — native Metal rendering, no Rosetta.
 - EDR-capable display recommended for HDR workflows.
 
-### Add-ons
+---
 
-See the [QCViewBridge](/qcbridge/) page for installation and usage guides for the Adobe After Effects, Adobe Premiere Pro, and Blender add-ons. They have their own separate installers.
+## Upgrading from QCView 2.x
+
+QCView 3.0 is the same app to your system as 2.x, so it replaces 2.x in place: on Windows through the Microsoft Store, on macOS through the built-in updater or by dragging the new app over the old one in **Applications**. There is nothing to uninstall first.
+
+What carries over, and what does not:
+
+- **Projects open.** `.qcvproj` files saved by 2.x open in 3.0 as they are.
+- **Notes stay.** The `.qcview` notes folders beside your media are read and written in the same format.
+- **Settings start from defaults.** 3.0 does not import 2.x's preferences (window layout, language, performance and audio settings); set them again in **Settings**.
+- **Colour presets you saved in 2.x are not imported.** 3.0 has its own preset list.
+- **A 2.x project with a pinned Scene LUT** shows a notice when it opens. The LUT is not applied until the clip gets an OCIO chain; at that point 3.0 takes over the 2.x Input, Look, Scene LUT and Knee. Nothing in the project is erased.
+
+---
+
+## Add-ons
+
+See the [QCBridge](/qcbridge/) page for installation and usage guides for the add-ons: Adobe After Effects and Premiere Pro, Blender, NDI® output and AJA SDI / HDMI output. They have their own separate installers.
 
 ---
 
 ## Version History
+
+<!-- DRAFT for the owner: What's new in 3.0 -->
+What's new in 3.0
+
+- **Rebuilt** — QCView 3 is a new application under the same name: rewritten in Rust, with the picture and the interface both drawn on the GPU. It installs over 2.x through the same channels. 2.x projects and notes open as they are; settings start from their defaults.
+- **Look** — a new interface: softer greys, rounded section tiles in the rails, less blue. The bottom of the window is one stack of three bands: a status strip, the transport, and the timeline scrubber.
+- **Timeline** — one scrubber carries the ruler, the playhead, in / out, the cache line and a faded audio waveform. The overview bar is gone: double-click fits, middle-drag pans, `Ctrl/Cmd` + `=` and `-` zoom.
+- **Editing** — no edit mode. Dual view and playlists are edited directly on thin clip bars under the scrubber, with a popover for exact values.
+- **Playlists** — the loaded playlist's clips are a tree in the Media section: click to seek, drag to reorder, drop to add.
+- **Color** — minColor is the default engine and OCIO the option. Each clip carries one whole chain; clips without one follow a project default, and **Apply to all clips** copies a chain across the project. Presets are starting points in one list for both engines: an edited chain becomes "Custom" and can be saved as a preset.
+- **Color panel** — a drawer above the timeline, with the waveform inside it. `Ctrl + 3` toggles it; Notes (`Ctrl + 4`) opens in the same place.
+- **Scene LUT and Export LUT** — on OCIO chains, a Scene LUT card takes a `.cube`, `.3dl` or `.csp` LUT or an ASC CDL (`.cc`, `.ccc`, `.cdl`, with a Correction ID). **Export LUT…** writes a clip's chain as a 65-point `.cube` from either engine.
+- **Video gamma** — a toggle that shows a chain's SDR picture the way an unmanaged Rec.709 desktop does. It reaches the screen, the outputs, screenshots, note images, thumbnails and Export LUT; the waveform keeps reading the accurate picture.
+- **HDR** — no display mode to pick. The picture uses the screen's HDR headroom when it has some; on an SDR screen a yellow pill says when highlights clip, and the Highlight Knee brings them in.
+- **Windows** — a DirectX 12 renderer. SDR monitors get a 10-bit picture and HDR monitors a floating-point one, switching as the window moves between them. The title bar, menu row and rails are one dark surface. A machine with no usable graphics device gets a clear message instead of a blank window.
+- **Scopes** — waveform only; the vectorscope is retired. In dual view, A and B overlay in the waveform.
+- **Dual view** — the A / B chips, the mode buttons, the seam / gain slider and Save sit on the status strip. Save asks for a name. A is cyan and B a muted tan, on the chips and on the timeline lanes. Hover thumbnails come as a pair.
+- **Live sources in dual view** — a live feed can be either side, against a file, a sequence or another live feed. A live side starts muted; its chip's speaker pill unmutes it.
+- **Notes** — a drawer in the Color panel's slot. Violet markers on the scrubber show where notes are: filled for an open note, hollow for an addressed one; a click seeks. The HTML export is a synopsis table with a lightbox, and edits made in minNotes are merged while the panel is open.
+- **Annotations** — fixes: undo no longer crosses clips, redo restores a new note whole, hit tests follow the drawn line, and the selection outline stays out of screenshots.
+- **Screenshots** — named after the media. PNG 16-bit joins PNG, JPEG and TIFF 16-bit; alpha is kept when the media has it; an option draws the safety guides in.
+- **Thumbnails** — every thumbnail goes through the clip's colour chain; the hover thumbnail follows the pointer.
+- **Image sequences** — DPX, TGA and BMP sequences join EXR, TIFF, PNG and JPEG.
+- **Inspector** — Linked Projects with Open / Copy / Reveal; pixel aspect and rotation pickers. Adobe project metadata is read from the file directly, without ExifTool.
+- **Output** — one card per output with a status dot and a switch; the feed starts muted. Dual view sends audio to the outputs. For AJA, use QCBridgeA 0.0.2 or later, which plays back more smoothly.
+- **Removed: Stream output** — the SRT / RTMP output card is gone; NDI covers it. SRT streams still open as sources (File ▸ Open Stream…).
+- **Removed: view modes** — Minimal Mode, Show All Panels, the Status Bar toggle and View ▸ Timeline. Compact Mode and the rail and drawer toggles remain.
+- **Removed: Display LUT** — and with it the display mode list and the OCIO Output column; QCView now picks the output for the screen it is on.
+- **Shortcuts** — the Keyboard Shortcuts card has a filter.
+- **Window** — dragging the picture moves the window, in Compact Mode too. A saved project shows its file name in the window title, with a • for unsaved changes.
+- **Languages** — the same eleven languages besides English. Strings new in 3.0 are drafts in every language, not yet reviewed.
+- **Licenses** — About ▸ Licenses… opens the full third-party notices, which now ship in both the Windows and the macOS package.
+- **Under the hood** — FFmpeg 9.0.2, OpenColorIO 2.6 running as native shaders, a half-float working image.
 
 What's new in 2.7.3
 

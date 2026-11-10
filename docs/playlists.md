@@ -1,39 +1,45 @@
 ---
 title: Playlists
 permalink: /playlists/
-nav_order: 13
+nav_order: 14
 ---
 
 # Playlists
 
-To create a playlist, click the `+` button to the right of the Playlist header in the left rail.
+To create a playlist, click the `+` button to the right of the Playlists header in the Left Rail's Media section. The new playlist loads straight away, with its name ready to type. You can also select media items, right-click and choose **Create Playlist from Selection**.
 
-To build a playlist, drag video or image-sequence sources from the Project panel into the timeline. Mixed video + image-sequence playlists work — QCView swaps backends at clip boundaries.
+To build a playlist, drag video or image-sequence sources from the Media section onto the timeline, or onto the clip bar under it: drop near the edge of a clip to insert there, anywhere else to add at the end. Files dragged in from the desktop work the same way. Audio-only files are not accepted. Mixed video + image-sequence playlists work, and play straight through from one clip to the next.
 
-![The + button in the Playlists header, and a playlist on the timeline](images/qcv030.jpg)
+<!-- SHOT qcv3_048: The + button in the Playlists header of the Media section, and a loaded playlist: its list of clips under its row in the Left Rail and the clip bar under the timeline -->
+
+While a playlist is loaded, its row in the Media section opens into a list of its clips. Click a clip to jump to it, drag a clip to reorder, and drag media items into the list to add them (see [Project Panel](/project-manager/#a-loaded-playlists-clips)).
 
 ---
 
 ## Rearrange
 
-Enter edit mode on the playlist track to drag clips into a new order. The currently-selected clip brightens noticeably and switches to a white border so it's easy to spot among other edit-mode clips.
+Drag the body of a clip on the clip bar to move it to a new place in the order; an insertion bar shows where it will land. There is no edit mode to enter. Clicking a clip seeks to it and selects it. You can also reorder by dragging in the playlist's list of clips in the Media section.
 
 ---
 
 ## Per-clip trims
 
+Drag either end of a clip on the clip bar to trim its head or tail; a badge shows the change in frames. `Ctrl` / `⌘` + drag slips the source under the clip. Double-click a clip for exact values: **Source in**, **Source out** and **Duration**, typed as timecode. `Enter` applies them and `Esc` discards them.
+
 Per-clip in/out trims are honored across the playlist boundary — the next clip starts at its trim head on auto-advance.
+
+| Action | macOS | Windows |
+|---|---|---|
+| Split the clip at the playhead | `⌘ + K` | `Ctrl + K` |
+| Delete the selected clip | `Delete` / `Backspace` | `Delete` / `Backspace` |
+| Undo / redo an edit | `⌘ + Z` / `⇧ + ⌘ + Z` | `Ctrl + Z` / `Ctrl + Shift + Z` |
+
+Every edit is written back to the playlist in the project.
+
+<!-- SHOT qcv3_049: The playlist clip bar with a clip's end being trimmed (the frame badge showing), and the Source in / Source out / Duration box open over another clip -->
 
 ---
 
 ## Playback
 
-In addition to the usual transport controls, the transport bar shows **Prev clip** and **Next clip** buttons when a playlist is active. They jump the playhead to the start of the previous or next non-gap clip.
-
-Prev's semantics: a mid-clip Prev press snaps to the current clip's startTime first; a second press (when you're at the current clip's start) jumps to the previous clip.
-
----
-
-## Audio
-
-Per-clip audio routing is preserved across the playlist. If a clip has multi-stream audio routed to specific output channels (5.1, language stems, etc.), that routing follows the clip as it plays. See the Audio routing controls in the Inspector.
+The usual transport controls play the playlist as one timeline, and with loop on it starts again from the first clip. To jump between clips, click a clip on the clip bar or in the playlist's list in the Media section. QCView 3.0 has no Prev clip / Next clip buttons.

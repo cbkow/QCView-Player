@@ -1,7 +1,7 @@
 ---
 title: QCBridge Add-Ons
 permalink: /qcbridge/
-nav_order: 18
+nav_order: 19
 has_children: true
 has_toc: false
 ---
@@ -20,7 +20,7 @@ The QCBridge add-ons connect QCView to other software and hardware: two bring li
 - **[QCBridgeN for NDI®](/qcbridge/ndi/)** offers the viewport on the local network as an NDI source named QCView, for any NDI receiver.
 - **[QCBridgeA for AJA SDI and HDMI](/qcbridge/aja/)** sends it out of an AJA device as a 10-bit signal at 1080p or UHD, SDR, PQ or HLG, for a reference monitor.
 
-The Output section also streams the viewport as H.264 to a review service such as Louper without an add-on. A live feed from the Adobe or Blender add-on can be sent on any of these ways.
+A live feed from the Adobe or Blender add-on can be sent on through either output, and can take a side of a [Dual View](/dual-view/#live-sides).
 
 All four are separate downloads from QCView, and all are actively in development.
 

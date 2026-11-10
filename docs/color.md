@@ -5,101 +5,176 @@ nav_order: 8
 has_children: true
 ---
 
-# OCIO Color
+# Color
 
-QCView includes a live [OpenColorIO](https://opencolorio.org/) pipeline. Build transform chains in the **Color** panel (`Ctrl + 3`) and see results applied to the viewport in real time. The panel also holds a second, OCIO-free engine, [minColor](/mincolor/), picked with the **OCIO | minColor** segment in the preset bar; this page is the OCIO side.
+Color management lives in the **Color** drawer, a panel that opens above the transport and pushes the picture up. Open it with `Ctrl + 3`, **View > Color Panel**, the palette button on the transport, or the caret under the picture. Color and Notes share that space, so opening one closes the other. Drag the drawer's top edge to resize it. The drawer is not available in fullscreen or Compact Mode.
 
-**Bundled configs:** ACES 2.0, ACES 1.3, Blender 5.2, Blender 5.1
+QCView has two color engines:
 
-Both ACES 2.0 and the Blender configs are appended with **Linear sRGB EDR** and **Linear P3 EDR** display outputs for macOS Extended Dynamic Range workflows.
+- **[minColor](/mincolor/)** — the default. A fixed chain with no config file; every built-in preset uses it.
+- **OCIO** — a live [OpenColorIO](https://opencolorio.org/) pipeline, for when you need a config's own colorspaces, looks and views. Start one with **New OCIO chain…** in the preset list.
 
-![Color panel with the Setup, Clip and View groups](images/qcv025.jpg)
+**Bundled OCIO configs:** ACES 2.0, ACES 1.3, Blender 5.2. You can also load a config file of your own.
 
-Use the `OCIO On / Off` switch at the bottom to toggle color correction.
+<!-- SHOT qcv3_030: the Color drawer open above the transport on an OCIO chain: header (clip name, "Own chain", Reset to default / Apply to all clips / Make project default), the Presets list, Config, Input, Look, the Scene LUT strip, View, the Highlight Knee strip, the waveform on the right, and the bottom row (Color On switch, Exposure, Gamma, channel buttons, Video gamma, Export LUT…) -->
 
----
+The **Color On / Off** switch at the bottom left covers whichever engine a clip uses. Color is off when QCView starts and when you start a new project. Opening a project in which a clip has its own chain turns it on, and so does picking a preset or changing any column.
 
-## Layout
-
-The Color panel reads left to right in three groups, the same way in single and dual view:
-
-| Group | Columns | Applies to |
-|---|---|---|
-| **Setup** | Presets, Config | Picks the names every other column uses |
-| **Clip** | Input, Look, Scene LUT, Highlight Knee | The selected clip only |
-| **View** | Output, View, Display LUT | Everything on screen |
-
-Each column is a list you scroll and filter to pick a value. The narrow columns (Look, Scene LUT, Display LUT, Highlight Knee) collapse to a strip when they are not in use; click one to open it.
-
-### Setup
-
-- **Presets** — recall a saved chain. A preset sets both halves of the panel: its clip half on the selected clip, its view half on the View. Presets that don't suit the current display mode are dimmed, and each one is tagged **SDR** or **HDR**.
-- **Config** — pick the OCIO config (ACES 2.0 / ACES 1.3 / Blender 5.2 / Blender 5.1).
-
-### Clip
-
-The Clip group is the selected clip's own chain, so each clip can be read differently: an sRGB render next to a PQ master, for example.
-
-- **Input** — the clip's source colorspace
-- **Look** — optional creative look (Blender's AgX, Contrast, Punchy, etc.)
-- **Scene LUT** — optional LUT applied in the scene-linear stage: a `.cube` file, or an ASC CDL (`.cc`, `.ccc`, `.cdl`). For a CDL collection, a **Correction ID** field picks the correction (an id or an index; empty uses the first).
-- **Highlight Knee** — see [below](#highlight-knee)
-- **Host display** — set by a [QCBridge for Blender](/qcbridge/blender/) stream link: the host's view rendered for the host's display device, shown as a caption with ↺. The live strip's chip has its options.
-
-Every change you make here stays with that clip. A column the clip has set shows **↺** in its header; click it to go back to the default. Clips that haven't set a column follow the default chain, which is what you edit when no clip is loaded.
-
-Clip chains are saved with the project. A clip with its own chain shows a badge — its Input, plus anything else it sets — on its row in the [Project panel](/project-manager/) and on its A / B chip above the viewport.
-
-### View
-
-The View group is shared by everything on screen, both sides of a dual view included:
-
-- **Output** — the display colorspace
-- **View** — the display view (e.g. an HDR view for an EDR output)
-- **Display LUT** — optional `.cube` LUT applied at the display stage
+With Color off, no chain is applied: the picture is decoded from the file's own tags.
 
 ---
 
-## Dual view
+## One chain per clip
 
-In dual view the Clip group has an **A** and a **B** tab, named after each side's clip. The tab you pick is the clip you are editing, and each side renders through its own chain; the View group still applies to both.
+Each clip has one whole chain: its Input, everything in between, and how it is rendered for the screen. There is no shared "view" half; two clips can be read and shown in completely different ways.
 
-![Dual view with a different Input and Highlight Knee on each side](images/qcv039.jpg)
+The drawer's header names the clip you are editing and says where its chain comes from:
 
-Here A is an SDR render read as Rec.1886, and B is a PQ master in P3-D65 read as `ST2084-P3-D65` with the Highlight Knee on. Each chip shows its clip's badge.
+- **Following the project default** — the clip has no chain of its own and uses the project's default chain.
+- **Own chain** — the clip has been given its own chain. Picking a preset or changing any column does this.
 
-To give many clips the same Input at once, use the Project panel's right-click menu (see [Project Panel](/project-manager/#clip-colour)).
+Three buttons sit at the right of the header:
 
----
-
-## Highlight Knee
-
-An optional step between the scene side and the View that compresses highlights above a chosen level into the display's range, for checking HDR material on a display that can't show it all.
-
-- **Source peak** — the brightest level in the source (nits). **Use file MaxCLL** takes it from the file's HDR metadata when present.
-- **Target peak** — the display's peak (100 nits on an SDR display).
-- **Knee start** — where the compression begins; defaults to the BT.2390 knee, whose shoulder is BT.2390's own curve. A start you set by hand uses a monotonic shoulder instead, so the picture never rises above the target peak however high you start the knee. Double-click the slider to reset it.
-
-While the knee is compressing, an amber **KNEE** pill sits in the viewport bar as a reminder that the picture is not 1:1. The knee is part of the clip's chain and is saved in presets.
-
----
-
-## Viewer aids
-
-The bottom bar holds inspection aids for looking into the source. They need OCIO on, are captured in screenshots and note thumbnails, and are never saved in presets or baked into exports.
-
-| Control | What it does |
+| Button | What it does |
 |---|---|
-| **Exposure** | Linear gain before the View, in stops (±4) |
-| **Gamma** | Lifts (> 1) or lowers (< 1) the result, 0.25–4 |
-| **RGB / R / G / B / A / Y** | Show all channels, one channel, alpha, or luma |
+| **Reset to default** | Removes the clip's own chain, so it follows the project default again |
+| **Apply to all clips** | Gives this chain to every video, still and sequence in the project (audio items and live sources are skipped) |
+| **Make project default** | Makes this clip's chain the project default |
+
+With nothing loaded, the header reads **Project default** and the drawer edits the default chain directly. A project that has never set one uses the **Rec.709 video** preset.
+
+Clip chains and the project default are saved with the project.
 
 ---
 
 ## Presets
 
-Configure a chain you like, then click **Save as…** to capture it as a named preset. **Save** updates the current preset, **Delete** removes it, and the arrows on either side of the preset name step through the list. When you change a preset's settings its name shows **modified**.
+The **Presets** list is the first column, and it is one list for both engines:
+
+- **minColor** — the built-in presets. See [minColor](/mincolor/#presets).
+- **Yours** — presets you have saved, each tagged with its engine. The heading appears once you have saved one.
+- **OCIO** — **New OCIO chain…**, which puts the clip on OCIO starting from the ACES 2.0 config. Pick another config in the Config column.
+
+A preset is a starting point, not a live link: picking one copies its chain onto the clip. As soon as you change a column, the list shows a **Custom (from …)** row at the top, and **Save as preset…** under the list becomes available. Give the preset a name and it joins **Yours**.
+
+Right-click one of your presets for **Rename…**, **Update to this chain** (overwrite the preset with the chain you are looking at) and **Delete**. The built-in presets cannot be changed.
+
+Your presets are kept with the app's settings, not in the project, so they are there for every project. Picking an OCIO preset puts the clip on OCIO; picking a minColor preset puts it back on minColor. Presets saved in QCView 2 are not carried over.
+
+---
+
+## The OCIO columns
+
+On an OCIO chain the drawer reads left to right: Presets, **Config**, **Input**, **Look**, **Scene LUT**, **View**, **Highlight Knee**, then the waveform. If the window is too narrow for all of them, the columns scroll sideways; the waveform stays put.
+
+- **Config** — ACES 2.0, ACES 1.3, Blender 5.2, or **Open config…** to load a `.ocio` file of your own. When you change config, the Input, Look and View keep their names where the new config has them; a missing Input falls back to the config's scene-linear space, a missing View to an SDR view where the config has one, and a missing Look to None.
+- **Input** — the clip's source colorspace. Type in the filter field to narrow the list.
+- **Look** — an optional creative look from the config, or **None**.
+- **Scene LUT** — see [below](#scene-lut).
+- **View** — the config's view. There is no display or output to choose: QCView picks the surface for your monitor by itself (see [HDR](/hdr/)).
+- **Highlight Knee** — see [below](#highlight-knee).
+
+Scene LUT and Highlight Knee collapse to a narrow strip when they are not in use; click the strip to open it. A dot on the strip shows that it is active.
+
+### Scene LUT
+
+An optional LUT or CDL file applied to the Input's own values, after the Look. Click **+ Add LUT** and choose a file; the card then shows the file's name and **Replace LUT**, and the **✕** clears it.
+
+- **Formats:** `.cube`, `.3dl`, `.csp`, and the ASC CDL formats `.cc`, `.ccc`, `.cdl`.
+- **Correction ID** — for a `.ccc` or `.cdl` file, a field under the file picks the correction, by id or by index. Leave it empty to use the first one. Press Enter or click elsewhere to apply it.
+
+The Scene LUT is part of the clip's chain, so Reset to default, Apply to all clips and presets all carry it. It is available on OCIO chains only.
+
+If the file cannot be loaded (it is missing, malformed, or the Correction ID is not in it), a red message names the file, the card shows the reason, and that clip is shown with Color bypassed until you fix or clear the LUT.
+
+Two limits to know about:
+
+- A LUT file that is edited on disk under the same name is re-read only after QCView restarts.
+- The LUT's path is stored as you chose it. A project opened on another machine or OS finds the file only if the same path exists there.
+
+**QCView 2 projects.** A clip that had a Scene LUT in QCView 2 keeps it in the project, but the LUT is not applied on open; a notice says so. Give that clip an OCIO chain and its QCView 2 Input, Look, Scene LUT and Highlight Knee are taken over into the new chain.
+
+---
+
+## Dual view
+
+In [dual view](/dual-view/) each side is a clip, so each side has its own chain. The drawer edits the selected side, the one whose A / B chip or timeline lane you clicked last. The header leads with that side's letter in its color, then the clip's name.
+
+<!-- SHOT qcv3_031: dual view with the Color drawer open: the header showing the side letter and clip name, a different Input on each side with the Highlight Knee on for the HDR side, and the waveform overlaying both sides -->
+
+An SDR render can sit beside a PQ master this way, each read through its own Input, with the Highlight Knee on for the HDR side only.
+
+---
+
+## Highlight Knee
+
+An optional step that compresses highlights above a chosen level into the display's range, for checking HDR material on a display that can't show it all. Both engines have it, and it is the only tone mapping QCView applies to the screen: nothing is compressed unless you turn this on.
+
+- **Source peak** — the brightest level in the source (nits). The button under it takes the value from the file's HDR metadata: **Use file MaxCLL**, or **Use mastering peak** when the file carries no MaxCLL.
+- **Target peak** — the level the highlights are brought down to. On an OCIO chain with an SDR view it is fixed at 100 nits.
+- **Knee start** — where the compression begins; defaults to the BT.2390 knee. Drag the slider to set it by hand; double-click the slider, or use the reset button, to go back to BT.2390.
+
+While the knee is compressing, a yellow **KNEE** pill sits in the drawer's header as a reminder that the picture is not 1:1. The knee is part of the clip's chain and is saved in presets.
+
+---
+
+## Viewer aids
+
+The bottom row holds inspection aids for looking into the picture. They are captured in screenshots, and are never saved in presets, shown in thumbnails or baked into an exported LUT. They do not move the waveform.
+
+| Control | What it does |
+|---|---|
+| **Exposure** | Linear gain, in stops (±4) |
+| **Gamma** | Lifts (> 1) or lowers (< 1) the result, 0.25–4 |
+| **RGB / R / G / B / A / Y** | Show all channels, one channel, alpha, or luma |
+
+Double-click a slider to reset it. The reset arrow at the end of the row, shown while any aid is active, clears all three.
+
+### Video gamma
+
+**Video gamma** shows the picture the way an unmanaged Rec.709 desktop does: black and white stay where they are, and shadows and midtones come out lighter than in the accurate view. It is an emulation for people who work that way, not a reference.
+
+- It acts only with Color on and only on an SDR picture. With Color off, or while the picture is shown in HDR, the button is greyed and its tooltip says why. It does not act in dual view's difference mode.
+- While it acts, a yellow **VIDEO GAMMA** pill sits in the drawer's header.
+- It is one setting for the whole app, remembered between launches. It is not part of a clip's chain or a preset.
+- Screenshots, note images, thumbnails, the [outputs](/output/) and Export LUT carry it. The waveform does not: it keeps reading the source.
+
+---
+
+## Waveform
+
+The waveform is the card at the right end of the drawer. Click its caret to collapse it to a strip, and the strip to open it again. It shows the signal's level by image column.
+
+<!-- SHOT qcv3_032: the waveform card in the Color drawer on its HDR scale: the SDR / HDR chips, the "1000 nits" top button, the graticule with the 100 and 203 lines, and the readout line under the card -->
+
+The waveform reads the source, not the finished picture:
+
+- **Color on** — through the clip's Input (minColor's Input gamut and transfer, or the OCIO Input). The Look, Scene LUT, Knee, View and viewer aids never move it.
+- **Color off** — from the file's tags, or from the **Transfer** choice in the [Inspector](/inspector/) when you have set one.
+
+It has two scales, picked with the **SDR** / **HDR** chips:
+
+- **SDR** — percent, 0–100 %, with room above and below so super-whites and sub-blacks show.
+- **HDR** — luminance in nits, with lines at 100 and at **203**, HDR graphics white (BT.2408). The button beside the chips sets the top of the scale; click it to step through 300, 600, 1000, 2000 and 4000 nits. PQ and HLG sources plot their absolute luminance; an SDR or scene-linear source puts its white at 100 nits.
+
+Until you pick a chip, the scale follows the source: HDR for PQ and HLG sources, SDR for everything else. Your pick, the top of the HDR scale and whether the card is open are remembered between launches.
+
+Under the trace, the readout gives the brightest level in the current frame and the clip's **peak** since it was loaded. It turns yellow when the peak is over the top of the scale. Hover it for the brightest channel.
+
+In dual view both sides are drawn on the one waveform, A in cyan and B in tan, each read through its own clip's Input, with a readout line per side.
+
+**Sources without usable tags** — an HDR export whose file carries no transfer tag reads as SDR. With Color on, give the clip the right Input. With Color off, tell QCView what it is with the Inspector's **Transfer** choice; live sources have the same choice on the live row. See [HDR](/hdr/#hdr-sources-without-tags).
+
+---
 
 ## Export LUT
 
-The **Export LUT** action serializes the current chain to a `.cube` file for use in other software.
+**Export LUT…** at the right end of the bottom row bakes the chain you are editing to a 65³ `.cube` file for use in other software. It works for either engine, with Color on or off. On an OCIO chain it needs an Input and a View.
+
+- The LUT takes the Input's code values in and gives the chain's SDR picture out, sRGB-encoded. A chain that renders for HDR is exported through its SDR equivalent, the same way a screenshot is taken.
+- It includes the Look, the Scene LUT and the Highlight Knee. If the knee had to be left out, the message after the export says so.
+- It includes **Video gamma** when that is lit and acting; the message then reads "LUT exported with Video gamma".
+- It never includes Exposure, Gamma or the channel view.
+- QCView does not suggest a file name; you choose one.
+
+One limit: the LUT has no shaper, so it covers input values from 0 to 1 only. For a scene-linear Input that means nothing brighter than 1.0 is represented.

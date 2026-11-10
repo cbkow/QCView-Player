@@ -13,7 +13,7 @@ nav_order: 2
 
 ## Requirements
 
-- **QCView 2.4.0 or newer** on the same machine. Audio from Premiere Pro needs QCView 2.5.4 and QCBridgeAE 0.3.1; notes on the feed and the stream output need QCView 2.5.6.
+- **QCView 3.0** on the same machine. Audio from Premiere Pro needs QCBridgeAE 0.3.1 or newer.
 - After Effects or Premiere Pro with Mercury Transmit (any current release).
 - macOS on Apple Silicon, or Windows x64.
 
@@ -43,11 +43,11 @@ Updating is the same step with a newer installer.
 
 **In QCView:** *File → Connect to After Effects* (or *Connect to Premiere Pro*). The source appears in the **Live** bin as **QCBridge After Effects** / **QCBridge Premiere Pro** and waits until the host is sending.
 
-![QCView player window](images/qcbridge_007.png)
+<!-- SHOT qcv3_051: QCView with a QCBridge feed loaded - the item in the Live bin of the Media section, the live row under the picture (LIVE badge, the feed's facts, the Transfer chip, the Listen speaker) -->
 
-**Set QCView's OCIO input to your project's working space.** The pixels arrive in the host's working colour space, untransformed. With Adobe colour management that is the project's working space; with OCIO colour management, the OCIO working space (for example ACEScg).
+**Set the feed's Input to your project's working space.** The pixels arrive in the host's working colour space, untransformed. With Adobe colour management that is the project's working space; with OCIO colour management, the OCIO working space (for example ACEScg). The feed is a clip like any other in the **Color** drawer: give it a chain whose Input matches — the Input gamut and transfer in minColor, or the Input colourspace in an OCIO chain. See [Color](/color/).
 
-The feed carries no colour tag, so with OCIO off the scopes read it as SDR. The **Transfer** chip on the live strip tells them what it is: `Linear` for a linearised working space, `SDR 709` for a display-referred one, `PQ 2020` for an HDR project. See [HDR sources without tags](/hdr/#hdr-sources-without-tags).
+The feed carries no colour tag, so the **Transfer** chip on the live row reads `Auto · working space, untagged` until you tell QCView what the feed is: `Linear` for a linearised working space, `SDR 709` for a display-referred one, `PQ 2020`, `PQ P3` or `HLG` for an HDR project. The Inspector's Color card has the same choice. See [HDR](/hdr/).
 
 ---
 
@@ -58,7 +58,7 @@ The feed carries no colour tag, so with OCIO off the scopes read it as SDR. The 
 - Mercury Transmit is always a few frames behind AE (Just how it works and shares the same issue with Blackmagic, Aja, or other plugins), but Premiere is fairly tightly synced — depending on system resources and timeline resolution.
 - You can stream from AE and Premiere at the same time and between them, or use them in QCView Dual View review modes.
 
-![QCView player window](images/qcbridge_008.png)
+<!-- SHOT qcv3_052: QCView in dual view with an After Effects feed on one side and a Premiere Pro feed (or a file) on the other -->
 
 ---
 
@@ -66,16 +66,17 @@ The feed carries no colour tag, so with OCIO off the scopes read it as SDR. The 
 
 Premiere Pro can push the sequence's audio alongside the picture. In *Settings → Playback*, tick **Audio Stream** for the QCBridgeAE device. The Inspector's **Audio** card then shows the stream's state, rate and channels with per-channel meters.
 
-- **Listen in QCView** plays the feed's audio through QCView. It is off by default — Premiere is already playing it — and useful when QCView is on another output or when the feed is sent on through the Output section, which carries the audio whether you listen or not.
+- **Listen in QCView** — the speaker button on the live row — plays the feed's audio through QCView. It is off by default — Premiere is already playing it — and useful when QCView is on another audio device. The [Output](/output/) section carries the feed's audio whether you listen or not (mind its own **Mute feed** toggle, which starts on).
+- A sequence that is not at 48 kHz is resampled, so it plays at the right speed.
 - 5.1 and 7.1 sequences fold to stereo by the same routing rules as files; **Mute scrub audio** applies to the feed too.
 - **A/V sync (Live)** in Settings delays the audio or holds the picture, per host application, to line the two up on your system.
-- Live audio keeps a small jitter buffer that fills before it plays and refills after an underrun, so a busy Premiere does not chop the sound.
+- Live audio keeps a small buffer that fills before it plays, so a busy Premiere does not chop the sound; **Live audio buffer** in Settings sets its size.
 
 After Effects sends picture only.
 
 ## Working with the feed in QCView
 
 - **The transport keys leave the feed alone.** Play/pause, frame step, shuttle and seek have no meaning for a feed, so they are ignored; `M` mutes it. On a live item, `Space` freezes the feed for a note and brings it back — see [Notes on live feeds](/annotations/#notes-on-live-feeds).
-- **Notes** on a feed capture the frame you are looking at and live in the QCView project. For Premiere Pro each note records the sequence timecode it came from.
-- **Dual view** takes a feed on either side. It keeps playing, with its audio in the mix, while the file side is paused, stepped or shuttled. See [Dual View](/dual-view/#live-sides).
-- **Sending it on.** The [Output](/output/) section publishes the viewport — the feed with QCView's colour transform, guides and notes — as an NDI® source, out of an AJA device's SDI and HDMI (a PQ or HLG feed passes straight through), or as an H.264 stream to a review service.
+- **Notes** on a feed capture the frame you are looking at — the full float frame is held while you review it — and live beside the QCView project, so save the project first. For Premiere Pro each note records the sequence timecode it came from.
+- **Dual view** takes a feed on either side. It keeps playing while the file side is paused, stepped or shuttled. A live side starts muted; its chip's speaker pill unmutes it. See [Dual View](/dual-view/#live-sides).
+- **Sending it on.** The [Output](/output/) section publishes the viewport — the feed with QCView's colour transform, guides and notes — as an NDI® source, or out of an AJA device's SDI and HDMI.

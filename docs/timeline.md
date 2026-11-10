@@ -6,9 +6,9 @@ nav_order: 5
 
 # Timeline and Transport Controls
 
-The bottom of the viewport contains playback controls and timeline navigation. The layout adapts based on the type of media loaded and whether you're in playlist or single-source mode. Click on the video track to seek to a location or drag the playhead to scrub.
+Three bands sit under the viewport: the status strip with the frame and timecode readouts, the transport row with the playback controls, and the timeline. Click on the timeline to seek to a location, or drag to scrub. A playlist adds a clip bar under the timeline, and dual view adds two lanes, A over B.
 
-![Timeline and transport controls below the viewport](images/qcv013.jpg)
+<!-- SHOT qcv3_011: The three bands under the viewport with a clip loaded: status strip (frame, timecode, fps), transport row, and the timeline with its ruler, playhead and faded audio waveform -->
 
 ## Transport
 
@@ -16,59 +16,98 @@ The bottom of the viewport contains playback controls and timeline navigation. T
 |---|---|---|---|
 | Beginning | Jump to start of media | `Home` (or `Fn + ←`) | `Home` |
 | Rewind | Press and hold — accelerates over time | `A` / `J` (hold) | `A` / `J` (hold) |
-| Back one frame | Step back one frame | `Q` | `Q` |
+| Back one frame | Step back one frame (hold to keep stepping) | `Q` / `←` | `Q` / `←` |
 | Play / Pause | Toggle playback | `Space` / `K` / `W` / `S` | `Space` / `K` / `W` / `S` |
-| Forward one frame | Step forward one frame | `E` | `E` |
+| Forward one frame | Step forward one frame (hold to keep stepping) | `E` / `→` | `E` / `→` |
 | Fast-forward | Press and hold — accelerates over time | `D` / `L` (hold) | `D` / `L` (hold) |
 | End | Jump to end of media | `End` (or `Fn + →`) | `End` |
 
-The right end of the row holds loop, fullscreen and Compact Mode, the two screenshot buttons, the Color and Notes panel toggles and the volume; flush right, apart from the rest, sits the pin (Always on Top, `Ctrl + Alt + T`), which keeps the window above other apps and is remembered — see [Layout Presets](/basics/#layout-presets).
+Left to right, the row holds: **Open media…**, the transport buttons above with the review-speed chip beside them, In / Out / Clear, loop, fullscreen and Compact Mode, the two screenshot buttons, Safety guides, Background, the Color and Notes panel toggles, and mute with the volume slider. Flush right, apart from the rest, sits the pin (Always on Top, `Ctrl + Alt + T`), which keeps the window above other apps and is remembered — see [Layout Presets](/app-basics/#layout-presets).
 
 On a live feed the transport keys are ignored and `M` mutes it; `Space` freezes the feed for a note and brings it back (see [Notes on live feeds](/annotations/#notes-on-live-feeds)).
 
-In **playlist mode**, additional **Prev clip** / **Next clip** buttons appear. They jump the playhead to the start of the previous or next clip in the playlist. Prev snaps to the current clip's start first (mid-clip); a second press jumps to the previous clip.
+<!-- SHOT qcv3_012: The transport row, full width, with every button group visible and the pin at the far right -->
 
-![Prev clip and Next clip transport buttons in playlist mode](images/qcv011.jpg)
+### Review speed
+
+The chip beside the transport buttons shows the playback speed, `1×` at rest. Click it, or press `R`, to step through 0.5×, 0.75×, 1×, 1.25×, 1.5× and 2×. `Shift`-click it, or press `Shift + R`, to go straight back to 1×.
+
+| Control | Action | macOS | Windows |
+|---|---|---|---|
+| Speed chip | Next review speed | `R` | `R` |
+| Speed chip (`Shift`-click) | Back to 1× | `⇧ + R` | `Shift + R` |
 
 ---
 
 ## Screenshots
 
-Two screenshot buttons capture the current viewport contents (with OCIO transforms applied):
+Two screenshot buttons capture the picture:
 
 | Button | Action | macOS | Windows |
 |---|---|---|---|
 | Clipboard | Copies the screenshot to the system clipboard | `⌘ + T` | `Ctrl + T` |
 | Desktop | Saves a screenshot file to your Desktop | `T` | `T` |
 
-![Clipboard and Desktop screenshot buttons](images/qcv012.jpg)
+The Desktop file is named after the media, with the date and time added. Its format is the **Screenshot format** in [Settings](/settings/): PNG (the default), PNG 16-bit, JPEG or TIFF 16-bit. The clipboard copy is 8-bit.
+
+A screenshot is the picture you are reviewing, written as a standard SDR image:
+
+- The clip's colour chain is applied. When the picture on screen is HDR, the screenshot uses the SDR version of the same chain. With Color off, an SDR source is written as stored and an HDR (PQ / HLG) source is tone-mapped to SDR.
+- **Video gamma** is included when it is lit (see [Color](/color/)).
+- The clip's pixel aspect and rotation are applied.
+- When the media has transparency, PNG and TIFF screenshots keep the alpha channel. JPEG is always opaque.
+- Annotations are included while the Notes panel is open and showing them. Safety guides are included only with **Include safety guides in screenshots** turned on in Settings.
+
+<!-- SHOT qcv3_013: The Clipboard and Desktop screenshot buttons on the transport row, with the "Screenshot saved" message showing -->
 
 ---
 
 ## Timecode and Frames
 
-The top-left corner displays the current timecode and frame count. 
+The left end of the status strip shows the current frame (`Frame 120 / 479`) and the timecode; the frame rate is at the right end.
 
-![Timecode and frame readout in the top-left corner](images/qcv014.jpg)
+Click the frame readout to go to a frame, or the timecode readout to go to a timecode. Type the number and press `Enter`; `Esc` closes the box without moving. A timecode can be typed as digits only and is padded from the right, so `1000` means `00:00:10:00`.
 
-For video files with embedded timecode, that timecode will be used. The Inspector's **Timecode Origin** pill lets you pick which timecode track to follow per-source. See the Inspector page for more info.
+<!-- SHOT qcv3_014: The status strip's frame and timecode readouts, with the GO TO TIMECODE box open above the timecode -->
+
+For video files with embedded timecode, that timecode will be used. The Inspector's **Origin** chips (in its Timecode group) let you pick which timecode to follow per source. See the [Inspector](/inspector/) page for more info.
 
 ---
 
+## The Timeline
+
+The timeline is one band that is also the ruler. It shows:
+
+- time ticks and labels along the top, and frame ticks once you zoom in far enough;
+- the playhead, and the in / out zone when one is set;
+- the clip's audio waveform as a faded fill (turn it off with **Timeline audio waveforms** in [Settings](/settings/));
+- for image sequences, a line along the bottom for the frames cached behind and ahead of the playhead, and a red mark for every frame that is missing or could not be read;
+- a pennant for every note on the clip.
+
+### Note pennants
+
+Each note on the loaded clip has a violet pennant on the bottom edge of the timeline: filled for an open note, hollow for one marked addressed. Hover a pennant to read the note's timecode and text; click it to jump to the note. Pennants show in single view for a file. A live feed, a playlist, dual view and the Compact Mode strip have none. See [Annotations](/annotations/).
+
+<!-- SHOT qcv3_015: The timeline with several note pennants along its bottom edge — some filled, one hollow — and the tooltip of a hovered pennant showing its timecode and text -->
+
 ## Dropping media on the timeline
 
-The track lanes are drop targets. Drop a file (or a bin item) on lane A to load it as the A source, or on lane B to load it as B; the lane lights up under the drag. In single view the one lane loads the active source. In playlist mode the drop inserts into the playlist instead.
+With a playlist loaded, the timeline and the clip bar under it are drop targets: drop a file, or an item from the Media section, to insert it into the playlist (see [Playlists](/playlists/)).
+
+In single and dual view the timeline does not take drops. Drop on the picture to load a file, and in dual view on the **A** or **B** chip, or on that side of the picture (see [Dual Video Review](/dual-view/)).
 
 ## Zoom and Pan
 
 | Action | macOS | Windows |
 |---|---|---|
-| Zoom in / out on the timeline | `Wheel` | `Wheel` |
-| Pan the timeline | `⌥ + Wheel` | `Alt + Wheel` |
+| Zoom in / out on the timeline, around the pointer | `Wheel` | `Wheel` |
+| Zoom in / out, around the playhead | `⌘ + =` / `⌘ + -` | `Ctrl + =` / `Ctrl + -` |
+| Pan the timeline | `⌥ + Wheel`, or drag with the middle button | `Alt + Wheel`, or drag with the middle button |
+| Fit the whole timeline | Double-click the timeline | Double-click the timeline |
 
-You can also drag the edges of the overview-bar zoom indicator to adjust the visible range, or grab the indicator's body to scroll. Long-form content (feature films) can be zoomed all the way out to show the entire timeline or zoomed into a tighter view.
+When you are zoomed in, a thin marker along the bottom of the timeline shows which part of the whole you are looking at, and during playback the view turns the page as the playhead reaches the edge. Long-form content (feature films) can be zoomed all the way out to show the entire timeline or zoomed into a tighter view.
 
-![Timeline overview-bar zoom indicator](images/qcv015.jpg)
+<!-- SHOT qcv3_016: The timeline zoomed in on a long clip, showing frame ticks and the thin extent marker along the bottom edge -->
 
 ---
 
@@ -81,19 +120,19 @@ Adjust the volume slider or click the speaker icon to toggle mute. Both are reme
 | Slider | Adjust playback volume | `↑` / `↓` | `↑` / `↓` |
 | Speaker | Toggle mute | `M` | `M` |
 
-![Volume slider and mute button](images/qcv016.jpg)
+<!-- SHOT qcv3_017: The speaker (mute) button and volume slider on the transport row -->
 
 ---
 
 ## Looping
 
-Loop mode is on by default — media restarts after reaching the end. Disable it to stop at the last frame.
+Loop mode is on by default — media restarts after reaching the end. Disable it to stop at the last frame. The choice is remembered.
 
 | Button | Action | macOS | Windows |
 |---|---|---|---|
 | Loop | Toggle loop mode | `V` / `⌘ + L` | `V` / `Ctrl + L` |
 
-![Loop toggle button](images/qcv017.jpg)
+<!-- SHOT qcv3_018: The Loop button on the transport row, lit -->
 
 ### In/Out Range
 
@@ -105,19 +144,45 @@ Set a loop range with the **In** and **Out** buttons. A highlighted loop zone ap
 | Out | Set loop out point at the current frame | `O` | `O` |
 | Clear | Remove the in/out range | `⇧ + I` | `Shift + I` |
 
-In/out range is disabled in playlist mode — the buttons grey out and the timeline markers hide.
-
-![In and Out range markers on the timeline](images/qcv018.jpg)
-
+<!-- SHOT qcv3_019: The timeline with an in / out zone set, and the In, Out and Clear buttons on the transport row -->
 
 ---
 
 ## Editing
 
-In Dual View and Playlist modes, you can toggle edit mode for a track by clicking the pencil icon on the far right. In edit mode, grab the edges of a clip to trim. `Ctrl/Cmd + k` will cut at the playhead location. `Del` will delete the current selection.
+There is no edit mode in QCView 3.0. Playlists and dual view put their clips on bars under the timeline, and you edit them directly: what a drag does depends on where you start it.
 
-![Track in edit mode with trim handles and pencil toggle](images/qcv033.jpg)
+**Playlists** have one clip bar:
 
-In Playlist mode, you can select a clip and drag it to a new location in the timeline to rearrange clip order.
+| Gesture | Result |
+|---|---|
+| Click a clip | Seek there and select the clip |
+| Drag either end of a clip | Trim its head or tail |
+| Drag the body of a clip | Move it to a new place in the order |
+| `Ctrl` / `⌘` + drag a clip | Slip the source under the clip |
+| Double-click a clip | Open a box with **Source in**, **Source out** and **Duration** to type exact values |
 
-![Dragging a clip to reorder it in a playlist](images/qcv034.jpg)
+| Action | macOS | Windows |
+|---|---|---|
+| Split the clip at the playhead | `⌘ + K` | `Ctrl + K` |
+| Delete the selected clip | `Delete` / `Backspace` | `Delete` / `Backspace` |
+| Undo / redo an edit | `⌘ + Z` / `⇧ + ⌘ + Z` | `Ctrl + Z` / `Ctrl + Shift + Z` |
+
+<!-- SHOT qcv3_020: A playlist loaded: the clip bar under the timeline with one clip selected and a clip being dragged to a new position, the insertion bar showing -->
+
+**Dual view** has two lanes, A over B. The gestures are the same, except that dragging the body of a clip slides it in time rather than reordering it. Clicking a clip, or its side's chip, makes that side the target for the keys below.
+
+| Action | macOS | Windows |
+|---|---|---|
+| Trim the clip's head to the playhead | `[` | `[` |
+| Trim the clip's tail to the playhead | `]` | `]` |
+| Cut the target side at the playhead | `⌘ + K` | `Ctrl + K` |
+| Slide the clip one frame | `⌥ + ←` / `⌥ + →` | `Alt + ←` / `Alt + →` |
+| Slide the clip ten frames | `⌥ + ⇧ + ←` / `⌥ + ⇧ + →` | `Shift + Alt + ←` / `Shift + Alt + →` |
+| Delete the clip and leave a gap | `Delete` | `Delete` |
+| Delete the clip and close the gap | `⇧ + Delete` | `Shift + Delete` |
+| Undo / redo an edit | `⌘ + Z` / `⇧ + ⌘ + Z` | `Ctrl + Z` / `Ctrl + Shift + Z` |
+
+See [Playlists](/playlists/) and [Dual Video Review](/dual-view/) for the details.
+
+<!-- SHOT qcv3_021: Dual view: the A and B lanes under the timeline, one clip being trimmed with its frame badge and the snap line showing -->
