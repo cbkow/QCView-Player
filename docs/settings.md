@@ -10,7 +10,7 @@ Open Settings with `Ctrl + ,` (or **Tools → Settings…**). The panel reveals 
 
 QCView 3.0 starts from its own defaults: settings from QCView 2 are not imported. Projects saved by QCView 2 still open.
 
-<!-- SHOT qcv3_040: The Settings section in the Left Rail, expanded, showing the Performance, Interface and Audio groups and the Reset all preferences… button -->
+![The Settings section in the Left Rail, expanded, showing the Performance, Interface and Audio groups and the Reset all preferences… button](images/qcv3_040.png)
 
 ## Performance
 

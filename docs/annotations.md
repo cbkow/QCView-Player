@@ -12,7 +12,7 @@ Open the Notes panel with `Ctrl + 4`, the notes button on the transport bar, or 
 
 Notes work in single view: a file or a live feed. The panel does not open in dual view or with a playlist loaded.
 
-<!-- SHOT qcv3_036: The Notes drawer open above the transport row: the Add note here and Export notes tiles on the left, a row of note cards with thumbnails, the column of seven drawing tools, and the colour picker with the Width slider on the right; a stroke drawn on the picture -->
+![The Notes drawer open above the transport row](images/qcv3_036.png)
 
 ---
 
@@ -22,7 +22,7 @@ Click **Add note here** to create a note at the current playhead position. A car
 
 Every note also gets a pennant on the timeline: violet, filled while the note is open and hollow once it is marked addressed. Hover a pennant to read the note's timecode and text; click it to jump to the note. Pennants show whether or not the Notes panel is open. (The Compact Mode strip has none.)
 
-<!-- SHOT qcv3_037: The timeline with note pennants along its bottom edge, one filled and one hollow, and a hovered pennant's tooltip showing timecode and text -->
+![The timeline with note pennants along its bottom edge, one filled and one hollow, and a hovered pennant's tooltip showing timecode and text](images/qcv3_037.png)
 
 If another app, such as [minNotes](https://minnotes.app), edits the same notes while the panel is open and playback is paused, QCView picks the changes up and merges them with yours.
 
@@ -60,7 +60,7 @@ Export annotations from the **Export notes** tile in the Notes panel. Pick a for
 
 Stream notes are headed by their capture time and the host's timecode instead of a file timecode and frame.
 
-<!-- SHOT qcv3_038: The Export notes menu open on a stream item, showing Markdown folder…, HTML (single file)…, PDF…, DOCX… and Open in minNotes -->
+![The Export notes menu open on a stream item, showing Markdown folder…, HTML (single file)…, PDF…, DOCX… and Open in minNotes](images/qcv3_038.png)
 
 ---
 

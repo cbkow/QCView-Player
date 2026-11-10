@@ -10,7 +10,7 @@ The Inspector lives in the Right Rail (`Ctrl + 2`). It shows per-source properti
 
 The Inspector is laid out in groups — **File**, **Video**, **Geometry**, **Color**, **Audio**, **Timecode**, **Linked Projects** and, for image sequences, **Image Sequence** — each of which can be collapsed. A thumbnail of the clip sits at the top of the File group, drawn in the clip's own colour. In dual view the Inspector follows the targeted side.
 
-<!-- SHOT qcv3_025: The Inspector in the Right Rail with a video loaded: the thumbnail and the File, Video, Geometry and Color groups expanded -->
+![The Inspector in the Right Rail with a video loaded](images/qcv3_025.png)
 
 ## Scopes
 
@@ -48,13 +48,13 @@ Several properties are stored per media item and set with rows of **chips** in t
 
 Aspect, Rotation, Range, Transfer and Mix are kept with the media item: they persist with the project on save and re-apply on open. Origin is a choice for the current session. Screenshots apply the Aspect, Rotation, Range and Transfer choices, and thumbnails follow Range and Transfer.
 
-<!-- SHOT qcv3_026: The Inspector's Geometry and Color groups showing the Aspect, Rotation, Range and Transfer chip rows -->
+![The Inspector's Geometry and Color groups showing the Aspect, Rotation, Range and Transfer chip rows](images/qcv3_026.png)
 
 ## Audio
 
 The **Audio** group lists the codec, sample rate, channel count and layout, the **Mix** chips described above, and a level meter per channel.
 
-<!-- SHOT qcv3_027: The Inspector's Audio and Timecode groups for a multi-channel file: the Mix chips, the per-channel meters and the Origin chips -->
+![The Inspector's Audio and Timecode groups for a multi-channel file](images/qcv3_027.png)
 
 ## Linked Projects
 
@@ -66,7 +66,7 @@ The **Linked Projects** group lists the After Effects and Premiere Pro projects 
 
 For image sequences, the **Image Sequence** group displays the frame range, file name pattern, resolution, duration and, for EXR, the compression. It holds the **Frame rate** chips, the **Transfer** chips, and the **Cache stride** chips (`1x 2x 3x 4x`) for heavy sequences that won't play back without help, with **Cache ahead** and **Cache behind** readouts underneath. A multi-layer EXR lists its layers as thumbnails at the bottom; click one to view it. See [Image Sequences](/image-sequences/).
 
-<!-- SHOT qcv3_029: The Image Sequence group for a multi-layer EXR sequence: Frame rate, Transfer and Cache stride chips, the cache readouts and the layer thumbnails -->
+![The Image Sequence group for a multi-layer EXR sequence](images/qcv3_029.png)
 
 ## Live sources
 

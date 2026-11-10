@@ -11,7 +11,7 @@ nav_order: 1
 
 Every built-in preset is a minColor preset, and a project that has not set its own default uses the minColor **Rec.709 video** chain. This page covers minColor's own columns; the drawer as a whole (the On / Off switch, one chain per clip, presets, the waveform, Export LUT) is on the [Color](/color/) page.
 
-<!-- SHOT qcv3_033: the Color drawer on a minColor chain: the Presets list with the built-ins and "P3-D65 PQ master" selected, Input gamut, Input transfer, the Highlight Knee card open and on, the AgX strip, and the waveform -->
+![The Color drawer on a minColor chain](images/qcv3_033.png)
 
 ---
 
@@ -34,7 +34,7 @@ The same knee as on an OCIO chain: it compresses highlights above the source pea
 
 An optional picture formation: a parametric, HDR-capable AgX that matches Blender's at its defaults. Click the **AgX** strip to open the card, then switch it on.
 
-<!-- SHOT qcv3_034: the AgX card open and switched on in the Color drawer, showing Target gamut chips, Peak luminance and the curve sliders, on a scene-linear clip -->
+![The AgX card open and switched on in the Color drawer, showing Target gamut chips, Peak luminance and the curve sliders, on a scene-linear clip](images/qcv3_034.png)
 
 | Control | What it does |
 |---|---|

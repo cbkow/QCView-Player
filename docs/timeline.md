@@ -8,7 +8,7 @@ nav_order: 5
 
 Three bands sit under the viewport: the status strip with the frame and timecode readouts, the transport row with the playback controls, and the timeline. Click on the timeline to seek to a location, or drag to scrub. A playlist adds a clip bar under the timeline, and dual view adds two lanes, A over B.
 
-<!-- SHOT qcv3_011: The three bands under the viewport with a clip loaded: status strip (frame, timecode, fps), transport row, and the timeline with its ruler, playhead and faded audio waveform -->
+![The three bands under the viewport with a clip loaded](images/qcv3_011.png)
 
 ## Transport
 
@@ -26,7 +26,7 @@ Left to right, the row holds: **Open media…**, the transport buttons above wit
 
 On a live feed the transport keys are ignored and `M` mutes it; `Space` freezes the feed for a note and brings it back (see [Notes on live feeds](/annotations/#notes-on-live-feeds)).
 
-<!-- SHOT qcv3_012: The transport row, full width, with every button group visible and the pin at the far right -->
+![The transport row, full width, with every button group visible and the pin at the far right](images/qcv3_012.png)
 
 ### Review speed
 
@@ -58,7 +58,7 @@ A screenshot is the picture you are reviewing, written as a standard SDR image:
 - When the media has transparency, PNG and TIFF screenshots keep the alpha channel. JPEG is always opaque.
 - Annotations are included while the Notes panel is open and showing them. Safety guides are included only with **Include safety guides in screenshots** turned on in Settings.
 
-<!-- SHOT qcv3_013: The Clipboard and Desktop screenshot buttons on the transport row, with the "Screenshot saved" message showing -->
+![The Clipboard and Desktop screenshot buttons on the transport row, with the "Screenshot saved" message showing](images/qcv3_013.png)
 
 ---
 
@@ -68,7 +68,7 @@ The left end of the status strip shows the current frame (`Frame 120 / 479`) and
 
 Click the frame readout to go to a frame, or the timecode readout to go to a timecode. Type the number and press `Enter`; `Esc` closes the box without moving. A timecode can be typed as digits only and is padded from the right, so `1000` means `00:00:10:00`.
 
-<!-- SHOT qcv3_014: The status strip's frame and timecode readouts, with the GO TO TIMECODE box open above the timecode -->
+![The status strip's frame and timecode readouts, with the GO TO TIMECODE box open above the timecode](images/qcv3_014.png)
 
 For video files with embedded timecode, that timecode will be used. The Inspector's **Origin** chips (in its Timecode group) let you pick which timecode to follow per source. See the [Inspector](/inspector/) page for more info.
 
@@ -88,7 +88,7 @@ The timeline is one band that is also the ruler. It shows:
 
 Each note on the loaded clip has a violet pennant on the bottom edge of the timeline: filled for an open note, hollow for one marked addressed. Hover a pennant to read the note's timecode and text; click it to jump to the note. Pennants show in single view for a file. A live feed, a playlist, dual view and the Compact Mode strip have none. See [Annotations](/annotations/).
 
-<!-- SHOT qcv3_015: The timeline with several note pennants along its bottom edge — some filled, one hollow — and the tooltip of a hovered pennant showing its timecode and text -->
+![The timeline with several note pennants along its bottom edge](images/qcv3_015.png)
 
 ## Dropping media on the timeline
 
@@ -107,7 +107,7 @@ In single and dual view the timeline does not take drops. Drop on the picture to
 
 When you are zoomed in, a thin marker along the bottom of the timeline shows which part of the whole you are looking at, and during playback the view turns the page as the playhead reaches the edge. Long-form content (feature films) can be zoomed all the way out to show the entire timeline or zoomed into a tighter view.
 
-<!-- SHOT qcv3_016: The timeline zoomed in on a long clip, showing frame ticks and the thin extent marker along the bottom edge -->
+![The timeline zoomed in on a long clip, showing frame ticks and the thin extent marker along the bottom edge](images/qcv3_016.png)
 
 ---
 
@@ -120,7 +120,7 @@ Adjust the volume slider or click the speaker icon to toggle mute. Both are reme
 | Slider | Adjust playback volume | `↑` / `↓` | `↑` / `↓` |
 | Speaker | Toggle mute | `M` | `M` |
 
-<!-- SHOT qcv3_017: The speaker (mute) button and volume slider on the transport row -->
+![The speaker (mute) button and volume slider on the transport row](images/qcv3_017.png)
 
 ---
 
@@ -132,7 +132,7 @@ Loop mode is on by default — media restarts after reaching the end. Disable it
 |---|---|---|---|
 | Loop | Toggle loop mode | `V` / `⌘ + L` | `V` / `Ctrl + L` |
 
-<!-- SHOT qcv3_018: The Loop button on the transport row, lit -->
+![The Loop button on the transport row, lit](images/qcv3_018.png)
 
 ### In/Out Range
 
@@ -144,7 +144,7 @@ Set a loop range with the **In** and **Out** buttons. A highlighted loop zone ap
 | Out | Set loop out point at the current frame | `O` | `O` |
 | Clear | Remove the in/out range | `⇧ + I` | `Shift + I` |
 
-<!-- SHOT qcv3_019: The timeline with an in / out zone set, and the In, Out and Clear buttons on the transport row -->
+![The timeline with an in / out zone set, and the In, Out and Clear buttons on the transport row](images/qcv3_019.png)
 
 ---
 
@@ -168,7 +168,7 @@ There is no edit mode in QCView 3.0. Playlists and dual view put their clips on 
 | Delete the selected clip | `Delete` / `Backspace` | `Delete` / `Backspace` |
 | Undo / redo an edit | `⌘ + Z` / `⇧ + ⌘ + Z` | `Ctrl + Z` / `Ctrl + Shift + Z` |
 
-<!-- SHOT qcv3_020: A playlist loaded: the clip bar under the timeline with one clip selected and a clip being dragged to a new position, the insertion bar showing -->
+![A playlist loaded](images/qcv3_020.png)
 
 **Dual view** has two lanes, A over B. The gestures are the same, except that dragging the body of a clip slides it in time rather than reordering it. Clicking a clip, or its side's chip, makes that side the target for the keys below.
 
@@ -185,4 +185,4 @@ There is no edit mode in QCView 3.0. Playlists and dual view put their clips on 
 
 See [Playlists](/playlists/) and [Dual Video Review](/dual-view/) for the details.
 
-<!-- SHOT qcv3_021: Dual view: the A and B lanes under the timeline, one clip being trimmed with its frame badge and the snap line showing -->
+![Dual view](images/qcv3_021.png)

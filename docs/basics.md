@@ -58,7 +58,7 @@ On Windows, a shortcut (`.lnk`) to a clip works wherever the clip itself would: 
 
 The picture sits above three bands: the **status strip** (frame, timecode and frame rate, plus the dual-view controls), the **transport row** and the **timeline**. A rail on each side holds the panels, and the Color and Notes panels open as drawers between the picture and the bands.
 
-<!-- SHOT qcv3_004: The whole window with both rails open and the Color drawer open: Left Rail (Media, Safety Guides, Background, Output, Settings), the picture, Right Rail (Inspector, Keyboard Shortcuts), then the status strip, transport row and timeline -->
+![The whole window with both rails open and the Color drawer open](images/qcv3_004.png)
 
 ### Panels
 
@@ -76,7 +76,7 @@ You can also use the mouse:
 - **Rails.** Each rail has a small caret tab floating beside it, over the picture. Click it to collapse the rail and again to bring it back. Drag a rail's inner edge to change its width. On a fresh install the Right Rail starts collapsed.
 - **Color and Notes.** These are drawers above the transport row, and only one is open at a time: opening one closes the other. Each has a button on the transport row. The caret under the picture closes whichever drawer is open; with neither open it opens the Color panel. The Notes panel is available in single view only (a file or a live feed), not in dual view or with a playlist loaded.
 
-<!-- SHOT qcv3_005: Close-up of a rail's floating caret tab, the caret under the picture, and the Color panel and Notes panel buttons on the transport row -->
+![Close-up of a rail's floating caret tab, the caret under the picture, and the Color panel and Notes panel buttons on the transport row](images/qcv3_005.png)
 
 The rails' widths, which rails are open, and the window's size and position are remembered between launches.
 
@@ -91,7 +91,7 @@ The rails' widths, which rails are open, and the window's size and position are 
 
 Compact Mode is for a window that is nothing but the picture: every panel, rail and band goes away, the window loses its title bar, and one strip under the viewport keeps a play / pause button, the timecode, a scrub line with the playhead and in / out marks, a pin (Always on Top) and an exit button; `F` still toggles fullscreen. The transport row has a Compact Mode button next to fullscreen. Drag the timecode, or the picture itself, to move the window. Scrubbing on the strip works the way the timeline does. On a live source the timecode reads **LIVE** and a red dot sits at the start of the line. On macOS the menu bar stays at the top of the screen; on Windows the menu is hidden with the rest of the chrome, so use the shortcuts.
 
-<!-- SHOT qcv3_006: Compact Mode: the picture, and one strip with play / pause, the timecode, the scrub line, the pin and the exit button -->
+![Compact Mode](images/qcv3_006.png)
 
 QCView 3.0 has no Minimal Mode, Show All Panels or Status Bar toggle. The status strip is always shown, and Compact Mode and fullscreen cover the picture-only cases.
 
@@ -103,7 +103,7 @@ QCView 3.0 has no Minimal Mode, Show All Panels or Status Bar toggle. The status
 
 QCView provides background options for reviewing alpha-channel media: **Black**, **Dark Gray**, **Dark Check** and **Light Check**. Open the **Background** section in the Left Rail (Tools menu → Background, or the Background button on the transport row), or press `B` to step through the four.
 
-<!-- SHOT qcv3_007: The Background section in the Left Rail with its four tiles (Black, Dark Gray, Dark Check, Light Check), and a clip with alpha over the checkerboard -->
+![The Background section in the Left Rail with its four tiles (Black, Dark Gray, Dark Check, Light Check), and a clip with alpha over the checkerboard](images/qcv3_007.png)
 
 ### Title Safety Guides
 
@@ -111,7 +111,7 @@ Open the **Safety Guides** section in the Left Rail (Tools menu → Safety Guide
 
 Guides are left out of screenshots unless you turn on **Include safety guides in screenshots** in [Settings](/settings/).
 
-<!-- SHOT qcv3_008: The Safety Guides section in the Left Rail (Guide, Opacity, Width, Color) with a guide drawn over the picture -->
+![The Safety Guides section in the Left Rail (Guide, Opacity, Width, Color) with a guide drawn over the picture](images/qcv3_008.png)
 
 ---
 
@@ -119,13 +119,13 @@ Guides are left out of screenshots unless you turn on **Include safety guides in
 
 The full keyboard shortcut reference lives at the bottom of the Right Rail under **Keyboard Shortcuts** (`Ctrl + /`, or Tools menu → Keyboard Shortcuts). The shortcut opens the rail and scrolls the card into view. Type in the **Filter shortcuts** field to narrow the list by action, by group heading or by key: `loop` leaves Toggle Loop, and `ctrl+k` leaves the two cut commands.
 
-<!-- SHOT qcv3_009: The Keyboard Shortcuts card in the Right Rail with a word typed in the Filter shortcuts field and the matching rows below -->
+![The Keyboard Shortcuts card in the Right Rail with a word typed in the Filter shortcuts field and the matching rows below](images/qcv3_009.png)
 
 ## Settings
 
 The Settings panel opens in the Left Rail (`Ctrl + ,` or Tools menu → Settings…). See [Settings](/settings/).
 
-<!-- SHOT qcv3_010: The Settings section in the Left Rail, expanded, showing the Performance, Interface and Audio groups -->
+![The Settings section in the Left Rail, expanded, showing the Performance, Interface and Audio groups](images/qcv3_010.png)
 
 ## About and Licenses
 

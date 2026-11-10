@@ -32,13 +32,13 @@ Click **Add Media…** to open the file dialog, or drop files on the rail. An em
 
 The item on screen is highlighted with its name in bold. A file QCView cannot play (an unsupported format, or un-debayered camera raw) carries a warning mark on its row.
 
-<!-- SHOT qcv3_022: The Media section in the Left Rail with a saved project's name in its title and items under Videos, Image Sequences, Playlists, Dual Views and Live; one row highlighted as loaded; the Add Media… button -->
+![The Media section in the Left Rail with a saved project's name in its title and items under Videos, Image Sequences, Playlists, Dual Views and Live; one row highlighted as loaded; the Add Media… button](images/qcv3_022.png)
 
 ### A loaded playlist's clips
 
 When a playlist is loaded, its row opens into a list of its clips, with the clip count and frame size beside the playlist's name. Click a clip to jump to it; the clip that is playing is marked. Drag a clip up or down to reorder the playlist, and drag media items from the groups above into the list to add them: onto the line between two clips to insert there, or onto the playlist's own row to add at the end. See [Playlists](/playlists/).
 
-<!-- SHOT qcv3_023: A loaded playlist's row opened into its list of clips, with a media item being dragged in and the insertion line showing between two clips -->
+![A loaded playlist's row opened into its list of clips, with a media item being dragged in and the insertion line showing between two clips](images/qcv3_023.png)
 
 ---
 

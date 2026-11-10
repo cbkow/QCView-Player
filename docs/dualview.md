@@ -8,7 +8,7 @@ nav_order: 12
 
 Dual View compares two sources, **A** and **B**, in one viewport. Its controls sit on the right of the status strip, beside the frame and timecode wells: an **A** chip and a **B** chip that name each side's source, four mode buttons, a slider for the wipe's seam or the difference gain, and Save.
 
-<!-- SHOT qcv3_041: the status strip in a dual view - the A and B chips with their clip names and speaker pills, the four mode buttons, the slider and the Save button, with the two lanes under the scrubber -->
+![The status strip in a dual view](images/qcv3_041.png)
 
 ## Loading the two sides
 
@@ -35,8 +35,8 @@ In **Split wipe**, the seam can be dragged directly on the viewport — hover th
 
 In **Difference**, the same slider becomes a **gain** control, from ×1 to ×16. Subtle differences (a light recompression, a small grade shift) are near-black at the default gain of ×1; raise the gain to amplify them into visibility. Aligned regions stay black at every gain level. The diff is cleanest when A and B share the same resolution and framing.
 
-<!-- SHOT qcv3_042: Split wipe - the seam between A and B on the picture, the slider on the status strip showing the seam position -->
-<!-- SHOT qcv3_043: Difference mode between two versions of a shot, the gain raised so the differences show -->
+![Split wipe](images/qcv3_042.png)
+![Difference mode between two versions of a shot, the gain raised so the differences show](images/qcv3_043.png)
 
 ## Playback
 
@@ -94,7 +94,7 @@ The status strip shows a clip's offset against the other side to the right of th
 
 A slide or a head trim that would pass the start of the timeline moves every other clip, on both sides, later by the overshoot instead of stopping at frame 0.
 
-<!-- SHOT qcv3_044: the two lanes under the scrubber - A above B with their label cells (the target's filled), a clip being dragged with the snap line and the badge, and the offset readout on the status strip -->
+![The two lanes under the scrubber](images/qcv3_044.png)
 
 ## Live sides
 
@@ -113,7 +113,7 @@ When two host feeds are the two sides, they share one A/V sync offset.
 
 Notes are not available in dual view; freeze and annotate a feed in single view.
 
-<!-- SHOT qcv3_045: a dual view with a live feed on A against a file on B - the red dot on the A chip, the LIVE bar on A's lane, the speaker pills -->
+![A dual view with a live feed on A against a file on B](images/qcv3_045.png)
 
 ## Screenshots and outputs
 

@@ -16,7 +16,7 @@ QCView has two color engines:
 
 **Bundled OCIO configs:** ACES 2.0, ACES 1.3, Blender 5.2. You can also load a config file of your own.
 
-<!-- SHOT qcv3_030: the Color drawer open above the transport on an OCIO chain: header (clip name, "Own chain", Reset to default / Apply to all clips / Make project default), the Presets list, Config, Input, Look, the Scene LUT strip, View, the Highlight Knee strip, the waveform on the right, and the bottom row (Color On switch, Exposure, Gamma, channel buttons, Video gamma, Export LUT…) -->
+![The Color drawer open above the transport on an OCIO chain](images/qcv3_030.png)
 
 The **Color On / Off** switch at the bottom left covers whichever engine a clip uses. Color is off when QCView starts and when you start a new project. Opening a project in which a clip has its own chain turns it on, and so does picking a preset or changing any column.
 
@@ -100,7 +100,7 @@ Two limits to know about:
 
 In [dual view](/dual-view/) each side is a clip, so each side has its own chain. The drawer edits the selected side, the one whose A / B chip or timeline lane you clicked last. The header leads with that side's letter in its color, then the clip's name.
 
-<!-- SHOT qcv3_031: dual view with the Color drawer open: the header showing the side letter and clip name, a different Input on each side with the Highlight Knee on for the HDR side, and the waveform overlaying both sides -->
+![Dual view with the Color drawer open](images/qcv3_031.png)
 
 An SDR render can sit beside a PQ master this way, each read through its own Input, with the Highlight Knee on for the HDR side only.
 
@@ -145,7 +145,7 @@ Double-click a slider to reset it. The reset arrow at the end of the row, shown 
 
 The waveform is the card at the right end of the drawer. Click its caret to collapse it to a strip, and the strip to open it again. It shows the signal's level by image column.
 
-<!-- SHOT qcv3_032: the waveform card in the Color drawer on its HDR scale: the SDR / HDR chips, the "1000 nits" top button, the graticule with the 100 and 203 lines, and the readout line under the card -->
+![The waveform card in the Color drawer on its HDR scale](images/qcv3_032.png)
 
 The waveform reads the source, not the finished picture:
 

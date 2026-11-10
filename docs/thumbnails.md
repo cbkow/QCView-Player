@@ -14,7 +14,7 @@ Hover thumbnails are drawn in the clip's colour: the same colour chain as the ma
 
 The thumbnail at the top of the Inspector is drawn the same way.
 
-<!-- SHOT qcv3_050: The pointer resting on the timeline with the hover thumbnail above the bands at the pointer's position -->
+![The pointer resting on the timeline with the hover thumbnail above the bands at the pointer's position](images/qcv3_050.png)
 
 ---
 

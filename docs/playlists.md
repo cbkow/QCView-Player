@@ -10,7 +10,7 @@ To create a playlist, click the `+` button to the right of the Playlists header 
 
 To build a playlist, drag video or image-sequence sources from the Media section onto the timeline, or onto the clip bar under it: drop near the edge of a clip to insert there, anywhere else to add at the end. Files dragged in from the desktop work the same way. Audio-only files are not accepted. Mixed video + image-sequence playlists work, and play straight through from one clip to the next.
 
-<!-- SHOT qcv3_048: The + button in the Playlists header of the Media section, and a loaded playlist: its list of clips under its row in the Left Rail and the clip bar under the timeline -->
+![The + button in the Playlists header of the Media section, and a loaded playlist](images/qcv3_048.png)
 
 While a playlist is loaded, its row in the Media section opens into a list of its clips. Click a clip to jump to it, drag a clip to reorder, and drag media items into the list to add them (see [Project Panel](/project-manager/#a-loaded-playlists-clips)).
 
@@ -36,7 +36,9 @@ Per-clip in/out trims are honored across the playlist boundary — the next clip
 
 Every edit is written back to the playlist in the project.
 
-<!-- SHOT qcv3_049: The playlist clip bar with a clip's end being trimmed (the frame badge showing), and the Source in / Source out / Duration box open over another clip -->
+![The playlist clip bar with a clip's end being trimmed (the frame badge showing), and the Source in / Source out / Duration box open over another clip](images/qcv3_049.png)
+
+![The Source in / Source out / Duration box over a clip](images/qcv3_049b.png)
 
 ---
 

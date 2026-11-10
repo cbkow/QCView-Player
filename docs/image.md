@@ -12,7 +12,7 @@ QCView plays EXR, DPX, TIFF, PNG, JPEG, TGA and BMP sequences.
 
 Open or drag a single image from a sequence, and QCView automatically detects the rest of the sequence. Choose a frame rate in the Inspector panel's **Image Sequence** group; for multi-layer EXR files, the group also lists the layers as thumbnails, and clicking one loads that layer.
 
-<!-- SHOT qcv3_039: The Inspector's Image Sequence group for a multi-layer EXR sequence: Frame rate, Transfer and Cache stride chips, the Cache ahead / Cache behind readouts and the layer thumbnails -->
+![The Inspector's Image Sequence group for a multi-layer EXR sequence](images/qcv3_039.png)
 
 > Large multi-layer EXRs and high-resolution TIFF sequences (4K+) can exceed what CPU-bound decompression can deliver in real time, regardless of thread count. Use the stride option — see below.
 

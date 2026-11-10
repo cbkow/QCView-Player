@@ -7,7 +7,7 @@ nav_order: 1
 # QCView
 ---
 
-<!-- SHOT qcv3_001: the QCView 3.0 main window with a clip loaded: left rail open on Media, the picture, and the three bottom bands (status strip, transport, scrubber) -->
+![The QCView 3.0 main window with a clip loaded](images/qcv3_001.png)
 
 **QCView** is a media player and reviewer for Windows and macOS, built for artists and post-production teams who need accurate, color-managed playback of video, EXR, and image sequences.
 

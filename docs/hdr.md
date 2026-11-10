@@ -23,7 +23,7 @@ QCView does not tone map by itself. On a display with no HDR headroom, a picture
 
 When that is happening, the [Color](/color/) drawer's header shows a yellow **SDR display — highlights clip** pill. It appears only when both are true: the window's screen has no HDR headroom, and the picture can exceed SDR white (an HDR file with Color off, a minColor chain that ends in HDR, or an OCIO chain with an HDR view).
 
-<!-- SHOT qcv3_035: the Color drawer's header on an SDR display with a PQ clip loaded, showing the yellow "SDR display — highlights clip" pill beside the clip's name -->
+![The Color drawer's header on an SDR display with a PQ clip loaded, showing the yellow "SDR display](images/qcv3_035.png)
 
 To see into those highlights, turn on the clip's [Highlight Knee](/color/#highlight-knee): it compresses everything above your chosen source peak into the display's range instead of clipping it, and shows a yellow **KNEE** pill while it does. Once the knee brings the picture down to 100 nits, or the window moves to an HDR screen, the clipping pill goes away.
 

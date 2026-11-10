@@ -43,7 +43,7 @@ Updating is the same step with a newer installer.
 
 **In QCView:** *File → Connect to After Effects* (or *Connect to Premiere Pro*). The source appears in the **Live** bin as **QCBridge After Effects** / **QCBridge Premiere Pro** and waits until the host is sending.
 
-<!-- SHOT qcv3_051: QCView with a QCBridge feed loaded - the item in the Live bin of the Media section, the live row under the picture (LIVE badge, the feed's facts, the Transfer chip, the Listen speaker) -->
+![QCView with a QCBridge feed loaded](images/qcv3_051.png)
 
 **Set the feed's Input to your project's working space.** The pixels arrive in the host's working colour space, untransformed. With Adobe colour management that is the project's working space; with OCIO colour management, the OCIO working space (for example ACEScg). The feed is a clip like any other in the **Color** drawer: give it a chain whose Input matches — the Input gamut and transfer in minColor, or the Input colourspace in an OCIO chain. See [Color](/color/).
 
@@ -58,7 +58,7 @@ The feed carries no colour tag, so the **Transfer** chip on the live row reads `
 - Mercury Transmit is always a few frames behind AE (Just how it works and shares the same issue with Blackmagic, Aja, or other plugins), but Premiere is fairly tightly synced — depending on system resources and timeline resolution.
 - You can stream from AE and Premiere at the same time and between them, or use them in QCView Dual View review modes.
 
-<!-- SHOT qcv3_052: QCView in dual view with an After Effects feed on one side and a Premiere Pro feed (or a file) on the other -->
+![QCView in dual view with an After Effects feed on one side and a Premiere Pro feed (or a file) on the other](images/qcv3_052.png)
 
 ---
 
