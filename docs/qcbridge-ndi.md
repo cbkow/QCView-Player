@@ -7,7 +7,7 @@ nav_order: 3
 
 # QCBridgeN for NDI®
 
-[QCBridgeN](https://github.com/cbkow/QCBridgeN) goes the other way from the Adobe and Blender add-ons: it takes what QCView shows and plays — the viewport with its colour transform, dual-view layouts, guides and notes, plus the mixed audio — and offers it on the local network as an **NDI source named QCView**. Any NDI receiver can pick it up: NDI Video Monitor, a switcher, OBS, another QCView on the network.
+[QCBridgeN](https://github.com/cbkow/QCBridgeN) goes the other way from the Adobe and Blender add-ons: it takes what QCView shows and plays — the viewport with its color transform, dual-view layouts, guides and notes, plus the mixed audio — and offers it on the local network as an **NDI source named QCView**. Any NDI receiver can pick it up: NDI Video Monitor, a switcher, OBS, another QCView on the network.
 
 It runs as its own small application beside QCView. QCView starts it when the output is switched on and stops it when the output is switched off or QCView quits.
 
@@ -45,7 +45,7 @@ QCBridgeN also sits in the menu bar (macOS) or the tray (Windows), lit while fra
 
 ## What to expect
 
-- The source carries the picture as QCView shows it, so the clip's OCIO or minColor chain, splits, wipes and the difference view go out as on screen. It is a Rec.709 SDR source.
+- The source carries the picture as QCView shows it, so the clip's OCIO or minColor chain, splits, wipes, and the difference view go out as on screen. It is a Rec.709 SDR source.
 - The frame rate follows the source: a file plays at its rate, a Premiere or After Effects feed at the feed's, a paused picture repeats its last frame.
 - The audio is the mixed audio QCView plays, taken before your own monitoring volume. **Mute feed** silences it on every output and leaves your monitoring alone; the master mute (`M`) silences both. In dual view the output carries the first side that is heard.
 - Guides and note strokes go out when their toggles are on; note strokes only while the Notes panel is open in single view. A frozen frame in Review goes out as the viewport shows it, so a receiver sees what the reviewer sees.

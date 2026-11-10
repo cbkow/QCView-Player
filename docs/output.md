@@ -6,7 +6,7 @@ nav_order: 13
 
 # Output
 
-The **Output** section in the Left Rail sends what the viewport shows, with the mixed audio: as an NDI® source, or out of an AJA device's SDI and HDMI. Each needs its QCBridge add-on installed; with none installed the section reads "No outputs found".
+The **Output** section in the Left Rail sends what the viewport shows, with the mixed audio, as an NDI® source, or out of an AJA device's SDI and HDMI. Each needs its QCBridge add-on installed; with none installed, the section reads "No outputs found".
 
 Each output is a card: a status dot, its name, and an on / off switch, then two quiet lines — what is being sent (raster, format and transfer) and the sink's own report — and the settings that output lets QCView choose. The dot is green while the output is live; hover it for the reason when it is waiting for the sink, refused, or not installed. Nothing is sent until the switch is on. Switching an output on does not change playback.
 
@@ -30,4 +30,4 @@ Install [QCBridgeN](https://github.com/cbkow/QCBridgeN/releases) (its own page: 
 
 ## AJA SDI / HDMI (QCBridgeA)
 
-Install [QCBridgeA](https://github.com/cbkow/QCBridgeA/releases) 0.0.2 or later with AJA's own driver and software for the device (its own page: [AJA](/qcbridge/aja/)), and switch it on in the Output section. QCView starts the sink, which takes the device exclusively (the way AJA's applications do; it reports who holds it otherwise), asks QCView for the raster the card's Raster setting names, and sends the viewport and the mixed audio over SDI and HDMI as 10-bit RGB at the source's frame rate. The card shows the device, the format and the connectors, for example "T-TAP Pro UHDp25 10-bit PQ 2020, SDI + HDMI RGB". The transfer and the raster can be changed while it runs; the card reconfigures in place. UHD goes out as one 12G stream and needs a device with 12G routing; above 30p the HDMI side carries YCbCr, as 10-bit RGB 4:4:4 does not fit HDMI 2.0 there. The sink quits with QCView or when the output is switched off.
+Install [QCBridgeA](https://github.com/cbkow/QCBridgeA/releases) 0.0.2 or later with AJA's own driver and software for the device (its own page: [AJA](/qcbridge/aja/)), and switch it on in the Output section. QCView starts the sink, which takes the device exclusively (the way AJA's applications do; it reports who holds it otherwise), asks QCView for the raster the card's Raster setting names, and sends the viewport and the mixed audio over SDI and HDMI as 10-bit RGB at the source's frame rate. The card shows the device, the format, and the connectors, for example, "T-TAP Pro UHDp25 10-bit PQ 2020, SDI + HDMI RGB". The transfer and the raster can be changed while it runs; the card reconfigures in place. UHD goes out as one 12G stream and needs a device with 12G routing; above 30p the HDMI side carries YCbCr, as 10-bit RGB 4:4:4 does not fit HDMI 2.0 there. The sink quits with QCView or when the output is switched off.

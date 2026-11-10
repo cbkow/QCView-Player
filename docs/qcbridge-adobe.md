@@ -7,7 +7,7 @@ nav_order: 2
 
 # QCBridgeAE for After Effects and Premiere Pro
 
-[QCBridgeAE](https://github.com/cbkow/QCBridgeAE) is a **Mercury Transmit** plugin that streams live viewport output from the the AE or Premiere to QCView. The output is unaltered and full float, converted to 1/2 float in QCView so the image quality is preserved under all circumstances, including HDR scenarios.
+[QCBridgeAE](https://github.com/cbkow/QCBridgeAE) is a **Mercury Transmit** plugin that streams live viewport output from AE or Premiere to QCView. The output is unaltered and full float, then converted to 1/2 float in QCView to preserve image quality under all circumstances, including HDR scenarios.
 
 ---
 

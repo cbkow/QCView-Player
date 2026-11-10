@@ -9,7 +9,7 @@ nav_order: 1
 
 ![QCBridge](/images/qcbridge_001.jpg)
 
-**QCBridge for Blender's** primary purpose is to sync a live Blender project to Blender on another computer and use that second computer to generate a live Eevee or Cycles preview - a way to keep your main working computer’s resources dedicated to live operations and use a second for live-preview rendering. It works over VPNs; there is the option to use QCview as the live preview window.
+**QCBridge for Blender's** primary purpose is to sync a live Blender project to Blender on another computer and use that second computer to generate a live Eevee or Cycles preview - a way to keep your main working computer’s resources dedicated to live operations and use a second for live-preview rendering. It works over VPNs; you can use QCview as the live preview window.
 
 It has two roles — **Host** (the machine you work on) and **Replica** (the render box).
 
@@ -117,10 +117,10 @@ In QCView the stream is a live media item: load it on one side of a [Dual View](
 
 **When something is off.** Each end writes a per-stage timeline of the session — `qcbridge-timeline-host.log` and `qcbridge-timeline-replica.log` in Blender's config folder (`~/Library/Application Support/Blender/5.2/config` on macOS, `%APPDATA%\Blender Foundation\Blender\5.2\config` on Windows) — with a line per step: the handshake, every file transfer and why it was sent, the first frame, the encoder, the card, the viewer connecting. Read the two side by side before guessing.
 
-**Colour (QCBridge 0.4 and later).** The stream is scene-referred: the replica's viewport leaves Blender as linear light, PQ-encoded with scene 1.0 at 100 nits in a BT.2020 container. QCView shows it on its own terms. The stream's colour tags tell it what the wire is, so the **Transfer** chip on the live row reads `Auto · PQ 2020` without any setup.
+Color (QCBridge 0.4 and later).** The stream is scene-referred: the replica's viewport leaves Blender as linear light, PQ-encoded with scene 1.0 at 100 nits in a BT.2020 container. QCView shows it on its own terms. The stream's color tags tell it what the wire is, so the **Transfer** chip on the live row reads `Auto · PQ 2020` without any setup.
 
-**Nothing in Blender changes QCView's colour.** The host's colour setup — its OCIO config, display device, view transform, look, exposure — travels in the card, but QCView 3.0 does not act on it: it does not set the clip's Input, does not switch Color on, and does not reproduce the host's view. The two are different applications showing pictures on different displays. If you want a view transform on the stream, give the clip a chain in the **Color** drawer as you would for any clip, and it is yours to change. The wire is PQ in Rec.2020, so that is the chain's Input: the Input gamut and transfer in minColor, or the matching Input colourspace in an OCIO chain (the Blender 5.2 config is bundled). See [Color](/color/).
+**Nothing in Blender changes QCView's color.** The host's colour setup — its OCIO config, display device, view transform, look, exposure — travels in the card, but QCView 3.0 does not act on it: it does not set the clip's Input, does not switch Color on, and does not reproduce the host's view. The two are different applications showing pictures on different displays. If you want a view transform on the stream, give the clip a chain in the **Color** drawer as you would for any clip, and it is yours to change. The wire is PQ in Rec.2020, so that is the chain's Input: the Input gamut and transfer in minColor, or the matching Input colourspace in an OCIO chain (the Blender 5.2 config is bundled). See [Color](/color/).
 
-The **Colour** sub-panel in Blender still compares the two Blender ends, host and replica; that comparison is about them, not about QCView.
+The Color sub-panel in Blender still compares the two Blender ends, host and replica; that comparison is about them, not about QCView.
 
-**A stream opened by hand.** With **Stream to QCView here** off, the stream is opened from the legacy link or with **File ▸ Open Stream…**. A listener address you open yourself listens for that session without the Connect to Blender switch; the passphrase goes in the dialog's own hidden field. If the encoder leaves the colour tags out, pick the encoding on the live row's **Transfer** chip; see [HDR](/hdr/).
+**A stream opened by hand.** With **Stream to QCView here** off, the stream is opened from the legacy link or with **File ▸ Open Stream…**. A listener address you open yourself listens for that session without the Connect to Blender switch; the passphrase goes in the dialog's own hidden field. If the encoder leaves the color tags out, pick the encoding on the live row's **Transfer** chip; see [HDR](/hdr/).

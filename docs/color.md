@@ -12,7 +12,7 @@ Color management lives in the **Color** drawer, a panel that opens above the tra
 QCView has two color engines:
 
 - **[minColor](/mincolor/)** — the default. A fixed chain with no config file; every built-in preset uses it.
-- **OCIO** — a live [OpenColorIO](https://opencolorio.org/) pipeline, for when you need a config's own colorspaces, looks and views. Start one with **New OCIO chain…** in the preset list.
+- **OCIO** — a live [OpenColorIO](https://opencolorio.org/) pipeline, for when you need a config's own colorspaces, looks, and views. Start one with **New OCIO chain…** in the preset list.
 
 **Bundled OCIO configs:** ACES 2.0, ACES 1.3, Blender 5.2. You can also load a config file of your own.
 
@@ -161,7 +161,7 @@ Until you pick a chip, the scale follows the source: HDR for PQ and HLG sources,
 
 Under the trace, the readout gives the brightest level in the current frame and the clip's **peak** since it was loaded. It turns yellow when the peak is over the top of the scale. Hover it for the brightest channel.
 
-In dual view both sides are drawn on the one waveform, A in cyan and B in tan, each read through its own clip's Input, with a readout line per side.
+In dual view, both sides are drawn on the one waveform, A in cyan and B in tan, each read through its own clip's Input, with a readout line per side.
 
 **Sources without usable tags** — an HDR export whose file carries no transfer tag reads as SDR. With Color on, give the clip the right Input. With Color off, tell QCView what it is with the Inspector's **Transfer** choice; live sources have the same choice on the live row. See [HDR](/hdr/#hdr-sources-without-tags).
 

@@ -25,7 +25,7 @@ Image sequences are cached to RAM as you traverse the timeline. A line along the
 
 ## Colour interpretation
 
-The **Transfer** chips in the Image Sequence group tell QCView how to read the frames when the format rule is wrong for them. **Auto** reads EXR as scene-linear and everything else as sRGB; pick `SDR 709`, `PQ 2020`, `PQ P3`, `HLG` or `Linear` to say otherwise. Single stills are one-frame sequences and get the same chips. See [Color](/color/) for the clip's colour chain and the waveform.
+The **Transfer** chips in the Image Sequence group tell QCView how to read the frames when the format rule doesn't match. **Auto** reads EXR as scene-linear and everything else as sRGB; pick `SDR 709`, `PQ 2020`, `PQ P3`, `HLG` or `Linear` to say otherwise. Single stills are one-frame sequences and get the same chips. See [Color](/color/) for the clip's color chain and the waveform.
 
 ## Broken and Missing Frames
 
@@ -33,4 +33,4 @@ QCView detects incomplete sequences and fills gaps with the last good frame so y
 
 ## Stride
 
-Because EXRs are heavy and decompression is CPU-bound, you will eventually load something that causes playback to overrun the cache. The **Cache stride** chips in the Inspector panel help here. Picking the `2x`, `3x` or `4x` options will skip frames and allow you to play back heavy sequences for review; `1x` plays every frame.
+Because EXRs are heavy and decompression is CPU-bound, you will eventually load something that causes playback to overrun the cache. The **Cache stride** chips in the Inspector panel help here. Picking 2x`, `3x,` or `4x` skips frames and lets you play back heavy sequences for review; `1x` plays every frame.

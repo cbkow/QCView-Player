@@ -41,7 +41,7 @@ A stroke can start or stray off the picture: it keeps following the cursor, and 
 
 Undo and redo belong to the clip that is loaded; they start over when you load another.
 
-Note thumbnails are captured through the clip's colour chain, whichever colour engine it uses, and rendered for SDR the way [screenshots](/timeline/#screenshots) are. A card is marked **OCIO** or **VIEWER** when the note records what it was captured through.
+Note thumbnails are captured through the clip's color chain, whichever color engine it uses, and rendered for SDR the way [screenshots](/timeline/#screenshots) are. A card is marked **OCIO** or **VIEWER** when the note records what it was captured through.
 
 > If the Notes panel is open, screenshots are captured with embedded annotations. With the panel closed they are not: a screenshot shows what the viewport shows.
 
@@ -73,7 +73,7 @@ A live source — a Premiere Pro or After Effects sequence over [QCBridgeAE](/qc
 A feed has no timeline to seek, so a note pins to a **captured frame** instead of a timecode. The Notes panel shows a pill with the state:
 
 - **LIVE** — the feed plays. Press `Space`, click the pill, click **Add note here**, or simply start drawing to **freeze** it: the current frame is captured, and that frame is what you draw on and what the note keeps. Opening the Notes panel does not freeze the feed by itself.
-- **REVIEW · time** — a captured frame is on the viewport. Clicking a note card puts that note's frame back on screen with its strokes; `←` / `→` walk the notes in capture order. `Space`, `Esc` or the pill return to **live**, and the feed picks up from where it is now.
+- **REVIEW · time** — a captured frame is on the viewport. Clicking a note card puts that note's frame back on screen with its strokes; `←` / `→` walk the notes in capture order. `Space`, `Esc`, or the pill return to **live**, and the feed picks up from where it is now.
 
 A frame you have just frozen is shown through the clip's colour chain, like the live picture. A saved note's frame is shown exactly as it was captured, so the chain is not applied a second time.
 

@@ -9,7 +9,7 @@ nav_order: 4
 
 [QCBridgeA](https://github.com/cbkow/QCBridgeA) sends what QCView shows and plays out of an **AJA device's SDI and HDMI outputs** as a video signal: 10-bit RGB at 1080p or UHD, at the source's frame rate, SDR, PQ or HLG, with the mixed audio embedded. It is the way to put QCView's viewport on a reference monitor.
 
-Like QCBridgeN it runs as its own small application beside QCView. QCView starts it when the output is switched on; it takes the device exclusively, the way AJA's own applications do, and releases it when the output is switched off or QCView quits.
+Like QCBridgeN, it runs as its own small application beside QCView. QCView starts it when the output is switched on; it takes the device exclusively, the way AJA's own applications do, and releases it when the output is switched off or QCView quits.
 
 ---
 
@@ -47,7 +47,7 @@ The transfer and the raster can be changed while it runs; the card reconfigures 
 
 ## Picture and colour
 
-The picture is the viewport's: the clip's colour chain, dual-view layouts and the difference view go out as on screen, letterboxed into the raster. The card's **Transfer** is the encoding of the wire. QCView encodes the picture for it — SDR, PQ in the primaries you chose, or HLG — and the sink signals the same in the SDI VPID and the HDMI InfoFrame, with the mastering metadata for PQ. See [HDR](/hdr/) for the colour side.
+The picture is the viewport's: the clip's color chain, dual-view layouts and the difference view go out as on-screen, letterboxed into the raster. The card's **Transfer** is the encoding of the wire. QCView encodes the picture for it — SDR, PQ in the primaries you chose, or HLG — and the sink signals the same in the SDI VPID and the HDMI InfoFrame, with the mastering metadata for PQ. See [HDR](/hdr/) for the color side.
 
 Other things to know:
 
@@ -60,6 +60,6 @@ Other things to know:
 
 ## Why a separate application
 
-The sink talks to the AJA driver through AJA's NTV2 SDK and holds the device for the session; keeping that in its own process keeps QCView's own renderer and its licence simple, and a sink that fails leaves QCView running. QCView hands it frames through shared memory, the same bus QCBridgeN uses. The design and the measurements are in the project's `PLAN.md` and `lab/`.
+The sink talks to the AJA driver through AJA's NTV2 SDK and holds the device for the session; keeping that in its own process keeps QCView's own renderer and its license simple, and a sink that fails leaves QCView running. QCView hands it frames through shared memory, the same bus QCBridgeN uses. The design and the measurements are in the project's `PLAN.md` and `lab/`.
 
 AJA, KONA, Io and T-TAP are trademarks of AJA Video Systems, Inc.; QCBridgeA is not an AJA product. The AJA device driver is not part of QCBridgeA; install it from aja.com.

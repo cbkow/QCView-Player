@@ -6,7 +6,7 @@ nav_order: 11
 
 # Settings
 
-Open Settings with `Ctrl + ,` (or **Tools → Settings…**). The panel reveals in the Left Rail under the **Settings** section, in groups: **Performance**, **Interface**, **Updates** (macOS) and **Audio**. Hover a setting's name for a line about what it does.
+Open Settings with `Ctrl + ,` (or **Tools → Settings…**). The panel appears in the Left Rail under Settings, grouped into **Performance**, **Interface**, **Updates** (macOS), and **Audio**. Hover a setting's name for a line about what it does.
 
 QCView 3.0 starts from its own defaults: settings from QCView 2 are not imported. Projects saved by QCView 2 still open.
 
@@ -56,7 +56,7 @@ macOS only. **Automatically check for updates** checks once a day; you can also 
 
 ## Blender sessions
 
-Off at every launch, and the same switch as **File ▸ Connect to Blender**. QCView does nothing for Blender until you turn it on; then it watches for the card the QCBridge for Blender host add-on writes on this machine when a session starts, listens on the card's port and shows the replica's stream as a live clip, now or when the session starts. The stream is shown on QCView's own terms: the host's colour setup does not change the clip's colour in QCView. The line under the switch says what is happening — no session yet, listening for the host on a port, live, or ended — and any problems the host reports appear under it in red. Turning it off stops listening and removes the Blender clip; deleting the clip from the bin does the same. New Project or Open Project while connected keeps the connection: the clip joins the new project. See [QCBridge for Blender](/qcbridge/blender/).
+Off by default at every launch, with the same switch as **File ▸ Connect to Blender**. QCView does nothing for Blender until you turn it on; then it watches for the card the QCBridge for Blender host add-on writes on this machine when a session starts, listens on the card's port, and shows the replica's stream as a live clip, now or when the session starts. The stream appears in QCView on its own terms: the host's color setup doesn't change the clip's color in QCView. The line under the switch says what is happening — no session yet, listening for the host on a port, live, or ended — and any problems the host reports appear under it in red. Turning it off stops listening and removes the Blender clip; deleting the clip from the bin does the same. New Project or Open Project while connected keeps the connection: the clip joins the new project. See [QCBridge for Blender](/qcbridge/blender/).
 
 ## Live audio
 

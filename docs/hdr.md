@@ -11,7 +11,7 @@ QCView has no display mode to choose. It picks the drawing surface for the monit
 - **macOS** — one extended-range (EDR) surface on every display. The system gives it whatever headroom the display has.
 - **Windows** — a 10-bit sRGB surface on an SDR monitor, and a floating-point scRGB surface on a monitor with HDR turned on. QCView follows the monitor that holds most of the window, so dragging the window from one monitor to the other switches the surface.
 
-On both systems HDR brightness is relative, not absolute: 100 nits in a PQ picture is shown at your display's SDR white, and a 1000-nit highlight at about ten times that, inside the display's headroom. The picture moves with the system's brightness setting like everything else on screen.
+On both systems, HDR brightness is relative, not absolute: 100 nits in a PQ picture is shown at your display's SDR white, and a 1000-nit highlight at about ten times that, inside the display's headroom. The picture moves with the system's brightness setting like everything else on screen.
 
 Presets are not tagged SDR or HDR and none are dimmed: a clip's chain is the same on any display.
 
@@ -19,7 +19,7 @@ Presets are not tagged SDR or HDR and none are dimmed: a clip's chain is the sam
 
 ## HDR on an SDR display
 
-QCView does not tone map by itself. On a display with no HDR headroom, a picture that goes above SDR white is shown as its chain renders it, and everything above SDR white clips.
+QCView does not tone map on its own. On a display with no HDR headroom, a picture that goes above SDR white is shown as its chain renders it, and everything above SDR white clips.
 
 When that is happening, the [Color](/color/) drawer's header shows a yellow **SDR display — highlights clip** pill. It appears only when both are true: the window's screen has no HDR headroom, and the picture can exceed SDR white (an HDR file with Color off, a minColor chain that ends in HDR, or an OCIO chain with an HDR view).
 
@@ -69,7 +69,7 @@ A screenshot is always an SDR file. A chain that renders for HDR is captured thr
 
 ## HDR out of an output
 
-An output that carries a transfer (the AJA output's SDI and HDMI) has its own **Transfer** setting in the [Output](/output/) section: SDR Rec.709, PQ Rec.2100 or HLG Rec.2100. With PQ it also has Primaries and the Peak, MaxCLL and MaxFALL values to signal. QCView encodes the picture for the transfer you pick, so there is nothing to match in the Color drawer. An output that names its own format, such as NDI, has no Transfer setting.
+An output that carries a transfer (the AJA output's SDI and HDMI) has its own **Transfer** setting in the [Output](/output/) section: SDR Rec.709, PQ Rec.2100, or HLG Rec.2100. With PQ, it also has Primaries and the Peak, MaxCLL, and MaxFALL values to signal. QCView encodes the picture for the transfer you pick, so there is nothing to match in the Color drawer. An output that names its own format, such as NDI, has no Transfer setting.
 
 ---
 

@@ -8,7 +8,7 @@ nav_order: 7
 
 The Inspector lives in the Right Rail (`Ctrl + 2`). It shows per-source properties and provides quick paths to the source files. The Right Rail starts collapsed on a fresh install; open it with the shortcut or the caret tab at the right edge of the picture.
 
-The Inspector is laid out in groups — **File**, **Video**, **Geometry**, **Color**, **Audio**, **Timecode**, **Linked Projects** and, for image sequences, **Image Sequence** — each of which can be collapsed. A thumbnail of the clip sits at the top of the File group, drawn in the clip's own colour. In dual view the Inspector follows the targeted side.
+The Inspector is laid out in groups — **File**, **Video**, **Geometry**, **Color**, **Audio**, **Timecode**, **Linked Projects** and, for image sequences, **Image Sequence** — each of which can be collapsed. A thumbnail of the clip sits at the top of the File group, drawn in the clip's own color. In dual view, the Inspector follows the targeted side.
 
 ![The Inspector in the Right Rail with a video loaded](images/qcv3_025.png)
 

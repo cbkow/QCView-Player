@@ -49,7 +49,7 @@ Some features use the network because that is what they are for. They do nothing
 
 On macOS, QCView uses the [Sparkle](https://sparkle-project.org/) framework to check for new versions. By default it checks once per day, and you can also check manually from the **About** menu. You can turn automatic checks off in **Settings → Updates**.
 
-When a check runs, QCView requests the update feed at `https://qcview.app/appcast.xml` and, if an update is available, the installer from GitHub. As with any web request, the server receives your IP address and the request includes your current app version and macOS version so the correct update can be offered. QCView does **not** send an anonymized system profile, and no other information is transmitted. Updates are cryptographically verified (EdDSA signature + Apple code signature) before installation.
+When a check runs, QCView requests the update feed at `https://qcview.app/appcast.xml` and, if an update is available, the installer from GitHub. As with any web request, the server receives your IP address, and the request includes your current app version and macOS version so the correct update can be offered. QCView does **not** send an anonymized system profile, and no other information is transmitted. Updates are cryptographically verified (EdDSA signature + Apple code signature) before installation.
 
 The Windows version updates through the Microsoft Store.
 

@@ -8,9 +8,9 @@ nav_order: 15
 
 ## Hover thumbnails
 
-Hover the timeline to preview the frame under the pointer. The thumbnail sits just above the timeline bands and follows the pointer along the picture. In dual view you get a pair, A above B.
+Hover the timeline to preview the frame under the pointer. The thumbnail sits just above the timeline bands and follows the pointer along the picture. In dual view, you get a pair, A above B.
 
-Hover thumbnails are drawn in the clip's colour: the same colour chain as the main viewport, the clip's Range and Transfer choices from the [Inspector](/inspector/), and **Video gamma** when it is lit (see [Color](/color/)) — what you see on hover matches what you'll see when you seek. For a video file the thumbnails are prepared when the file opens, so they are helpful with large media or media with codecs that don't scrub well.
+Hover thumbnails are drawn in the clip's color: the same color chain as the main viewport, the clip's Range and Transfer choices from the [Inspector](/inspector/), and **Video gamma** when it is lit (see [Color](/color/)) — what you see on hover matches what you'll see when you seek. For a video file, thumbnails are prepared when the file opens, so they help with large media or media with codecs that don't scrub well.
 
 The thumbnail at the top of the Inspector is drawn the same way.
 
