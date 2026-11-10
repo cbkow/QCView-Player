@@ -4,7 +4,7 @@
 
 This is the Qt-based rebuild of the original QCView (Dear ImGui + GLFW + native graphics APIs). Architecture, decode path, color pipeline, and review tools are all carried forward; the UI shell is now Qt Quick / QML.
 
-![QCView comparing an SDR render and an HDR master in dual view, each with its own colour chain](docs/images/qcv039.jpg)
+![QCView comparing an SDR render and an HDR master in dual view, each with its own colour chain](docs/images/qcv3_031.png)
 
 Full manual: [qcview.app](https://qcview.app)
 
