@@ -68,7 +68,8 @@ Use the sidebar to browse the full manual, including [installation](installation
 ## Links
 
 - [Source Code — QCView 3 (minplatform)](https://github.com/cbkow/minplatform)
-- [Source Code — QCView 2 and this site (QCView-Player)](https://github.com/cbkow/QCView-Player)
+- [Source Code — QCView 2 (the `2.x` branch of QCView-Player)](https://github.com/cbkow/QCView-Player/tree/2.x)
+- [This site (QCView-Player)](https://github.com/cbkow/QCView-Player)
 - [Releases](https://github.com/cbkow/QCView-Player/releases)
 - [Privacy Policy](privacy)
 

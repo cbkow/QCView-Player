@@ -30,7 +30,7 @@ This repository is QCView's home page: the manual, the releases and the update f
 | The macOS update feed | [`docs/appcast.xml`](docs/appcast.xml), added to by [`scripts/update_appcast.sh`](scripts/update_appcast.sh) |
 | Installers | [Releases](https://github.com/cbkow/QCView-Player/releases) |
 
-QCView 3 is a rewrite of QCView 2 (Qt Quick / QML) in Rust on wgpu. It opens QCView 2's projects, notes and presets.
+QCView 3 is a rewrite of QCView 2 (Qt Quick / QML) in Rust on wgpu. It opens QCView 2's projects and notes.
 
 ## Documentation
 
