@@ -10,9 +10,9 @@ The **Output** section in the Left Rail sends what the viewport shows, with the 
 
 Each output is a card: a status dot, its name, and an on / off switch, then two quiet lines — what is being sent (raster, format and transfer) and the sink's own report — and the settings that output lets QCView choose. The dot is green while the output is live; hover it for the reason when it is waiting for the sink, refused, or not installed. Nothing is sent until the switch is on. Switching an output on does not change playback.
 
-<!-- SHOT qcv3_046: the Output section with the NDI card live (green dot, switch on, its two status lines) and the AJA card off, the three toggles in the section header -->
+![The Output section with the NDI card live (green dot, switch on, its two status lines) and the AJA card off, the three toggles in the section header](images/qcv3_046.png)
 
-<!-- SHOT qcv3_047: the AJA card switched on and showing its settings - Transfer, Raster, and for PQ the Primaries and the Peak / MaxCLL / MaxFALL fields -->
+![The AJA card switched on and showing its settings](images/qcv3_047.png)
 
 ## What goes out
 

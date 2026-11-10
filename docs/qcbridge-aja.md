@@ -39,7 +39,7 @@ Each installs the application and registers it with QCView, which lists it in th
 3. Choose the **raster**: **Auto** sends UHD for anything above 1080p and 1080p otherwise, switching when the source changes; **1080p** and **UHD** fix it.
 4. Switch the card on. Its dot turns green once the sink is attached and the output is live, and its lines show what QCView sends (raster, format, transfer) and the sink's report: the device, the format and the connectors, for example "T-TAP Pro UHDp25 10-bit PQ 2020, SDI + HDMI RGB". Hover the dot when it is not green: it says whether QCView is waiting for the sink, or why the output was refused.
 
-<!-- SHOT qcv3_053: the AJA card switched on and live - green dot, the two status lines naming the raster / format / transfer and the device, with Transfer on PQ Rec.2100 and the Primaries and Peak / MaxCLL / MaxFALL fields -->
+![The AJA card switched on and live](images/qcv3_053.png)
 
 The transfer and the raster can be changed while it runs; the card reconfigures in place, a brief interruption and no stop and start. If another application holds the device, the card says which one.
 
