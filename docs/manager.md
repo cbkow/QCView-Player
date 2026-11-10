@@ -54,4 +54,4 @@ QCView registers a `qcview://` URI scheme for sharing direct links into saved pr
 
 A link finds its project in the recipient's **Open Recent Project** list, so they need access to the same file system and need to have opened the project once before. Otherwise QCView says the project isn't in their recent projects.
 
-<!-- SHOT qcv3_024: The File menu with Copy Project Link highlighted, and the "Project link copied" message -->
+![The File menu with Copy Project Link highlighted](images/qcv3_024.png)

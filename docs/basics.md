@@ -14,7 +14,7 @@ Shortcuts on this page are written the Windows way. On macOS, `Ctrl` is `⌘` an
 
 Use the **File** menu to load media into QCView:
 
-<!-- SHOT qcv3_002: The File menu open: Open Media…, Open Stream…, Connect to After Effects, Connect to Premiere Pro, Connect to Blender, Open Recent Media, New Project, Open Project…, Open Recent Project, Save Project, Save Project As…, Copy Project Link -->
+![The File menu](images/qcv3_002.png)
 
 | Action | Shortcut |
 |---|---|
@@ -43,8 +43,6 @@ You can drag files directly into the app:
 - Drop a `.qcvproj` file to open that project.
 - With a playlist loaded, drop on the timeline to insert into the playlist (see [Playlists](/playlists/)).
 - In dual view, drop on the **A** or **B** chip, or on that side of the picture, to load that side (see [Dual Video Review](/dual-view/)).
-
-<!-- SHOT qcv3_003: A file being dragged from the desktop over the Left Rail's Media section -->
 
 To load files already in your project, double-click them in the Media section or drag them into the viewport.
 

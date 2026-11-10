@@ -60,7 +60,7 @@ The **Audio** group lists the codec, sample rate, channel count and layout, the 
 
 The **Linked Projects** group lists the After Effects and Premiere Pro projects a render was made from, read from the file's embedded metadata. Each project has three buttons: **Open** to open it in its application, **Copy** to copy its path, and **Reveal** to show it in Finder / Explorer. Open and Reveal are greyed, with the tooltip "Not reachable from this machine", when the path does not exist on your machine.
 
-<!-- SHOT qcv3_028: The Linked Projects group showing an After Effects project path with its Open, Copy and Reveal buttons -->
+![The Linked Projects group showing an After Effects project path with its Open, Copy and Reveal buttons](images/qcv3_028.png)
 
 ## Image Sequences
 
