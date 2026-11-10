@@ -1,12 +1,12 @@
 # QCView
 
-**QCView** is a media player and reviewer for Windows and macOS, built for artists and post-production teams who need accurate, color-managed playback of video, EXR, and image sequences.
-
-This is the Qt-based rebuild of the original QCView (Dear ImGui + GLFW + native graphics APIs). Architecture, decode path, color pipeline, and review tools are all carried forward; the UI shell is now Qt Quick / QML.
+**QCView** is a media player and reviewer for Windows and macOS, built for artists and post-production teams who need accurate, color-managed playback of video, EXR and image sequences.
 
 ![QCView comparing an SDR render and an HDR master in dual view, each with its own colour chain](docs/images/qcv3_031.png)
 
-Full manual: [qcview.app](https://qcview.app)
+Manual: **[qcview.app](https://qcview.app)**
+
+## Download
 
 ### Windows
 
@@ -16,68 +16,30 @@ Full manual: [qcview.app](https://qcview.app)
 
 ### macOS
 
-Signed and notarized `.dmg` available from [GitHub Releases](https://github.com/cbkow/QCView-Player/releases/latest). Requires macOS 13.0 (Ventura) or later on Apple Silicon.
+A signed and notarized `.dmg` is on [GitHub Releases](https://github.com/cbkow/QCView-Player/releases/latest). It needs macOS 13.0 (Ventura) or later on Apple Silicon. QCView updates itself from there on.
 
----
+## What is in this repository
 
-## Key Features
+This repository is QCView's home page: the manual, the releases and the update feed. The application's source code is elsewhere.
 
-### Playback
-- Hardware-accelerated video decoding (ProRes, h.264, h.265) — Vulkan-video / FFmpeg hwaccel on Windows, VideoToolbox on macOS — with FFmpeg software fallback
-- HDR10 (PQ / ST.2084) output on Windows via DXGI + DirectComposition; Extended Dynamic Range (EDR) on macOS
-- Frame-accurate stepping with press-and-hold fast-forward / rewind
-- Playlists with cross-clip seek, per-clip in/out trims, and hover thumbnail filmstrip
-- Embedded timecode (DV / TimeCode / MXF) with selectable origin
-- Audio playback (WASAPI on Windows, CoreAudio on macOS) with per-channel routing for multi-stream broadcast deliveries
-- A/V sync offset trim, per-OS defaults, separate dual-view value
+| | Where |
+|---|---|
+| **QCView 3 source code** | [cbkow/minplatform](https://github.com/cbkow/minplatform) (`apps/qcv`) |
+| **QCView 2 source code** | the [`2.x` branch](https://github.com/cbkow/QCView-Player/tree/2.x) of this repository |
+| The manual and the site (qcview.app) | [`docs/`](docs/) |
+| The macOS update feed | [`docs/appcast.xml`](docs/appcast.xml), added to by [`scripts/update_appcast.sh`](scripts/update_appcast.sh) |
+| Installers | [Releases](https://github.com/cbkow/QCView-Player/releases) |
 
-### Image Sequences
-- [OpenEXR](https://openexr.com/) with multichannel and multipart support
-- TIFF, PNG, JPEG, and JPEG-2000 (HTJ2K via OpenJPH) sequence playback
+QCView 3 is a rewrite of QCView 2 (Qt Quick / QML) in Rust on wgpu. It opens QCView 2's projects, notes and presets.
 
-### Color
-- Live [OCIO](https://opencolorio.org/) color management, with a colour chain per clip and per side of a dual view
-- Bundled OCIO configs: ACES 2.0, ACES 1.3, Blender 5.2, Blender 5.1
-- A second, OCIO-free colour engine, **minColor**: Input → Highlight Knee → AgX → Display, linear conversions between the working spaces and encodings a review meets, from the minColorAE core
-- Highlight Knee for reviewing HDR masters on SDR displays; ASC CDL and `.cube` LUTs
-- GPU vectorscope and waveform (nits on HDR sources) with a peak readout
-- Screenshots and notes exports with OCIO transforms applied
+## Documentation
 
-### Review Tools
-- Annotation and notes system with brush, line smoothing, screenshot illustrations, and Markdown / HTML / PDF / DOCX export
-- Dual-view comparison (side-by-side, split-wipe, drag-the-seam), difference mode, with independent A / B controls
-- Title-safety guides for broadcast and social-media deliverables
-- Live background switching for alpha-channel review
-- Live input add-ons for Adobe After Effects and Adobe Premiere Pro via Mercury Transmit and Blender via another computer for rendering + SRT streaming
-
-### Project Support
-- Custom project files (`.qcvproj`)
-- `qcview://` URI scheme for sharing file paths
-
-### Platform Details
-
-|                  | Windows                                | macOS                          |
-|------------------|----------------------------------------|--------------------------------|
-| **UI**           | Qt 6.11 Quick / QML                    | Qt 6.11 Quick / QML            |
-| **GPU**          | Direct3D 11 + DirectComposition        | Metal                          |
-| **HW Decode**    | Vulkan-video (FFmpeg hwaccel)          | VideoToolbox                   |
-| **Audio**        | WASAPI                                 | CoreAudio                      |
-| **HDR**          | HDR10 via DXGI + multi-visual DComp    | EDR (Extended Dynamic Range)   |
-| **Packaging**    | Microsoft Store / signed sideload `.msix` | Signed `.dmg`                  |
-
-## Manual and documentation
-
-- [Docs](https://qcview.app/)
-- [Acknowledgments](Acknowledgments.md)
-- [Third-Party Notices](LICENSES/THIRD_PARTY_NOTICES.txt)
-- [Privacy Policy](PRIVACY_POLICY.md)
-
-## Building from source
-
-Build instructions live in [`BUILDING.md`](BUILDING.md). Short version: install Qt 6.11 open-source, vcpkg, and a C++20 toolchain; configure with `cmake -B build-release -G Ninja -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=<Qt>/msvc2022_64`; build with `cmake --build build-release --target qcview --config Release`.
+- [Manual](https://qcview.app/)
+- [Privacy Policy](https://qcview.app/privacy/)
+- Third-party notices: in the application, **About ▸ Licenses…**; their source is in [minplatform](https://github.com/cbkow/minplatform)
 
 ## License
 
-QCView is free software released under the **GNU General Public License version 3**. See [LICENSE](LICENSE) for the full text. Source code, including build scripts and third-party-license notices, is available at https://github.com/cbkow/QCView-Player.
+QCView is free software released under the **GNU General Public License version 3**. See [LICENSE](LICENSE) for the full text. The complete corresponding source of QCView 3, including its build scripts and third-party notices, is at https://github.com/cbkow/minplatform.
 
 Copyright © 2025–2026 cbkow.

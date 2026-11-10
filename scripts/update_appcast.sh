@@ -12,8 +12,11 @@
 # enclosure URL points at the release asset. The DMG argument is the local
 # file: its bytes are what gets signed and measured.
 #
+# sign_update is Sparkle's tool. QCView 3 is built in the minplatform repository, whose tools/sparkle/fetch.sh puts it in
+# external/sparkle/bin; this script looks for a minplatform checkout beside this one, or takes the path in SIGN_UPDATE.
+#
 # Usage: scripts/update_appcast.sh <version> <path/to/QCView-MacOS.dmg>
-#        scripts/update_appcast.sh 2.4.0 build/dist/QCView-MacOS.dmg
+#        SIGN_UPDATE=/path/to/sign_update scripts/update_appcast.sh 3.0.0 QCView-MacOS.dmg
 set -euo pipefail
 
 VERSION="${1:-}"
@@ -23,10 +26,10 @@ DMG="${2:-}"
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APPCAST="$REPO/docs/appcast.xml"
-SIGN="$REPO/external/Sparkle/bin/sign_update"
-MIN_OS="13.0"                    # keep in step with CMAKE_OSX_DEPLOYMENT_TARGET
+SIGN="${SIGN_UPDATE:-$REPO/../minplatform/external/sparkle/bin/sign_update}"
+MIN_OS="13.0"                    # keep in step with the app's minimum macOS (minplatform: packaging/macos)
 [ -f "$APPCAST" ] || { echo "no appcast at $APPCAST" >&2; exit 1; }
-[ -x "$SIGN" ] || { echo "no sign_update at $SIGN (fetch_sparkle.sh)" >&2; exit 1; }
+[ -x "$SIGN" ] || { echo "no sign_update at $SIGN (minplatform: tools/sparkle/fetch.sh, or set SIGN_UPDATE)" >&2; exit 1; }
 
 grep -q "<sparkle:version>$VERSION</sparkle:version>" "$APPCAST" && {
     echo "appcast already has $VERSION — bump the version or edit by hand" >&2
