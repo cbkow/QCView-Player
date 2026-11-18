@@ -68,6 +68,32 @@ See the [QCBridge](/qcbridge/) page for installation and usage guides for the ad
 
 ## Version History
 
+What's new in 3.0.3
+
+- **Pen path** — a new drawing tool for notes: click for corners, drag for curves, click the first point to close; `Enter`, `Esc` or a right click ends a path. Four path tools appear beside it: select points, add a point, remove a point, and corner or curve.
+- **Select several drawings** — with the pointer, drag a box or `Shift`-click to select more than one drawing. They move, are removed, and take a color or a width together.
+- **Export to minNotes** — in the Export notes menu: choose a place, and minNotes 3.0.2 or later makes a note with the clip in it.
+- **Audio files** — an audio file shows a plain tile with a sound icon. In a playlist each clip keeps its own audio routing.
+- **Rotated clips** — a clip stored on its side (a phone's) is shown upright when Rotation is Auto, in the viewport and in thumbnails.
+- **Blender 5.3 colour config** — replaces Blender 5.2; projects and presets that used 5.2 open with it unchanged.
+- **Fixed: pixel aspect** — **Detected** now applies a pixel aspect kept in the file's container (anamorphic QuickTime clips stayed unstretched), and **Custom** shows its two value fields.
+- **Fixed: freehand lines** — a fast stroke could run past where the pen lifted, and a stroke could look different in an export than on screen.
+- **Fixed: very large frames** — a note on a frame wider than the graphics card's largest texture could end the app, and its card had no picture.
+- **Fixed: difference mode** — the viewport's background shows outside the two pictures.
+- **Notes panel** — the tools are slightly smaller and the panel opens at its smallest height.
+
+What's new in 3.0.2
+
+- **Audio files** — WAV, AIFF, MP3, FLAC, M4A and the other audio formats open and play, in the single view, as playlist clips and as dual view sides.
+- **Waveform on the playbar** — it follows the timeline: a playlist's clips end to end, dual view's two sides overlaid in their colours.
+- **Fixed: playlist audio** — a playlist played its first clip's sound under every clip.
+- **Fixed: dual view background** — the dimmed area around the picture follows both pictures.
+- **Fixed (Windows): hardware decoding switch** — turning it off now uses software decoding for ProRes, FFV1 and APV too.
+
+What's new in 3.0.1 (Windows)
+
+- **Fixed: file paths** — media paths are stored and shown plainly.
+
 What's new in 3.0
 
 - **Rebuilt** — QCView 3 is a new application under the same name: rewritten in Rust, with the picture and the interface both drawn on the GPU. It installs over 2.x through the same channels. 2.x projects and notes open as they are; settings start from their defaults.

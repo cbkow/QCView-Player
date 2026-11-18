@@ -31,7 +31,7 @@ nav_order: 1
 ### Color
 - Two colour engines, with one colour chain per clip and per side of a dual view; clips without a chain of their own follow a project default
 - **minColor**, the default engine: Input → Highlight Knee → Rendering (un-tone-mapped, OpenDRT or AgX), from the minColorAE core, with no config to set up
-- Live [OCIO](https://opencolorio.org/) color management as the option, with bundled configs (ACES 2.0, ACES 1.3, Blender 5.2) or a config file of your own
+- Live [OCIO](https://opencolorio.org/) color management as the option, with bundled configs (ACES 2.0, ACES 1.3, Blender 5.3) or a config file of your own
 - Highlight Knee for reviewing HDR masters on SDR displays
 - On OCIO chains, a Scene LUT (`.cube`, `.3dl`, `.csp`) or an ASC CDL (`.cc`, `.ccc`, `.cdl`), and **Export LUT** to write a clip's chain out as a `.cube`
 - **Video gamma**: shows a chain's SDR picture the way an unmanaged Rec.709 desktop does

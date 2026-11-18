@@ -28,7 +28,22 @@ If another app, such as [minNotes](https://minnotes.app), edits the same notes w
 
 ### Drawing Tools
 
-The annotation toolbar on the right of the Notes panel provides a pointer (select a drawn shape, drag it to move, drag a corner to scale, `Delete` to remove), freehand pen, rectangle, oval, arrow, line and eraser, plus a color picker and a line-width slider for drawing directly on the viewport. Drawing on a frame that has no note yet creates one. Strokes show on the exact frame they were drawn on, and the note's thumbnail picks them up.
+The annotation toolbar on the right of the Notes panel provides a pointer (select a drawn shape, drag it to move, drag a corner to scale, `Delete` to remove), freehand pen, pen path, rectangle, oval, arrow, line and eraser, plus a color picker and a line-width slider for drawing directly on the viewport. Drawing on a frame that has no note yet creates one. Strokes show on the exact frame they were drawn on, and the note's thumbnail picks them up.
+
+**Selecting several strokes.** With the pointer, drag a box over empty picture: every stroke the box touches is selected. `Shift`-click adds a stroke to the selection or takes it out. Several selected strokes move together and are removed together, and they take the color and the width you set while the pointer is armed. The corner handles for scaling show when exactly one stroke is selected.
+
+**Pen path.** The pen path tool draws a path point by point: click for a corner, press and drag for a curve (hold `Alt` while dragging to move only the leaving handle). Click the first point to close the path; `Enter`, `Esc` or a right click ends it open.
+
+While the pen path tool is armed, or a path is selected, four more tools appear in a second column beside it:
+
+| Tool | What it does |
+|---|---|
+| Select points | Click a point to pick it (`Shift`-click for more), or drag a box over empty picture to pick several. Drag a point, or one of its handles; `Delete` removes the picked points. |
+| Add a point | Click on the path. The curve keeps its shape. |
+| Remove a point | Click a point. |
+| Corner or curve | Click a point to switch it between a corner and a curve; drag on it to pull out new handles. |
+
+They work on the selected path; clicking another path's line with one of them selects that path. A path is saved as a freehand stroke with its points alongside, so QCView 2 and older QCView 3 versions still show it — as a plain line whose points can't be edited there.
 
 A stroke can start or stray off the picture: it keeps following the cursor, and only the part over the picture is drawn, saved and exported. Everything beyond the edge is kept with the note, so a shape dragged back into frame later with the pointer tool is still whole. A gesture that never touches the picture leaves nothing behind.
 
@@ -36,8 +51,9 @@ A stroke can start or stray off the picture: it keeps following the cursor, and 
 |---|---|
 | `Ctrl + Z` | Undo stroke |
 | `Ctrl + Shift + Z` | Redo stroke |
-| `Esc` | Cancel the stroke in progress, or clear the selection |
-| `Delete` / `Backspace` | Remove the selected stroke (pointer tool) |
+| `Esc` | Cancel the stroke in progress, or clear the selection; with the pen path tool, end the path |
+| `Enter` / right click | End the pen path as it stands |
+| `Delete` / `Backspace` | Remove the selected strokes (pointer tool), or the picked points (Select points) |
 
 Undo and redo belong to the clip that is loaded; they start over when you load another.
 
@@ -81,4 +97,8 @@ Each stream note records the capture time (with your time zone) and the host's t
 
 ### Sending notes to minNotes
 
-For a stream item, the Export notes menu has a last row, **Open in minNotes**. It hands the notes folder to [minNotes](https://minnotes.app) 1.0.3 or later, which opens a document beside the notes with every captured frame as an image, QCView's strokes as ink, and the text underneath — ready to edit, reorder and export, and to pull in the notes QCView adds later with its **Insert notes** button. When minNotes is not installed the row is greyed and says so.
+**Export to minNotes…** is the last row of the Export notes menu for a clip that is a file. It asks where the minNotes document should go, and [minNotes](https://minnotes.app) 3.0.2 or later opens that collection — or makes it — with a new note: the clip's name as a heading and the video under it. The clip's notes and drawings show on the video there, because both apps read the same notes beside the file.
+
+For a stream item the last row is **Open in minNotes**. It hands the stream's notes folder to minNotes 3.0.2 or later, which makes a collection in that folder with one note: the stream's name, then each captured note with its time, its picture (with the drawings) and its text.
+
+The row is greyed, with "minNotes is not installed" beside it, when no minNotes is installed.

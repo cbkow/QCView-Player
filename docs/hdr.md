@@ -34,7 +34,7 @@ To see into those highlights, turn on the clip's [Highlight Knee](/color/#highli
 Tell QCView what the source is with the clip's Input. The Input stays with that clip, so SDR and HDR clips can sit side by side in the same project or dual view.
 
 - **[minColor](/mincolor/)** — set **Input gamut** and **Input transfer**: Rec.2020 with PQ for a BT.2020 PQ master, P3-D65 with PQ for a PQ master graded in P3-D65 (the **P3-D65 PQ master** preset), Rec.2020 with HLG for HLG.
-- **OCIO** — pick the source's colorspace as the **Input**, and an HDR view. In the Blender 5.2 config the inputs are named `Rec.2100-PQ`, `ST2084-P3-D65` and `Rec.2100-HLG`; the ACES configs carry the same names with a ` - Display` suffix.
+- **OCIO** — pick the source's colorspace as the **Input**, and an HDR view. In the Blender 5.3 config the inputs are named `Rec.2100-PQ`, `ST2084-P3-D65` and `Rec.2100-HLG`; the ACES configs carry the same names with a ` - Display` suffix.
 
 With Color off, an HDR file is decoded from its own tags and shown in HDR where the display allows.
 

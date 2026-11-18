@@ -14,7 +14,7 @@ QCView has two color engines:
 - **[minColor](/mincolor/)** — the default. A fixed chain with no config file; every built-in preset uses it.
 - **OCIO** — a live [OpenColorIO](https://opencolorio.org/) pipeline, for when you need a config's own colorspaces, looks, and views. Start one with **New OCIO chain…** in the preset list.
 
-**Bundled OCIO configs:** ACES 2.0, ACES 1.3, Blender 5.2. You can also load a config file of your own.
+**Bundled OCIO configs:** ACES 2.0, ACES 1.3, Blender 5.3. You can also load a config file of your own. (Blender 5.3 replaced Blender 5.2 in QCView 3.0.3: the two give the same picture, and a project or preset that names Blender 5.2 opens with 5.3.)
 
 ![The Color drawer open above the transport on an OCIO chain](images/qcv3_030.png)
 
@@ -67,7 +67,7 @@ Your presets are kept with the app's settings, not in the project, so they are t
 
 On an OCIO chain the drawer reads left to right: Presets, **Config**, **Input**, **Look**, **Scene LUT**, **View**, **Highlight Knee**, then the waveform. If the window is too narrow for all of them, the columns scroll sideways; the waveform stays put.
 
-- **Config** — ACES 2.0, ACES 1.3, Blender 5.2, or **Open config…** to load a `.ocio` file of your own. When you change config, the Input, Look and View keep their names where the new config has them; a missing Input falls back to the config's scene-linear space, a missing View to an SDR view where the config has one, and a missing Look to None.
+- **Config** — ACES 2.0, ACES 1.3, Blender 5.3, or **Open config…** to load a `.ocio` file of your own. When you change config, the Input, Look and View keep their names where the new config has them; a missing Input falls back to the config's scene-linear space, a missing View to an SDR view where the config has one, and a missing Look to None.
 - **Input** — the clip's source colorspace. Type in the filter field to narrow the list.
 - **Look** — an optional creative look from the config, or **None**.
 - **Scene LUT** — see [below](#scene-lut).

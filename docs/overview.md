@@ -88,7 +88,7 @@ Frames are loaded into a read-ahead cache around the playhead: the playhead's fr
 Two engines, one chain per clip (see [OCIO Color](/color/) and [minColor](/mincolor/)):
 
 - **minColor**, the default, is the minColorAE core compiled to a single GPU compute pass. Every control is a shader parameter, so a change never recompiles anything.
-- **OCIO** runs in-process: OpenColorIO builds the chain and generates its shader, and that shader runs natively (Metal on macOS, Direct3D 12 on Windows). No LUT is baked for display. Bundled configs: ACES 2.0, ACES 1.3, Blender 5.2; a config file of your own can be opened too.
+- **OCIO** runs in-process: OpenColorIO builds the chain and generates its shader, and that shader runs natively (Metal on macOS, Direct3D 12 on Windows). No LUT is baked for display. Bundled configs: ACES 2.0, ACES 1.3, Blender 5.3; a config file of your own can be opened too.
 
 The waveform reads the source through the clip's Input, not the finished picture. Screenshots, note images, thumbnails and notes exports go through the clip's chain, rendered for SDR.
 
