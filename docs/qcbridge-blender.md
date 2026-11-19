@@ -41,7 +41,7 @@ Updating later is the same two steps with newer files. Your settings live with t
 
 ## Setup
 
-Everything about the connection lives in the **QCBridge Agent** and is set in its settings window — the same window on both machines. Open it from the tray icon's **Settings…** item, or from **Edit → Preferences → Add-ons → QC Bridge → Open Agent Settings** in Blender. Changes apply as you make them; nothing needs a restart.
+Everything about the connection lives in the **QCBridge Agent** and is set in its settings window — the same window on both machines. Open it from the tray icon's **Settings…** item, or from **Edit → Preferences → Add-ons → QC Bridge → Open Agent Settings** in Blender. Changes apply as you make them; nothing needs a restart. The tray icon carries no status mark: the agent's state is the first line of its menu.
 
 ![Agent settings window](/images/qcbridge_009.png)
 
@@ -64,9 +64,10 @@ Everything about the connection lives in the **QCBridge Agent** and is set in it
 
 ### Replica Hosting
 
-- **Blender** — if you are in `Receive scene` mode, ensure this points to your active Blender install.
+- **Blender** — if you are in `Receive scene` mode, ensure this points to your active Blender install. The line under the field says whether that Blender is there. On Windows, when it is gone after an upgrade, the agent starts the newest Blender installed instead (QCBridge 0.5 and later).
 - **Kiosk** — the Blender the replica opens for a session shows the viewport only, no UI. On by default.
 - **Resolution** — the size of the window that Blender opens, which is the stream's resolution: **1920x1080** by default, 2560x1440, 1280x720, fullscreen (the old behaviour, the stream takes the screen's size) or any custom `WxH`. The viewport, the frame ring and the encoder all mean the same pixels, so Cycles renders no more than the stream carries. On a Retina Mac the window is opened at half the size in points, so the pixels come out right.
+- **Close Blender after** — how long the replica keeps Blender open once the host's session ends: 300 seconds by default, so the next session does not wait for Blender to launch. `0` closes it at once.
 
 ![Agent settings window](/images/qcbridge_015.png)
 
@@ -76,9 +77,13 @@ Everything about the connection lives in the **QCBridge Agent** and is set in it
 
 ![Agent settings window](/images/qcbridge_013.png)
 
-- **Path mapping** — one row per storage root the two machines share, in both spellings, so file paths translate between platforms. Use this for any shared storage (Network volumes, LucidLink paths, etc.) so a receiver on another platform can load the same project.
+- **Path mapping** — one row per storage root the two machines share, in both spellings, so file paths translate between platforms. Use this for any shared storage (Network volumes, LucidLink paths, etc.) so a receiver on another platform can load the same project. A row whose Windows or macOS column cannot be a path of that system is flagged under the row; **Apply roots** saves the table.
 
 ![Agent settings window](/images/qcbridge_016.png)
+
+### Diagnostics
+
+At the foot of the window: the agent's version and state, whether Blender is attached, the config folder and the log with a button to open each, and the last problem the agent ran into, with its time.
 
 Windows note: the stream arrives over UDP, and since QCBridge 0.4 the replica calls QCView on the host. If the panel says the replica is calling and QCView never shows a picture, allow the QCView port through the **host's** firewall (9998 by default):
 
