@@ -23,8 +23,8 @@ Scene values travel in linear Rec.2020 between the steps. A change is a paramete
 
 ### Input
 
-- **Input gamut** — the source primaries: XYZ, ACES 2065-1, ACEScg, P3-D65, Rec.2020, Rec.709, and the camera gamuts (ARRI Wide Gamut 3 / 4, RED Wide Gamut RGB, Sony S-Gamut3 / S-Gamut3.Cine, Panasonic V-Gamut, Filmlight E-Gamut / E-Gamut2, DaVinci Wide Gamut).
-- **Input transfer** — how the file's code values decode: Linear, the camera logs (DaVinci Intermediate, Filmlight T-Log, ACEScct, ARRI LogC3 / LogC4, RED Log3G10, Panasonic V-Log, Sony S-Log3, Fuji F-Log2), the display decodes (Rec.1886, sRGB, 2.2 power, BT.709 camera), and the HDR ones (PQ with 100 nits at 1.0, HLG at 1000 nits).
+- **Input gamut** — the source primaries: XYZ, ACES 2065-1, ACEScg, P3-D65, Rec.2020, Rec.709, and the camera gamuts (ARRI Wide Gamut 3 / 4, RED Wide Gamut RGB, Sony S-Gamut3 / S-Gamut3.Cine, Panasonic V-Gamut, Apple Wide Gamut, Canon Cinema Gamut, Blackmagic Wide Gamut Gen 5, DJI D-Gamut, Filmlight E-Gamut / E-Gamut2, DWG).
+- **Input transfer** — how the file's code values decode: Linear, the camera logs (DWG Intermediate, Filmlight T-Log, ACEScct, ARRI LogC3 / LogC4, RED Log3G10, Panasonic V-Log, Sony S-Log3, Fuji F-Log2, Apple Log, Canon Log 2 / Log 3, Blackmagic Film Gen 5, DJI D-Log), the display decodes (Rec.1886, sRGB, 2.2 power, BT.709 camera), and the HDR ones (PQ with 100 nits at 1.0, HLG at 1000 nits).
 
 ### Highlight Knee
 
@@ -66,8 +66,16 @@ The built-in presets are one per input. There are no per-display variants, becau
 | **Linear Rec.2020** | Rec.2020 | Linear | off |
 | **Linear Rec.2020 · AgX** | Rec.2020 | Linear | on |
 | **P3-D65 PQ master** | P3-D65 | PQ | off |
+| **Apple Log** | Rec.2020 | Apple Log | on |
+| **Apple Log 2** | Apple Wide Gamut | Apple Log | on |
+| **Canon Log 2** | Canon Cinema Gamut | Canon Log 2 | on |
+| **Canon Log 3** | Canon Cinema Gamut | Canon Log 3 | on |
+| **Blackmagic Film Gen 5** | Blackmagic Wide Gamut Gen 5 | Blackmagic Film Gen 5 | on |
+| **DJI D-Log** | DJI D-Gamut | DJI D-Log | on |
 
 **P3-D65 PQ master** reads a PQ master graded in P3-D65. On an HDR display it shows as HDR. On an SDR display its highlights clip until you turn on the Highlight Knee (1000 → 100 nits is the starting setting) to bring them into range.
+
+The six camera presets (new in 3.0.4) read a camera original. A log file holds the scene's light, so they come with AgX on; switch it off in the AgX card to see the file un-tone-mapped. QCView does not detect these encodings from the file: pick the preset for the clip, or make it the project's default. Apple Log 2 is Apple Log's curve on a wider gamut. Blackmagic Film Gen 5 is for footage already in that encoding, such as ProRes from the camera; QCView does not open `.braw` files. DJI's D-Log M is a different encoding and has no preset.
 
 Saving your own presets works the same for both engines: change a column, then **Save as preset…** on the **Custom** row. See [Presets](/color/#presets).
 
