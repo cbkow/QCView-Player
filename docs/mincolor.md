@@ -66,16 +66,16 @@ The built-in presets are one per input. There are no per-display variants, becau
 | **Linear Rec.2020** | Rec.2020 | Linear | off |
 | **Linear Rec.2020 · AgX** | Rec.2020 | Linear | on |
 | **P3-D65 PQ master** | P3-D65 | PQ | off |
-| **Apple Log** | Rec.2020 | Apple Log | on |
-| **Apple Log 2** | Apple Wide Gamut | Apple Log | on |
-| **Canon Log 2** | Canon Cinema Gamut | Canon Log 2 | on |
-| **Canon Log 3** | Canon Cinema Gamut | Canon Log 3 | on |
-| **Blackmagic Film Gen 5** | Blackmagic Wide Gamut Gen 5 | Blackmagic Film Gen 5 | on |
-| **DJI D-Log** | DJI D-Gamut | DJI D-Log | on |
+| **Apple Log** | Rec.2020 | Apple Log | off |
+| **Apple Log 2** | Apple Wide Gamut | Apple Log | off |
+| **Canon Log 2** | Canon Cinema Gamut | Canon Log 2 | off |
+| **Canon Log 3** | Canon Cinema Gamut | Canon Log 3 | off |
+| **Blackmagic Film Gen 5** | Blackmagic Wide Gamut Gen 5 | Blackmagic Film Gen 5 | off |
+| **DJI D-Log** | DJI D-Gamut | DJI D-Log | off |
 
 **P3-D65 PQ master** reads a PQ master graded in P3-D65. On an HDR display it shows as HDR. On an SDR display its highlights clip until you turn on the Highlight Knee (1000 → 100 nits is the starting setting) to bring them into range.
 
-The six camera presets (new in 3.0.4) read a camera original. A log file holds the scene's light, so they come with AgX on; switch it off in the AgX card to see the file un-tone-mapped. QCView does not detect these encodings from the file: pick the preset for the clip, or make it the project's default. Apple Log 2 is Apple Log's curve on a wider gamut. Blackmagic Film Gen 5 is for footage already in that encoding, such as ProRes from the camera; QCView does not open `.braw` files. DJI's D-Log M is a different encoding and has no preset.
+The six camera presets (new in 3.0.4) read a camera original. A log file holds the scene's light: un-tone-mapped, as these presets are, everything above diffuse white clips on an SDR display. Turn AgX on in its card for a finished-looking picture. QCView does not detect these encodings from the file: pick the preset for the clip, or make it the project's default. Apple Log 2 is Apple Log's curve on a wider gamut. Blackmagic Film Gen 5 is for footage already in that encoding, such as ProRes from the camera; QCView does not open `.braw` files. DJI's D-Log M is a different encoding and has no preset.
 
 Saving your own presets works the same for both engines: change a column, then **Save as preset…** on the **Custom** row. See [Presets](/color/#presets).
 
