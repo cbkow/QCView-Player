@@ -68,6 +68,13 @@ See the [QCBridge](/qcbridge/) page for installation and usage guides for the ad
 
 ## Version History
 
+What's new in 3.0.4
+
+- **ProRes RAW** — plays again (3.0 to 3.0.3 showed no picture), now with the color built on the GPU and the clip's own color data applied: levels, white balance, the camera's matrix and gain. The picture reaches the color chain as linear Rec.2020; a ProRes RAW clip with no chain of its own starts minColor with that input.
+- **More cameras in minColor** — Apple Log and Apple Log 2, Canon Log 2 and Log 3, Blackmagic Film Gen 5 and DJI D-Log, each with its gamut and a built-in preset. They are listed with the other cameras.
+- **Menu names** — the wide-gamut camera space and its log curve read *DWG* and *DWG Intermediate* in minColor's lists. Saved choices are unaffected.
+- **Fixed: thumbnails of a turned clip** — after a clip with the same color tags and another rotation, a clip's thumbnails could keep the first clip's turn.
+
 What's new in 3.0.3
 
 - **Pen path** — a new drawing tool for notes: click for corners, drag for curves, click the first point to close; `Enter`, `Esc` or a right click ends a path. Four path tools appear beside it: select points, add a point, remove a point, and corner or curve.

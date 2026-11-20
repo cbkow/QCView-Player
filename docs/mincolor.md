@@ -77,6 +77,8 @@ The built-in presets are one per input. There are no per-display variants, becau
 
 The six camera presets (new in 3.0.4) read a camera original. A log file holds the scene's light: un-tone-mapped, as these presets are, everything above diffuse white clips on an SDR display. Turn AgX on in its card for a finished-looking picture. QCView does not detect these encodings from the file: pick the preset for the clip, or make it the project's default. Apple Log 2 is Apple Log's curve on a wider gamut. Blackmagic Film Gen 5 is for footage already in that encoding, such as ProRes from the camera; QCView does not open `.braw` files. DJI's D-Log M is a different encoding and has no preset.
 
+**ProRes RAW** needs no camera preset. QCView applies the clip's own color data before the chain (levels, white balance, the camera's matrix and gain), so the chain receives linear Rec.2020: on minColor a ProRes RAW clip without a chain of its own starts with Input gamut Rec.2020 and Input transfer Linear, and on OCIO you pick the config's linear Rec.2020 input. It is the scene's light with no tone curve, so it looks brighter than players that apply one; turn AgX on for a finished-looking picture.
+
 Saving your own presets works the same for both engines: change a column, then **Save as preset…** on the **Custom** row. See [Presets](/color/#presets).
 
 ---
