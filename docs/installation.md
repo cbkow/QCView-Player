@@ -68,6 +68,13 @@ See the [QCBridge](/qcbridge/) page for installation and usage guides for the ad
 
 ## Version History
 
+What's new in 3.0.5
+
+- **Quick Look for EXR and MXF (macOS)** — press `Space` on an EXR or an MXF in Finder. An EXR shows with a layer picker and a Color picker (minColor's built-in presets); a choice carries to the next file in the folder, so the arrow keys step through a render on one layer. An MXF plays with sound, a playbar, timecode, mute, held rewind and fast-forward, and QCView's keys after a click on the picture. MXF files also get their first frame as their Finder icon. See [Quick Look](/quicklook/).
+- **Compact Mode: rewind and fast-forward** — the strip has the transport row's two hold buttons either side of play (`J` and `L`).
+- **EXR: layers without RGB** — a layer of one channel, such as depth or a matte, is shown in grey.
+- **Long lists in a small window** — a dropdown that does not fit opens on the side with more room, stays inside the window and scrolls.
+
 What's new in 3.0.4
 
 - **ProRes RAW** — plays again (3.0 to 3.0.3 showed no picture), now with the color built on the GPU and the clip's own color data applied: levels, white balance, the camera's matrix and gain. The picture reaches the color chain as linear Rec.2020; a ProRes RAW clip with no chain of its own starts minColor with that input.
