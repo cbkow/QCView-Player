@@ -68,6 +68,11 @@ See the [QCBridge](/qcbridge/) page for installation and usage guides for the ad
 
 ## Version History
 
+What's new in 3.0.6
+
+- **Fixed: Quick Look previews were half size (macOS)** — on a Retina screen 3.0.5's previews of EXR and MXF files opened at half the width and height of the system's own. They now open at the picture's full size, fitted to the screen.
+- **Windows** — this is the first Windows version with 3.0.5's Compact Mode buttons, grey EXR layers and scrolling dropdowns.
+
 What's new in 3.0.5
 
 - **Quick Look for EXR and MXF (macOS)** — press `Space` on an EXR or an MXF in Finder. An EXR shows with a layer picker and a Color picker (minColor's built-in presets); a choice carries to the next file in the folder, so the arrow keys step through a render on one layer. An MXF plays with sound, a playbar, timecode, mute, held rewind and fast-forward, and QCView's keys after a click on the picture. MXF files also get their first frame as their Finder icon. See [Quick Look](/quicklook/).
