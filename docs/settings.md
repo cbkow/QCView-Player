@@ -28,7 +28,7 @@ A default A/V sync offset trim is applied at session start. **A/V sync (Single)*
 
 ## Drag Viewport to Move Window
 
-On by default. Click and drag anywhere on the viewport to move the whole window, the way media players do; this works in Compact Mode too. A plain click still does nothing, and the drag does not move the window while a drawing tool is selected, while you are dragging the Split-Wipe seam, or in fullscreen. Turn it off here if you use a tablet and would rather a press with no tool never moves anything.
+On by default. Click and drag anywhere on the viewport to move the whole window, the way media players do. Compact Mode always moves the window this way, whatever this setting says. A plain click still does nothing, and the drag does not move the window while a drawing tool is selected, while you are dragging the Split-Wipe seam, or in fullscreen. Turn it off here if you use a tablet and would rather a press with no tool never moves anything.
 
 ## Hover Thumbnails
 

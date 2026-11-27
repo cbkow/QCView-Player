@@ -48,8 +48,8 @@ nav_order: 1
 - Dual-view comparison: side-by-side, split-wipe with mouse-drag seam, difference mode, a colour chain per side, a live feed on either side
 - Title-safety guides for broadcast and social-media deliverables
 - Live background switching for alpha-channel review
-- **Compact Mode** (`Ctrl + Shift + C`): the window becomes the picture plus one slim strip, no title bar, no panels
-- **Always on Top** (`Ctrl + Alt + T`): a pin on the transport row and the Compact strip keeps the window above every other app's, and is remembered
+- **Compact Mode** (`Ctrl + Shift + C`): the window becomes the picture alone, with glass controls that appear over it under the pointer; no title bar, no panels
+- **Always on Top** (`Ctrl + Alt + T`): a pin on the transport row and on Compact Mode's bar keeps the window above every other app's, and is remembered
 
 ### Project Support
 - Adobe project metadata (Premiere / After Effects timecode + project links), read from the file itself

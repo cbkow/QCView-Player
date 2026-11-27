@@ -82,12 +82,16 @@ The rails' widths, which rails are open, and the window's size and position are 
 
 | Preset | Shortcut | Description |
 |---|---|---|
-| Compact Mode | `Ctrl + Shift + C` | Viewport plus one slim strip: rewind, play / pause, fast-forward, timecode, a scrub line, the pin and exit. Press `Ctrl + Shift + C` again, `Esc`, or the strip's exit button to leave; your panels come back as they were |
-| Always on Top | `Ctrl + Alt + T` | The window stays above every other app's — handy for a reference beside an editor or a browser. The pin button at the right end of the transport row and on the Compact strip is the same toggle; the choice is remembered |
+| Compact Mode | `Ctrl + Shift + C` | The picture alone, with a glass bar over its foot while the pointer is on the window: timecode, rewind, play / pause, fast-forward, a scrub line, the pin and exit. Press `Ctrl + Shift + C` again, `Esc`, or the bar's exit button to leave; your panels come back as they were |
+| Always on Top | `Ctrl + Alt + T` | The window stays above every other app's — handy for a reference beside an editor or a browser. The pin button at the right end of the transport row and on Compact Mode's bar is the same toggle; the choice is remembered |
 | Fullscreen | `F` | The picture alone. Rest the pointer at the bottom edge of the screen and the status strip, transport row and timeline appear; they go away shortly after the pointer leaves. Press `F` or `Esc` to exit |
 | Default Size & Position | View menu | Puts the window back to its first-run size, centred on the screen it is on |
 
-Compact Mode is for a window that is nothing but the picture: every panel, rail and band goes away, the window loses its title bar, and one strip under the viewport keeps rewind, play / pause and fast-forward buttons (rewind and fast-forward run while held, as on the transport row), the timecode, a scrub line with the playhead and in / out marks, a pin (Always on Top) and an exit button; `F` still toggles fullscreen. The transport row has a Compact Mode button next to fullscreen. Drag the timecode, or the picture itself, to move the window. Scrubbing on the strip works the way the timeline does. On a live source the timecode reads **LIVE** and a red dot sits at the start of the line. On macOS the menu bar stays at the top of the screen; on Windows the menu is hidden with the rest of the chrome, so use the shortcuts.
+Compact Mode is for a window that is nothing but the picture: every panel, rail and band goes away, the title bar goes with them, and the picture fills the window. Move the pointer over the window and a glass bar appears over the foot of the picture with the timecode, rewind, play / pause and fast-forward buttons (rewind and fast-forward run while held, as on the transport row), a scrub line with the playhead and in / out marks, a pin (Always on Top) and an exit button. The bar fades when the pointer leaves the window or has rested for two seconds anywhere but on the bar. Scrubbing on the line works the way the timeline does, hover thumbnails included.
+
+While the bar is away the timecode stays, on a small plate at the bottom left. Click the timecode in the bar to turn that off, and again to bring it back; the choice is remembered.
+
+Drag the picture to move the window; in Compact Mode this works even with **Drag viewport to move window** turned off in Settings. On macOS the window keeps its rounded corners. On Windows the window has a shadow and resizes from its edges and corners. `F` still toggles fullscreen, and the transport row has a Compact Mode button next to fullscreen. On a live source the timecode reads **LIVE** and a red dot sits at the start of the line. On macOS the menu bar stays at the top of the screen; on Windows the menu is hidden with the rest of the chrome, so use the shortcuts.
 
 ![Compact Mode](images/qcv3_006.png)
 

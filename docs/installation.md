@@ -68,6 +68,12 @@ See the [QCBridge](/qcbridge/) page for installation and usage guides for the ad
 
 ## Version History
 
+What's new in 3.0.7
+
+- **Compact Mode: the picture fills the window** — the strip under the picture is gone. Its controls (timecode, rewind, play / pause, fast-forward, the scrub line, the pin and exit) sit on a glass bar over the foot of the picture. The bar shows while the pointer moves over the window and fades when the pointer leaves or has rested for two seconds.
+- **Compact Mode: the timecode stays** — while the bar is away, the timecode remains on a small plate at the bottom left. Click the timecode in the bar to turn that off or back on; the choice is remembered.
+- **Compact Mode: the window** — on macOS the window keeps its rounded corners and edge line. On Windows it has a shadow and can be resized from its edges and corners. Dragging the picture moves the window, whatever the "Drag viewport to move window" setting says.
+
 What's new in 3.0.6
 
 - **Fixed: Quick Look previews were half size (macOS)** — on a Retina screen 3.0.5's previews of EXR and MXF files opened at half the width and height of the system's own. They now open at the picture's full size, fitted to the screen.
